@@ -1,20 +1,23 @@
-# MAKE XPATLA GREATE AGAIN
+# MAKE XPATLA GREAT AGAIN
 
-## Ispatla — global X hitmaker
+## Ispatla — global X auto-hitmaker
 
 İlk sinyali yakala. Kanıtı koru. Hesabın dilinde üret. İnsan onayı olmadan
 yayınlama.
 
-Ispatla, X üzerindeki küresel sinyali hit'e dönüştürmek için tasarlanmış
-bağımsız bir kontrol panelidir. Bu yalnızca haber için bir newsroom değildir:
-kültür, spor, finans, eğlence, teknoloji, topluluk ve marka hesapları aynı
-fırsat motorunu kullanabilir. Kaynak, dil veya X transport sağlayıcısı ürünün
-sınırı değildir: sistem sinyali toplar, fırsatı ölçer, hesap bağlamında draft
-üretir ve yayın sonucunu ayrı olarak doğrular.
+Ispatla, X üzerindeki küresel sinyali hesap kimliğine uygun özgün hit'lere
+dönüştüren bir **auto-hitmaker**'dır. Bu yalnızca haber için bir newsroom
+değildir: kültür, spor, finans, eğlence, teknoloji, topluluk ve marka hesapları
+aynı fırsat motorunu kullanabilir.
+
+Auto-hitmaker her şeyi körlemesine yayınlayan bir bot değildir. Ispatla fırsatı
+ve doğru formatı otomatik bulur, hesabın stiline göre özgün varyantlar üretir;
+operatör ise yayın niyetini açıkça onaylar. Böylece hız otomatikleşir, ses ve
+sorumluluk hesap sahibinde kalır.
 
 > X'in gizli sıralama skorunu, erişimini veya gelirini vaat etmiyoruz. Ispatla;
 > gözlenen açık veriden çalışan, kararları ve kanıt sınırını görünür tutan bir
-> yayın operasyon aracıdır.
+> hit operasyon aracıdır.
 
 ![Ispatla Kontrol Merkezi: kaynaklar, gözlenen postlar, fırsatlar ve operasyon kapıları](docs/assets/ispatla-control-plane.png)
 
@@ -148,13 +151,7 @@ Worker ve Next içi scheduler aynı SQLite dosyasında aynı anda açılmamalıd
 Worker için gerekli secret'lar yalnız `~/.config/ispatla/worker.env` içinde
 tutulur; servis gerektiğinde bu dosyayı oluşturur, var olanını ezmez.
 
-## Araştırma ve kanıt sınırı
+## Kaynaklar
 
-- [X algorithm news account analysis](x-algorithm-news-account-analysis.md)
-- [XPatla site algoritma araştırması — 2026-08-21](xpatla-site-algoritma-arastirmasi-2026-08-21.md)
-- [Araştırma → uygulama eşlemesi](docs/RESEARCH-MAP.md)
-- [Pentest raporu](docs/PENTEST-REPORT.md)
-
-Araştırma dokümanları kaynak metin olarak korunur. Ispatla, X'in kapalı
-ağırlıklarını veya XPatla'nın özel skorlarını gerçekmiş gibi sunmaz; yalnız
-ölçebildiği veriyi, eksik alanları ve doğrulama durumunu gösterir.
+- [XPatla](https://xpatla.com)
+- [X algorithm — xai-org/x-algorithm](https://github.com/xai-org/x-algorithm)
