@@ -18,7 +18,7 @@ export async function POST(request: Request) {
     : [];
   if (!draftIds.length) return NextResponse.json({ error: "En az bir draft seçilmeli" }, { status: 400 });
   try {
-    return NextResponse.json({ jobs: queueDraftIds(draftIds) }, { status: 201 });
+    return NextResponse.json(queueDraftIds(draftIds), { status: 201 });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "batch kuyruğa alınamadı" }, { status: 422 });
   }

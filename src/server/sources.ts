@@ -10,7 +10,6 @@ import {
   type SourceConfig,
   type SourceProfile,
 } from "./db";
-import { isAllowedFxTwitterFeed } from "./security";
 import { resolveIdeology } from "./ideologies";
 
 type RawSource = {
@@ -20,7 +19,6 @@ type RawSource = {
   maxPosts?: unknown;
   rightsStatus?: unknown;
   profile?: unknown;
-  feedUrl?: unknown;
 };
 
 type SourceFile = { sources?: RawSource[] };
@@ -73,11 +71,6 @@ function asRightsStatus(value: unknown): SourceConfig["rightsStatus"] {
   return value === "cleared" || value === "prohibited" ? value : "unknown";
 }
 
-function asFeedUrl(value: unknown, handle: string): string {
-  const fallback = `https://api.fxtwitter.com/2/profile/${handle}/statuses`;
-  return typeof value === "string" && isAllowedFxTwitterFeed(value) ? value : fallback;
-}
-
 function readConfiguredSources(): SourceConfig[] {
   const path = sourceConfigPath();
   if (!existsSync(path)) return [];
@@ -95,7 +88,6 @@ function readConfiguredSources(): SourceConfig[] {
         profile: raw.profile && typeof raw.profile === "object"
           ? raw.profile as SourceProfile
           : {},
-        feedUrl: asFeedUrl(raw.feedUrl, handle),
       } satisfies SourceConfig];
     });
   } catch {
@@ -145,7 +137,6 @@ function bootstrapCategorySeeds(now: number): void {
         const source: SourceConfig = {
           handle, name: handle, enabled: true, maxPosts: 20, rightsStatus: "unknown",
           profile: { origin: "seed", status: "active", pinned: false },
-          feedUrl: `https://api.fxtwitter.com/2/profile/${encodeURIComponent(handle)}/statuses`,
         };
         upsertSource(source, now);
         sources.set(handle, source);
@@ -207,14 +198,19 @@ function authorHandle(value: unknown): string | null {
 export function extractDiscoveryEvidence(parentHandle: string, value: unknown): DiscoveryEvidence[] {
   const parent = asHandle(parentHandle);
   const post = record(value);
+  const canonical = record(post.discovery);
   const found = new Map<string, number>();
   const add = (handle: string | null, weight: number) => {
     if (!handle || handle === parent) return;
     found.set(handle, (found.get(handle) || 0) + weight);
   };
 
-  add(authorHandle(record(post.quote).author), 3);
-  add(authorHandle(post.replying_to), 2);
+  add(asHandle(canonical.quoteAuthor) || authorHandle(record(post.quote).author), 3);
+  add(asHandle(canonical.replyTo) || authorHandle(post.replying_to), 2);
+
+  if (Array.isArray(canonical.mentions)) {
+    for (const mention of canonical.mentions) add(asHandle(mention), 1);
+  }
 
   const rawText = record(post.raw_text);
   const facets = Array.isArray(rawText.facets) ? rawText.facets : [];
@@ -270,6 +266,7 @@ export function nextSourceState(
     status,
     enabled: status === "active",
     lowScoreStreak,
-    deleteReady: profile.pinned !== true && lowScoreStreak >= 3,
+    // ponytail: automatic deletion stays off until slop/no-content evidence is persisted across scans.
+    deleteReady: false,
   };
 }

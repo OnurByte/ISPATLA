@@ -163,7 +163,7 @@ export function KeysPage({ initialKeys, initialVaultReady, initialAi }: { initia
           <Field orientation="horizontal">
             <FieldContent>
               <FieldLabel htmlFor="ai-enabled">AI kullanımına izin ver</FieldLabel>
-              <FieldDescription>Kapalıyken yeni skor, draft ve chat intent çağrıları yapılmaz. Manuel metin kaydı çalışmaya devam eder.</FieldDescription>
+              <FieldDescription>Kapalıyken yeni skor, draft ve discovery-query çağrıları yapılmaz. Manuel metin kaydı çalışmaya devam eder.</FieldDescription>
             </FieldContent>
             <Switch id="ai-enabled" checked={ai.enabled} onCheckedChange={(value) => void setAiEnabled(value)} disabled={pending !== ""} />
           </Field>

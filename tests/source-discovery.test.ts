@@ -40,7 +40,7 @@ describe("source discovery and AI lifecycle", () => {
     ]);
   });
 
-  test("merges discovery evidence and requires three low rounds before delete", () => {
+  test("keeps a source when only AI score is low", () => {
     const profile = mergeEvidence({ parentHandles: ["one"], evidenceWeight: 2 }, {
       handle: "candidate",
       weight: 3,
@@ -55,8 +55,7 @@ describe("source discovery and AI lifecycle", () => {
     const third = nextSourceState({ ...profile, lowScoreStreak: second.lowScoreStreak }, 20, 90);
     expect(first.deleteReady).toBe(false);
     expect(second.deleteReady).toBe(false);
-    expect(third.deleteReady).toBe(true);
-    expect(nextSourceState({ ...profile, pinned: true, lowScoreStreak: 2 }, 20, 90).deleteReady).toBe(false);
+    expect(third.deleteReady).toBe(false);
   });
 
   test("promotes only confident candidates with independent parent evidence", () => {

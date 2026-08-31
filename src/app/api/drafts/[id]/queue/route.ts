@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createJob, getAccounts, getDraft, getPost, updateDraft } from "@/server/db";
 import { guardMutation, readJsonBody } from "@/server/api-guard";
 import { qualityGate } from "@/server/pipeline";
+import { createIntentForDraft } from "@/server/publication-service";
 
 export const runtime = "nodejs";
 
@@ -33,13 +34,15 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     return NextResponse.json({ error: gateReason }, { status: 422 });
   }
   if (!account.xuseAccountId) return NextResponse.json({ error: "hesabın x-use account id eşlemesi yok" }, { status: 422 });
+  const now = Math.floor(Date.now() / 1000);
+  if (action === "post") return NextResponse.json(createIntentForDraft(id, accountId, now), { status: 201 });
   const job = createJob({
     draftId: id,
     accountId,
     action,
-    scheduledAt: body.scheduledAt ? Number(body.scheduledAt) : Math.floor(Date.now() / 1000),
-    now: Math.floor(Date.now() / 1000),
+    scheduledAt: body.scheduledAt ? Number(body.scheduledAt) : now,
+    now,
   });
-  updateDraft({ id, accountId, status: "queued", now: Math.floor(Date.now() / 1000) });
+  updateDraft({ id, accountId, status: "queued", now });
   return NextResponse.json(job, { status: 201 });
 }

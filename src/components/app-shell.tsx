@@ -39,7 +39,6 @@ import {
 type NavItem = { href: string; label: string; icon: LucideIcon };
 
 const primaryNav: NavItem[] = [
-  { href: "/chat", label: "Sohbet", icon: Bot },
   { href: "/", label: "Kontrol merkezi", icon: Gauge },
   { href: "/opportunities", label: "Fırsatlar", icon: Sparkles },
   { href: "/drafts", label: "Draft stüdyosu", icon: FileKey2 },

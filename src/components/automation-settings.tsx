@@ -22,6 +22,7 @@ function localDate(value: number) {
 }
 
 const taskNames: Record<AutomationTaskId, { name: string; detail: string }> = {
+  monitor_engine: { name: "Adaptive monitor engine", detail: "Hesap, keyword, sorgu ve conversation hedeflerini bütçeli tarar" },
   source_scan: { name: "Otomatik scan", detail: "FxTwitter intake, kaynak skoru, fırsat ve publish gate" },
   source_liveness: { name: "Ölü kaynak / liveness", detail: "Profil 404 ve kimlik uyuşmazlıklarını temizler" },
   queue_worker: { name: "Due queue worker", detail: "Zamanı gelen x-use işlerini çalıştırır" },
@@ -121,13 +122,13 @@ export function AutomationSettings({ initial, schedules: initialSchedules, logs:
             <div key={schedule.id} className="grid gap-3 rounded-lg border p-3 text-sm lg:grid-cols-[1fr_1.3fr_110px_180px_auto] lg:items-center">
               <div><div className="font-medium">{taskNames[schedule.id].name}</div><div className="text-xs text-muted-foreground">{taskNames[schedule.id].detail}</div></div>
               <label className="flex items-center gap-2 text-xs text-muted-foreground"><input type="checkbox" checked={schedule.enabled} onChange={(event) => setSchedules((current) => current.map((item) => item.id === schedule.id ? { ...item, enabled: event.target.checked } : item))} /> aktif</label>
-              <label className="flex items-center gap-2 text-xs text-muted-foreground">dk <input className="h-8 w-20 rounded-md border bg-transparent px-2" type="number" min={1} max={43200} value={Math.max(1, Math.round(schedule.intervalSeconds / 60))} onChange={(event) => setSchedules((current) => current.map((item) => item.id === schedule.id ? { ...item, intervalSeconds: Math.max(60, Number(event.target.value || 1) * 60) } : item))} /></label>
+              <label className="flex items-center gap-2 text-xs text-muted-foreground">{schedule.id === "monitor_engine" ? "sn" : "dk"} <input className="h-8 w-20 rounded-md border bg-transparent px-2" type="number" min={schedule.id === "monitor_engine" ? 15 : 1} max={schedule.id === "monitor_engine" ? 3600 : 43200} value={schedule.id === "monitor_engine" ? schedule.intervalSeconds : Math.max(1, Math.round(schedule.intervalSeconds / 60))} onChange={(event) => setSchedules((current) => current.map((item) => item.id === schedule.id ? { ...item, intervalSeconds: schedule.id === "monitor_engine" ? Math.max(15, Number(event.target.value || 15)) : Math.max(60, Number(event.target.value || 1) * 60) } : item))} /></label>
               <label className="flex flex-col gap-1 text-xs text-muted-foreground">Sonraki çalışma<input className="h-8 rounded-md border bg-transparent px-2" type="datetime-local" value={localDate(schedule.nextRunAt)} onChange={(event) => setSchedules((current) => current.map((item) => item.id === schedule.id ? { ...item, nextRunAt: Math.floor(new Date(event.target.value).getTime() / 1000) } : item))} /></label>
               <Button size="sm" onClick={() => saveSchedule(schedule)} disabled={pending}>Kaydet</Button>
               <div className="text-xs text-muted-foreground lg:col-span-5">Son: {time(schedule.lastRunAt)} · {schedule.lastStatus}</div>
             </div>
           ))}
-          <Alert><AlertDescription>Çalıştırıcı: <code>bun run automation:scan</code>. Bu komut bir systemd timer veya gerçek cron tarafından çağrılmalıdır; Ispatla OS cron kaydı oluşturmaz.</AlertDescription></Alert>
+          <Alert><AlertDescription>Çalıştırıcı: <code>bun run automation:worker</code>. Uzun çalışan worker 15 saniyelik burst hedeflerini ve diğer planlı görevleri aynı SQLite kilidi altında yürütür.</AlertDescription></Alert>
         </CardContent>
       </Card>
 

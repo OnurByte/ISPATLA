@@ -24,6 +24,25 @@ describe("market scoring", () => {
     expect(result.reason).toStartWith("deterministic:");
   });
 
+  test("keeps ordinary high-engagement posts distinguishable below the score ceiling", () => {
+    const now = Math.floor(Date.now() / 1000);
+    const base = {
+      replies: 20,
+      reposts: 0,
+      quotes: 0,
+      views: 50_000,
+      createdTimestamp: now - 15 * 60,
+      mediaCount: 1,
+      sensitive: false,
+      followers: 100_000,
+    };
+    const strong = scorePost({ ...base, likes: 250 });
+    const exceptional = scorePost({ ...base, likes: 2_500 });
+
+    expect(strong.score).toBeLessThan(exceptional.score);
+    expect(strong.score).toBeLessThan(100);
+  });
+
   test("rewards engagement relative to the source audience", () => {
     const shared = {
       likes: 100,

@@ -57,7 +57,7 @@ export function clusterKey(text: string): string {
     .join("-");
 }
 
-export function scorePost(input: Pick<ObservedPost, "likes" | "replies" | "reposts" | "quotes" | "views" | "createdTimestamp" | "mediaCount" | "sensitive"> & { followers?: number }): {
+export function scorePost(input: Pick<ObservedPost, "likes" | "replies" | "reposts" | "quotes" | "views" | "createdTimestamp" | "mediaCount" | "sensitive"> & { followers?: number; now?: number }): {
   score: number;
   reason: string;
 } {
@@ -71,9 +71,9 @@ export function scorePost(input: Pick<ObservedPost, "likes" | "replies" | "repos
     100,
     Math.max(
       0,
-      Math.log(velocity + 1) * 14 +
-        Math.min(16, Math.log(views + 1)) +
-        Math.min(20, Math.log1p(engagementRate * 1_000) * 5) +
+      Math.log1p(velocity) * 8 +
+        Math.min(18, Math.log1p(views) * 1.4) +
+        Math.min(18, Math.log1p(engagementRate * 1_000) * 5) +
         (mediaCount > 0 ? 5 : 0) -
         (input.sensitive ? 100 : 0),
     ),

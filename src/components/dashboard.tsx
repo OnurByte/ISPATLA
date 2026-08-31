@@ -95,8 +95,8 @@ export function Dashboard({ initial }: { initial: DashboardSummary }) {
               Ispatla / signal room
             </div>
             <div className="flex flex-col gap-2">
-              <h1 className="text-4xl font-semibold tracking-tight sm:text-5xl">Haber akışı, kanıt kapısı, yayın kontrolü.</h1>
-              <p className="max-w-2xl text-base leading-7 text-muted-foreground">XPatla mantığının bağımsız Next.js karşılığı: kaynak intake → Market fırsatı → özgün taslak → kalite/rights gate → x-use ve FxTwitter reconciliation.</p>
+              <h1 className="text-4xl font-semibold tracking-tight sm:text-5xl">Global sinyal, özgün hit, kontrollü yayın.</h1>
+              <p className="max-w-2xl text-base leading-7 text-muted-foreground">X için hitmaker: haber, kültür, spor, finans, eğlence ve topluluk sinyali → özgün taslak → kalite/rights gate → x-use ve FxTwitter reconciliation.</p>
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">

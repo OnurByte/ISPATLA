@@ -92,7 +92,7 @@ Bu yüzden “testler yeşil, production hazır” sonucu yine çıkarılamaz; a
 Kullanıcıya ait mevcut `next-server (v16.3.2)` sürecine dokunulmadı. Read-only GET kontrolünde:
 
 - `/` → `200`
-- `/chat` → `200`
+- MCP tool list → ISPATLA-owned stdio surface
 - `/queue` → `200`
 - `/api/status` → `200`
 - `/api/capabilities` → `200`
@@ -280,7 +280,7 @@ XPatla karşılaştırmasında ürün pazarlaması ile güncel kamu durumu ayrı
 | Thread generation | **Draft/kısmi** | Format alanı var; güvenilir çoklu post yürütme yok. |
 | Quote/reply generation | **Draft/kısmi** | Draft üretilebilir; x-use execution yolu bilinçli olarak post-only. |
 | DM generation | **Draft** | Otomatik DM gönderimi yok; bu güvenlik açısından doğru sınır. |
-| AI coach | **Yok/kısmi** | `/chat` kontrollü intent/queue yardımcısı; XPatla coach parity’si değil. |
+| AI coach | **Yok/kısmi** | MCP üzerinden kontrollü intent/queue tool’ları; XPatla coach parity’si değil. |
 | Multi-account | **Kısmi** | Account tablosu, limit ve seçim var; aynı cluster için account-specific modelleme zayıf. |
 | Scheduled publishing | **Kısmi** | `scheduledAt` saklanıyor; scheduled job tüketen worker kanıtlanmadı. |
 | Original post publishing | **Kısmi/unproven** | x-use MCP queue adapter var; doctor/config ve gerçek post round-trip yok. |
@@ -528,7 +528,7 @@ Kodun işe yarayan ve korunması gereken tarafları şunlar:
 5. **AI kapatma ve usage ledger doğru yöndedir:** manual text continuity korunuyor, parallel counter yapılmıyor.
 6. **Source discovery güvenlikli hale getirilmiştir:** provenance, evidence weighting, pinned protection ve deletion cooldown var.
 7. **Quote/reply/DM otomasyonu bilinçli olarak sınırlanmıştır:** doğrulanmamış execution kontratını başarı saymamak doğru.
-8. **Chat ana sayfa olarak eklenmiştir:** standalone `/chat` ve primary navigation mevcut; mutation confirmation insan onayında tutuluyor.
+8. **Chat yüzeyi kaldırılmıştır:** agent erişimi ISPATLA-owned MCP tool’larına taşındı; publication mutation’ları açık onayda tutuluyor.
 9. **Sensitive/media/right sınırları vardır:** media yalnız allowlist ve rights kontrollerinden sonra aktarılmaya çalışılıyor.
 10. **Kod X internal score iddiasında bulunmamalıdır:** mevcut heuristic’in doğru pozisyonu editorial estimate’tir.
 

@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
-import { historicalPerformanceScore, isNumericalHit, observedEngagement, opportunityFreshness, opportunityScore, OPPORTUNITY_MAX_AGE_SECONDS } from "./scoring";
+import { historicalPerformanceScore, isNumericalHit, observedEngagement, opportunityFreshness, opportunityScore, OPPORTUNITY_MAX_AGE_SECONDS, scorePost } from "./scoring";
 import type { MetricSnapshot } from "./scoring";
 
 type NativeDatabase = InstanceType<typeof DatabaseSync>;
@@ -97,7 +97,6 @@ export type SourceConfig = {
   maxPosts: number;
   rightsStatus: "cleared" | "unknown" | "prohibited";
   profile: SourceProfile;
-  feedUrl: string;
 };
 
 export type DeletedSource = { handle: string; score: number; reason: string; model: string; deletedAt: number };
@@ -169,7 +168,7 @@ export type DashboardSummary = {
   } | null;
 };
 
-export const AUTOMATION_TASK_IDS = ["source_scan", "source_liveness", "queue_worker", "reconciliation"] as const;
+export const AUTOMATION_TASK_IDS = ["monitor_engine", "source_scan", "source_liveness", "queue_worker", "reconciliation"] as const;
 export type AutomationTaskId = (typeof AUTOMATION_TASK_IDS)[number];
 export type AutomationTaskStatus = "never" | "running" | "success" | "partial" | "failed" | "skipped";
 export type AutomationTaskSchedule = { id: AutomationTaskId; enabled: boolean; intervalSeconds: number; nextRunAt: number; lastRunAt: number; lastStatus: AutomationTaskStatus; updatedAt: number };
@@ -333,7 +332,17 @@ export type MarketItem = Omit<RecentPost, "rawJson"> & {
   engagements: number;
   hit: boolean;
   marketStatus: "new" | "drafted" | "queued" | "published" | "ignored";
+  decision: MarketDecision;
   scoreEvidence: ScoreEvidence;
+};
+
+export const MARKET_VIEWS = ["opportunities", "observed", "rejected", "sensitive"] as const;
+export type MarketView = typeof MARKET_VIEWS[number];
+export type MarketDecision = "opportunity" | "below_threshold" | "expired" | "processed" | "not_eligible_evidence" | "sensitive";
+export type MarketInbox = {
+  items: MarketItem[];
+  total: number;
+  counts: { opportunities: number; observed: number; rejected: number; sensitive: number };
 };
 
 export type ScoreEvidence = {
@@ -418,6 +427,61 @@ export type Publication = {
   confirmedAt: number | null;
 };
 
+export const MONITOR_KINDS = ["account", "keyword", "search_query", "conversation"] as const;
+export type MonitorKind = (typeof MONITOR_KINDS)[number];
+export type MonitorTier = "hot" | "warm" | "normal" | "cold";
+export type MonitorBucket = "proven_alpha" | "hot_categories" | "discovery" | "challengers" | "reconciliation" | "exploration";
+export type MonitorTarget = {
+  id: number;
+  kind: MonitorKind;
+  key: string;
+  categoryId: number | null;
+  sourceHandle: string;
+  query: string;
+  conversationId: string;
+  lifecycle: "challenger" | "active" | "retired";
+  tier: MonitorTier;
+  intervalSeconds: number;
+  burstUntil: number;
+  nextRunAt: number;
+  enabled: boolean;
+  priority: number;
+  runs: number;
+  results: number;
+  uniqueResults: number;
+  hits: number;
+  duplicates: number;
+  falsePositives: number;
+  reviewed: number;
+  leadTimeTotal: number;
+  lastResultAt: number;
+  lastHitAt: number;
+  createdAt: number;
+  updatedAt: number;
+};
+
+export type PublicationIntentStatus = "pending_approval" | "approved" | "dispatching" | "xuse_queued" | "pending_reconciliation" | "confirmed" | "blocked" | "cancelled" | "reconciliation_required";
+export type PublicationIntent = {
+  id: number;
+  draftId: number;
+  accountId: number;
+  accountHandle: string;
+  status: PublicationIntentStatus;
+  idempotencyKey: string;
+  text: string;
+  mediaPath: string;
+  mediaHash: string;
+  xuseQueueId: string;
+  receipt: string;
+  remoteUrl: string;
+  reason: string;
+  requestedAt: number;
+  approvedAt: number | null;
+  dispatchedAt: number | null;
+  confirmedAt: number | null;
+  updatedAt: number;
+};
+
 export type DraftBatch = {
   id: string;
   prompt: string;
@@ -440,34 +504,6 @@ export type UsageEvent = {
   estimatedUsd: number;
   metadata: Record<string, unknown>;
   createdAt: number;
-};
-
-export type ChatSession = {
-  id: string;
-  title: string;
-  createdAt: number;
-  updatedAt: number;
-};
-
-export type ChatMessage = {
-  id: number;
-  sessionId: string;
-  role: "user" | "assistant" | "system";
-  content: string;
-  intent: Record<string, unknown> | null;
-  createdAt: number;
-};
-
-export type ChatAction = {
-  id: number;
-  sessionId: string;
-  messageId: number;
-  kind: string;
-  payload: Record<string, unknown>;
-  status: string;
-  reason: string;
-  createdAt: number;
-  executedAt: number | null;
 };
 
 export type SecretMeta = {
@@ -505,6 +541,7 @@ const LEGACY_CATEGORY_SLUGS: Record<string, string> = {
 let initialized = false;
 let initializationError: string | undefined;
 let database: NativeDatabase | undefined;
+const SCORE_VERSION = "2";
 
 const schema = `
 CREATE TABLE IF NOT EXISTS schema_migrations (
@@ -772,36 +809,6 @@ CREATE TABLE IF NOT EXISTS usage_events (
   created_at INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS usage_events_created_idx ON usage_events(created_at DESC);
-CREATE TABLE IF NOT EXISTS chat_sessions (
-  id TEXT PRIMARY KEY,
-  title TEXT NOT NULL DEFAULT 'Yeni konuşma',
-  created_at INTEGER NOT NULL,
-  updated_at INTEGER NOT NULL
-);
-CREATE TABLE IF NOT EXISTS chat_messages (
-  id INTEGER PRIMARY KEY,
-  session_id TEXT NOT NULL,
-  role TEXT NOT NULL,
-  content TEXT NOT NULL,
-  intent_json TEXT NOT NULL DEFAULT '',
-  created_at INTEGER NOT NULL,
-  FOREIGN KEY(session_id) REFERENCES chat_sessions(id)
-);
-CREATE INDEX IF NOT EXISTS chat_messages_session_idx ON chat_messages(session_id, created_at ASC);
-CREATE TABLE IF NOT EXISTS chat_actions (
-  id INTEGER PRIMARY KEY,
-  session_id TEXT NOT NULL,
-  message_id INTEGER NOT NULL,
-  kind TEXT NOT NULL,
-  payload_json TEXT NOT NULL DEFAULT '{}',
-  status TEXT NOT NULL DEFAULT 'pending_confirmation',
-  reason TEXT NOT NULL DEFAULT '',
-  created_at INTEGER NOT NULL,
-  executed_at INTEGER,
-  FOREIGN KEY(session_id) REFERENCES chat_sessions(id),
-  FOREIGN KEY(message_id) REFERENCES chat_messages(id)
-);
-CREATE INDEX IF NOT EXISTS chat_actions_status_idx ON chat_actions(status, created_at DESC);
 `;
 
 function sqlString(value: string): string {
@@ -1201,6 +1208,104 @@ function applyMigrations(): void {
     );`);
     command("INSERT INTO schema_migrations (version, applied_at) VALUES (12, unixepoch());");
   }
+  if (!applied.has(13)) {
+    command(`CREATE TABLE IF NOT EXISTS monitor_targets (
+      id INTEGER PRIMARY KEY,
+      kind TEXT NOT NULL,
+      target_key TEXT NOT NULL,
+      category_id INTEGER,
+      source_handle TEXT NOT NULL DEFAULT '',
+      query TEXT NOT NULL DEFAULT '',
+      conversation_id TEXT NOT NULL DEFAULT '',
+      lifecycle TEXT NOT NULL DEFAULT 'active',
+      tier TEXT NOT NULL DEFAULT 'normal',
+      interval_seconds INTEGER NOT NULL DEFAULT 300,
+      burst_until INTEGER NOT NULL DEFAULT 0,
+      next_run_at INTEGER NOT NULL DEFAULT 0,
+      enabled INTEGER NOT NULL DEFAULT 1,
+      priority REAL NOT NULL DEFAULT 1,
+      runs INTEGER NOT NULL DEFAULT 0,
+      results INTEGER NOT NULL DEFAULT 0,
+      unique_results INTEGER NOT NULL DEFAULT 0,
+      hits INTEGER NOT NULL DEFAULT 0,
+      duplicates INTEGER NOT NULL DEFAULT 0,
+      false_positives INTEGER NOT NULL DEFAULT 0,
+      reviewed INTEGER NOT NULL DEFAULT 0,
+      lead_time_total INTEGER NOT NULL DEFAULT 0,
+      last_result_at INTEGER NOT NULL DEFAULT 0,
+      last_hit_at INTEGER NOT NULL DEFAULT 0,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL,
+      UNIQUE(kind, target_key),
+      FOREIGN KEY(category_id) REFERENCES categories(id)
+    );
+    CREATE INDEX IF NOT EXISTS monitor_targets_due_idx ON monitor_targets(enabled, lifecycle, next_run_at, priority DESC);
+    CREATE TABLE IF NOT EXISTS monitor_runs (
+      id INTEGER PRIMARY KEY,
+      target_id INTEGER,
+      day_key TEXT NOT NULL,
+      budget_bucket TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'running',
+      requested INTEGER NOT NULL DEFAULT 1,
+      returned INTEGER NOT NULL DEFAULT 0,
+      unique_results INTEGER NOT NULL DEFAULT 0,
+      hits INTEGER NOT NULL DEFAULT 0,
+      duplicates INTEGER NOT NULL DEFAULT 0,
+      false_positives INTEGER NOT NULL DEFAULT 0,
+      lead_time_total INTEGER NOT NULL DEFAULT 0,
+      started_at INTEGER NOT NULL,
+      finished_at INTEGER,
+      error TEXT NOT NULL DEFAULT '',
+      FOREIGN KEY(target_id) REFERENCES monitor_targets(id)
+    );
+    CREATE INDEX IF NOT EXISTS monitor_runs_budget_idx ON monitor_runs(day_key, budget_bucket);
+    CREATE TABLE IF NOT EXISTS monitor_observations (
+      id INTEGER PRIMARY KEY,
+      target_id INTEGER NOT NULL,
+      post_external_id TEXT NOT NULL,
+      hit INTEGER NOT NULL DEFAULT 0,
+      duplicate INTEGER NOT NULL DEFAULT 0,
+      false_positive INTEGER,
+      lead_seconds INTEGER NOT NULL DEFAULT 0,
+      observed_at INTEGER NOT NULL,
+      UNIQUE(target_id, post_external_id),
+      FOREIGN KEY(target_id) REFERENCES monitor_targets(id)
+    );
+    CREATE INDEX IF NOT EXISTS monitor_observations_target_idx ON monitor_observations(target_id, observed_at DESC);
+    CREATE TABLE IF NOT EXISTS publication_intents (
+      id INTEGER PRIMARY KEY,
+      draft_id INTEGER NOT NULL,
+      account_id INTEGER NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pending_approval',
+      idempotency_key TEXT NOT NULL UNIQUE,
+      text TEXT NOT NULL,
+      media_path TEXT NOT NULL DEFAULT '',
+      media_hash TEXT NOT NULL DEFAULT '',
+      xuse_queue_id TEXT NOT NULL DEFAULT '',
+      receipt TEXT NOT NULL DEFAULT '',
+      remote_url TEXT NOT NULL DEFAULT '',
+      reason TEXT NOT NULL DEFAULT '',
+      requested_at INTEGER NOT NULL,
+      approved_at INTEGER,
+      dispatched_at INTEGER,
+      confirmed_at INTEGER,
+      updated_at INTEGER NOT NULL,
+      FOREIGN KEY(draft_id) REFERENCES drafts(id),
+      FOREIGN KEY(account_id) REFERENCES accounts(id)
+    );
+    CREATE INDEX IF NOT EXISTS publication_intents_status_idx ON publication_intents(status, requested_at ASC);`);
+    command("INSERT INTO schema_migrations (version, applied_at) VALUES (13, unixepoch());");
+  }
+  if (!applied.has(14)) {
+    addColumn("reader_health", "latency_ms", "INTEGER NOT NULL DEFAULT 0");
+    addColumn("reader_health", "freshness_seconds", "INTEGER");
+    addColumn("reader_health", "missing_fields_json", "TEXT NOT NULL DEFAULT '[]'");
+    addColumn("reader_health", "schema_drift", "INTEGER NOT NULL DEFAULT 0");
+    addColumn("publications", "draft_id", "INTEGER");
+    addColumn("publications", "publication_intent_id", "INTEGER");
+    command("CREATE UNIQUE INDEX IF NOT EXISTS publications_intent_idx ON publications(publication_intent_id) WHERE publication_intent_id IS NOT NULL;");
+    command("INSERT INTO schema_migrations (version, applied_at) VALUES (14, unixepoch());");
+  }
 }
 
 export function ensureDatabase(): boolean {
@@ -1266,6 +1371,12 @@ export function ensureDatabase(): boolean {
       );
       COMMIT;`);
     command("UPDATE accounts SET daily_limit=24 WHERE daily_limit=6;");
+    const scoreVersion = (command("SELECT value FROM app_settings WHERE name='post_score_version' LIMIT 1;", true) as Array<{ value?: string }>)[0]?.value;
+    if (scoreVersion !== SCORE_VERSION) {
+      recalculateRecentScoresInternal(Math.floor(Date.now() / 1000));
+      command(`INSERT INTO app_settings (name, value, updated_at) VALUES ('post_score_version', ${sqlString(SCORE_VERSION)}, ${sqlNumber(Math.floor(Date.now() / 1000))})
+        ON CONFLICT(name) DO UPDATE SET value=excluded.value, updated_at=excluded.updated_at;`);
+    }
     initialized = true;
     return true;
   } catch (error) {
@@ -1281,6 +1392,38 @@ function rows<T>(sql: string): T[] {
   } catch {
     return [];
   }
+}
+
+type ScoreRecalculationRow = {
+  external_id: string; created_timestamp: number; likes: number; replies: number; reposts: number; quotes: number;
+  views: number; author_followers: number; media_count: number; sensitive: number;
+};
+
+function recalculateRecentScoresInternal(now: number): number {
+  const posts = command(`SELECT external_id, created_timestamp, likes, replies, reposts, quotes, views, author_followers, media_count, sensitive
+    FROM observed_posts WHERE observed_at >= ${sqlNumber(now - OPPORTUNITY_MAX_AGE_SECONDS)};`, true) as ScoreRecalculationRow[];
+  if (!posts.length) return 0;
+  command("BEGIN IMMEDIATE;");
+  try {
+    for (const post of posts) {
+      const score = scorePost({
+        likes: post.likes, replies: post.replies, reposts: post.reposts, quotes: post.quotes, views: post.views,
+        followers: post.author_followers, createdTimestamp: post.created_timestamp, mediaCount: post.media_count,
+        sensitive: post.sensitive === 1, now,
+      });
+      command(`UPDATE observed_posts SET score=${sqlNumber(score.score)}, score_reason=${sqlString(score.reason)} WHERE external_id=${sqlString(post.external_id)};`);
+    }
+    command("COMMIT;");
+    return posts.length;
+  } catch (error) {
+    command("ROLLBACK;");
+    throw error;
+  }
+}
+
+export function recalculateRecentScores(now = Math.floor(Date.now() / 1000)): number {
+  if (!ensureDatabase()) return 0;
+  return recalculateRecentScoresInternal(now);
 }
 
 function criticalRows<T>(sql: string): T[] {
@@ -1345,9 +1488,11 @@ export function getSourceReaderCursor(sourceHandle: string): SourceReaderCursor 
   } : null;
 }
 
-export function recordReaderHealth(input: { transport: string; ok: boolean; error?: string; checkedAt: number }): void {
-  exec(`INSERT INTO reader_health (transport, ok, error, checked_at) VALUES (
-    ${sqlString(input.transport)}, ${sqlBool(input.ok)}, ${sqlString(input.error || "")}, ${sqlNumber(input.checkedAt)}
+export function recordReaderHealth(input: { transport: string; ok: boolean; error?: string; checkedAt: number; latencyMs?: number; freshnessSeconds?: number | null; missingFields?: string[]; schemaDrift?: boolean }): void {
+  exec(`INSERT INTO reader_health (transport, ok, error, checked_at, latency_ms, freshness_seconds, missing_fields_json, schema_drift) VALUES (
+    ${sqlString(input.transport)}, ${sqlBool(input.ok)}, ${sqlString(input.error || "")}, ${sqlNumber(input.checkedAt)},
+    ${sqlNumber(input.latencyMs || 0)}, ${input.freshnessSeconds === null || input.freshnessSeconds === undefined ? "NULL" : sqlNumber(input.freshnessSeconds)},
+    ${sqlString(JSON.stringify(input.missingFields || []))}, ${sqlBool(input.schemaDrift === true)}
   );`);
 }
 
@@ -1355,6 +1500,151 @@ export function readerPublishingReady(now: number, maxAgeSeconds = 10 * 60): boo
   const health = criticalRows<{ ok: number; checked_at: number }>(`SELECT ok, checked_at FROM reader_health ORDER BY id DESC LIMIT 1;`)[0];
   if (!health || health.ok !== 1 || now - health.checked_at > maxAgeSeconds) return false;
   return criticalRows<{ count: number }>(`SELECT COUNT(*) AS count FROM source_reader_cursors WHERE gap_detected=1;`)[0]?.count === 0;
+}
+
+export function getReaderHealth(limit = 20) {
+  return rows<{ id: number; transport: string; ok: number; error: string; checked_at: number; latency_ms: number; freshness_seconds: number | null; missing_fields_json: string; schema_drift: number }>(`SELECT id, transport, ok, error, checked_at, latency_ms, freshness_seconds, missing_fields_json, schema_drift
+    FROM reader_health ORDER BY checked_at DESC, id DESC LIMIT ${sqlNumber(Math.max(1, Math.min(100, limit)))};`).map((item) => ({
+    id: item.id, transport: item.transport, ok: item.ok === 1, error: item.error, checkedAt: item.checked_at,
+    latencyMs: item.latency_ms, freshnessSeconds: item.freshness_seconds, missingFields: parseArray(item.missing_fields_json), schemaDrift: item.schema_drift === 1,
+  }));
+}
+
+type MonitorTargetRow = {
+  id: number; kind: MonitorKind; target_key: string; category_id: number | null; source_handle: string; query: string;
+  conversation_id: string; lifecycle: MonitorTarget["lifecycle"]; tier: MonitorTier; interval_seconds: number;
+  burst_until: number; next_run_at: number; enabled: number; priority: number; runs: number; results: number;
+  unique_results: number; hits: number; duplicates: number; false_positives: number; reviewed: number;
+  lead_time_total: number; last_result_at: number; last_hit_at: number; created_at: number; updated_at: number;
+};
+
+function monitorTarget(row: MonitorTargetRow): MonitorTarget {
+  return {
+    id: row.id, kind: row.kind, key: row.target_key, categoryId: row.category_id, sourceHandle: row.source_handle,
+    query: row.query, conversationId: row.conversation_id, lifecycle: row.lifecycle, tier: row.tier,
+    intervalSeconds: row.interval_seconds, burstUntil: row.burst_until, nextRunAt: row.next_run_at,
+    enabled: row.enabled === 1, priority: row.priority, runs: row.runs, results: row.results,
+    uniqueResults: row.unique_results, hits: row.hits, duplicates: row.duplicates,
+    falsePositives: row.false_positives, reviewed: row.reviewed, leadTimeTotal: row.lead_time_total,
+    lastResultAt: row.last_result_at, lastHitAt: row.last_hit_at, createdAt: row.created_at, updatedAt: row.updated_at,
+  };
+}
+
+export function upsertMonitorTarget(input: {
+  kind: MonitorKind; key: string; categoryId?: number | null; sourceHandle?: string; query?: string; conversationId?: string;
+  lifecycle?: MonitorTarget["lifecycle"]; tier?: MonitorTier; intervalSeconds?: number; priority?: number; enabled?: boolean; now: number;
+}): MonitorTarget {
+  if (!MONITOR_KINDS.includes(input.kind)) throw new Error("monitor kind geçersiz");
+  const key = input.key.trim().slice(0, 500);
+  if (!key) throw new Error("monitor key gerekli");
+  const interval = Math.max(15, Math.min(86400, Math.round(input.intervalSeconds || 300)));
+  exec(`INSERT INTO monitor_targets (
+      kind, target_key, category_id, source_handle, query, conversation_id, lifecycle, tier,
+      interval_seconds, next_run_at, enabled, priority, created_at, updated_at
+    ) VALUES (
+      ${sqlString(input.kind)}, ${sqlString(key)}, ${input.categoryId ? sqlNumber(input.categoryId) : "NULL"},
+      ${sqlString((input.sourceHandle || "").slice(0, 15))}, ${sqlString((input.query || "").slice(0, 500))},
+      ${sqlString((input.conversationId || "").slice(0, 32))}, ${sqlString(input.lifecycle || "active")},
+      ${sqlString(input.tier || "normal")}, ${sqlNumber(interval)}, ${sqlNumber(input.now)}, ${sqlBool(input.enabled !== false)},
+      ${Number.isFinite(input.priority) ? input.priority : 1}, ${sqlNumber(input.now)}, ${sqlNumber(input.now)}
+    ) ON CONFLICT(kind, target_key) DO UPDATE SET
+      category_id=COALESCE(excluded.category_id, monitor_targets.category_id), source_handle=excluded.source_handle,
+      query=excluded.query, conversation_id=excluded.conversation_id,
+      enabled=CASE WHEN monitor_targets.lifecycle='retired' THEN monitor_targets.enabled ELSE excluded.enabled END,
+      priority=excluded.priority, updated_at=excluded.updated_at;`);
+  const row = rows<MonitorTargetRow>(`SELECT * FROM monitor_targets WHERE kind=${sqlString(input.kind)} AND target_key=${sqlString(key)} LIMIT 1;`)[0];
+  if (!row) throw new Error("monitor target kaydedilemedi");
+  return monitorTarget(row);
+}
+
+export function getMonitorTargets(input: { kind?: MonitorKind; lifecycle?: MonitorTarget["lifecycle"]; dueAt?: number; limit?: number } = {}): MonitorTarget[] {
+  const filters = [input.kind ? `kind=${sqlString(input.kind)}` : "", input.lifecycle ? `lifecycle=${sqlString(input.lifecycle)}` : "", input.dueAt !== undefined ? `enabled=1 AND lifecycle<>'retired' AND next_run_at<=${sqlNumber(input.dueAt)}` : ""].filter(Boolean);
+  return rows<MonitorTargetRow>(`SELECT * FROM monitor_targets ${filters.length ? `WHERE ${filters.join(" AND ")}` : ""}
+    ORDER BY next_run_at ASC, priority DESC, id ASC LIMIT ${sqlNumber(Math.max(1, Math.min(2000, input.limit || 200)))};`).map(monitorTarget);
+}
+
+export function claimMonitorRun(input: { targetId: number | null; dayKey: string; bucket: MonitorBucket; now: number; dailyBudget?: number }): number | null {
+  const budget = Math.max(1, Math.min(100_000, input.dailyBudget || 10_000));
+  command("BEGIN IMMEDIATE;");
+  try {
+    const used = criticalRows<{ used: number }>(`SELECT COALESCE(SUM(requested), 0) AS used FROM monitor_runs WHERE day_key=${sqlString(input.dayKey)};`)[0]?.used || 0;
+    if (used >= budget) {
+      command("ROLLBACK;");
+      return null;
+    }
+    command(`INSERT INTO monitor_runs (target_id, day_key, budget_bucket, status, requested, started_at)
+      VALUES (${input.targetId ? sqlNumber(input.targetId) : "NULL"}, ${sqlString(input.dayKey)}, ${sqlString(input.bucket)}, 'running', 1, ${sqlNumber(input.now)});`);
+    const id = criticalRows<{ id: number }>("SELECT last_insert_rowid() AS id;")[0]?.id || 0;
+    command("COMMIT;");
+    return id || null;
+  } catch (error) {
+    command("ROLLBACK;");
+    throw error;
+  }
+}
+
+export function getMonitorBudgetUsage(dayKey: string): Record<MonitorBucket | "total", number> {
+  const result = { proven_alpha: 0, hot_categories: 0, discovery: 0, challengers: 0, reconciliation: 0, exploration: 0, total: 0 };
+  for (const row of rows<{ budget_bucket: MonitorBucket; used: number }>(`SELECT budget_bucket, COALESCE(SUM(requested), 0) AS used FROM monitor_runs WHERE day_key=${sqlString(dayKey)} GROUP BY budget_bucket;`)) {
+    if (row.budget_bucket in result) result[row.budget_bucket] = row.used;
+    result.total += row.used;
+  }
+  return result;
+}
+
+export function finishMonitorRun(input: {
+  runId: number; targetId: number; status: "success" | "partial" | "failed"; returned: number; uniqueResults: number;
+  hits: number; duplicates: number; falsePositives?: number; leadTimeTotal?: number; intervalSeconds: number;
+  tier: MonitorTier; burstUntil?: number; error?: string; now: number;
+}): void {
+  exec(`UPDATE monitor_runs SET status=${sqlString(input.status)}, returned=${sqlNumber(input.returned)}, unique_results=${sqlNumber(input.uniqueResults)},
+      hits=${sqlNumber(input.hits)}, duplicates=${sqlNumber(input.duplicates)}, false_positives=${sqlNumber(input.falsePositives || 0)},
+      lead_time_total=${sqlNumber(input.leadTimeTotal || 0)}, finished_at=${sqlNumber(input.now)}, error=${sqlString((input.error || "").slice(0, 2000))}
+    WHERE id=${sqlNumber(input.runId)};
+    UPDATE monitor_targets SET runs=runs+1, results=results+${sqlNumber(input.returned)}, unique_results=unique_results+${sqlNumber(input.uniqueResults)},
+      hits=hits+${sqlNumber(input.hits)}, duplicates=duplicates+${sqlNumber(input.duplicates)},
+      false_positives=false_positives+${sqlNumber(input.falsePositives || 0)}, lead_time_total=lead_time_total+${sqlNumber(input.leadTimeTotal || 0)},
+      tier=${sqlString(input.tier)}, interval_seconds=${sqlNumber(input.intervalSeconds)}, burst_until=${sqlNumber(input.burstUntil || 0)},
+      next_run_at=${sqlNumber(input.now + input.intervalSeconds)},
+      last_result_at=CASE WHEN ${sqlNumber(input.uniqueResults)}>0 THEN ${sqlNumber(input.now)} ELSE last_result_at END,
+      last_hit_at=CASE WHEN ${sqlNumber(input.hits)}>0 THEN ${sqlNumber(input.now)} ELSE last_hit_at END,
+      updated_at=${sqlNumber(input.now)} WHERE id=${sqlNumber(input.targetId)};`);
+}
+
+export function finishBudgetRun(runId: number, status: "success" | "failed", now: number, error = ""): void {
+  exec(`UPDATE monitor_runs SET status=${sqlString(status)}, finished_at=${sqlNumber(now)}, error=${sqlString(error.slice(0, 2000))}
+    WHERE id=${sqlNumber(runId)};`);
+}
+
+export function recordMonitorObservation(input: { targetId: number; externalId: string; hit: boolean; duplicate: boolean; leadSeconds: number; now: number }): boolean {
+  const existing = rows<{ id: number }>(`SELECT id FROM monitor_observations WHERE target_id=${sqlNumber(input.targetId)} AND post_external_id=${sqlString(input.externalId)} LIMIT 1;`)[0];
+  if (existing) return false;
+  exec(`INSERT INTO monitor_observations (target_id, post_external_id, hit, duplicate, lead_seconds, observed_at)
+    VALUES (${sqlNumber(input.targetId)}, ${sqlString(input.externalId)}, ${sqlBool(input.hit)}, ${sqlBool(input.duplicate)}, ${sqlNumber(input.leadSeconds)}, ${sqlNumber(input.now)});`);
+  return true;
+}
+
+export function reviewMonitorObservation(input: { targetId: number; externalId: string; falsePositive: boolean; now: number }): boolean {
+  const current = rows<{ false_positive: number | null }>(`SELECT false_positive FROM monitor_observations WHERE target_id=${sqlNumber(input.targetId)} AND post_external_id=${sqlString(input.externalId)} LIMIT 1;`)[0];
+  if (!current) return false;
+  const firstReview = current.false_positive === null;
+  exec(`UPDATE monitor_observations SET false_positive=${sqlBool(input.falsePositive)} WHERE target_id=${sqlNumber(input.targetId)} AND post_external_id=${sqlString(input.externalId)};
+    UPDATE monitor_targets SET reviewed=reviewed+${firstReview ? 1 : 0}, false_positives=false_positives+${input.falsePositive && current.false_positive !== 1 ? 1 : !input.falsePositive && current.false_positive === 1 ? -1 : 0}, updated_at=${sqlNumber(input.now)} WHERE id=${sqlNumber(input.targetId)};`);
+  return true;
+}
+
+export function updateMonitorLifecycle(id: number, lifecycle: MonitorTarget["lifecycle"], now: number): void {
+  exec(`UPDATE monitor_targets SET lifecycle=${sqlString(lifecycle)}, enabled=${sqlBool(lifecycle !== "retired")}, updated_at=${sqlNumber(now)} WHERE id=${sqlNumber(id)};`);
+}
+
+export function getMonitoringPerformance(limit = 200) {
+  return getMonitorTargets({ limit: 2000 }).map((target) => ({
+    ...target,
+    hitYield: target.uniqueResults ? target.hits / target.uniqueResults : null,
+    duplicateRate: target.results ? target.duplicates / target.results : null,
+    falsePositiveRate: target.reviewed ? target.falsePositives / target.reviewed : null,
+    medianLeadSeconds: target.hits ? Math.round(target.leadTimeTotal / target.hits) : null,
+  })).sort((left, right) => right.runs - left.runs || right.lastResultAt - left.lastResultAt || left.id - right.id).slice(0, Math.max(1, Math.min(2000, limit)));
 }
 
 export function getSourceRights(handle: string): SourceConfig["rightsStatus"] {
@@ -1624,10 +1914,16 @@ export function candidates(limit = 12, now = Math.floor(Date.now() / 1000)): Rec
 
 export function hasPublishedCluster(clusterKey: string, accountId?: number): boolean {
   if (accountId) {
-    return criticalRows<{ count: number }>(`SELECT COUNT(*) AS count FROM publications
-      INNER JOIN opportunity_clusters ON opportunity_clusters.id=publications.cluster_id
+    return criticalRows<{ count: number }>(`SELECT (
+      SELECT COUNT(*) FROM publications INNER JOIN opportunity_clusters ON opportunity_clusters.id=publications.cluster_id
       WHERE opportunity_clusters.cluster_key=${sqlString(clusterKey)} AND publications.account_id=${sqlNumber(accountId)}
-        AND publications.status IN ('pending_reconciliation','confirmed');`)[0]?.count > 0;
+        AND publications.status IN ('pending_reconciliation','confirmed')
+    ) + (
+      SELECT COUNT(*) FROM publication_intents INNER JOIN drafts ON drafts.id=publication_intents.draft_id
+      INNER JOIN observed_posts ON observed_posts.external_id=drafts.external_id
+      WHERE observed_posts.cluster_key=${sqlString(clusterKey)} AND publication_intents.account_id=${sqlNumber(accountId)}
+        AND publication_intents.status IN ('pending_approval','approved','dispatching','xuse_queued','pending_reconciliation','reconciliation_required')
+    ) AS count;`)[0]?.count > 0;
   }
   return criticalRows<{ count: number }>(`SELECT COUNT(*) as count FROM observed_posts
     WHERE cluster_key=${sqlString(clusterKey)} AND publish_status IN ('pending_reconciliation','confirmed');`)[0]?.count > 0;
@@ -1978,11 +2274,16 @@ const POST_COLUMNS = `SELECT
     raw_json as rawJson, score, score_reason as scoreReason, sensitive, cluster_key as clusterKey,
     observed_at as observedAt, draft_text as draftText, draft_status as draftStatus, publish_status as publishStatus
     FROM observed_posts`;
+const MARKET_POST_COLUMNS = POST_COLUMNS.replace("raw_json as rawJson", "'' as rawJson");
 
-function selectPosts(where: string, orderBy: string, limit?: number): RecentPost[] {
+function selectPosts(where: string, orderBy: string, limit?: number, columns = POST_COLUMNS): RecentPost[] {
   const whereSql = where ? ` WHERE ${where}` : "";
   const limitSql = limit === undefined ? "" : ` LIMIT ${sqlNumber(limit)}`;
-  return rows<RecentPost>(`${POST_COLUMNS}${whereSql} ORDER BY ${orderBy}${limitSql};`);
+  return rows<RecentPost>(`${columns}${whereSql} ORDER BY ${orderBy}${limitSql};`);
+}
+
+function selectMarketPosts(where: string, orderBy: string, limit?: number): RecentPost[] {
+  return selectPosts(where, orderBy, limit, MARKET_POST_COLUMNS);
 }
 
 export function getRecentPosts(limit = 15): RecentPost[] {
@@ -2329,7 +2630,6 @@ export function getStoredSources(): SourceConfig[] {
     maxPosts: source.max_posts,
     rightsStatus: source.rights_status === "cleared" || source.rights_status === "prohibited" ? source.rights_status : "unknown",
     profile: parseObject(source.profile_json),
-    feedUrl: `https://api.fxtwitter.com/2/profile/${encodeURIComponent(source.handle)}/statuses`,
   }));
 }
 
@@ -2355,11 +2655,23 @@ export function sourceWasDeletedSince(handle: string, since: number): boolean {
     WHERE handle=${sqlString(handle)} AND event='deleted' AND created_at >= ${sqlNumber(since)};`)[0]?.count || 0) > 0;
 }
 
-export function getDeletedSources(limit = 100): DeletedSource[] {
+function isTechnicalSourceWarning(reason: string): boolean {
+  return /(?:feed )?profil kimliği (?:eşleşmedi|doğrulanamadı)|profil 404/iu.test(reason);
+}
+
+function latestSourceEvents(events: string, limit: number): DeletedSource[] {
   return rows<DeletedSource>(`SELECT handle, score, reason, model, created_at as deletedAt
-    FROM source_events AS deleted WHERE event='deleted'
-    AND id = (SELECT MAX(latest.id) FROM source_events AS latest WHERE latest.handle=deleted.handle)
+    FROM source_events AS candidate WHERE event IN (${events})
+    AND id = (SELECT MAX(latest.id) FROM source_events AS latest WHERE latest.handle=candidate.handle)
     ORDER BY created_at DESC LIMIT ${sqlNumber(limit)};`);
+}
+
+export function getDeletedSources(limit = 100): DeletedSource[] {
+  return latestSourceEvents("'deleted'", limit).filter((item) => !isTechnicalSourceWarning(item.reason));
+}
+
+export function getTechnicalSourceWarnings(limit = 100): DeletedSource[] {
+  return latestSourceEvents("'deleted', 'identity_warning'", limit).filter((item) => isTechnicalSourceWarning(item.reason));
 }
 
 export function sourceFeedbackScore(handle: string): number | null {
@@ -2742,6 +3054,14 @@ export function competitorFeedbackDue(now: number): Array<{ externalId: string; 
   }).filter((post) => post.milestones.length > 0).slice(0, 30);
 }
 
+function marketDecisionFor(post: RecentPost, now: number): MarketDecision {
+  if (post.sensitive) return "sensitive";
+  if (post.publishStatus === "confirmed" || post.publishStatus === "pending_reconciliation") return "processed";
+  if (post.createdTimestamp <= 0 || post.createdTimestamp > now + 300 || now - post.createdTimestamp > OPPORTUNITY_MAX_AGE_SECONDS) return "expired";
+  if (scoreEvidenceFor(post.scoreReason, post.score).kind !== "deterministic") return "not_eligible_evidence";
+  return opportunityScoreForPost(post, now) >= 70 ? "opportunity" : "below_threshold";
+}
+
 function toMarketItem(post: RecentPost, now = Math.floor(Date.now() / 1000)): MarketItem {
     const engagement = observedEngagement(post);
     const marketStatus = post.publishStatus === "confirmed"
@@ -2761,13 +3081,14 @@ function toMarketItem(post: RecentPost, now = Math.floor(Date.now() / 1000)): Ma
       score: opportunityScoreForPost(post, now),
       momentum,
       freshness,
-      velocity: Math.min(100, Math.round(Math.log10(engagement.velocity + 1) * 22)),
+      velocity: Math.round(engagement.velocity),
       relevance: Math.round(post.score),
       risk: post.sensitive ? 100 : scoreEvidence.risk,
       engagementRate: engagement.rate,
       engagements: Math.round(engagement.engagements),
       hit: isNumericalHit(scoreEvidence.momentum, post.createdTimestamp, scoreEvidence.risk),
       marketStatus,
+      decision: marketDecisionFor(post, now),
       scoreEvidence,
     };
 }
@@ -2778,11 +3099,32 @@ export function getMarketItems(limit = 50): MarketItem[] {
 
 export function getOpportunityItems(limit?: number): MarketItem[] {
   const now = Math.floor(Date.now() / 1000);
-  return selectPosts(opportunityWhere(now), "created_timestamp DESC")
+  return selectMarketPosts(opportunityWhere(now), "created_timestamp DESC")
     .map((post) => toMarketItem(post, now))
-    .filter((post) => post.scoreEvidence.kind === "deterministic" && post.score >= 70)
+    .filter((post) => post.decision === "opportunity")
     .sort((left, right) => right.score - left.score || right.observedAt - left.observedAt)
     .slice(0, limit);
+}
+
+export function getMarketInbox(input: { view?: MarketView; limit?: number; offset?: number; now?: number } = {}): MarketInbox {
+  const now = input.now ?? Math.floor(Date.now() / 1000);
+  const view = MARKET_VIEWS.includes(input.view as MarketView) ? input.view as MarketView : "opportunities";
+  const limit = Math.max(1, Math.min(100, Math.floor(input.limit || 50)));
+  const offset = Math.max(0, Math.floor(input.offset || 0));
+  const observed = selectMarketPosts(`observed_at >= ${sqlNumber(now - OPPORTUNITY_MAX_AGE_SECONDS)}`, "observed_at DESC, id ASC")
+    .map((post) => toMarketItem(post, now));
+  const counts = {
+    opportunities: observed.filter((item) => item.decision === "opportunity").length,
+    observed: observed.filter((item) => item.decision !== "sensitive").length,
+    rejected: observed.filter((item) => item.decision === "below_threshold" || item.decision === "expired" || item.decision === "not_eligible_evidence").length,
+    sensitive: observed.filter((item) => item.decision === "sensitive").length,
+  };
+  const items = observed.filter((item) => {
+    if (view === "opportunities") return item.decision === "opportunity";
+    if (view === "rejected") return item.decision === "below_threshold" || item.decision === "expired" || item.decision === "not_eligible_evidence";
+    return view === "sensitive" ? item.decision === "sensitive" : item.decision !== "sensitive";
+  });
+  return { items: items.slice(offset, offset + limit), total: items.length, counts };
 }
 
 export function opportunityCount(now = Math.floor(Date.now() / 1000)): number {
@@ -2888,6 +3230,113 @@ export function getDrafts(limit = 100): DraftRecord[] {
 
 export function getDraft(id: number): DraftRecord | null {
   return getDrafts(200).find((draft) => draft.id === id) || null;
+}
+
+type PublicationIntentRow = {
+  id: number; draft_id: number; account_id: number; handle: string | null; status: PublicationIntentStatus;
+  idempotency_key: string; text: string; media_path: string; media_hash: string; xuse_queue_id: string;
+  receipt: string; remote_url: string; reason: string; requested_at: number; approved_at: number | null;
+  dispatched_at: number | null; confirmed_at: number | null; updated_at: number;
+};
+
+function publicationIntent(row: PublicationIntentRow): PublicationIntent {
+  return {
+    id: row.id, draftId: row.draft_id, accountId: row.account_id, accountHandle: row.handle || "",
+    status: row.status, idempotencyKey: row.idempotency_key, text: row.text, mediaPath: row.media_path,
+    mediaHash: row.media_hash, xuseQueueId: row.xuse_queue_id, receipt: row.receipt, remoteUrl: row.remote_url,
+    reason: row.reason, requestedAt: row.requested_at, approvedAt: row.approved_at,
+    dispatchedAt: row.dispatched_at, confirmedAt: row.confirmed_at, updatedAt: row.updated_at,
+  };
+}
+
+export function getPublicationIntents(input: { status?: PublicationIntentStatus; limit?: number } = {}): PublicationIntent[] {
+  return rows<PublicationIntentRow>(`SELECT publication_intents.*, accounts.handle FROM publication_intents
+    LEFT JOIN accounts ON accounts.id=publication_intents.account_id
+    ${input.status ? `WHERE publication_intents.status=${sqlString(input.status)}` : ""}
+    ORDER BY publication_intents.requested_at ASC, publication_intents.id ASC
+    LIMIT ${sqlNumber(Math.max(1, Math.min(500, input.limit || 100)))};`).map(publicationIntent);
+}
+
+export function getPublicationIntent(id: number): PublicationIntent | null {
+  const row = rows<PublicationIntentRow>(`SELECT publication_intents.*, accounts.handle FROM publication_intents
+    LEFT JOIN accounts ON accounts.id=publication_intents.account_id
+    WHERE publication_intents.id=${sqlNumber(id)} LIMIT 1;`)[0];
+  return row ? publicationIntent(row) : null;
+}
+
+export function createPublicationIntent(input: { draftId: number; accountId: number; idempotencyKey: string; text: string; mediaPath?: string; mediaHash?: string; now: number }): PublicationIntent {
+  const draft = getDraft(input.draftId);
+  const account = getAccounts().find((item) => item.id === input.accountId);
+  if (!draft || !account) throw new Error("publication intent için draft ve hesap gerekli");
+  const existing = rows<{ id: number }>(`SELECT id FROM publication_intents WHERE idempotency_key=${sqlString(input.idempotencyKey)} LIMIT 1;`)[0];
+  if (existing) return getPublicationIntent(existing.id)!;
+  exec(`INSERT INTO publication_intents (
+      draft_id, account_id, status, idempotency_key, text, media_path, media_hash, requested_at, updated_at
+    ) VALUES (
+      ${sqlNumber(input.draftId)}, ${sqlNumber(input.accountId)}, 'pending_approval', ${sqlString(input.idempotencyKey)},
+      ${sqlString(input.text.slice(0, 280))}, ${sqlString(input.mediaPath || "")}, ${sqlString(input.mediaHash || "")},
+      ${sqlNumber(input.now)}, ${sqlNumber(input.now)}
+    );`);
+  const intent = rows<{ id: number }>(`SELECT id FROM publication_intents WHERE idempotency_key=${sqlString(input.idempotencyKey)} LIMIT 1;`)[0];
+  if (!intent) throw new Error("publication intent oluşturulamadı");
+  return getPublicationIntent(intent.id)!;
+}
+
+export function updatePublicationIntent(input: {
+  id: number; status: PublicationIntentStatus; reason?: string; xuseQueueId?: string; receipt?: string; remoteUrl?: string;
+  approvedAt?: number | null; dispatchedAt?: number | null; confirmedAt?: number | null; now: number;
+}): PublicationIntent | null {
+  const current = getPublicationIntent(input.id);
+  if (!current) return null;
+  exec(`UPDATE publication_intents SET status=${sqlString(input.status)}, reason=${sqlString(input.reason ?? current.reason)},
+    xuse_queue_id=${sqlString(input.xuseQueueId ?? current.xuseQueueId)}, receipt=${sqlString(input.receipt ?? current.receipt)},
+    remote_url=${sqlString(input.remoteUrl ?? current.remoteUrl)},
+    approved_at=${input.approvedAt === undefined ? "approved_at" : input.approvedAt === null ? "NULL" : sqlNumber(input.approvedAt)},
+    dispatched_at=${input.dispatchedAt === undefined ? "dispatched_at" : input.dispatchedAt === null ? "NULL" : sqlNumber(input.dispatchedAt)},
+    confirmed_at=${input.confirmedAt === undefined ? "confirmed_at" : input.confirmedAt === null ? "NULL" : sqlNumber(input.confirmedAt)},
+    updated_at=${sqlNumber(input.now)} WHERE id=${sqlNumber(input.id)};`);
+  return getPublicationIntent(input.id);
+}
+
+export function syncIntentPublication(intentId: number, now: number): void {
+  const intent = getPublicationIntent(intentId);
+  if (!intent || intent.status !== "confirmed") return;
+  const draft = getDraft(intent.draftId);
+  if (!draft) return;
+  const clusterKeyValue = draft.externalId ? getPost(draft.externalId)?.clusterKey || `draft:${draft.id}` : `draft:${draft.id}`;
+  command(`INSERT INTO opportunity_clusters (cluster_key, first_seen_at, last_seen_at)
+    VALUES (${sqlString(clusterKeyValue)}, ${sqlNumber(now)}, ${sqlNumber(now)}) ON CONFLICT(cluster_key) DO UPDATE SET last_seen_at=excluded.last_seen_at;`);
+  const cluster = criticalRows<{ id: number }>(`SELECT id FROM opportunity_clusters WHERE cluster_key=${sqlString(clusterKeyValue)} LIMIT 1;`)[0];
+  if (!cluster) throw new Error("publication cluster oluşturulamadı");
+  if (draft.externalId) command(`INSERT OR IGNORE INTO cluster_observations (cluster_id, post_external_id, observed_at) VALUES (${sqlNumber(cluster.id)}, ${sqlString(draft.externalId)}, ${sqlNumber(now)});`);
+  command(`INSERT INTO account_opportunities (cluster_id, account_id, status, created_at, updated_at)
+    VALUES (${sqlNumber(cluster.id)}, ${sqlNumber(intent.accountId)}, 'confirmed', ${sqlNumber(now)}, ${sqlNumber(now)})
+    ON CONFLICT(cluster_id, account_id) DO UPDATE SET status='confirmed', updated_at=excluded.updated_at;`);
+  const opportunity = criticalRows<{ id: number }>(`SELECT id FROM account_opportunities WHERE cluster_id=${sqlNumber(cluster.id)} AND account_id=${sqlNumber(intent.accountId)} LIMIT 1;`)[0];
+  if (!opportunity) throw new Error("publication opportunity oluşturulamadı");
+  const remoteId = remotePostId(intent.remoteUrl);
+  command(`INSERT INTO publications (
+      cluster_id, account_opportunity_id, account_id, source_observation_external_id, remote_post_id, remote_url,
+      status, requested_at, confirmed_at, draft_id, publication_intent_id
+    ) VALUES (
+      ${sqlNumber(cluster.id)}, ${sqlNumber(opportunity.id)}, ${sqlNumber(intent.accountId)}, ${sqlString(draft.externalId)},
+      ${sqlString(remoteId)}, ${sqlString(intent.remoteUrl)}, 'confirmed', ${sqlNumber(intent.requestedAt)}, ${sqlNumber(now)},
+      ${sqlNumber(draft.id)}, ${sqlNumber(intent.id)}
+    ) ON CONFLICT(account_opportunity_id) DO UPDATE SET remote_post_id=excluded.remote_post_id, remote_url=excluded.remote_url,
+      status='confirmed', confirmed_at=excluded.confirmed_at, draft_id=excluded.draft_id, publication_intent_id=excluded.publication_intent_id;`);
+}
+
+export function confirmPublicationIntentAttempt(intentId: number, now: number): void {
+  const intent = getPublicationIntent(intentId);
+  if (!intent) return;
+  const draft = getDraft(intent.draftId);
+  const externalId = draft?.externalId || `intent:${intent.id}`;
+  const attempt = rows<{ id: number }>(`SELECT id FROM publish_attempts
+    WHERE post_external_id=${sqlString(externalId)} AND account_id=${sqlNumber(intent.accountId)}
+      AND status='pending_reconciliation' ORDER BY id DESC LIMIT 1;`)[0];
+  if (!attempt) return;
+  exec(`UPDATE publish_attempts SET status='confirmed', reason='FxTwitter reconciliation confirmed', updated_at=${sqlNumber(now)}
+    WHERE id=${sqlNumber(attempt.id)};`);
 }
 
 export function createDraft(input: {
@@ -3196,152 +3645,6 @@ export function getUsageSummary(since = 0): {
   };
 }
 
-export function createChatSession(title = "Yeni konuşma", now = Math.floor(Date.now() / 1000)): ChatSession {
-  const id = `chat_${randomUUID()}`;
-  exec(`INSERT INTO chat_sessions (id, title, created_at, updated_at)
-    VALUES (${sqlString(id)}, ${sqlString(title.slice(0, 80))}, ${sqlNumber(now)}, ${sqlNumber(now)});`);
-  return getChatSession(id)!;
-}
-
-export function getChatSessions(limit = 20): ChatSession[] {
-  return rows<ChatSession>(`SELECT id, title, created_at as createdAt, updated_at as updatedAt
-    FROM chat_sessions ORDER BY updated_at DESC LIMIT ${sqlNumber(limit)};`);
-}
-
-export function getChatSession(id: string): ChatSession | null {
-  return rows<ChatSession>(`SELECT id, title, created_at as createdAt, updated_at as updatedAt
-    FROM chat_sessions WHERE id=${sqlString(id)} LIMIT 1;`)[0] || null;
-}
-
-export function createChatMessage(input: {
-  sessionId: string;
-  role: ChatMessage["role"];
-  content: string;
-  intent?: Record<string, unknown> | null;
-  now: number;
-}): ChatMessage {
-  exec(`INSERT INTO chat_messages (session_id, role, content, intent_json, created_at)
-    VALUES (${sqlString(input.sessionId)}, ${sqlString(input.role)}, ${sqlString(input.content)},
-      ${sqlString(input.intent ? JSON.stringify(input.intent) : "")}, ${sqlNumber(input.now)});
-    UPDATE chat_sessions SET updated_at=${sqlNumber(input.now)} WHERE id=${sqlString(input.sessionId)};`);
-  const row = rows<{
-    id: number;
-    session_id: string;
-    role: string;
-    content: string;
-    intent_json: string;
-    created_at: number;
-  }>(`SELECT id, session_id, role, content, intent_json, created_at FROM chat_messages
-      WHERE session_id=${sqlString(input.sessionId)} ORDER BY id DESC LIMIT 1;`)[0];
-  if (!row) throw new Error("chat message could not be created");
-  return {
-    id: row.id,
-    sessionId: row.session_id,
-    role: row.role === "assistant" || row.role === "system" ? row.role : "user",
-    content: row.content,
-    intent: row.intent_json ? parseObject(row.intent_json) : null,
-    createdAt: row.created_at,
-  };
-}
-
-export function getChatMessages(sessionId: string, limit = 100): ChatMessage[] {
-  return rows<{
-    id: number;
-    session_id: string;
-    role: string;
-    content: string;
-    intent_json: string;
-    created_at: number;
-  }>(`SELECT id, session_id, role, content, intent_json, created_at FROM chat_messages
-      WHERE session_id=${sqlString(sessionId)} ORDER BY created_at ASC, id ASC LIMIT ${sqlNumber(limit)};`).map((row) => ({
-    id: row.id,
-    sessionId: row.session_id,
-    role: row.role === "assistant" || row.role === "system" ? row.role : "user",
-    content: row.content,
-    intent: row.intent_json ? parseObject(row.intent_json) : null,
-    createdAt: row.created_at,
-  }));
-}
-
-export function createChatAction(input: {
-  sessionId: string;
-  messageId: number;
-  kind: string;
-  payload: Record<string, unknown>;
-  status?: string;
-  reason?: string;
-  now: number;
-}): ChatAction {
-  exec(`INSERT INTO chat_actions (session_id, message_id, kind, payload_json, status, reason, created_at)
-    VALUES (${sqlString(input.sessionId)}, ${sqlNumber(input.messageId)}, ${sqlString(input.kind)},
-      ${sqlString(JSON.stringify(input.payload))}, ${sqlString(input.status || "pending_confirmation")},
-      ${sqlString(input.reason || "")}, ${sqlNumber(input.now)});`);
-  return getChatActions(input.sessionId, 1)[0];
-}
-
-export function getChatActions(sessionId: string, limit = 100): ChatAction[] {
-  return rows<{
-    id: number;
-    session_id: string;
-    message_id: number;
-    kind: string;
-    payload_json: string;
-    status: string;
-    reason: string;
-    created_at: number;
-    executed_at: number | null;
-  }>(`SELECT id, session_id, message_id, kind, payload_json, status, reason, created_at, executed_at
-      FROM chat_actions WHERE session_id=${sqlString(sessionId)} ORDER BY id DESC LIMIT ${sqlNumber(limit)};`).map((row) => ({
-    id: row.id,
-    sessionId: row.session_id,
-    messageId: row.message_id,
-    kind: row.kind,
-    payload: parseObject(row.payload_json),
-    status: row.status,
-    reason: row.reason,
-    createdAt: row.created_at,
-    executedAt: row.executed_at,
-  }));
-}
-
-export function getChatAction(id: number): ChatAction | null {
-  return getChatActionsById(id)[0] || null;
-}
-
-function getChatActionsById(id: number): ChatAction[] {
-  return rows<{
-    id: number;
-    session_id: string;
-    message_id: number;
-    kind: string;
-    payload_json: string;
-    status: string;
-    reason: string;
-    created_at: number;
-    executed_at: number | null;
-  }>(`SELECT id, session_id, message_id, kind, payload_json, status, reason, created_at, executed_at
-      FROM chat_actions WHERE id=${sqlNumber(id)} LIMIT 1;`).map((row) => ({
-    id: row.id,
-    sessionId: row.session_id,
-    messageId: row.message_id,
-    kind: row.kind,
-    payload: parseObject(row.payload_json),
-    status: row.status,
-    reason: row.reason,
-    createdAt: row.created_at,
-    executedAt: row.executed_at,
-  }));
-}
-
-export function updateChatAction(input: { id: number; status: string; reason?: string; now: number }): ChatAction | null {
-  const current = getChatAction(input.id);
-  if (!current) return null;
-  const executedAt = ["executed", "rejected", "failed"].includes(input.status) ? sqlNumber(input.now) : "NULL";
-  exec(`UPDATE chat_actions SET status=${sqlString(input.status)}, reason=${sqlString(input.reason || current.reason)},
-      executed_at=${executedAt} WHERE id=${sqlNumber(input.id)};`);
-  return getChatAction(input.id);
-}
-
 export function getSecretCiphertext(name: string): { provider: string; ciphertext: string; updatedAt: number } | null {
   const secret = rows<{ provider: string; ciphertext: string; updated_at: number }>(
     `SELECT provider, ciphertext, updated_at FROM secrets WHERE name=${sqlString(name)} LIMIT 1;`,
@@ -3432,6 +3735,7 @@ export function saveWritingStyleSettings(input: WritingStyleSettings, now: numbe
 }
 
 const AUTOMATION_DEFAULTS: Array<{ id: AutomationTaskId; intervalSeconds: number }> = [
+  { id: "monitor_engine", intervalSeconds: 15 },
   { id: "source_scan", intervalSeconds: 300 },
   { id: "source_liveness", intervalSeconds: 86400 },
   { id: "queue_worker", intervalSeconds: 300 },
@@ -3457,7 +3761,8 @@ export function getAutomationSchedules(now = Math.floor(Date.now() / 1000)): Aut
 
 export function saveAutomationSchedule(input: { id: AutomationTaskId; enabled: boolean; intervalSeconds: number; nextRunAt: number; now: number }): AutomationTaskSchedule {
   if (!AUTOMATION_TASK_IDS.includes(input.id)) throw new Error("bilinmeyen otomasyon görevi");
-  if (!Number.isInteger(input.intervalSeconds) || input.intervalSeconds < 60 || input.intervalSeconds > 30 * 86400) throw new Error("periyot 60 saniye ile 30 gün arasında olmalı");
+  const minimum = input.id === "monitor_engine" ? 15 : 60;
+  if (!Number.isInteger(input.intervalSeconds) || input.intervalSeconds < minimum || input.intervalSeconds > 30 * 86400) throw new Error(`periyot ${minimum} saniye ile 30 gün arasında olmalı`);
   if (!Number.isInteger(input.nextRunAt) || input.nextRunAt <= 0) throw new Error("geçerli sonraki çalışma tarihi gerekli");
   const schedules = getAutomationSchedules(input.now).map((item) => item.id === input.id ? { ...item, enabled: input.enabled, intervalSeconds: input.intervalSeconds, nextRunAt: input.nextRunAt, updatedAt: input.now } : item);
   setSetting("automation_schedules", JSON.stringify(schedules), input.now);
@@ -3730,6 +4035,7 @@ export function getAnalytics(input: { accountId?: number; rangeDays?: 7 | 14 } =
     rangeDays,
     selectedAccountId,
     accountDetail,
+    monitoring: getMonitoringPerformance(100),
     verificationBarometer,
     algorithmReference,
   };

@@ -70,9 +70,10 @@ function verificationClass(status: SourceConfig["profile"]["blueCheckStatus"]): 
 
 type IdeologyOption = { id: string; name: { en: string; tr: string } };
 
-export function SourcesPage({ initial, initialDeleted, ideologies }: { initial: SourceConfig[]; initialDeleted: DeletedSource[]; ideologies: IdeologyOption[] }) {
+export function SourcesPage({ initial, initialDeleted, initialWarnings, ideologies }: { initial: SourceConfig[]; initialDeleted: DeletedSource[]; initialWarnings: DeletedSource[]; ideologies: IdeologyOption[] }) {
   const [sources, setSources] = useState(initial);
   const [deleted, setDeleted] = useState<DeletedSource[]>(initialDeleted);
+  const [warnings, setWarnings] = useState<DeletedSource[]>(initialWarnings);
   const [ideologyFilter, setIdeologyFilter] = useState("all");
   const firstSource = initial.find((source) => source.profile.status !== "candidate") || initial[0];
   const [draft, setDraft] = useState<SourceDraft>(firstSource ? draftFrom(firstSource) : blankSource());
@@ -85,6 +86,7 @@ export function SourcesPage({ initial, initialDeleted, ideologies }: { initial: 
     const next = await fetch("/api/sources", { cache: "no-store" }).then((response) => response.json() as Promise<SourceConfig[]>);
     setSources(next);
     setDeleted(await fetch("/api/sources?view=deleted", { cache: "no-store" }).then((response) => response.json() as Promise<DeletedSource[]>));
+    setWarnings(await fetch("/api/sources?view=warnings", { cache: "no-store" }).then((response) => response.json() as Promise<DeletedSource[]>));
     return next;
   }
 
@@ -137,16 +139,14 @@ export function SourcesPage({ initial, initialDeleted, ideologies }: { initial: 
     setMessage(`${body.checked || 0} hesap kontrol edildi: ${body.alive || 0} canlı, ${body.deleted || 0} silindi, ${body.unreachable || 0} erişilemedi, ${body.identityWarnings || 0} kimlik uyarısı.`);
   }
 
-  async function restore(item: DeletedSource) {
+  async function recoverTechnical() {
     setScanning(true);
-    const response = await fetch("/api/sources", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "restore_deleted", handle: item.handle, name: item.handle }) });
+    const response = await fetch("/api/sources", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "recover_technical" }) });
     const body = await response.json().catch(() => ({}));
     setScanning(false);
-    if (!response.ok) return setMessage(body.error || "Kaynak otomatik geri alınamadı.");
-    const next = await reload();
-    const restored = next.find((source) => source.handle === item.handle);
-    if (restored) setDraft(draftFrom(restored));
-    setMessage(`@${item.handle} kaynak havuzuna geri alındı ve sabitlendi.`);
+    if (!response.ok) return setMessage(body.error || "Teknik kaynak kurtarma çalışmadı.");
+    await reload();
+    setMessage(`${body.recovered || 0} kaynak geri alındı; ${body.unresolved || 0} kayıt yeniden doğrulama bekliyor.`);
   }
 
   const active = sources.filter((source) => source.profile.status !== "candidate");
@@ -223,13 +223,14 @@ export function SourcesPage({ initial, initialDeleted, ideologies }: { initial: 
           <CardHeader className="flex-row items-start justify-between gap-3">
           <div>
             <CardTitle>Kaynak havuzu</CardTitle>
-            <CardDescription>{active.length} aktif · {candidates.length} keşif adayı · AI düşük kaynakları üç turda eler.</CardDescription>
+            <CardDescription>{active.length} aktif · {candidates.length} keşif adayı · Kimlik/transport hatası uyarıdır, eleme değildir.</CardDescription>
           </div>
           <div className="flex gap-2">
             <Button size="icon" variant="outline" onClick={discover} disabled={scanning} aria-label="Yeni kaynakları keşfet" title="Yeni kaynakları keşfet">
               {scanning ? <Spinner /> : <ScanSearch aria-hidden="true" />}
             </Button>
             <Button size="icon" variant="outline" onClick={checkLiveness} disabled={scanning} aria-label="Kaynak hesaplarının canlılığını kontrol et" title="Kaynak canlılığını kontrol et">{scanning ? <Spinner /> : <UserRoundCheck aria-hidden="true" />}</Button>
+            <Button size="icon" variant="outline" onClick={recoverTechnical} disabled={scanning || warnings.length === 0} aria-label="Teknik hatayla elenen kaynakları geri al" title="Teknik hatayla elenen kaynakları geri al"><RotateCcw aria-hidden="true" /></Button>
             <Button size="icon" variant="outline" onClick={() => setDraft(blankSource())} aria-label="Yeni kaynak"><Plus aria-hidden="true" /></Button>
           </div>
         </CardHeader>
@@ -244,12 +245,16 @@ export function SourcesPage({ initial, initialDeleted, ideologies }: { initial: 
             <TabsList variant="line">
               <TabsTrigger value="active">Aktif <Badge variant="outline">{active.length}</Badge></TabsTrigger>
               <TabsTrigger value="candidates">Adaylar <Badge variant="outline">{candidates.length}</Badge></TabsTrigger>
-              <TabsTrigger value="deleted">Elenen <Badge variant="outline">{deleted.length}</Badge></TabsTrigger>
+              <TabsTrigger value="warnings">Teknik uyarılar <Badge variant="outline">{warnings.length}</Badge></TabsTrigger>
+              <TabsTrigger value="deleted">Kaldırılan <Badge variant="outline">{deleted.length}</Badge></TabsTrigger>
             </TabsList>
             <TabsContent value="active" className="flex flex-col gap-2 pt-3">{sourceList(active)}</TabsContent>
             <TabsContent value="candidates" className="flex flex-col gap-2 pt-3">{sourceList(candidates)}</TabsContent>
+            <TabsContent value="warnings" className="flex flex-col gap-2 pt-3">
+              {warnings.length ? warnings.map((item) => <div key={`${item.handle}-${item.deletedAt}`} className="rounded-lg border border-dashed p-3 text-sm"><div className="font-medium">@{item.handle}</div><div className="text-xs text-muted-foreground">{item.reason}</div></div>) : <Empty className="border border-dashed py-8"><EmptyHeader><EmptyTitle>Teknik uyarı yok</EmptyTitle><EmptyDescription>Kimlik ve transport hataları burada görünür; kaynak silinmez.</EmptyDescription></EmptyHeader></Empty>}
+            </TabsContent>
             <TabsContent value="deleted" className="flex flex-col gap-2 pt-3">
-              {deleted.length ? deleted.map((item) => { const identityMismatch = /(?:feed )?profil kimliği (?:eşleşmedi|doğrulanamadı)/iu.test(item.reason); return <div key={`${item.handle}-${item.deletedAt}`} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-dashed p-3 text-sm"><div><div className="font-medium">@{item.handle}</div><div className="text-xs text-muted-foreground">Skor {item.score} · {item.reason || "düşük kalite"}</div></div>{identityMismatch ? <Button size="sm" variant="outline" onClick={() => restore(item)} disabled={scanning}><RotateCcw data-icon="inline-start" aria-hidden="true" /> Oto düzelt</Button> : null}</div>; }) : <Empty className="border border-dashed py-8"><EmptyHeader><EmptyTitle>Elenen kaynak yok</EmptyTitle><EmptyDescription>AI veya manuel silme kayıtları burada tutulur.</EmptyDescription></EmptyHeader></Empty>}
+              {deleted.length ? deleted.map((item) => <div key={`${item.handle}-${item.deletedAt}`} className="rounded-lg border border-dashed p-3 text-sm"><div className="font-medium">@{item.handle}</div><div className="text-xs text-muted-foreground">Skor {item.score} · {item.reason || "manuel kaldırma"}</div></div>) : <Empty className="border border-dashed py-8"><EmptyHeader><EmptyTitle>Kaldırılan kaynak yok</EmptyTitle><EmptyDescription>Manuel silmeler burada tutulur.</EmptyDescription></EmptyHeader></Empty>}
             </TabsContent>
           </Tabs>
         </CardContent>

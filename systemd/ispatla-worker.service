@@ -1,0 +1,16 @@
+[Unit]
+Description=Ispatla adaptive monitoring and publication worker
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/Documents/makavelli/Ispatla
+Environment=PATH=%h/.bun/bin:/usr/local/bin:/usr/bin
+EnvironmentFile=-%h/.config/ispatla/worker.env
+ExecStart=/usr/bin/flock -n %t/ispatla-worker.lock %h/.bun/bin/bun run automation:worker
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=default.target

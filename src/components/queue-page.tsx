@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Ban, Play, RefreshCw, RotateCcw } from "lucide-react";
-import type { AutomationJob } from "@/server/db";
+import type { AutomationJob, PublicationIntent } from "@/server/db";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -19,13 +19,28 @@ function time(value: number) {
   return value ? new Intl.DateTimeFormat("tr-TR", { dateStyle: "short", timeStyle: "short" }).format(value * 1000) : "—";
 }
 
-export function QueuePage({ initial }: { initial: AutomationJob[] }) {
+export function QueuePage({ initial, initialIntents }: { initial: AutomationJob[]; initialIntents: PublicationIntent[] }) {
   const [jobs, setJobs] = useState(initial);
+  const [intents, setIntents] = useState(initialIntents);
   const [message, setMessage] = useState("");
   const [pending, setPending] = useState(0);
 
   async function reload() {
-    setJobs(await fetch("/api/queue", { cache: "no-store" }).then((response) => response.json() as Promise<AutomationJob[]>));
+    const [nextJobs, nextIntents] = await Promise.all([
+      fetch("/api/queue", { cache: "no-store" }).then((response) => response.json() as Promise<AutomationJob[]>),
+      fetch("/api/publications", { cache: "no-store" }).then((response) => response.json() as Promise<PublicationIntent[]>),
+    ]);
+    setJobs(nextJobs);
+    setIntents(nextIntents);
+  }
+
+  async function actOnIntent(id: number, action: "approve" | "cancel") {
+    setPending(-id);
+    const response = await fetch(`/api/publications/${id}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action }) });
+    const body = await response.json().catch(() => ({}));
+    setPending(0);
+    setMessage(response.ok ? action === "approve" ? "Yayın niyeti onaylandı; worker x-use’a gönderecek." : "Yayın niyeti iptal edildi." : body.error || "Yayın niyeti güncellenemedi.");
+    await reload();
   }
 
   async function run(id: number) {
@@ -72,7 +87,27 @@ export function QueuePage({ initial }: { initial: AutomationJob[] }) {
         </Button>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
-        {jobs.length === 0 ? (
+        {intents.length > 0 && (
+          <div className="flex flex-col gap-3">
+            <h3 className="text-sm font-medium">PublicationIntent</h3>
+            <Table>
+              <TableHeader><TableRow><TableHead>Intent</TableHead><TableHead>Hesap</TableHead><TableHead>Durum</TableHead><TableHead>İstenen</TableHead><TableHead /></TableRow></TableHeader>
+              <TableBody>{intents.map((intent) => (
+                <TableRow key={intent.id}>
+                  <TableCell className="max-w-[520px]"><div className="flex flex-col gap-1"><span className="font-medium">#{intent.id} · draft #{intent.draftId}</span><span className="truncate text-xs text-muted-foreground">{intent.text}</span></div></TableCell>
+                  <TableCell>@{intent.accountHandle}</TableCell>
+                  <TableCell><Badge variant={variant(intent.status)}>{intent.status}</Badge></TableCell>
+                  <TableCell className="whitespace-nowrap text-xs">{time(intent.requestedAt)}</TableCell>
+                  <TableCell><div className="flex justify-end gap-2">
+                    {intent.status === "pending_approval" && <Button size="sm" onClick={() => actOnIntent(intent.id, "approve")} disabled={pending !== 0}>Onayla</Button>}
+                    {["pending_approval", "approved", "blocked"].includes(intent.status) && <Button size="icon" variant="outline" onClick={() => actOnIntent(intent.id, "cancel")} disabled={pending !== 0} aria-label="Yayın niyetini iptal et"><Ban aria-hidden="true" /></Button>}
+                  </div></TableCell>
+                </TableRow>
+              ))}</TableBody>
+            </Table>
+          </div>
+        )}
+        {jobs.length === 0 && intents.length === 0 ? (
           <Empty className="border border-dashed py-10">
             <EmptyHeader>
               <EmptyTitle>Kuyruk boş</EmptyTitle>
@@ -84,7 +119,7 @@ export function QueuePage({ initial }: { initial: AutomationJob[] }) {
               </Button>
             </EmptyContent>
           </Empty>
-        ) : (
+        ) : jobs.length > 0 ? (
           <Table>
             <TableHeader>
               <TableRow>
@@ -137,7 +172,7 @@ export function QueuePage({ initial }: { initial: AutomationJob[] }) {
               ))}
             </TableBody>
           </Table>
-        )}
+        ) : null}
         {message && (
           <Alert>
             <AlertDescription>{message}</AlertDescription>

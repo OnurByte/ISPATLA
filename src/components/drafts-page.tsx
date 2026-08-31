@@ -173,7 +173,7 @@ export function DraftsPage({ initial, accounts, selectedDraftId }: { initial: Dr
     });
     const body = await response.json().catch(() => ({}));
     setPending(false);
-    setMessage(response.ok ? `${body.jobs?.length || 0} hesap işi kuyruğa alındı. Her job ayrı çalıştırılacak.` : body.error || "Batch kuyruğa alınamadı.");
+    setMessage(response.ok ? `${body.intents?.length || 0} yayın onayı ve ${body.jobs?.length || 0} engagement işi hazırlandı.` : body.error || "Batch kuyruğa alınamadı.");
     if (response.ok) {
       await reload();
       setBatchDraftIds([]);

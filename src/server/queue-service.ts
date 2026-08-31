@@ -5,15 +5,16 @@ import {
   getPost,
   getSourceRights,
   getJobs,
-  recordPublishAttempt,
   updateDraft,
   updateJob,
   type AutomationJob,
+  type PublicationIntent,
 } from "./db";
 import { runXUseJob, type XUseAction } from "./xuse";
 import { automationEnabled, downloadMedia, mediaCandidate, qualityGate } from "./pipeline";
+import { createIntentForDraft } from "./publication-service";
 
-export function queueDraftIds(draftIds: number[], now = Math.floor(Date.now() / 1000)): AutomationJob[] {
+export function queueDraftIds(draftIds: number[], now = Math.floor(Date.now() / 1000)): { intents: PublicationIntent[]; jobs: AutomationJob[] } {
   const ids = [...new Set(draftIds)].filter((id) => Number.isInteger(id) && id > 0).slice(0, 100);
   if (!ids.length) throw new Error("En az bir draft seçilmeli");
   const accounts = getAccounts();
@@ -32,11 +33,13 @@ export function queueDraftIds(draftIds: number[], now = Math.floor(Date.now() / 
     if (!account?.xuseAccountId) throw new Error(`draft #${id}: aktif hesap veya x-use account id eşleşmesi yok`);
     return { draft, account };
   });
-  return drafts.map(({ draft }) => {
+  const intents = drafts.filter(({ draft }) => draft.format === "post").map(({ draft, account }) => createIntentForDraft(draft.id, account.id, now));
+  const jobs = drafts.filter(({ draft }) => draft.format !== "post").map(({ draft }) => {
     const job = createJob({ draftId: draft.id, accountId: draft.accountId, action: draft.format, scheduledAt: now, now });
     updateDraft({ id: draft.id, accountId: draft.accountId, status: "queued", now });
     return job;
   });
+  return { intents, jobs };
 }
 
 export async function runDueAutomationJobs(now = Math.floor(Date.now() / 1000), limit = 10): Promise<Array<{ id: number; ok: boolean; reason?: string }>> {
@@ -69,37 +72,26 @@ export async function runAutomationJob(id: number): Promise<{ ok: boolean; job: 
   const now = Math.floor(Date.now() / 1000);
   let mediaPath = "";
   const post = draft.externalId ? getPost(draft.externalId) : null;
-  if (action === "post" && post && getSourceRights(post.sourceHandle) === "cleared") {
+  if (post && getSourceRights(post.sourceHandle) === "cleared") {
     const candidate = mediaCandidate(post);
     if (candidate) {
       try { mediaPath = await downloadMedia(candidate); } catch { mediaPath = ""; }
     }
   }
   updateJob({ id, status: "running", attempts: job.attempts + 1, now });
-  const result = await runXUseJob({ action, account: account.xuseAccountId, profileHandle: action === "post" ? account.handle : undefined, targetUrl: draft.sourceUrl || undefined, text: draft.text, mediaPath: mediaPath || undefined, existingQueueId: job.xuseQueueId || undefined });
+  const result = await runXUseJob({ action, account: account.xuseAccountId, targetUrl: draft.sourceUrl || undefined, text: draft.text, mediaPath: mediaPath || undefined, existingQueueId: job.xuseQueueId || undefined });
   // ponytail: x-use/search_profile is a locator hint, not a publication proof; reconciliation owns confirmation.
   const updated = updateJob({
     id,
-    status: result.ok ? action === "post" ? "pending_reconciliation" : "executed" : "blocked",
+    status: result.ok ? "executed" : "blocked",
     receipt: result.receipt,
     reason: result.reason || "x-use queue çalıştı; reconciliation bekleniyor",
     xuseQueueId: result.queueId || job.xuseQueueId,
     xuseStatus: result.xuseStatus || (result.ok ? "done" : "failed"),
     xuseCheckedAt: Math.floor(Date.now() / 1000),
     remoteUrl: result.remoteUrl || job.remoteUrl,
-    reconciliationStatus: action === "post" && result.ok ? "pending" : result.ok ? "not_applicable" : "failed",
+    reconciliationStatus: result.ok ? "not_applicable" : "failed",
     now: Math.floor(Date.now() / 1000),
   });
-  if (action === "post" && result.ok && draft.externalId && job.reconciliationStatus === "not_started") {
-    recordPublishAttempt({
-      externalId: draft.externalId,
-      accountId: account.id,
-      status: "pending_reconciliation",
-      reason: "queue job x-use tarafından kabul edildi; FxTwitter reconciliation bekleniyor",
-      receipt: result.receipt,
-      remoteUrl: result.remoteUrl,
-      now,
-    });
-  }
   return { ok: result.ok, job: updated, reason: result.reason };
 }

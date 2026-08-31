@@ -41,7 +41,7 @@ test("persists editable automation schedules and redacts automation log secrets"
     console.log(JSON.stringify({ ids: defaults.map((item) => item.id), allDated: defaults.every((item) => item.nextRunAt > 0), saved, log: getAutomationLogs(1)[0] }));
   `);
   const result = JSON.parse(output);
-  expect(result.ids).toEqual(["source_scan", "source_liveness", "queue_worker", "reconciliation"]);
+  expect(result.ids).toEqual(["monitor_engine", "source_scan", "source_liveness", "queue_worker", "reconciliation"]);
   expect(result.allDated).toBe(true);
   expect(result.saved).toMatchObject({ id: "source_scan", enabled: false, intervalSeconds: 600, nextRunAt: 5000 });
   expect(JSON.stringify(result.log)).not.toContain("secret");
@@ -77,6 +77,50 @@ test("does not delete a source when a feed or profile response names another aut
   expect(result.liveness.identityWarnings).toBe(1);
 });
 
+test("keeps a source when the reader reports a missing profile", () => {
+  const output = runIsolatedDatabase(`
+    import { writeFileSync } from "node:fs";
+    import { dirname, join } from "node:path";
+    import { checkSourceLiveness } from "./src/server/pipeline.ts";
+    import { ensureDatabase, getStoredSources } from "./src/server/db.ts";
+    import { loadSources } from "./src/server/sources.ts";
+    if (!ensureDatabase()) throw new Error("database did not initialize");
+    const sourceFile = join(dirname(process.env.ISPATLA_DB!), "sources.json");
+    writeFileSync(sourceFile, JSON.stringify({ sources: [{ handle: "foxnews", name: "Fox News", enabled: true, maxPosts: 20, profile: { origin: "manual", status: "active", pinned: true } }] }));
+    process.env.ISPATLA_SOURCES = sourceFile;
+    loadSources();
+    const previousFetch = globalThis.fetch;
+    globalThis.fetch = (async () => { throw new Error("404 Not Found"); }) as typeof fetch;
+    try {
+      const liveness = await checkSourceLiveness(1000);
+      console.log(JSON.stringify({ liveness, handles: getStoredSources().map((source) => source.handle) }));
+    } finally { globalThis.fetch = previousFetch; }
+  `);
+  expect(JSON.parse(output)).toEqual({
+    liveness: { checked: 1, alive: 0, deleted: 0, unreachable: 1, identityWarnings: 1 },
+    handles: ["foxnews"],
+  });
+});
+
+test("does not delete a candidate merely because discovery evidence is old", () => {
+  const output = runIsolatedDatabase(`
+    import { writeFileSync } from "node:fs";
+    import { dirname, join } from "node:path";
+    import { scanOnce } from "./src/server/pipeline.ts";
+    import { ensureDatabase, getStoredSources } from "./src/server/db.ts";
+    if (!ensureDatabase()) throw new Error("database did not initialize");
+    const sourceFile = join(dirname(process.env.ISPATLA_DB!), "sources.json");
+    writeFileSync(sourceFile, JSON.stringify({ sources: [{ handle: "candidate", name: "Candidate", enabled: false, maxPosts: 20, profile: { origin: "discovered", status: "candidate", evidenceWeight: 1, lastEvidenceAt: 1 } }] }));
+    process.env.ISPATLA_SOURCES = sourceFile;
+    process.env.OPENAI_API_KEY = "test";
+    try {
+      const result = await scanOnce();
+      console.log(JSON.stringify({ deleted: result.sourcesDeleted, handles: getStoredSources().map((source) => source.handle) }));
+    } finally { delete process.env.OPENAI_API_KEY; }
+  `);
+  expect(JSON.parse(output)).toEqual({ deleted: 0, handles: ["candidate"] });
+});
+
 test("removes a restored source from the deleted-source view", () => {
   const output = runIsolatedDatabase(`
     import { ensureDatabase, getDeletedSources, recordSourceEvent } from "./src/server/db.ts";
@@ -86,6 +130,42 @@ test("removes a restored source from the deleted-source view", () => {
     console.log(JSON.stringify(getDeletedSources()));
   `);
   expect(JSON.parse(output)).toEqual([]);
+});
+
+test("recovers technical removals and protects Elon Musk plus Fox News", () => {
+  const output = runIsolatedDatabase(`
+    import { ensureDatabase, getDeletedSources, getStoredSources, recordSourceEvent } from "./src/server/db.ts";
+    import { recoverTechnicalSources } from "./src/server/pipeline.ts";
+    if (!ensureDatabase()) throw new Error("database did not initialize");
+    recordSourceEvent({ handle: "openai", event: "deleted", score: 0, reason: "profil kimliği eşleşmedi: @openaı", model: "liveness-check", now: 1 });
+    recordSourceEvent({ handle: "elonmusk", event: "deleted", score: 0, reason: "kişisel ve polemikli", model: "codex", now: 1 });
+    const previousFetch = globalThis.fetch;
+    globalThis.fetch = (async () => new Response(JSON.stringify({ user: { screen_name: "OPENAI", name: "OpenAI" } }))) as typeof fetch;
+    try {
+      const result = await recoverTechnicalSources(1000);
+      console.log(JSON.stringify({ result, sources: getStoredSources().map((source) => ({ handle: source.handle, name: source.name, enabled: source.enabled, pinned: source.profile.pinned })), deleted: getDeletedSources() }));
+    } finally { globalThis.fetch = previousFetch; }
+  `);
+  expect(JSON.parse(output)).toEqual({
+    result: { recovered: 3, unresolved: 0 },
+    sources: [
+      { handle: "elonmusk", name: "Elon Musk", enabled: true, pinned: true },
+      { handle: "foxnews", name: "Fox News", enabled: true, pinned: true },
+      { handle: "openai", name: "openai", enabled: true, pinned: false },
+    ],
+    deleted: [],
+  });
+});
+
+test("separates technical source warnings from actual removals", () => {
+  const output = runIsolatedDatabase(`
+    import { ensureDatabase, getDeletedSources, getTechnicalSourceWarnings, recordSourceEvent } from "./src/server/db.ts";
+    if (!ensureDatabase()) throw new Error("database did not initialize");
+    recordSourceEvent({ handle: "foxnews", event: "deleted", score: 0, reason: "feed profil kimliği eşleşmedi: @foxandfriends", model: "", now: 1 });
+    recordSourceEvent({ handle: "manual", event: "deleted", score: 0, reason: "manual delete", model: "", now: 2 });
+    console.log(JSON.stringify({ deleted: getDeletedSources().map((item) => item.handle), warnings: getTechnicalSourceWarnings().map((item) => item.handle) }));
+  `);
+  expect(JSON.parse(output)).toEqual({ deleted: ["manual"], warnings: ["foxnews"] });
 });
 
 test("stores manual publisher tier history without inferring a tier from the public badge", () => {
@@ -167,6 +247,41 @@ test("initializes versioned migrations and preserves an observation's first-seen
   });
 });
 
+test("fresh databases omit chat tables and persist monitor plus publication intent state", () => {
+  const output = runIsolatedDatabase(`
+    import { Database } from "bun:sqlite";
+    import { claimMonitorRun, createDraft, createPublicationIntent, ensureDatabase, finishBudgetRun, getMonitorBudgetUsage, getPublicationIntent, saveAccount, upsertMonitorTarget } from "./src/server/db.ts";
+    if (!ensureDatabase()) throw new Error("database did not initialize");
+    const account = saveAccount({ accountKey: "main", handle: "main", displayName: "Main", xuseAccountId: "main", enabled: true, defaultAccount: true, automationMode: "manual", dailyLimit: 24, capabilities: [], styleProfile: {}, now: 1 });
+    const draft = createDraft({ externalId: "", accountId: account.id, format: "post", text: "test", now: 2 });
+    const intent = createPublicationIntent({ draftId: draft.id, accountId: account.id, text: "test", idempotencyKey: "test-key", now: 3 });
+    const target = upsertMonitorTarget({ kind: "keyword", key: "test", query: "test", now: 4 });
+    const run = claimMonitorRun({ targetId: target.id, dayKey: "2026-08-31", bucket: "hot_categories", now: 5, dailyBudget: 1 });
+    if (!run) throw new Error("budget run was not claimed");
+    finishBudgetRun(run, "success", 6);
+    const db = new Database(process.env.ISPATLA_DB, { strict: true });
+    console.log(JSON.stringify({ chat: db.query("SELECT COUNT(*) AS count FROM sqlite_master WHERE type='table' AND name LIKE 'chat_%'").get(), intent: getPublicationIntent(intent.id), budget: getMonitorBudgetUsage("2026-08-31") }));
+  `);
+  const result = JSON.parse(output);
+  expect(result.chat.count).toBe(0);
+  expect(result.intent).toMatchObject({ status: "pending_approval", idempotencyKey: "test-key" });
+  expect(result.budget).toMatchObject({ hot_categories: 1, total: 1 });
+});
+
+test("migration leaves pre-existing chat tables untouched", () => {
+  const output = runIsolatedDatabase(`
+    import { Database } from "bun:sqlite";
+    const legacy = new Database(process.env.ISPATLA_DB, { create: true });
+    legacy.exec("CREATE TABLE chat_sessions (id TEXT PRIMARY KEY, created_at INTEGER NOT NULL)");
+    legacy.close();
+    const { ensureDatabase } = await import("./src/server/db.ts");
+    if (!ensureDatabase()) throw new Error("database did not initialize");
+    const db = new Database(process.env.ISPATLA_DB, { strict: true });
+    console.log(Boolean(db.query("SELECT name FROM sqlite_master WHERE type='table' AND name='chat_sessions'").get()));
+  `);
+  expect(output).toBe("true");
+});
+
 test("returns plain database rows that can cross a Server-to-Client boundary", () => {
   const output = runIsolatedDatabase(`
     import { getRecentPosts, ensureDatabase, upsertPost } from "./src/server/db.ts";
@@ -189,12 +304,69 @@ test("does not silently cap the opportunity inbox at fifty rows", () => {
   expect(output).toBe("51");
 });
 
+test("separates last-day observed, eligible, rejected, and sensitive posts", () => {
+  const output = runIsolatedDatabase(`
+    import { ensureDatabase, getMarketInbox, upsertPost } from "./src/server/db.ts";
+    if (!ensureDatabase()) throw new Error("database did not initialize");
+    const now = 2_000_000;
+    const base = { sourceHandle: "source", authorHandle: "source", statusUrl: "https://x.com/source/status/1", text: "test", likes: 0, replies: 0, reposts: 0, quotes: 0, views: 0, mediaCount: 0, mediaJson: "[]", rawJson: "{}", clusterKey: "cluster" };
+    upsertPost({ ...base, externalId: "eligible", createdTimestamp: now - 15 * 60, score: 90, scoreReason: "deterministic:{\\\"momentum\\\":90,\\\"risk\\\":15}", sensitive: false }, now);
+    upsertPost({ ...base, externalId: "low", createdTimestamp: now - 15 * 60, score: 60, scoreReason: "deterministic:{\\\"momentum\\\":60,\\\"risk\\\":45}", sensitive: false }, now);
+    upsertPost({ ...base, externalId: "expired", createdTimestamp: now - 25 * 60 * 60, score: 100, scoreReason: "deterministic:{\\\"momentum\\\":100,\\\"risk\\\":15}", sensitive: false }, now);
+    upsertPost({ ...base, externalId: "sensitive", createdTimestamp: now - 15 * 60, score: 0, scoreReason: "deterministic:{\\\"momentum\\\":0,\\\"risk\\\":100}", sensitive: true }, now);
+    const page = (view) => getMarketInbox({ view, now, limit: 10, offset: 0 });
+    console.log(JSON.stringify({
+      counts: page("observed").counts,
+      observed: page("observed").items.map((item) => [item.externalId, item.decision]),
+      opportunities: page("opportunities").items.map((item) => item.externalId),
+      rejected: page("rejected").items.map((item) => [item.externalId, item.decision]),
+      sensitive: page("sensitive").items.map((item) => item.externalId),
+    }));
+  `);
+  expect(JSON.parse(output)).toEqual({
+    counts: { opportunities: 1, observed: 3, rejected: 2, sensitive: 1 },
+    observed: [["eligible", "opportunity"], ["low", "below_threshold"], ["expired", "expired"]],
+    opportunities: ["eligible"],
+    rejected: [["low", "below_threshold"], ["expired", "expired"]],
+    sensitive: ["sensitive"],
+  });
+});
+
+test("recalculates visible legacy scores with the current scorer", () => {
+  const output = runIsolatedDatabase(`
+    import { ensureDatabase, getMarketInbox, getRecentPosts, recalculateRecentScores, upsertPost } from "./src/server/db.ts";
+    if (!ensureDatabase()) throw new Error("database did not initialize");
+    const now = Math.floor(Date.now() / 1000);
+    upsertPost({ externalId: "legacy", sourceHandle: "source", authorHandle: "source", statusUrl: "https://x.com/source/status/1", text: "test", createdTimestamp: now - 15 * 60, likes: 250, replies: 20, reposts: 0, quotes: 0, views: 50_000, followers: 100_000, mediaCount: 1, mediaJson: "[]", rawJson: "{}", score: 100, scoreReason: "deterministic:{\\\"momentum\\\":100,\\\"risk\\\":15}", sensitive: false, clusterKey: "legacy" }, now);
+    const recalculated = recalculateRecentScores(now);
+    console.log(JSON.stringify({ recalculated, score: getRecentPosts(1)[0].score, velocity: getMarketInbox({ view: "observed", now, limit: 1 }).items[0].velocity }));
+  `);
+  expect(JSON.parse(output)).toEqual({ recalculated: 1, score: 83, velocity: 1080 });
+});
+
+test("shows only measured monitor rates and ranks observed targets first", () => {
+  const output = runIsolatedDatabase(`
+    import { claimMonitorRun, ensureDatabase, finishMonitorRun, getMonitoringPerformance, upsertMonitorTarget } from "./src/server/db.ts";
+    if (!ensureDatabase()) throw new Error("database did not initialize");
+    const idle = upsertMonitorTarget({ kind: "account", key: "idle", sourceHandle: "idle", now: 100 });
+    const active = upsertMonitorTarget({ kind: "account", key: "active", sourceHandle: "active", now: 100 });
+    const runId = claimMonitorRun({ targetId: active.id, dayKey: "2026-08-31", bucket: "exploration", now: 100 });
+    if (!runId) throw new Error("run missing");
+    finishMonitorRun({ runId, targetId: active.id, status: "success", returned: 10, uniqueResults: 5, hits: 1, duplicates: 2, intervalSeconds: 60, tier: "warm", now: 110 });
+    console.log(JSON.stringify(getMonitoringPerformance(2).map((item) => ({ key: item.key, runs: item.runs, hitYield: item.hitYield, duplicateRate: item.duplicateRate }))));
+  `);
+  expect(JSON.parse(output)).toEqual([
+    { key: "active", runs: 1, hitYield: 0.2, duplicateRate: 0.2 },
+    { key: "idle", runs: 0, hitYield: null, duplicateRate: null },
+  ]);
+});
+
 test("uses freshness-adjusted score for the opportunity inbox and automatic candidates", () => {
   const output = runIsolatedDatabase(`
     import { candidates, ensureDatabase, getCategories, getOpportunityItems, opportunityCount, saveSourceCategoryConfig, upsertPost, upsertSource } from "./src/server/db.ts";
     if (!ensureDatabase()) throw new Error("database did not initialize");
     const now = Math.floor(Date.now() / 1000);
-    upsertSource({ handle: "source", name: "Source", enabled: true, maxPosts: 20, rightsStatus: "unknown", profile: {}, feedUrl: "https://api.fxtwitter.com/2/profile/source/statuses" }, now);
+    upsertSource({ handle: "source", name: "Source", enabled: true, maxPosts: 20, rightsStatus: "unknown", profile: {} }, now);
     const news = getCategories().find((item) => item.slug === "news");
     if (!news) throw new Error("news missing");
     saveSourceCategoryConfig({ sourceHandle: "source", categoryId: news.id, monitoringTier: "A", discoveryWeight: 1, categoryReputation: null, enabled: true, lastEvidenceAt: now });
@@ -535,7 +707,7 @@ test("persists source category policy without accepting invalid weights", () => 
   const output = runIsolatedDatabase(`
     import { ensureDatabase, getCategories, getSourceCategoryConfigs, saveSourceCategoryConfig, upsertSource } from "./src/server/db.ts";
     if (!ensureDatabase()) throw new Error("database did not initialize");
-    upsertSource({ handle: "wire", name: "Wire", enabled: true, maxPosts: 20, rightsStatus: "unknown", profile: {}, feedUrl: "https://api.fxtwitter.com/2/profile/wire/statuses" }, 1);
+    upsertSource({ handle: "wire", name: "Wire", enabled: true, maxPosts: 20, rightsStatus: "unknown", profile: {} }, 1);
     const news = getCategories().find((item) => item.slug === "news");
     if (!news) throw new Error("news missing");
     const saved = saveSourceCategoryConfig({ sourceHandle: "wire", categoryId: news.id, monitoringTier: "A", discoveryWeight: 2, categoryReputation: 92, enabled: true, lastEvidenceAt: 10 });

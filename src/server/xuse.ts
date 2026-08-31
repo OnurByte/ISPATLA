@@ -64,7 +64,7 @@ export function normaliseXUseSubscription(value: unknown, now = Math.floor(Date.
   const tier = subscriptionTier(payload.tier || payload.current_tier || payload.currentTier);
   if (tier === "unknown" && !unique.length) return null;
   return {
-    handle: string(payload.handle || payload.username || payload.screen_name || payload.screenName).replace(/^@/, "").toLocaleLowerCase("tr-TR"),
+    handle: string(payload.handle || payload.username || payload.screen_name || payload.screenName).replace(/^@/, "").toLowerCase(),
     tier: tier === "unknown" ? unique.at(-1)?.tier || "unknown" : tier,
     observedAt,
     history: unique,
@@ -336,7 +336,7 @@ export async function syncXUseAccountSubscription(account: Account, now = Math.f
     if (!await xuseHasTool(client, "get_subscription_history")) return { ok: false, reason: "kurulu x-use sürümü subscription sync desteklemiyor" };
     const subscription = normaliseXUseSubscription(await callTool(client, "get_subscription_history", { account: account.xuseAccountId }), now);
     if (!subscription) return { ok: false, reason: "x-use subscription verisi döndürmedi" };
-    if (!subscription.handle || subscription.handle !== account.handle.toLocaleLowerCase("tr-TR")) return { ok: false, reason: "x-use oturum handle'ı hesapla eşleşmiyor" };
+    if (!subscription.handle || subscription.handle !== account.handle.toLowerCase()) return { ok: false, reason: "x-use oturum handle'ı hesapla eşleşmiyor" };
     recordAccountSubscriptionSync({ accountId: account.id, ...subscription });
     return { ok: true, subscription };
   } catch (error) {

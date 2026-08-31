@@ -18,6 +18,7 @@ cache/
 *.sqlite3-wal
 *.part
 chromium-profile/
+work/
 *.trace
 *.screenshot.png
 *.tsbuildinfo

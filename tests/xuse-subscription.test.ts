@@ -14,4 +14,5 @@ test("normalizes only timestamped x-use subscription history", () => {
     historyComplete: false,
   });
   expect(normaliseXUseSubscription({ current_tier: "not-a-tier" }, 600)).toBeNull();
+  expect(normaliseXUseSubscription({ handle: "@OPENAI", current_tier: "free" }, 600)?.handle).toBe("openai");
 });

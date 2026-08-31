@@ -144,6 +144,7 @@ describe("pipeline trust boundaries", () => {
   test("reconciles a remote write only against its selected account", () => {
     expect(reconciliationMatches({ handle: "one" }, "one", "same", "same")).toBeTrue();
     expect(reconciliationMatches({ handle: "one" }, "two", "same", "same")).toBeFalse();
+    expect(reconciliationMatches({ handle: "openai" }, "OPENAI", "same", "same")).toBeTrue();
   });
 
   test("honors category-level publishing pause without disabling observation", () => {

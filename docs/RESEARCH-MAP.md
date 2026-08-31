@@ -33,7 +33,7 @@ Ispatla iki araştırma belgesini değişmeden korur:
 | Hesap list/edit ve account style context | `src/server/db.ts` + `/accounts` |
 | Secret key edit ve server-side vault | `src/server/vault.ts` + `/settings/keys` |
 | Fırsatlar, draft studio ve job queue | `/opportunities` (`/market` alias), `/drafts`, `/queue` |
-| Doğal dil command desk ve onaylı mutation | `src/server/chat.ts` + `/api/chat` + `/chat` + `src/components/chat-panel.tsx` |
+| Agent erişimi ve onaylı mutation | `src/server/mcp.ts` + `scripts/ispatla-mcp.ts` + `src/server/publication-service.ts` |
 | x-use runtime/capability discovery | `src/server/xuse.ts` + `/settings/automation` |
 
 ## Kesinlik sınırı

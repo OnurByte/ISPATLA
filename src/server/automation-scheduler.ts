@@ -8,6 +8,8 @@ import {
 import { checkSourceLiveness, reconcilePending, refreshConfirmedFeedback, scanOnce } from "./pipeline";
 import { runDueAutomationJobs } from "./queue-service";
 import { detectXUse } from "./xuse";
+import { reconcilePublicationIntents, runApprovedPublicationIntents } from "./publication-service";
+import { runDueMonitors } from "./monitoring";
 
 function due(task: { enabled: boolean; nextRunAt: number }, now: number): boolean {
   return task.enabled && task.nextRunAt <= now;
@@ -25,7 +27,11 @@ export async function runScheduledAutomationTasks(now = Math.floor(Date.now() / 
     let message = `${task.id} tamamlandı`;
     let details: Record<string, unknown> = {};
     try {
-      if (task.id === "source_scan") {
+      if (task.id === "monitor_engine") {
+        const result = await runDueMonitors(startedAt);
+        status = result.failed > 0 ? "partial" : result.skipped > 0 && result.attempted === result.skipped ? "skipped" : "success";
+        details = result;
+      } else if (task.id === "source_scan") {
         const result = await scanOnce();
         status = result.status === "ok" ? "success" : result.status === "partial" ? "partial" : "skipped";
         message = result.errors.join(" | ") || message;
@@ -37,11 +43,12 @@ export async function runScheduledAutomationTasks(now = Math.floor(Date.now() / 
       } else if (task.id === "queue_worker") {
         const capability = detectXUse();
         const result = await runDueAutomationJobs(startedAt);
-        status = result.some((job) => !job.ok) || capability.doctor === "failed" ? "partial" : "success";
+        const intents = await runApprovedPublicationIntents();
+        status = result.some((job) => !job.ok) || intents.some((intent) => !intent.ok) || capability.doctor === "failed" ? "partial" : "success";
         message = capability.reason || message;
-        details = { jobs: result, attempted: result.length, doctor: capability.doctor, config: capability.config };
+        details = { jobs: result, intents, attempted: result.length + intents.length, doctor: capability.doctor, config: capability.config };
       } else {
-        const confirmed = await reconcilePending();
+        const confirmed = await reconcilePending() + await reconcilePublicationIntents();
         const errors: string[] = [];
         await refreshConfirmedFeedback(startedAt, errors);
         status = errors.length ? "partial" : "success";

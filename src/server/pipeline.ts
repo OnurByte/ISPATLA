@@ -5,17 +5,20 @@ import { join } from "node:path";
 import {
   accountFeedbackScore,
   accountSubscriptionEvidence,
-  blueCheckStatusFromRecord,
   accountPublishingReady,
   accountCategoryFeedbackScore,
   candidates,
+  claimMonitorRun,
   clusterPosts,
   confirmPublish,
+  createDraft,
   deleteSource,
   ensureDatabase,
   competitorFeedbackDue,
   feedbackDueAttempts,
+  finishBudgetRun,
   getCompetitors,
+  getTechnicalSourceWarnings,
   getStoredSources,
   getPost,
   opportunityScoreForPost,
@@ -27,7 +30,6 @@ import {
   getAccountCategoryConfigs,
   getCategories,
   getSourceCategoryConfigs,
-  getSourceRights,
   hasPublishedCluster,
   lastPublishAt,
   markDraft,
@@ -58,6 +60,7 @@ import {
   type ObservedPost,
   type RecentPost,
   type SourceConfig,
+  type MonitorBucket,
 } from "./db";
 import {
   bootstrapSources,
@@ -69,16 +72,30 @@ import {
   type DiscoveryEvidence,
 } from "./sources";
 import { clusterKey, isNumericalHit, scorePost, selectDiverseCandidates } from "./scoring";
-import { isAllowedAvatarUrl, isAllowedMediaContentType, isAllowedMediaUrl, safeStatusUrl } from "./security";
+import { isAllowedAvatarUrl, isAllowedMediaContentType, isAllowedMediaUrl } from "./security";
 import { resolveIdeology } from "./ideologies";
-import { publish, officialXCapability } from "./publisher";
-import { FxTwitterReader } from "./x-reader";
+import { FxTwitterReader, normalizeFxPost, type XPost, type XProfile } from "./x-reader";
 import { AI_PROVIDERS, aiConfigured, aiModelLabel, getAiSettings, needsTerraReview, requestAiScore, requestAiText, reviewModel, type AiProvider, type AiScore } from "./ai";
+import { approvePublicationIntent, createIntentForDraft } from "./publication-service";
 
 export { xuseCapability } from "./xuse";
 
 type JsonRecord = Record<string, unknown>;
 const xReader = new FxTwitterReader();
+const PROTECTED_SOURCE_RECOVERY = [{ handle: "elonmusk", name: "Elon Musk" }, { handle: "foxnews", name: "Fox News" }] as const;
+
+function isTechnicalSourceRemoval(reason: string): boolean {
+  return /(?:feed )?profil kimliği (?:eşleşmedi|doğrulanamadı)/iu.test(reason);
+}
+
+function monitoringDayKey(now: number): string {
+  const parts = Object.fromEntries(new Intl.DateTimeFormat("en", { timeZone: "Europe/Istanbul", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(now * 1000).map((part) => [part.type, part.value]));
+  return `${parts.year}-${parts.month}-${parts.day}`;
+}
+
+function sourceScanBucket(source: SourceConfig): MonitorBucket {
+  return getSourceCategoryConfigs().some((config) => config.sourceHandle === source.handle && config.enabled && config.monitoringTier === "A") ? "proven_alpha" : "exploration";
+}
 
 export type AccountAiRoute = {
   analysisProvider?: AiProvider;
@@ -208,49 +225,38 @@ function eventPosts(post: ObservedPost, now = Math.floor(Date.now() / 1000)): Re
     .slice(0, 5);
 }
 
-export function normalisePost(sourceHandle: string, value: unknown): ObservedPost | null {
-  const item = record(value);
-  const tweet = record(item.tweet || item.status || item);
-  const author = record(tweet.author);
-  const externalId = string(tweet.id || item.id);
-  const text = string(tweet.text);
-  if (!/^\d+$/.test(externalId) || !text) return null;
-
-  const media = record(tweet.media);
-  const mediaItems = Array.isArray(media.all) ? media.all : [];
-  const createdTimestamp = number(tweet.created_timestamp || tweet.createdTimestamp);
-  const statusUrl = safeStatusUrl(string(tweet.url), sourceHandle, externalId);
+export function observedPost(sourceHandle: string, post: XPost): ObservedPost {
   const input = {
-    likes: number(tweet.likes),
-    replies: number(tweet.replies),
-    reposts: number(tweet.reposts),
-    quotes: number(tweet.quotes),
-    views: number(tweet.views),
-    followers: number(author.followers),
-    blueCheckStatus: blueCheckStatusFromRecord(author),
-    createdTimestamp,
-    mediaCount: mediaItems.length,
-    sensitive: Boolean(tweet.possibly_sensitive) || /^\s*hassas\b/i.test(text),
+    likes: post.metrics.likes || 0,
+    replies: post.metrics.replies || 0,
+    reposts: post.metrics.reposts || 0,
+    quotes: post.metrics.quotes || 0,
+    views: post.metrics.views || 0,
+    followers: post.author.followers || 0,
+    blueCheckStatus: post.author.verification,
+    createdTimestamp: post.createdAt,
+    mediaCount: post.media.length,
+    sensitive: post.sensitive,
   };
   const score = scorePost(input);
-
   return {
-    externalId,
+    externalId: post.id,
     sourceHandle,
-    authorHandle: string(author.screen_name || author.username || sourceHandle),
-    statusUrl,
-    text,
+    authorHandle: post.author.handle || sourceHandle,
+    statusUrl: post.url,
+    text: post.text,
     ...input,
-    mediaJson: JSON.stringify(mediaItems),
-    rawJson: JSON.stringify(tweet),
+    mediaJson: JSON.stringify(post.media),
+    rawJson: JSON.stringify(post),
     score: score.score,
     scoreReason: score.reason,
-    clusterKey: clusterKey(text),
+    clusterKey: clusterKey(post.text),
   };
 }
 
-async function fetchJson(url: string): Promise<unknown> {
-  return xReader.fetchJson(url);
+export function normalisePost(sourceHandle: string, value: unknown): ObservedPost | null {
+  const post = normalizeFxPost(value, sourceHandle);
+  return post ? observedPost(sourceHandle, post) : null;
 }
 
 export function mediaCandidate(post: ObservedPost): { kind: "photo" | "video"; url: string } | null {
@@ -267,13 +273,14 @@ export function mediaCandidate(post: ObservedPost): { kind: "photo" | "video"; u
       return { kind: "photo", url: string(item.url) };
     }
     if (kind === "video") {
-      const formats = Array.isArray(item.formats) ? item.formats : [];
+      const formats = Array.isArray(item.variants) ? item.variants : Array.isArray(item.formats) ? item.formats : [];
       const format = formats
         .map(record)
         .filter(
           (entry) =>
-            string(entry.container) === "mp4" &&
-            string(entry.codec) === "h264" &&
+            (!entry.container || string(entry.container) === "mp4") &&
+            (!entry.codec || string(entry.codec) === "h264") &&
+            (!entry.contentType || string(entry.contentType).includes("mp4")) &&
             isAllowedMediaUrl(string(entry.url), "video"),
         )
         .sort((left, right) => number(right.bitrate) - number(left.bitrate))[0];
@@ -609,55 +616,25 @@ async function publishCandidate(post: ObservedPost): Promise<void> {
     return;
   }
 
-  let mediaPath = "";
-  if (getSourceRights(post.sourceHandle) === "cleared") {
-    const candidate = mediaCandidate(post);
-    if (candidate) {
-      try {
-        mediaPath = await downloadMedia(candidate);
-      } catch {
-        // Text-only fallback is safer than an unvalidated upload.
-        mediaPath = "";
-      }
-    }
-  }
-
   markDraft(post.externalId, draft.text, "ready");
-  const official = officialXCapability(account);
-  if (!official.available && !account.xuseAccountId) {
+  if (!account.xuseAccountId) {
     recordPublishAttempt({
       externalId: post.externalId,
       accountId: account?.id,
       status: "blocked",
-      reason: official.reason,
+      reason: "x-use account id eksik",
       receipt: "",
       now,
     });
     return;
   }
-
-  const result = await publish({ account, text: draft.text, mediaPath: mediaPath || undefined });
-  if (!result.ok) {
-    recordPublishAttempt({
-      externalId: post.externalId,
-      accountId: account?.id,
-      status: "blocked",
-      reason: result.reason || "x-use publish failed",
-      receipt: result.receipt,
-      now,
-    });
-    return;
-  }
-  recordPublishAttempt({
-    externalId: post.externalId,
-    accountId: account.id,
-    // ponytail: a transport receipt or guessed URL is never publication proof; keep one confirmation boundary for every publisher.
-    status: "pending_reconciliation",
-    reason: `${result.transport} accepted the write; FxTwitter reconciliation is still required${subscriptionReason}`,
-    receipt: result.receipt,
-    remoteUrl: result.remoteUrl,
-    now,
+  const storedDraft = createDraft({
+    origin: "automatic", externalId: post.externalId, accountId: account.id, format: "post", text: draft.text,
+    status: "ready", sourceHandle: post.sourceHandle, sourceUrl: post.statusUrl, sourceScore: post.score, now,
   });
+  const intent = createIntentForDraft(storedDraft.id, account.id, now);
+  approvePublicationIntent(intent.id, now);
+  markDraft(post.externalId, draft.text, `publication_intent:${intent.id}${subscriptionReason}`);
 }
 
 function remoteIdFromReceipt(receipt: string): string | null {
@@ -680,12 +657,9 @@ export async function reconcilePending(): Promise<number> {
     const remoteId = attempt.remote_url.match(/status\/(\d+)/)?.[1] || remoteIdFromReceipt(attempt.receipt);
     if (!post || !remoteId) continue;
     try {
-      const payload = record(await fetchJson(`https://api.fxtwitter.com/status/${remoteId}`));
-      const remoteResults = Array.isArray(payload.results) ? payload.results : [];
-      const tweet = record(payload.tweet || payload.status || remoteResults[0]);
-      const remoteText = string(tweet.text);
-      const author = record(tweet.author);
-      const remoteAuthor = string(author.screen_name || author.username);
+      const tweet = await xReader.fetchPostMetrics({ externalId: remoteId });
+      const remoteText = tweet.text;
+      const remoteAuthor = tweet.author.handle;
       const account = attempt.account_id === null ? undefined : getAccounts().find((item) => item.id === attempt.account_id);
       if (reconciliationMatches(account, remoteAuthor, remoteText, post.draftText)) {
         confirmPublish(attempt.id, attempt.post_external_id);
@@ -705,21 +679,26 @@ export async function reconcilePending(): Promise<number> {
 }
 
 export function reconciliationMatches(account: Pick<Account, "handle"> | undefined, remoteAuthor: string, remoteText: string, draftText: string): boolean {
-  return Boolean(account && draftText && remoteText === draftText && remoteAuthor.toLocaleLowerCase("tr-TR") === account.handle.toLocaleLowerCase("tr-TR"));
+  return Boolean(account && draftText && remoteText === draftText && remoteAuthor.toLowerCase() === account.handle.toLowerCase());
 }
 
-export function feedbackFromTweet(tweet: JsonRecord, externalId: string, now: number) {
-  const poll = record(tweet.poll);
-  const author = record(tweet.author);
-  const pollVotes = number(poll.total_votes || poll.totalVotes);
-  const publisherBlueCheckStatus = blueCheckStatusFromRecord(author);
+export function feedbackFromTweet(tweet: JsonRecord | XPost, externalId: string, now: number) {
+  const value = record(tweet);
+  const metrics = record(value.metrics);
+  const poll = record(value.poll);
+  const author = record(value.author);
+  const pollVotes = number(metrics.pollVotes ?? poll.total_votes ?? poll.totalVotes);
+  const verification = string(author.verification);
+  const publisherBlueCheckStatus: XProfile["verification"] = ["blue", "organization", "government", "not_verified"].includes(verification)
+    ? verification as XProfile["verification"]
+    : "unknown";
   return {
     externalId,
-    likes: number(tweet.likes),
-    replies: number(tweet.replies),
-    reposts: number(tweet.retweets || tweet.reposts),
-    quotes: number(tweet.quotes),
-    views: number(tweet.views),
+    likes: number(metrics.likes ?? value.likes),
+    replies: number(metrics.replies ?? value.replies),
+    reposts: number(metrics.reposts ?? value.retweets ?? value.reposts),
+    quotes: number(metrics.quotes ?? value.quotes),
+    views: number(metrics.views ?? value.views),
     ...(pollVotes > 0 ? { pollVotes } : {}),
     ...(publisherBlueCheckStatus === "unknown" ? {} : { publisherBlueCheckStatus }),
     now,
@@ -731,9 +710,7 @@ export async function refreshConfirmedFeedback(now: number, errors: string[]): P
     const remoteId = attempt.remote_url.match(/status\/(\d+)/)?.[1] || remoteIdFromReceipt(attempt.receipt);
     if (!remoteId) continue;
     try {
-      const payload = record(await fetchJson(`https://api.fxtwitter.com/status/${remoteId}`));
-      const remoteResults = Array.isArray(payload.results) ? payload.results : [];
-      const tweet = record(payload.tweet || payload.status || remoteResults[0]);
+      const tweet = await xReader.fetchPostMetrics({ externalId: remoteId });
       for (const milestone of attempt.milestones) {
         recordFeedbackSnapshot({
           ...feedbackFromTweet(tweet, attempt.post_external_id, now),
@@ -751,20 +728,19 @@ export async function refreshConfirmedFeedback(now: number, errors: string[]): P
 async function refreshAccountMetrics(now: number, errors: string[]): Promise<void> {
   for (const account of getAccounts().filter((item) => item.enabled)) {
     try {
-      const user = sourceUser(await fetchJson(`https://api.fxtwitter.com/2/profile/${encodeURIComponent(account.handle)}`));
-      const handle = sourceUserHandle(user);
-      if (!handle || handle !== account.handle.toLocaleLowerCase("tr-TR")) {
+      const user = await xReader.fetchProfile({ handle: account.handle });
+      if (!user.handle || user.handle !== account.handle.toLowerCase()) {
         errors.push(`@${account.handle} account metrics: profil kimliği doğrulanamadı`);
         continue;
       }
       recordAccountMetric({
         accountId: account.id,
-        followers: number(user.followers),
-        following: number(user.following),
-        statuses: number(user.statuses),
-        likes: number(user.likes),
-        mediaCount: number(user.media_count),
-        blueCheckStatus: blueCheckStatusFromRecord(user),
+        followers: user.followers || 0,
+        following: user.following || 0,
+        statuses: user.statuses || 0,
+        likes: user.likes || 0,
+        mediaCount: user.mediaCount || 0,
+        blueCheckStatus: user.verification,
         now,
       });
     } catch (error) {
@@ -775,35 +751,33 @@ async function refreshAccountMetrics(now: number, errors: string[]): Promise<voi
 
 function statusMetrics(value: unknown) {
   const item = record(value);
+  const canonical = record(item.metrics);
   const tweet = record(item.tweet || item.status || item);
   const poll = record(tweet.poll);
   return {
-    likes: number(tweet.likes),
-    replies: number(tweet.replies),
-    reposts: number(tweet.reposts || tweet.retweets),
-    quotes: number(tweet.quotes),
-    views: number(tweet.views),
-    pollVotes: number(poll.total_votes || poll.totalVotes),
+    likes: number(canonical.likes ?? tweet.likes),
+    replies: number(canonical.replies ?? tweet.replies),
+    reposts: number(canonical.reposts ?? tweet.reposts ?? tweet.retweets),
+    quotes: number(canonical.quotes ?? tweet.quotes),
+    views: number(canonical.views ?? tweet.views),
+    pollVotes: number(canonical.pollVotes ?? poll.total_votes ?? poll.totalVotes),
   };
 }
 
 async function refreshCompetitorMetrics(now: number, errors: string[]): Promise<void> {
   for (const competitor of getCompetitors().filter((item) => item.enabled)) {
     try {
-      const user = sourceUser(await fetchJson(`https://api.fxtwitter.com/2/profile/${encodeURIComponent(competitor.handle)}`));
-      const handle = sourceUserHandle(user);
-      if (!handle || handle !== competitor.handle.toLocaleLowerCase("tr-TR")) throw new Error("profil kimliği doğrulanamadı");
+      const user = await xReader.fetchProfile({ handle: competitor.handle });
+      if (!user.handle || user.handle !== competitor.handle.toLowerCase()) throw new Error("profil kimliği doğrulanamadı");
       recordCompetitorProfile({
         competitorId: competitor.id,
-        followers: number(user.followers), following: number(user.following), statuses: number(user.statuses),
-        likes: number(user.likes), mediaCount: number(user.media_count), blueCheckStatus: blueCheckStatusFromRecord(user), now,
+        followers: user.followers || 0, following: user.following || 0, statuses: user.statuses || 0,
+        likes: user.likes || 0, mediaCount: user.mediaCount || 0, blueCheckStatus: user.verification, now,
       });
-      const payload = record(await fetchJson(`https://api.fxtwitter.com/2/profile/${encodeURIComponent(competitor.handle)}/statuses`));
-      const results = Array.isArray(payload.results) ? payload.results : [];
+      const results = (await xReader.fetchTimeline({ handle: competitor.handle, maxPosts: 50 })).posts;
       const history = competitor.initializedAt === 0;
-      for (const item of results.filter((entry) => record(entry).type === "status").slice(0, 50)) {
-        const post = normalisePost(competitor.handle, item);
-        if (!post) continue;
+      for (const item of results) {
+        const post = observedPost(competitor.handle, item);
         upsertCompetitorPost({
           competitorId: competitor.id, externalId: post.externalId, statusUrl: post.statusUrl, text: post.text,
           createdTimestamp: post.createdTimestamp, mediaCount: post.mediaCount, mediaJson: post.mediaJson,
@@ -819,9 +793,7 @@ async function refreshCompetitorMetrics(now: number, errors: string[]): Promise<
   }
   for (const due of competitorFeedbackDue(now)) {
     try {
-      const payload = record(await fetchJson(`https://api.fxtwitter.com/status/${due.externalId}`));
-      const results = Array.isArray(payload.results) ? payload.results : [];
-      const tweet = payload.tweet || payload.status || results[0];
+      const tweet = await xReader.fetchPostMetrics({ externalId: due.externalId });
       const metrics = statusMetrics(tweet);
       for (const milestone of due.milestones) recordCompetitorPostSnapshot({ externalId: due.externalId, metrics, milestone, now });
     } catch (error) {
@@ -856,7 +828,6 @@ function storeDiscoveryCandidates(evidence: Map<string, DiscoveryEvidence>, now:
       maxPosts: 20,
       rightsStatus: "unknown",
       profile: {},
-      feedUrl: `https://api.fxtwitter.com/2/profile/${encodeURIComponent(item.handle)}/statuses`,
     };
     const profile = mergeEvidence(source.profile, item, now);
     upsertSource({ ...source, enabled: false, profile }, now);
@@ -867,15 +838,6 @@ function storeDiscoveryCandidates(evidence: Map<string, DiscoveryEvidence>, now:
     }
   }
   return discovered;
-}
-
-function sourceUser(payload: unknown): JsonRecord {
-  const object = record(payload);
-  return record(object.user || object.profile || object.author);
-}
-
-function sourceUserHandle(user: JsonRecord): string {
-  return string(user.screen_name || user.username || user.handle).replace(/^@/, "").toLocaleLowerCase("tr-TR");
 }
 
 export function isDefinitiveMissingSourceError(error: unknown): boolean {
@@ -889,35 +851,34 @@ export async function checkSourceLiveness(now = Math.floor(Date.now() / 1000), o
     await Promise.all(sources.slice(offset, offset + 5).map(async (source) => {
       result.checked += 1;
       try {
-        const user = sourceUser(await fetchJson(`https://api.fxtwitter.com/2/profile/${encodeURIComponent(source.handle)}`));
-        const handle = sourceUserHandle(user);
-        if (handle && handle !== source.handle.toLocaleLowerCase("tr-TR")) {
-          recordSourceEvent({ handle: source.handle, event: "identity_warning", score: Number(source.profile.sourceScore || 0), reason: `profil kimliği doğrulanamadı: @${handle}`, model: "liveness-check", now });
+        const user = await xReader.fetchProfile({ handle: source.handle });
+        if (user.handle && user.handle !== source.handle.toLowerCase()) {
+          recordSourceEvent({ handle: source.handle, event: "identity_warning", score: Number(source.profile.sourceScore || 0), reason: `profil kimliği doğrulanamadı: @${user.handle}`, model: "liveness-check", now });
           result.identityWarnings += 1;
           result.unreachable += 1;
           return;
         }
-        if (!Object.keys(user).length) {
+        if (!user.handle) {
           result.unreachable += 1;
           return;
         }
         upsertSource({
           ...source,
-          name: string(user.name || source.name),
+          name: user.name || source.name,
           profile: {
             ...source.profile,
-            identityHandle: handle || source.profile.identityHandle,
-            followers: number(user.followers) || source.profile.followers,
-            blueCheckStatus: blueCheckStatusFromRecord(user),
+            identityHandle: user.handle || source.profile.identityHandle,
+            followers: user.followers || source.profile.followers,
+            blueCheckStatus: user.verification,
             lastSeenAt: now,
           },
         }, now);
         result.alive += 1;
       } catch (error) {
         if (isDefinitiveMissingSourceError(error)) {
-          recordSourceEvent({ handle: source.handle, event: "deleted", score: Number(source.profile.sourceScore || 0), reason: "profil 404: hesap bulunamadı", model: "liveness-check", now });
-          deleteSource(source.handle);
-          result.deleted += 1;
+          recordSourceEvent({ handle: source.handle, event: "identity_warning", score: Number(source.profile.sourceScore || 0), reason: "profil 404: hesap bulunamadı (silinmedi)", model: "liveness-check", now });
+          result.identityWarnings += 1;
+          result.unreachable += 1;
         } else {
           result.unreachable += 1;
         }
@@ -927,8 +888,28 @@ export async function checkSourceLiveness(now = Math.floor(Date.now() / 1000), o
   return result;
 }
 
-function sourceActivity(samples: unknown[], now: number): number {
-  const newest = samples.reduce<number>((latest, value) => Math.max(latest, number(record(value).created_timestamp)), 0);
+export async function recoverTechnicalSources(now = Math.floor(Date.now() / 1000)): Promise<{ recovered: number; unresolved: number }> {
+  const existing = new Map(getStoredSources().map((source) => [source.handle, source]));
+  const recovered = new Set<string>();
+  let unresolved = 0;
+  for (const source of PROTECTED_SOURCE_RECOVERY) {
+    if (existing.has(source.handle)) continue;
+    upsertSource({ handle: source.handle, name: source.name, enabled: true, maxPosts: 20, rightsStatus: "unknown", profile: { origin: "manual", status: "active", pinned: true } }, now);
+    recordSourceEvent({ handle: source.handle, event: "restored", score: 0, reason: "protected source recovery", model: "source-recovery", now });
+    recovered.add(source.handle);
+  }
+  for (const item of getTechnicalSourceWarnings(2_000)) {
+    if (!isTechnicalSourceRemoval(item.reason)) { unresolved += 1; continue; }
+    if (existing.has(item.handle) || recovered.has(item.handle)) continue;
+    upsertSource({ handle: item.handle, name: item.handle, enabled: true, maxPosts: 20, rightsStatus: "unknown", profile: { origin: "manual", status: "active", pinned: false } }, now);
+    recordSourceEvent({ handle: item.handle, event: "restored", score: item.score, reason: "identity mismatch recovery", model: "source-recovery", now });
+    recovered.add(item.handle);
+  }
+  return { recovered: recovered.size, unresolved };
+}
+
+function sourceActivity(samples: XPost[], now: number): number {
+  const newest = samples.reduce<number>((latest, value) => Math.max(latest, value.createdAt), 0);
   if (!newest) return 0;
   const ageHours = Math.max(0, (now - newest) / 3600);
   return Math.max(0, Math.round(100 - (ageHours / (24 * 7)) * 100));
@@ -944,25 +925,12 @@ function combinedSourceScore(ai: AiScore, activity: number, historical: number |
 
 async function scoreSources(
   now: number,
-  samplesBySource: Map<string, unknown[]>,
+  samplesBySource: Map<string, XPost[]>,
   errors: string[],
 ): Promise<{ scored: number; promoted: number; deleted: number }> {
   let scored = 0;
   let promoted = 0;
   let deleted = 0;
-  const sources = getStoredSources();
-
-  for (const stale of sources.filter((source) =>
-    source.profile.status === "candidate" &&
-    source.profile.pinned !== true &&
-    Number(source.profile.lastEvidenceAt || 0) > 0 &&
-    now - Number(source.profile.lastEvidenceAt) >= 14 * 86400
-  )) {
-    recordSourceEvent({ handle: stale.handle, event: "deleted", score: Number(stale.profile.sourceScore || 0), reason: "14 gün yeni keşif kanıtı yok", model: String(stale.profile.scoreModel || ""), now });
-    deleteSource(stale.handle);
-    deleted += 1;
-  }
-
   const due = getStoredSources()
     .filter((source) => source.enabled || sourceDueForScoring(source.profile, now))
     .filter((source) => now - Number(source.profile.lastScoredAt || 0) >= 86400)
@@ -971,26 +939,24 @@ async function scoreSources(
   for (let offset = 0; offset < due.length; offset += 3) {
     await Promise.all(due.slice(offset, offset + 3).map(async (source) => {
       try {
-      const profilePayload = await fetchJson(`https://api.fxtwitter.com/2/profile/${encodeURIComponent(source.handle)}`);
-      const user = sourceUser(profilePayload);
-      const reportedHandle = sourceUserHandle(user);
-      if (reportedHandle && reportedHandle !== source.handle.toLocaleLowerCase("tr-TR")) {
+      const user = await xReader.fetchProfile({ handle: source.handle });
+      const reportedHandle = user.handle;
+      if (reportedHandle && reportedHandle !== source.handle.toLowerCase()) {
         recordSourceEvent({ handle: source.handle, event: "identity_warning", score: Number(source.profile.sourceScore || 0), reason: `profil kimliği doğrulanamadı: @${reportedHandle}`, model: "source-scoring", now });
         errors.push(`${source.handle}: profil kimliği doğrulanamadı: @${reportedHandle}`);
         return;
       }
       let samples = samplesBySource.get(source.handle) || [];
       if (samples.length === 0) {
-        const timeline = record(await fetchJson(source.feedUrl));
-        samples = Array.isArray(timeline.results) ? timeline.results.slice(0, 10) : [];
+        samples = (await xReader.fetchTimeline({ handle: source.handle, maxPosts: 10 })).posts;
       }
       const activity = sourceActivity(samples, now);
       const evidence = JSON.stringify({
         handle: source.handle,
-        name: string(user.name || source.name),
-        bio: string(user.description),
-        followers: number(user.followers),
-        blueCheckStatus: blueCheckStatusFromRecord(user),
+        name: user.name || source.name,
+        bio: user.bio,
+        followers: user.followers || 0,
+        blueCheckStatus: user.verification,
         niche: source.profile.niche || "",
         topics: source.profile.topics || [],
         tone: source.profile.tone || "",
@@ -1001,7 +967,7 @@ async function scoreSources(
           basis: source.profile.ideologyBasis || "insufficient_evidence",
         },
         parentHandles: source.profile.parentHandles || [],
-        recentPosts: samples.slice(0, 10).map((value) => string(record(value).text).slice(0, 600)),
+        recentPosts: samples.slice(0, 10).map((value) => value.text.slice(0, 600)),
       });
       const historical = sourceFeedbackScore(source.handle);
       const luna = combinedSourceScore(await requestAiScore({ evidence }), activity, historical);
@@ -1012,8 +978,8 @@ async function scoreSources(
         state = nextSourceState(source.profile, final.score, final.confidence);
       }
 
-      const avatarUrl = string(user.avatar_url);
-      const identityVerified = reportedHandle === source.handle.toLocaleLowerCase("tr-TR");
+      const avatarUrl = user.avatarUrl;
+      const identityVerified = reportedHandle === source.handle.toLowerCase();
       const nextProfile = {
         ...source.profile,
         origin: source.profile.origin || (source.enabled ? "manual" : "discovered"),
@@ -1021,8 +987,8 @@ async function scoreSources(
         status: state.status,
         pinned: source.profile.pinned === true,
         avatarUrl: identityVerified && isAllowedAvatarUrl(avatarUrl) ? avatarUrl : source.profile.avatarUrl || "",
-        bio: string(user.description),
-        followers: number(user.followers),
+        bio: user.bio,
+        followers: user.followers || 0,
         sourceScore: final.score,
         sourceConfidence: final.confidence,
         sourceRisk: final.risk,
@@ -1055,7 +1021,7 @@ async function scoreSources(
       }
       upsertSource({
         ...source,
-        name: identityVerified ? string(user.name || source.name) : source.name,
+        name: identityVerified ? user.name || source.name : source.name,
         enabled: state.enabled,
         profile: nextProfile,
       }, now);
@@ -1070,8 +1036,9 @@ async function scoreSources(
 async function refreshPostMetrics(now: number, errors: string[]): Promise<void> {
   for (const post of metricRefreshPosts(now)) {
     try {
-      const refreshed = normalisePost(post.sourceHandle, await xReader.fetchPostMetrics({ externalId: post.externalId }));
-      if (!refreshed || refreshed.externalId !== post.externalId) throw new Error("metric response identity mismatch");
+      const canonical = await xReader.fetchPostMetrics({ externalId: post.externalId });
+      const refreshed = observedPost(post.sourceHandle, canonical);
+      if (refreshed.externalId !== post.externalId) throw new Error("metric response identity mismatch");
       upsertPost(refreshed, now);
     } catch (error) {
       errors.push(`${post.externalId} metrics: ${error instanceof Error ? error.message : String(error)}`);
@@ -1088,24 +1055,31 @@ async function runScanInternal(): Promise<ScanResult> {
   bootstrapSources(startedAt);
   const sources = enabledSources();
   const discovery = new Map<string, DiscoveryEvidence>();
-  const samplesBySource = new Map<string, unknown[]>();
+  const samplesBySource = new Map<string, XPost[]>();
 
   for (const source of sources) {
     try {
-      const payload = record(await xReader.fetchSourceTimeline({ handle: source.handle, feedUrl: source.feedUrl }));
-      const results = Array.isArray(payload.results) ? payload.results : [];
-      const statuses = results.filter((entry) => record(entry).type === "status");
-      const newest = normalisePost(source.handle, statuses[0]);
+      const runId = claimMonitorRun({ targetId: null, dayKey: monitoringDayKey(startedAt), bucket: sourceScanBucket(source), now: startedAt });
+      if (!runId) { errors.push(`@${source.handle}: günlük monitoring bütçesi dolu`); continue; }
+      let batch;
+      try {
+        batch = await xReader.fetchTimeline({ handle: source.handle, maxPosts: source.maxPosts });
+        finishBudgetRun(runId, "success", Math.floor(Date.now() / 1000));
+      } catch (error) {
+        finishBudgetRun(runId, "failed", Math.floor(Date.now() / 1000), error instanceof Error ? error.message : String(error));
+        throw error;
+      }
+      const newest = batch.posts[0];
       recordSourceReaderCursor({
         sourceHandle: source.handle,
-        lastSeenPostId: newest?.externalId || "",
-        lastSeenCreatedAt: newest?.createdTimestamp || 0,
-        paginationCursor: "",
-        gapDetected: statuses.length > source.maxPosts,
+        lastSeenPostId: newest?.id || "",
+        lastSeenCreatedAt: newest?.createdAt || 0,
+        paginationCursor: batch.cursor,
+        gapDetected: batch.posts.length >= source.maxPosts && Boolean(batch.cursor),
         lastSuccessAt: startedAt,
       });
       recordReaderHealth({ ...xReader.health(), checkedAt: startedAt });
-      samplesBySource.set(source.handle, results.slice(0, 10));
+      samplesBySource.set(source.handle, batch.posts.slice(0, 10));
       upsertSource({
         ...source,
         profile: {
@@ -1116,9 +1090,8 @@ async function runScanInternal(): Promise<ScanResult> {
           lastSeenAt: startedAt,
         },
       }, startedAt);
-      for (const item of statuses.slice(0, source.maxPosts)) {
-        const post = normalisePost(source.handle, item);
-        if (!post) continue;
+      for (const item of batch.posts) {
+        const post = observedPost(source.handle, item);
         postsSeen += 1;
         if (upsertPost(post, startedAt)) {
           postsNew += 1;

@@ -14,8 +14,7 @@ fi
 command -v systemctl >/dev/null || { echo "systemctl bulunamadı" >&2; exit 1; }
 
 mkdir -p "$unit_dir" "$env_dir"
-install -m 0644 "$repo_dir/systemd/ispatla-scan.service" "$unit_dir/ispatla-scan.service"
-install -m 0644 "$repo_dir/systemd/ispatla-scan.timer" "$unit_dir/ispatla-scan.timer"
+install -m 0644 "$repo_dir/systemd/ispatla-worker.service" "$unit_dir/ispatla-worker.service"
 
 env_file="$env_dir/worker.env"
 if [[ ! -e "$env_file" ]]; then
@@ -30,8 +29,9 @@ EOF
 fi
 
 systemctl --user daemon-reload
-systemctl --user enable --now ispatla-scan.timer
-systemctl --user --no-pager status ispatla-scan.timer
+systemctl --user disable --now ispatla-scan.timer >/dev/null 2>&1 || true
+systemctl --user enable --now ispatla-worker.service
+systemctl --user --no-pager status ispatla-worker.service
 echo
 echo "Kuruldu. Ortam dosyası: $env_file"
-echo "Log: journalctl --user -u ispatla-scan.service -n 50 --no-pager"
+echo "Log: journalctl --user -u ispatla-worker.service -n 50 --no-pager"
