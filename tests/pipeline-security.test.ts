@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { accountCategories, accountCategoryConfigFor, categoryPublishingPaused, exclusiveSourceAttribution, feedbackFromTweet, formatSourceAttribution, mediaCandidate, normalisePost, qualityGate, reconciliationMatches, resolveAccountAiRoute, selectPublishingAccount } from "@/server/pipeline";
+import { accountCategories, accountCategoryConfigFor, categoryPublishingPaused, editorialInstructionContext, exclusiveSourceAttribution, feedbackFromTweet, formatSourceAttribution, mediaCandidate, normalisePost, qualityGate, reconciliationMatches, resolveAccountAiRoute, selectPublishingAccount } from "@/server/pipeline";
 import type { Account, AccountCategoryConfig, ObservedPost, SourceCategoryConfig, SourceConfig } from "@/server/db";
 
 function post(overrides: Partial<ObservedPost> = {}): ObservedPost {
@@ -31,6 +31,12 @@ function account(id: number, defaultAccount = false): Account {
 }
 
 describe("pipeline trust boundaries", () => {
+  test("layers the global and account editorial instructions without replacing safeguards", () => {
+    expect(editorialInstructionContext("Global ses", "Hesap sesi")).toBe("Global auto-hitmaker yönergesi: Global ses\nHesaba özel yönerge: Hesap sesi");
+    expect(editorialInstructionContext("Global ses", "")).toBe("Global auto-hitmaker yönergesi: Global ses");
+    expect(editorialInstructionContext("", "Hesap sesi")).toBe("Hesaba özel yönerge: Hesap sesi");
+  });
+
   test("rejects non-numeric external ids and sanitizes external status URLs", () => {
     expect(normalisePost("bpthaber", { id: "not-an-x-id", text: "haber" })).toBeNull();
     const normalized = normalisePost("bpthaber", {

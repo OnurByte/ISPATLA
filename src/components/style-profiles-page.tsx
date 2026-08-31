@@ -14,14 +14,25 @@ import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { useAbortableRequest } from "@/components/use-abortable-request";
 
-type ExampleStyle = { tone?: string; ideology?: string; opening?: string; emoji?: string; formatRule?: string; writingSkillIds?: string[] };
+type ExampleStyle = { tone?: string; ideology?: string; opening?: string; emoji?: string; formatRule?: string; editorialInstruction?: string; writingSkillIds?: string[] };
 type IdeologyOption = { id: string; name: { en: string; tr: string } };
+
+function profileJson(profile?: Record<string, unknown>): string {
+  const advancedProfile = { ...(profile || {}) };
+  delete advancedProfile.editorialInstruction;
+  return JSON.stringify(advancedProfile, null, 2);
+}
+
+function profileInstruction(profile?: Record<string, unknown>): string {
+  return typeof profile?.editorialInstruction === "string" ? profile.editorialInstruction : "";
+}
 
 export function StyleProfilesPage({ initial, initialSettings, ideologies }: { initial: Account[]; initialSettings: WritingStyleSettings; ideologies: IdeologyOption[] }) {
   const [accounts, setAccounts] = useState(initial);
   const [selected, setSelected] = useState(initial[0]?.id || 0);
   const current = accounts.find((account) => account.id === selected);
-  const [text, setText] = useState(current ? JSON.stringify(current.styleProfile, null, 2) : "{}");
+  const [text, setText] = useState(() => profileJson(initial[0]?.styleProfile));
+  const [accountInstruction, setAccountInstruction] = useState(() => profileInstruction(initial[0]?.styleProfile));
   const [settings, setSettings] = useState(initialSettings);
   const [message, setMessage] = useState("");
   const [pendingAction, setPendingAction] = useState<"account" | "settings" | "">("");
@@ -30,13 +41,17 @@ export function StyleProfilesPage({ initial, initialSettings, ideologies }: { in
 
   function choose(id: number) {
     const account = accounts.find((item) => item.id === id);
-    setSelected(id); setText(account ? JSON.stringify(account.styleProfile, null, 2) : "{}"); setMessage("");
+    setSelected(id); setText(profileJson(account?.styleProfile)); setAccountInstruction(profileInstruction(account?.styleProfile)); setMessage("");
   }
 
   async function saveAccount() {
     if (!current) return;
     let styleProfile: Record<string, unknown>;
     try { styleProfile = JSON.parse(text) as Record<string, unknown>; } catch { setMessage("Geçerli JSON gerekli."); return; }
+    const instruction = accountInstruction.trim();
+    if (instruction.length > 6000) { setMessage("Hesap yönergesi en fazla 6000 karakter olabilir."); return; }
+    if (instruction) styleProfile.editorialInstruction = instruction;
+    else delete styleProfile.editorialInstruction;
     setPendingAction("account");
     const response = await run((signal) => fetch(`/api/accounts/${current.id}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ styleProfile }), signal }));
     if (!response) { setPendingAction(""); setMessage("İstek durduruldu; kaydetme sunucuda tamamlanmış olabilir, sayfayı yenileyerek kontrol et."); return; }
@@ -69,6 +84,7 @@ export function StyleProfilesPage({ initial, initialSettings, ideologies }: { in
       <Field><FieldLabel htmlFor="example-opening">Açılış</FieldLabel><Input id="example-opening" value={example.opening || ""} onChange={(event) => updateExample("opening", event.target.value)} disabled={pending} /></Field>
       <Field><FieldLabel htmlFor="example-emoji">Emoji</FieldLabel><Input id="example-emoji" value={example.emoji || ""} onChange={(event) => updateExample("emoji", event.target.value)} disabled={pending} /></Field>
       <Field className="md:col-span-2"><FieldLabel htmlFor="example-format">Format kuralı</FieldLabel><Input id="example-format" value={example.formatRule || ""} onChange={(event) => updateExample("formatRule", event.target.value)} disabled={pending} /><FieldDescription>Yalnız kaynak postu açık özel-haber etiketi taşıyorsa görünen kaynak adı eklenir.</FieldDescription></Field>
+      <Field className="md:col-span-2"><FieldLabel htmlFor="example-editorial-instruction">Global auto-hitmaker yönergesi</FieldLabel><Textarea id="example-editorial-instruction" value={example.editorialInstruction || ""} onChange={(event) => updateExample("editorialInstruction", event.target.value)} disabled={pending} className="min-h-36" /><FieldDescription>Tüm üretimlerin temel editoryal sesi. Kaynak güvenliği, özgünlük, karakter limiti ve yayın kapıları bu metinle değiştirilemez.</FieldDescription></Field>
       <Field className="md:col-span-2"><FieldLabel>Bu örnek postta etkin skill’ler</FieldLabel><div className="flex flex-wrap gap-3">{settings.skills.map((skill) => <label key={skill.id} className="flex items-center gap-2 text-sm"><input type="checkbox" checked={(example.writingSkillIds || settings.skills.filter((item) => item.enabled).map((item) => item.id)).includes(skill.id)} onChange={(event) => setExampleSkill(skill.id, event.target.checked)} disabled={pending || !skill.enabled} /> {skill.name}</label>)}</div></Field>
     </CardContent></Card>
 
@@ -79,7 +95,7 @@ export function StyleProfilesPage({ initial, initialSettings, ideologies }: { in
 
     <div className="grid gap-5 xl:grid-cols-[260px_minmax(0,1fr)]">
       <Card><CardHeader><CardTitle>Hesaplar</CardTitle><CardDescription>Hesap stili örnek post stilinden bağımsızdır.</CardDescription></CardHeader><CardContent className="flex flex-col gap-2">{accounts.length === 0 ? <Empty className="border border-dashed py-8"><EmptyHeader><EmptyTitle>Hesap yok</EmptyTitle><EmptyDescription>Stil profili oluşturmak için önce bir hesap ekle.</EmptyDescription></EmptyHeader></Empty> : accounts.map((account) => <Button type="button" key={account.id} variant={selected === account.id ? "secondary" : "ghost"} className="h-auto justify-start border border-transparent p-3 text-left" data-selected={selected === account.id} onClick={() => choose(account.id)}>@{account.handle}</Button>)}</CardContent></Card>
-      <Card><CardHeader><CardTitle>{current ? `@${current.handle} stil profili` : "Stil profili"}</CardTitle><CardDescription>Bu hesabın tandansı, tonu ve skill seçimi yalnız kendi üretimine gider.</CardDescription></CardHeader><CardContent className="flex flex-col gap-4"><Field><FieldLabel>Bu hesapta etkin skill’ler</FieldLabel><div className="flex flex-wrap gap-3">{settings.skills.map((skill) => <label key={skill.id} className="flex items-center gap-2 text-sm"><input type="checkbox" checked={accountSkillIds.has(skill.id)} onChange={(event) => setAccountSkill(skill.id, event.target.checked)} disabled={!current || pending || !skill.enabled} /> {skill.name}</label>)}</div></Field><Field><FieldLabel htmlFor="style-profile">Profile JSON</FieldLabel><Textarea id="style-profile" className="min-h-72 font-mono text-xs" value={text} onChange={(event) => setText(event.target.value)} disabled={!current || pending} aria-invalid={message === "Geçerli JSON gerekli."} /></Field><Button onClick={saveAccount} disabled={!current || pending}>{pendingAction === "account" ? <Spinner data-icon="inline-start" /> : null} Hesap stilini kaydet</Button></CardContent></Card>
+      <Card><CardHeader><CardTitle>{current ? `@${current.handle} stil profili` : "Stil profili"}</CardTitle><CardDescription>Bu hesabın tandansı, tonu, yönergesi ve skill seçimi yalnız kendi üretimine gider.</CardDescription></CardHeader><CardContent className="flex flex-col gap-4"><Field><FieldLabel>Bu hesapta etkin skill’ler</FieldLabel><div className="flex flex-wrap gap-3">{settings.skills.map((skill) => <label key={skill.id} className="flex items-center gap-2 text-sm"><input type="checkbox" checked={accountSkillIds.has(skill.id)} onChange={(event) => setAccountSkill(skill.id, event.target.checked)} disabled={!current || pending || !skill.enabled} /> {skill.name}</label>)}</div></Field><Field><FieldLabel htmlFor="account-editorial-instruction">Hesaba özel yönerge</FieldLabel><Textarea id="account-editorial-instruction" value={accountInstruction} onChange={(event) => setAccountInstruction(event.target.value)} disabled={!current || pending} className="min-h-36" /><FieldDescription>Global yönergeye eklenir; boş bırakırsan yalnız global yönerge kullanılır. Bu alan gelişmiş JSON içindeki aynı değerin yerine geçer.</FieldDescription></Field><Field><FieldLabel htmlFor="style-profile">Gelişmiş profil JSON</FieldLabel><Textarea id="style-profile" className="min-h-72 font-mono text-xs" value={text} onChange={(event) => setText(event.target.value)} disabled={!current || pending} aria-invalid={message === "Geçerli JSON gerekli."} /></Field><Button onClick={saveAccount} disabled={!current || pending}>{pendingAction === "account" ? <Spinner data-icon="inline-start" /> : null} Hesap stilini kaydet</Button></CardContent></Card>
     </div>
     {message && <Alert variant={message === "Geçerli JSON gerekli." ? "destructive" : "default"}><AlertDescription>{message}</AlertDescription></Alert>}
   </div>;

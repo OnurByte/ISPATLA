@@ -31,6 +31,22 @@ test("normalizes FxTwitter verification types without treating organization badg
   ]).toEqual(["blue", "organization", "not_verified", "unknown"]);
 });
 
+test("persists global and account editorial instructions with bounded input", () => {
+  const output = runIsolatedDatabase(`
+    import { ensureDatabase, getWritingStyleSettings, saveAccount, saveWritingStyleSettings } from "./src/server/db.ts";
+    if (!ensureDatabase()) throw new Error("database did not initialize");
+    const initial = getWritingStyleSettings();
+    const settings = saveWritingStyleSettings({ exampleStyle: { ...initial.exampleStyle, editorialInstruction: "Global hitmaker sesi" }, skills: initial.skills }, 1);
+    const account = saveAccount({ accountKey: "publisher", handle: "publisher", displayName: "Publisher", xuseAccountId: "publisher", enabled: true, defaultAccount: true, automationMode: "auto", dailyLimit: 24, capabilities: ["post"], styleProfile: { editorialInstruction: "Hesap sesi" }, now: 2 });
+    let invalid = "";
+    try { saveAccount({ accountKey: "invalid", handle: "invalid", displayName: "Invalid", xuseAccountId: "", enabled: true, defaultAccount: false, automationMode: "manual", dailyLimit: 24, capabilities: [], styleProfile: { editorialInstruction: "x".repeat(6001) }, now: 3 }); } catch (error) { invalid = error instanceof Error ? error.message : String(error); }
+    console.log(JSON.stringify({ defaultInstruction: initial.exampleStyle.editorialInstruction, globalInstruction: settings.exampleStyle.editorialInstruction, accountInstruction: account.styleProfile.editorialInstruction, invalid }));
+  `);
+  const result = JSON.parse(output);
+  expect(result.defaultInstruction).toContain("Türkçe X içerik editörüsün");
+  expect(result).toMatchObject({ globalInstruction: "Global hitmaker sesi", accountInstruction: "Hesap sesi", invalid: "editoryal yönerge en fazla 6000 karakter olabilir" });
+});
+
 test("persists editable automation schedules and redacts automation log secrets", () => {
   const output = runIsolatedDatabase(`
     import { ensureDatabase, getAutomationLogs, getAutomationSchedules, recordAutomationLog, saveAutomationSchedule } from "./src/server/db.ts";

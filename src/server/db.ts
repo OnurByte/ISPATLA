@@ -289,6 +289,23 @@ export const DEFAULT_ACCOUNT_STYLE = {
   formatRule: "tek paragraf, kısa cümle, hashtag yok",
 } as const;
 
+export const DEFAULT_EDITORIAL_INSTRUCTION = "Türkçe X içerik editörüsün. Kısa, olgusal ve özgün yaz; kaynakta olmayan kesinlik ekleme. En güçlü bilgiyi doğrudan ver, clickbait ve şablon ifadeler kullanma.";
+const EDITORIAL_INSTRUCTION_MAX_LENGTH = 6000;
+
+function readEditorialInstruction(value: unknown, fallback: string): string {
+  if (typeof value !== "string") return fallback;
+  const instruction = value.trim();
+  return instruction && instruction.length <= EDITORIAL_INSTRUCTION_MAX_LENGTH ? instruction : fallback;
+}
+
+function writeEditorialInstruction(value: unknown, fallback: string): string {
+  if (value === undefined) return fallback;
+  if (typeof value !== "string") throw new Error("editoryal yönerge metin olmalı");
+  const instruction = value.trim();
+  if (instruction.length > EDITORIAL_INSTRUCTION_MAX_LENGTH) throw new Error("editoryal yönerge en fazla 6000 karakter olabilir");
+  return instruction || fallback;
+}
+
 export type WritingSkill = {
   id: "newsroom-style" | "humanize-writing";
   name: string;
@@ -2910,6 +2927,11 @@ export function saveAccount(input: {
   now: number;
 }): Account {
   const styleProfile = { ...(input.styleProfile || {}) };
+  if ("editorialInstruction" in styleProfile) {
+    const instruction = writeEditorialInstruction(styleProfile.editorialInstruction, "");
+    if (instruction) styleProfile.editorialInstruction = instruction;
+    else delete styleProfile.editorialInstruction;
+  }
   if ("categories" in styleProfile) {
     const categories = canonicalCategorySlugs(styleProfile.categories);
     if (!categories) throw new Error("account kategorileri katalogdan seçilmeli");
@@ -3711,6 +3733,7 @@ export function getWritingStyleSettings(): WritingStyleSettings {
   const exampleStyle = {
     ...DEFAULT_ACCOUNT_STYLE,
     ...storedExampleStyle,
+    editorialInstruction: readEditorialInstruction(storedExampleStyle.editorialInstruction, DEFAULT_EDITORIAL_INSTRUCTION),
     writingSkillIds: writingSkillIds(storedExampleStyle.writingSkillIds) || skills.filter((skill) => skill.enabled).map((skill) => skill.id),
     attribution: "özel haber etiketi varsa görünür kaynak adı; aksi halde otomatik atıf yok",
   };
@@ -3727,7 +3750,7 @@ export function saveWritingStyleSettings(input: WritingStyleSettings, now: numbe
     return { ...skill, enabled: value?.enabled !== false, instructions };
   });
   const exampleStyle = input.exampleStyle && typeof input.exampleStyle === "object" && !Array.isArray(input.exampleStyle)
-    ? { ...DEFAULT_ACCOUNT_STYLE, ...input.exampleStyle, writingSkillIds: writingSkillIds(input.exampleStyle.writingSkillIds) || [], attribution: "özel haber etiketi varsa görünür kaynak adı; aksi halde otomatik atıf yok" }
+    ? { ...DEFAULT_ACCOUNT_STYLE, ...input.exampleStyle, editorialInstruction: writeEditorialInstruction(input.exampleStyle.editorialInstruction, DEFAULT_EDITORIAL_INSTRUCTION), writingSkillIds: writingSkillIds(input.exampleStyle.writingSkillIds) || [], attribution: "özel haber etiketi varsa görünür kaynak adı; aksi halde otomatik atıf yok" }
     : existing.exampleStyle;
   const value = { exampleStyle, skills };
   setSetting("writing_style_settings", JSON.stringify(value), now);
