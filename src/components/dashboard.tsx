@@ -96,7 +96,7 @@ export function Dashboard({ initial }: { initial: DashboardSummary }) {
             </div>
             <div className="flex flex-col gap-2">
               <h1 className="text-4xl font-semibold tracking-tight sm:text-5xl">Sinyali yakala. Hiti yap. Yayını kontrol et.</h1>
-              <p className="max-w-2xl text-base leading-7 text-muted-foreground">X için auto-hitmaker: haber, kültür, spor, finans, eğlence ve topluluk sinyali → hesap dilinde özgün hit → açık onay → x-use ve FxTwitter reconciliation.</p>
+              <p className="max-w-2xl text-base leading-7 text-muted-foreground">X için auto-hitmaker: günlerce arka planda çalışan sinyal radarı → hesap dilinde özgün hit → güvenlik kapıları → otomatik yayın ve FxTwitter reconciliation.</p>
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">

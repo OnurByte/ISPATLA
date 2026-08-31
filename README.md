@@ -2,24 +2,25 @@
 
 ## Ispatla — global X auto-hitmaker
 
-İlk sinyali yakala. Kanıtı koru. Hesabın dilinde üret. İnsan onayı olmadan
-yayınlama.
+İlk sinyali yakala. Kanıtı koru. Hesabın dilinde üret. Sen bakmasan da hit
+akışını çalıştır.
 
 Ispatla, X üzerindeki küresel sinyali hesap kimliğine uygun özgün hit'lere
 dönüştüren bir **auto-hitmaker**'dır. Bu yalnızca haber için bir newsroom
 değildir: kültür, spor, finans, eğlence, teknoloji, topluluk ve marka hesapları
 aynı fırsat motorunu kullanabilir.
 
-Auto-hitmaker her şeyi körlemesine yayınlayan bir bot değildir. Ispatla fırsatı
-ve doğru formatı otomatik bulur, hesabın stiline göre özgün varyantlar üretir;
-operatör ise yayın niyetini açıkça onaylar. Böylece hız otomatikleşir, ses ve
-sorumluluk hesap sahibinde kalır.
+Auto-hitmaker her şeyi körlemesine yayınlayan bir bot değildir. Ispatla
+günlerce arka planda radar tarar, fırsatı ve doğru formatı bulur, hesabın
+stilinde özgün hit üretir; otomatik moddaki hesaplarda güvenlik kapılarını
+geçen yayını gönderir. Manuel mod da aynı akışta tek tek onay vermek isteyen
+hesaplar için kalır.
 
 > X'in gizli sıralama skorunu, erişimini veya gelirini vaat etmiyoruz. Ispatla;
 > gözlenen açık veriden çalışan, kararları ve kanıt sınırını görünür tutan bir
 > hit operasyon aracıdır.
 
-![Ispatla Kontrol Merkezi: kaynaklar, gözlenen postlar, fırsatlar ve operasyon kapıları](docs/assets/ispatla-control-plane.png)
+![Ispatla Kontrol Merkezi: koyu temada kaynaklar, gözlenen postlar, fırsatlar ve operasyon kapıları](docs/assets/ispatla-control-plane-dark.png)
 
 ## Tek döngü, bütün operasyon
 
@@ -29,7 +30,7 @@ Global source graph + discovery queries
   -> monitoring budget + adaptive cadence
   -> opportunity and account decision
   -> style-aware draft + safety gates
-  -> PublicationIntent + explicit approval
+  -> PublicationIntent + account policy
   -> XPublisher / x-use receipt
   -> reconciliation + feedback
   -> stronger monitoring and query choices
@@ -61,7 +62,7 @@ Global source graph + discovery queries
 ### Güvenli yayın hattı
 
 - Draft doğrudan yayın kuyruğu değildir. `PublicationIntent`, idempotency key,
-  açık insan onayı, x-use receipt'i ve reconciliation ayrı durumlarda tutulur.
+  hesap politikası, x-use receipt'i ve reconciliation ayrı durumlarda tutulur.
 - Receipt başarı kanıtı değildir: exact text ve author FxTwitter üzerinden
   doğrulanmadan yayın `confirmed` sayılmaz.
 - Sensitive içerik, telif/rights, kopyalama, duplicate cluster ve yayın limiti
