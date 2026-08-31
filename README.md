@@ -56,7 +56,7 @@ Global source graph + discovery queries
   Kaynaklar ancak açık bir işlemle kaldırılır; AI'nın öznel düşük puanı kayıt
   silmez.
 
-![Ispatla Kaynaklar: aktif havuz, adaylar, teknik uyarılar ve gerçek kaldırmalar ayrı görünür](docs/assets/ispatla-sources.png)
+![Ispatla Kaynaklar: koyu temada aktif havuz, adaylar, teknik uyarılar ve gerçek kaldırmalar ayrı görünür](docs/assets/ispatla-sources-dark.png)
 
 ### Güvenli yayın hattı
 
