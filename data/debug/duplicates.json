@@ -1,5 +1,23 @@
 [
   {
+    "id": "platformism",
+    "reason": "duplicate canonical ideology",
+    "kept": "Q176339",
+    "discarded": "Q176339"
+  },
+  {
+    "id": "international-workers-association-asociacion-internacional-de-los-trabajadores",
+    "reason": "duplicate canonical ideology",
+    "kept": "Q1394961",
+    "discarded": "Q1394961"
+  },
+  {
+    "id": "synthesis-anarchism",
+    "reason": "duplicate canonical ideology",
+    "kept": "Q3508949",
+    "discarded": "Q3508949"
+  },
+  {
     "id": "contemporary-anarchism",
     "reason": "duplicate canonical ideology",
     "kept": "Q5165018",
@@ -292,12 +310,6 @@
     "reason": "duplicate canonical ideology",
     "kept": "Q605479",
     "discarded": "Q605479"
-  },
-  {
-    "id": "representative-democracy",
-    "reason": "duplicate canonical ideology",
-    "kept": "Q188759",
-    "discarded": "Q188759"
   },
   {
     "id": "soviet-democracy",
@@ -1204,12 +1216,6 @@
     "reason": "duplicate canonical ideology",
     "kept": "Q756180",
     "discarded": "Q756180"
-  },
-  {
-    "id": "iwa-ait",
-    "reason": "duplicate canonical ideology",
-    "kept": "Q1394961",
-    "discarded": "Q1394961"
   },
   {
     "id": "transhumanist-politics",

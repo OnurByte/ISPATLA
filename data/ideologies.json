@@ -1,9 +1,9 @@
 {
   "metadata": {
-    "generatedAt": "2026-08-28T10:19:34.061Z",
-    "total": 2319,
-    "withWikidata": 2318,
-    "withoutWikidata": 1,
+    "generatedAt": "2026-09-14T09:57:02.251Z",
+    "total": 2322,
+    "withWikidata": 2322,
+    "withoutWikidata": 0,
     "sources": [
       "https://en.wikipedia.org/wiki/List_of_political_ideologies",
       "https://www.wikidata.org/w/api.php"
@@ -2945,7 +2945,7 @@
       },
       "wikipedia": {
         "en": "https://en.wikipedia.org/wiki/Alternative_for_Germany",
-        "tr": "https://tr.wikipedia.org/wiki/Almanya_%C4%B0%C3%A7in_Alternatif"
+        "tr": "https://tr.wikipedia.org/wiki/Almanya_i%C3%A7in_Alternatif"
       },
       "sources": {
         "wikipedia": "https://en.wikipedia.org/wiki/Alternative_for_Germany",
@@ -3740,6 +3740,49 @@
       }
     },
     {
+      "id": "anarchism-in-russia",
+      "qid": "Q1033142",
+      "name": {
+        "en": "anarchism in Russia",
+        "tr": "Rusya'da anarşizm"
+      },
+      "aliases": {
+        "en": [],
+        "tr": []
+      },
+      "description": {
+        "en": "anarchism in the country",
+        "tr": "anarchism in the country"
+      },
+      "sectionPath": [
+        "Syndicalism",
+        "Regional variants"
+      ],
+      "types": [
+        "Q74817647"
+      ],
+      "parents": [],
+      "related": [],
+      "opposes": [],
+      "relationEvidence": {
+        "parents": [],
+        "related": [],
+        "opposes": []
+      },
+      "wikipedia": {
+        "en": "https://en.wikipedia.org/wiki/Anarchism_in_Russia",
+        "tr": "https://tr.wikipedia.org/wiki/Rusya'da_anar%C5%9Fizm"
+      },
+      "sources": {
+        "wikipedia": "https://en.wikipedia.org/wiki/Anarchism_in_Russia",
+        "wikidata": "Q1033142",
+        "match": {
+          "method": "wikipedia-redirect",
+          "confidence": 1
+        }
+      }
+    },
+    {
       "id": "anarchism-in-south-africa",
       "qid": "Q5674511",
       "name": {
@@ -4275,8 +4318,7 @@
         "tr": "anarşizmin bir kolu"
       },
       "sectionPath": [
-        "Anarchism",
-        "Classical"
+        "Anarchism"
       ],
       "types": [
         "Q1278791"
@@ -6576,7 +6618,7 @@
       },
       "wikipedia": {
         "en": "https://en.wikipedia.org/wiki/Anti-war_movement",
-        "tr": "https://tr.wikipedia.org/wiki/Sava%C5%9F_kar%C5%9F%C4%B1t%C4%B1_hareket"
+        "tr": null
       },
       "sources": {
         "wikipedia": "https://en.wikipedia.org/wiki/Anti-war_movement",
@@ -7627,7 +7669,7 @@
         "tr": []
       },
       "description": {
-        "en": "system of racial segregation in South Africa, introduced in 1948 by D.F. Malan and abolished between 1990 and 1994 by F.W. de Klerk",
+        "en": "system of racial segregation in South Africa, introduced in 1948 by D.F. Malan and dismantled between 1990 and 1994 by F.W. de Klerk",
         "tr": "Güney Afrika'da ırk ayrımı sistemi"
       },
       "sectionPath": [
@@ -8086,22 +8128,27 @@
       "id": "argentine-regional-workers-federation",
       "qid": "Q1399996",
       "name": {
-        "en": "Argentina",
-        "tr": "Argentina"
+        "en": "Argentine Regional Workers' Federation",
+        "tr": "Argentine Regional Workers' Federation"
       },
       "aliases": {
-        "en": [],
+        "en": [
+          "FORA",
+          "Federación Obrera Regional Argentina"
+        ],
         "tr": []
       },
       "description": {
-        "en": "",
-        "tr": ""
+        "en": "Argentina's first national labor confederation",
+        "tr": "Argentina's first national labor confederation"
       },
       "sectionPath": [
         "Syndicalism",
         "Regional variants"
       ],
-      "types": [],
+      "types": [
+        "Q7278"
+      ],
       "parents": [],
       "related": [],
       "opposes": [],
@@ -10707,15 +10754,17 @@
         "tr": []
       },
       "description": {
-        "en": "",
-        "tr": ""
+        "en": "political ideology of Tony Benn",
+        "tr": "political ideology of Tony Benn"
       },
       "sectionPath": [
         "Socialism",
         "Regional variants",
         "European"
       ],
-      "types": [],
+      "types": [
+        "Q12909644"
+      ],
       "parents": [],
       "related": [],
       "opposes": [],
@@ -10895,15 +10944,17 @@
         "tr": []
       },
       "description": {
-        "en": "",
-        "tr": ""
+        "en": "political ideology of Aneurin Bevan",
+        "tr": "political ideology of Aneurin Bevan"
       },
       "sectionPath": [
         "Socialism",
         "Regional variants",
         "European"
       ],
-      "types": [],
+      "types": [
+        "Q1393724"
+      ],
       "parents": [],
       "related": [],
       "opposes": [],
@@ -12209,6 +12260,52 @@
       }
     },
     {
+      "id": "bolsonarism",
+      "qid": "Q106571755",
+      "name": {
+        "en": "Bolsonarism",
+        "tr": "Bolsonarism"
+      },
+      "aliases": {
+        "en": [
+          "bolsonarism"
+        ],
+        "tr": []
+      },
+      "description": {
+        "en": "political ideology",
+        "tr": "political ideology"
+      },
+      "sectionPath": [
+        "Conservatism",
+        "Regional variants",
+        "American"
+      ],
+      "types": [
+        "Q12909644"
+      ],
+      "parents": [],
+      "related": [],
+      "opposes": [],
+      "relationEvidence": {
+        "parents": [],
+        "related": [],
+        "opposes": []
+      },
+      "wikipedia": {
+        "en": "https://en.wikipedia.org/wiki/Bolsonarism",
+        "tr": null
+      },
+      "sources": {
+        "wikipedia": "https://en.wikipedia.org/wiki/Bolsonarism",
+        "wikidata": "Q106571755",
+        "match": {
+          "method": "wikipedia-page",
+          "confidence": 1
+        }
+      }
+    },
+    {
       "id": "bonapartism",
       "qid": "Q672087",
       "name": {
@@ -12263,7 +12360,14 @@
         "tr": "Boris Johnson"
       },
       "aliases": {
-        "en": [],
+        "en": [
+          "Alexander Boris de Pfeffel Johnson",
+          "Bo Jo",
+          "BoJo",
+          "Boris",
+          "Bo-Jo",
+          "Johnson"
+        ],
         "tr": [
           "Aleksander Boris de Pfeffel Johnson"
         ]
@@ -12325,7 +12429,6 @@
         "European"
       ],
       "types": [
-        "Q41710",
         "Q33829"
       ],
       "parents": [],
@@ -12603,8 +12706,8 @@
       "id": "brazilian-workers-confederation",
       "qid": "Q4958783",
       "name": {
-        "en": "Brazil",
-        "tr": "Brazil"
+        "en": "Brazilian Workers Confederation",
+        "tr": "Brazilian Workers Confederation"
       },
       "aliases": {
         "en": [],
@@ -12618,7 +12721,9 @@
         "Syndicalism",
         "Regional variants"
       ],
-      "types": [],
+      "types": [
+        "Q681615"
+      ],
       "parents": [],
       "related": [],
       "opposes": [],
@@ -13976,34 +14081,74 @@
       "id": "byelorussian-soviet-socialist-republic",
       "qid": "Q2895",
       "name": {
-        "en": "Byelarus",
-        "tr": "Byelarus"
+        "en": "Byelorussian Soviet Socialist Republic",
+        "tr": "Beyaz Rusya Sovyet Sosyalist Cumhuriyeti"
       },
       "aliases": {
-        "en": [],
+        "en": [
+          "Byelorussian SSR",
+          "Byelorussian S.S.R.",
+          "Soviet Byelorussia",
+          "Belorussian S.S.R.",
+          "Belorussian SSR",
+          "Belorussian Soviet Socialist Republic",
+          "Soviet Belorussia",
+          "Communist Belarus",
+          "BSSR",
+          "Soviet Belarus",
+          "White Russian Soviet Socialist Republic",
+          "Беларуская Савецкая Сацыялістычная Рэспубліка",
+          "Bielaruskaja Savieckaja Sacyjalistyčnaja Respublika",
+          "Белорусская Советская Социалистическая Республика",
+          "Byelorusskaya Sovyetskaya Sotsialisticheskaya Respublika",
+          "Белорусская ССР",
+          "Belorusskaya SSR",
+          "Belarusian Soviet Socialist Republic",
+          "Belarusian SSR"
+        ],
         "tr": []
       },
       "description": {
-        "en": "",
-        "tr": ""
+        "en": "one of fifteen constituent republics of the Soviet Union (USSR); founding member of the United Nations Organization in 1945; now Belarus",
+        "tr": "one of fifteen constituent republics of the Soviet Union (USSR); founding member of the United Nations Organization in 1945; now Belarus"
       },
       "sectionPath": [
         "Socialism",
         "Regional variants",
         "European"
       ],
-      "types": [],
+      "types": [
+        "Q236036",
+        "Q3024240",
+        "Q3624078"
+      ],
       "parents": [],
       "related": [],
       "opposes": [],
       "relationEvidence": {
         "parents": [],
-        "related": [],
+        "related": [
+          {
+            "id": "q15180",
+            "qid": "Q15180",
+            "property": "P361"
+          },
+          {
+            "id": "q76236",
+            "qid": "Q76236",
+            "property": "P361"
+          },
+          {
+            "id": "q2305208",
+            "qid": "Q2305208",
+            "property": "P361"
+          }
+        ],
         "opposes": []
       },
       "wikipedia": {
         "en": "https://en.wikipedia.org/wiki/Byelorussian_Soviet_Socialist_Republic",
-        "tr": null
+        "tr": "https://tr.wikipedia.org/wiki/Beyaz_Rusya_Sovyet_Sosyalist_Cumhuriyeti"
       },
       "sources": {
         "wikipedia": "https://en.wikipedia.org/wiki/Byelorussian_Soviet_Socialist_Republic",
@@ -14994,22 +15139,27 @@
       "id": "central-organisation-of-the-workers-of-sweden",
       "qid": "Q1782523",
       "name": {
-        "en": "Sweden",
-        "tr": "Sweden"
+        "en": "Central Organisation of the Workers of Sweden",
+        "tr": "Central Organisation of the Workers of Sweden"
       },
       "aliases": {
-        "en": [],
+        "en": [
+          "Sveriges Arbetares Centralorganisation",
+          "SAC"
+        ],
         "tr": []
       },
       "description": {
-        "en": "",
-        "tr": ""
+        "en": "Swedish trade union",
+        "tr": "Swedish trade union"
       },
       "sectionPath": [
         "Syndicalism",
         "Regional variants"
       ],
-      "types": [],
+      "types": [
+        "Q178790"
+      ],
       "parents": [],
       "related": [],
       "opposes": [],
@@ -16835,7 +16985,7 @@
         "tr": "political and cultural expression of nationalism founded upon the religious tenets and identity of Christianity"
       },
       "sectionPath": [
-        "Nationalism",
+        "Fascism",
         "Religious variants"
       ],
       "types": [
@@ -17038,13 +17188,7 @@
             "property": "P279"
           }
         ],
-        "related": [
-          {
-            "id": "q7551013",
-            "qid": "Q7551013",
-            "property": "P361"
-          }
-        ],
+        "related": [],
         "opposes": []
       },
       "wikipedia": {
@@ -18234,19 +18378,22 @@
       }
     },
     {
-      "id": "co-operatism",
+      "id": "co-operative-economics",
       "qid": "Q5137487",
       "name": {
-        "en": "Co-operatism",
-        "tr": "Co-operatism"
+        "en": "co-operative economics",
+        "tr": "co-operative economics"
       },
       "aliases": {
-        "en": [],
+        "en": [
+          "cooperative economics",
+          "co-op economics"
+        ],
         "tr": []
       },
       "description": {
-        "en": "",
-        "tr": ""
+        "en": "field of economics",
+        "tr": "field of economics"
       },
       "sectionPath": [
         "Syndicalism",
@@ -18257,7 +18404,18 @@
       "related": [],
       "opposes": [],
       "relationEvidence": {
-        "parents": [],
+        "parents": [
+          {
+            "id": "q8134",
+            "qid": "Q8134",
+            "property": "P279"
+          },
+          {
+            "id": "q5137484",
+            "qid": "Q5137484",
+            "property": "P279"
+          }
+        ],
         "related": [],
         "opposes": []
       },
@@ -18730,22 +18888,25 @@
       "qid": "Q2182946",
       "name": {
         "en": "Commune of the Working People of Estonia",
-        "tr": "Commune of the Working People of Estonia"
+        "tr": "Estonya Çalışan Halk Komünü"
       },
       "aliases": {
         "en": [],
         "tr": []
       },
       "description": {
-        "en": "",
-        "tr": ""
+        "en": "former commune State in Europe",
+        "tr": "Varlığı tanınmamış bir hükümet"
       },
       "sectionPath": [
         "Socialism",
         "Regional variants",
         "European"
       ],
-      "types": [],
+      "types": [
+        "Q99541706",
+        "Q10711424"
+      ],
       "parents": [],
       "related": [],
       "opposes": [],
@@ -18756,7 +18917,7 @@
       },
       "wikipedia": {
         "en": "https://en.wikipedia.org/wiki/Commune_of_the_Working_People_of_Estonia",
-        "tr": null
+        "tr": "https://tr.wikipedia.org/wiki/Estonya_Emek%C3%A7iler_Kom%C3%BCn%C3%BC"
       },
       "sources": {
         "wikipedia": "https://en.wikipedia.org/wiki/Commune_of_the_Working_People_of_Estonia",
@@ -21218,22 +21379,26 @@
       "id": "confederation-nationale-du-travail",
       "qid": "Q1125627",
       "name": {
-        "en": "France",
-        "tr": "France"
+        "en": "Confédération nationale du travail",
+        "tr": "Confédération nationale du travail"
       },
       "aliases": {
-        "en": [],
+        "en": [
+          "Confederation nationale du travail"
+        ],
         "tr": []
       },
       "description": {
-        "en": "",
-        "tr": ""
+        "en": "French trade union",
+        "tr": "French trade union"
       },
       "sectionPath": [
         "Syndicalism",
         "Regional variants"
       ],
-      "types": [],
+      "types": [
+        "Q43229"
+      ],
       "parents": [],
       "related": [],
       "opposes": [],
@@ -21251,47 +21416,6 @@
         "wikidata": "Q1125627",
         "match": {
           "method": "wikipedia-page",
-          "confidence": 1
-        }
-      }
-    },
-    {
-      "id": "confederation-of-revolutionary-anarcho-syndicalists",
-      "qid": "Q1033142",
-      "name": {
-        "en": "Russia",
-        "tr": "Russia"
-      },
-      "aliases": {
-        "en": [],
-        "tr": []
-      },
-      "description": {
-        "en": "",
-        "tr": ""
-      },
-      "sectionPath": [
-        "Syndicalism",
-        "Regional variants"
-      ],
-      "types": [],
-      "parents": [],
-      "related": [],
-      "opposes": [],
-      "relationEvidence": {
-        "parents": [],
-        "related": [],
-        "opposes": []
-      },
-      "wikipedia": {
-        "en": "https://en.wikipedia.org/wiki/Anarchism_in_Russia",
-        "tr": null
-      },
-      "sources": {
-        "wikipedia": "https://en.wikipedia.org/wiki/Anarchism_in_Russia",
-        "wikidata": "Q1033142",
-        "match": {
-          "method": "wikipedia-redirect",
           "confidence": 1
         }
       }
@@ -21926,8 +22050,7 @@
       },
       "aliases": {
         "en": [
-          "Canadian conservatism",
-          "Conservatism in Canada"
+          "Canadian conservatism"
         ],
         "tr": []
       },
@@ -22446,6 +22569,59 @@
       "sources": {
         "wikipedia": "https://en.wikipedia.org/wiki/Conservatism_in_Pakistan",
         "wikidata": "Q17017310",
+        "match": {
+          "method": "wikipedia-page",
+          "confidence": 1
+        }
+      }
+    },
+    {
+      "id": "conservatism-in-peru",
+      "qid": "Q118906481",
+      "name": {
+        "en": "conservatism in Peru",
+        "tr": "conservatism in Peru"
+      },
+      "aliases": {
+        "en": [],
+        "tr": []
+      },
+      "description": {
+        "en": "overview of conservatism in Peru",
+        "tr": "overview of conservatism in Peru"
+      },
+      "sectionPath": [
+        "Conservatism",
+        "Regional variants",
+        "American"
+      ],
+      "types": [
+        "Q12909644",
+        "Q49773"
+      ],
+      "parents": [
+        "conservatism"
+      ],
+      "related": [],
+      "opposes": [],
+      "relationEvidence": {
+        "parents": [
+          {
+            "id": "conservatism",
+            "qid": "Q7169",
+            "property": "P279"
+          }
+        ],
+        "related": [],
+        "opposes": []
+      },
+      "wikipedia": {
+        "en": "https://en.wikipedia.org/wiki/Conservatism_in_Peru",
+        "tr": null
+      },
+      "sources": {
+        "wikipedia": "https://en.wikipedia.org/wiki/Conservatism_in_Peru",
+        "wikidata": "Q118906481",
         "match": {
           "method": "wikipedia-page",
           "confidence": 1
@@ -23765,48 +23941,6 @@
         "wikidata": "Q133475",
         "match": {
           "method": "wikipedia-page",
-          "confidence": 1
-        }
-      }
-    },
-    {
-      "id": "corbynism",
-      "qid": "Q24963562",
-      "name": {
-        "en": "Corbynism",
-        "tr": "Corbynism"
-      },
-      "aliases": {
-        "en": [],
-        "tr": []
-      },
-      "description": {
-        "en": "",
-        "tr": ""
-      },
-      "sectionPath": [
-        "Socialism",
-        "Regional variants",
-        "European"
-      ],
-      "types": [],
-      "parents": [],
-      "related": [],
-      "opposes": [],
-      "relationEvidence": {
-        "parents": [],
-        "related": [],
-        "opposes": []
-      },
-      "wikipedia": {
-        "en": "https://en.wikipedia.org/wiki/Political_positions_of_Jeremy_Corbyn",
-        "tr": null
-      },
-      "sources": {
-        "wikipedia": "https://en.wikipedia.org/wiki/Political_positions_of_Jeremy_Corbyn",
-        "wikidata": "Q24963562",
-        "match": {
-          "method": "wikipedia-redirect",
           "confidence": 1
         }
       }
@@ -25442,7 +25576,8 @@
           "world culture",
           "cultural globalisation",
           "international culture",
-          "culture and globalization"
+          "culture and globalization",
+          "sociocultural globalization"
         ],
         "tr": []
       },
@@ -26046,23 +26181,35 @@
       "id": "czechoslovak-socialist-republic",
       "qid": "Q853348",
       "name": {
-        "en": "Czechoslovakia",
-        "tr": "Czechoslovakia"
+        "en": "Czechoslovak Socialist Republic",
+        "tr": "Çekoslovakya Sosyalist Cumhuriyeti"
       },
       "aliases": {
-        "en": [],
+        "en": [
+          "Czechoslovak SR",
+          "Československá socialistická republika",
+          "Československá republika",
+          "Czechoslovak Republic",
+          "Communist Czechoslovakia",
+          "SR Czechoslovakia",
+          "Socialist Republic of Czechoslovakia"
+        ],
         "tr": []
       },
       "description": {
-        "en": "",
-        "tr": ""
+        "en": "republic in Central/Eastern Europe between 1948 and 1990",
+        "tr": "Orta Avrupa'da bir cumhuriyet (1960-1990)"
       },
       "sectionPath": [
         "Socialism",
         "Regional variants",
         "European"
       ],
-      "types": [],
+      "types": [
+        "Q3024240",
+        "Q325261",
+        "Q11514315"
+      ],
       "parents": [],
       "related": [],
       "opposes": [],
@@ -26073,7 +26220,7 @@
       },
       "wikipedia": {
         "en": "https://en.wikipedia.org/wiki/Czechoslovak_Socialist_Republic",
-        "tr": null
+        "tr": "https://tr.wikipedia.org/wiki/%C3%87ekoslovakya_Sosyalist_Cumhuriyeti"
       },
       "sources": {
         "wikipedia": "https://en.wikipedia.org/wiki/Czechoslovak_Socialist_Republic",
@@ -27277,6 +27424,54 @@
         "wikidata": "Q5255522",
         "match": {
           "method": "wikipedia-page",
+          "confidence": 1
+        }
+      }
+    },
+    {
+      "id": "democracy-in-the-americas",
+      "qid": "Q124053938",
+      "name": {
+        "en": "democracy in the Americas",
+        "tr": "democracy in the Americas"
+      },
+      "aliases": {
+        "en": [],
+        "tr": []
+      },
+      "description": {
+        "en": "overview of democracy in Americas",
+        "tr": "overview of democracy in Americas"
+      },
+      "sectionPath": [
+        "Democracy",
+        "Regional variants",
+        "American"
+      ],
+      "types": [],
+      "parents": [],
+      "related": [],
+      "opposes": [],
+      "relationEvidence": {
+        "parents": [
+          {
+            "id": "q7174",
+            "qid": "Q7174",
+            "property": "P279"
+          }
+        ],
+        "related": [],
+        "opposes": []
+      },
+      "wikipedia": {
+        "en": "https://en.wikipedia.org/wiki/Democracy_in_the_Americas",
+        "tr": null
+      },
+      "sources": {
+        "wikipedia": "https://en.wikipedia.org/wiki/Democracy_in_the_Americas",
+        "wikidata": "Q124053938",
+        "match": {
+          "method": "wikipedia-redirect",
           "confidence": 1
         }
       }
@@ -29600,7 +29795,8 @@
         "Q33829",
         "Q6266",
         "Q231002",
-        "Q2472587"
+        "Q2472587",
+        "Q41710"
       ],
       "parents": [],
       "related": [],
@@ -29773,20 +29969,24 @@
         "tr": []
       },
       "description": {
-        "en": "Philippine neonationalist movement",
-        "tr": "Philippine neonationalist movement"
+        "en": "Filipino right-wing populist political ideology",
+        "tr": "Filipino right-wing populist political ideology"
       },
       "sectionPath": [
-        "Conservatism",
+        "Authoritarianism",
         "Regional variants",
         "Asian"
       ],
       "types": [
         "Q9058655",
-        "Q114678821"
+        "Q114678821",
+        "Q192914",
+        "Q12909644",
+        "Q2738074"
       ],
       "parents": [
-        "neonationalism"
+        "neonationalism",
+        "right-wing-populism"
       ],
       "related": [],
       "opposes": [],
@@ -29800,6 +30000,11 @@
           {
             "id": "q18481451",
             "qid": "Q18481451",
+            "property": "P279"
+          },
+          {
+            "id": "right-wing-populism",
+            "qid": "Q436860",
             "property": "P279"
           }
         ],
@@ -30172,22 +30377,42 @@
       "qid": "Q16957",
       "name": {
         "en": "East Germany",
-        "tr": "East Germany"
+        "tr": "Doğu Almanya"
       },
       "aliases": {
-        "en": [],
-        "tr": []
+        "en": [
+          "GDR",
+          "DDR",
+          "Deutsche Demokratische Republik",
+          "Communist Germany",
+          "German Democratic Republic",
+          "Socialist Germany"
+        ],
+        "tr": [
+          "Alman Demokratik Cumhuriyeti",
+          "Demokratik Alman Cumhuriyeti",
+          "Demokratik Almanya Cumhuriyeti",
+          "Demokratik Almanya",
+          "ADC",
+          "DAC",
+          "DDR"
+        ]
       },
       "description": {
-        "en": "",
-        "tr": ""
+        "en": "1949–1990 country in central Europe, unified into modern Germany",
+        "tr": "1949'dan 1990'a dek varlığını sürdürmüş sosyalist Alman devleti"
       },
       "sectionPath": [
         "Socialism",
         "Regional variants",
         "European"
       ],
-      "types": [],
+      "types": [
+        "Q3024240",
+        "Q325261",
+        "Q7275",
+        "Q17007978"
+      ],
       "parents": [],
       "related": [],
       "opposes": [],
@@ -30198,7 +30423,7 @@
       },
       "wikipedia": {
         "en": "https://en.wikipedia.org/wiki/East_Germany",
-        "tr": null
+        "tr": "https://tr.wikipedia.org/wiki/Do%C4%9Fu_Almanya"
       },
       "sources": {
         "wikipedia": "https://en.wikipedia.org/wiki/East_Germany",
@@ -32438,23 +32663,35 @@
       "id": "estonian-soviet-socialist-republic",
       "qid": "Q130280",
       "name": {
-        "en": "Estonia",
-        "tr": "Estonia"
+        "en": "Estonian Soviet Socialist Republic",
+        "tr": "Estonya Sovyet Sosyalist Cumhuriyeti"
       },
       "aliases": {
-        "en": [],
-        "tr": []
+        "en": [
+          "Estonian SSR",
+          "Estonian S.S.R",
+          "Estonian ssr",
+          "Soviet Estonia"
+        ],
+        "tr": [
+          "Estonya SSC"
+        ]
       },
       "description": {
-        "en": "",
-        "tr": ""
+        "en": "republic of the Soviet Union (1940–1991)",
+        "tr": "republic of the Soviet Union (1940–1991)"
       },
       "sectionPath": [
         "Socialism",
         "Regional variants",
         "European"
       ],
-      "types": [],
+      "types": [
+        "Q236036",
+        "Q208164",
+        "Q3624078",
+        "Q3024240"
+      ],
       "parents": [],
       "related": [],
       "opposes": [],
@@ -32465,7 +32702,7 @@
       },
       "wikipedia": {
         "en": "https://en.wikipedia.org/wiki/Estonian_Soviet_Socialist_Republic",
-        "tr": null
+        "tr": "https://tr.wikipedia.org/wiki/Estonya_Sovyet_Sosyalist_Cumhuriyeti"
       },
       "sources": {
         "wikipedia": "https://en.wikipedia.org/wiki/Estonian_Soviet_Socialist_Republic",
@@ -33228,7 +33465,9 @@
         "tr": "euroscepticism in Ireland"
       },
       "aliases": {
-        "en": [],
+        "en": [
+          "Euroscepticism in the Republic of Ireland"
+        ],
         "tr": []
       },
       "description": {
@@ -33334,8 +33573,8 @@
         "tr": []
       },
       "description": {
-        "en": "criticism/Opposition to the European Union in the United Kingdom",
-        "tr": "criticism/Opposition to the European Union in the United Kingdom"
+        "en": "criticism/opposition to the European Union in the United Kingdom",
+        "tr": "criticism/opposition to the European Union in the United Kingdom"
       },
       "sectionPath": [
         "Populism",
@@ -37619,8 +37858,8 @@
         "tr": []
       },
       "description": {
-        "en": "political party in Finland",
-        "tr": "political party in Finland"
+        "en": "former political party in Finland",
+        "tr": "former political party in Finland"
       },
       "sectionPath": [
         "Populism",
@@ -37628,7 +37867,7 @@
         "European"
       ],
       "types": [
-        "Q7278"
+        "Q40482169"
       ],
       "parents": [],
       "related": [],
@@ -37639,14 +37878,14 @@
         "opposes": []
       },
       "wikipedia": {
-        "en": "https://en.wikipedia.org/wiki/Finnish_Reform_Movement",
+        "en": "https://en.wikipedia.org/wiki/Blue_Reform",
         "tr": null
       },
       "sources": {
-        "wikipedia": "https://en.wikipedia.org/wiki/Finnish_Reform_Movement",
+        "wikipedia": "https://en.wikipedia.org/wiki/Blue_Reform",
         "wikidata": "Q30337076",
         "match": {
-          "method": "wikipedia-redirect",
+          "method": "wikipedia-page",
           "confidence": 1
         }
       }
@@ -37655,23 +37894,26 @@
       "id": "finnish-socialist-workers-republic",
       "qid": "Q1811029",
       "name": {
-        "en": "Finland",
-        "tr": "Finland"
+        "en": "Finnish Socialist Workers' Republic",
+        "tr": "Finlandiya Sosyalist İşçi Cumhuriyeti"
       },
       "aliases": {
         "en": [],
         "tr": []
       },
       "description": {
-        "en": "",
-        "tr": ""
+        "en": "theoretical precursor of a Finnish socialist state",
+        "tr": "theoretical precursor of a Finnish socialist state"
       },
       "sectionPath": [
         "Socialism",
         "Regional variants",
         "European"
       ],
-      "types": [],
+      "types": [
+        "Q99541706",
+        "Q10711424"
+      ],
       "parents": [],
       "related": [],
       "opposes": [],
@@ -37682,7 +37924,7 @@
       },
       "wikipedia": {
         "en": "https://en.wikipedia.org/wiki/Finnish_Socialist_Workers'_Republic",
-        "tr": null
+        "tr": "https://tr.wikipedia.org/wiki/Finlandiya_Sosyalist_%C4%B0%C5%9F%C3%A7i_Cumhuriyeti"
       },
       "sources": {
         "wikipedia": "https://en.wikipedia.org/wiki/Finnish_Socialist_Workers'_Republic",
@@ -38388,7 +38630,7 @@
         "wikipedia": "https://en.wikipedia.org/wiki/Fourth_International%E2%80%93Posadist",
         "wikidata": "Q3413640",
         "match": {
-          "method": "wikipedia-page",
+          "method": "wikipedia-redirect",
           "confidence": 1
         }
       }
@@ -39139,7 +39381,7 @@
       },
       "wikipedia": {
         "en": "https://en.wikipedia.org/wiki/Free_software_movement",
-        "tr": "https://tr.wikipedia.org/wiki/%C3%96zg%C3%BCr_yaz%C4%B1l%C4%B1m_hareketi"
+        "tr": null
       },
       "sources": {
         "wikipedia": "https://en.wikipedia.org/wiki/Free_software_movement",
@@ -39206,22 +39448,27 @@
       "id": "free-workers-union-of-germany",
       "qid": "Q561854",
       "name": {
-        "en": "Germany",
-        "tr": "Germany"
+        "en": "Free Workers' Union of Germany",
+        "tr": "Free Workers' Union of Germany"
       },
       "aliases": {
-        "en": [],
+        "en": [
+          "Freie Arbeiter-Union Deutschlands",
+          "FAUD"
+        ],
         "tr": []
       },
       "description": {
-        "en": "",
-        "tr": ""
+        "en": "anarcho-syndicalist trade union in Germany",
+        "tr": "anarcho-syndicalist trade union in Germany"
       },
       "sectionPath": [
         "Syndicalism",
         "Regional variants"
       ],
-      "types": [],
+      "types": [
+        "Q178790"
+      ],
       "parents": [],
       "related": [],
       "opposes": [],
@@ -43716,7 +43963,7 @@
         ]
       },
       "description": {
-        "en": "Ukrainian revolutionary (1883-1936)",
+        "en": "Russian revolutionary (1883-1936)",
         "tr": "Yahudi kökenli Ukraynalı devrimci ve Sovyetler Birliği'nin siyasetçisi (1883-1936)"
       },
       "sectionPath": [
@@ -46022,26 +46269,78 @@
       }
     },
     {
-      "id": "history-of-the-social-democratic-party-of-germany",
-      "qid": "Q1517230",
+      "id": "history-of-the-labour-party-uk",
+      "qid": "Q5869158",
       "name": {
-        "en": "Germany",
-        "tr": "Germany"
+        "en": "history of the Labour Party (UK)",
+        "tr": "history of the Labour Party (UK)"
       },
       "aliases": {
-        "en": [],
+        "en": [
+          "the Labour Party (UK) history",
+          "Labour Party (UK) history"
+        ],
         "tr": []
       },
       "description": {
-        "en": "",
-        "tr": ""
+        "en": "aspect of history",
+        "tr": "aspect of history"
       },
       "sectionPath": [
         "Socialism",
         "Regional variants",
         "European"
       ],
-      "types": [],
+      "types": [
+        "Q17524420"
+      ],
+      "parents": [],
+      "related": [],
+      "opposes": [],
+      "relationEvidence": {
+        "parents": [],
+        "related": [],
+        "opposes": []
+      },
+      "wikipedia": {
+        "en": "https://en.wikipedia.org/wiki/History_of_the_Labour_Party_(UK)",
+        "tr": null
+      },
+      "sources": {
+        "wikipedia": "https://en.wikipedia.org/wiki/History_of_the_Labour_Party_(UK)",
+        "wikidata": "Q5869158",
+        "match": {
+          "method": "wikipedia-redirect",
+          "confidence": 1
+        }
+      }
+    },
+    {
+      "id": "history-of-the-social-democratic-party-of-germany",
+      "qid": "Q1517230",
+      "name": {
+        "en": "history of the Social Democratic Party of Germany",
+        "tr": "history of the Social Democratic Party of Germany"
+      },
+      "aliases": {
+        "en": [
+          "the Social Democratic Party of Germany history",
+          "Social Democratic Party of Germany history"
+        ],
+        "tr": []
+      },
+      "description": {
+        "en": "aspect of history",
+        "tr": "aspect of history"
+      },
+      "sectionPath": [
+        "Socialism",
+        "Regional variants",
+        "European"
+      ],
+      "types": [
+        "Q115857096"
+      ],
       "parents": [],
       "related": [],
       "opposes": [],
@@ -46798,17 +47097,23 @@
         "tr": "Humanity+"
       },
       "aliases": {
-        "en": [],
+        "en": [
+          "Humanity Plus",
+          "H+"
+        ],
         "tr": []
       },
       "description": {
-        "en": "",
-        "tr": ""
+        "en": "transhumanist organization",
+        "tr": "transhumanist organization"
       },
       "sectionPath": [
         "Transhumanism"
       ],
-      "types": [],
+      "types": [
+        "Q1194093",
+        "Q163740"
+      ],
       "parents": [],
       "related": [],
       "opposes": [],
@@ -46977,34 +47282,51 @@
       "id": "hungarian-peoples-republic",
       "qid": "Q16410",
       "name": {
-        "en": "Hungary",
-        "tr": "Hungary"
+        "en": "Hungarian People's Republic",
+        "tr": "Macaristan Halk Cumhuriyeti"
       },
       "aliases": {
-        "en": [],
+        "en": [
+          "PR Hungary",
+          "Socialist Hungary",
+          "Hungary",
+          "Communist Hungary"
+        ],
         "tr": []
       },
       "description": {
-        "en": "",
-        "tr": ""
+        "en": "1949–1989 socialist republic in Central Europe",
+        "tr": "1949-1989 yılları arasında Macaristan'da hüküm sürmüş eski komünist devlet"
       },
       "sectionPath": [
         "Socialism",
         "Regional variants",
         "European"
       ],
-      "types": [],
+      "types": [
+        "Q3024240",
+        "Q325261",
+        "Q842112",
+        "Q465613",
+        "Q11514315"
+      ],
       "parents": [],
       "related": [],
       "opposes": [],
       "relationEvidence": {
         "parents": [],
-        "related": [],
+        "related": [
+          {
+            "id": "q21971240",
+            "qid": "Q21971240",
+            "property": "P361"
+          }
+        ],
         "opposes": []
       },
       "wikipedia": {
         "en": "https://en.wikipedia.org/wiki/Hungarian_People's_Republic",
-        "tr": null
+        "tr": "https://tr.wikipedia.org/wiki/Macaristan_Halk_Cumhuriyeti"
       },
       "sources": {
         "wikipedia": "https://en.wikipedia.org/wiki/Hungarian_People's_Republic",
@@ -47024,7 +47346,8 @@
       },
       "aliases": {
         "en": [
-          "Hungarian Uprising"
+          "Hungarian Uprising",
+          "1956 Hungarian Revolution"
         ],
         "tr": [
           "1956 Macar Devrimi",
@@ -47323,6 +47646,53 @@
         "wikidata": "Q1255009",
         "match": {
           "method": "wikipedia-page",
+          "confidence": 1
+        }
+      }
+    },
+    {
+      "id": "hybrid-regime",
+      "qid": "Q66424254",
+      "name": {
+        "en": "hybrid regime",
+        "tr": "Hibrit rejim"
+      },
+      "aliases": {
+        "en": [],
+        "tr": []
+      },
+      "description": {
+        "en": "mixed type of political regime that arises on the basis of an authoritarian as a result of an incomplete democratic transition",
+        "tr": "Otokratik ve demokratik özellikleri birleştiren rejim"
+      },
+      "sectionPath": [
+        "Democracy",
+        "General"
+      ],
+      "types": [],
+      "parents": [],
+      "related": [],
+      "opposes": [],
+      "relationEvidence": {
+        "parents": [
+          {
+            "id": "q5589178",
+            "qid": "Q5589178",
+            "property": "P279"
+          }
+        ],
+        "related": [],
+        "opposes": []
+      },
+      "wikipedia": {
+        "en": "https://en.wikipedia.org/wiki/Hybrid_regime",
+        "tr": "https://tr.wikipedia.org/wiki/Hibrit_rejim"
+      },
+      "sources": {
+        "wikipedia": "https://en.wikipedia.org/wiki/Hybrid_regime",
+        "wikidata": "Q66424254",
+        "match": {
+          "method": "wikipedia-redirect",
           "confidence": 1
         }
       }
@@ -47709,6 +48079,11 @@
           {
             "id": "q49447",
             "qid": "Q49447",
+            "property": "P279"
+          },
+          {
+            "id": "q141152439",
+            "qid": "Q141152439",
             "property": "P279"
           }
         ],
@@ -49347,6 +49722,60 @@
       }
     },
     {
+      "id": "informal-anarchist-federation",
+      "qid": "Q1400312",
+      "name": {
+        "en": "Informal Anarchist Federation",
+        "tr": "Enformal Anarşist Federasyon"
+      },
+      "aliases": {
+        "en": [
+          "Federación Anarquista Informal",
+          "FAI-FRI",
+          "Federazione anarchica informale",
+          "FAI",
+          "Federazione Anarchica Informale"
+        ],
+        "tr": [
+          "Federación Anarquista Informal",
+          "FAI-FRI",
+          "Federazione anarchica informale",
+          "FAI"
+        ]
+      },
+      "description": {
+        "en": "Anarchist guerrilla organization",
+        "tr": "Anarşist gerilla örgütü"
+      },
+      "sectionPath": [
+        "Anarchism"
+      ],
+      "types": [
+        "Q61741927",
+        "Q17127659"
+      ],
+      "parents": [],
+      "related": [],
+      "opposes": [],
+      "relationEvidence": {
+        "parents": [],
+        "related": [],
+        "opposes": []
+      },
+      "wikipedia": {
+        "en": "https://en.wikipedia.org/wiki/Informal_Anarchist_Federation",
+        "tr": "https://tr.wikipedia.org/wiki/Enformal_Anar%C5%9Fist_Federasyon"
+      },
+      "sources": {
+        "wikipedia": "https://en.wikipedia.org/wiki/Informal_Anarchist_Federation",
+        "wikidata": "Q1400312",
+        "match": {
+          "method": "wikipedia-page",
+          "confidence": 1
+        }
+      }
+    },
+    {
       "id": "information-privacy",
       "qid": "Q456632",
       "name": {
@@ -49509,8 +49938,7 @@
         "tr": "anarşizm teorisi"
       },
       "sectionPath": [
-        "Anarchism",
-        "Post-classical"
+        "Anarchism"
       ],
       "types": [
         "Q1278791"
@@ -50462,7 +50890,7 @@
         "tr": "anarchist organization"
       },
       "sectionPath": [
-        "Libertarianism"
+        "Anarchism"
       ],
       "types": [
         "Q13243303"
@@ -50614,6 +51042,51 @@
         "wikidata": "Q16995240",
         "match": {
           "method": "wikipedia-page",
+          "confidence": 1
+        }
+      }
+    },
+    {
+      "id": "international-workers-association-asociacion-internacional-de-los-trabajadores",
+      "qid": "Q1394961",
+      "name": {
+        "en": "International Workers' Association – Asociación Internacional de los Trabajadores",
+        "tr": "Uluslararası Emekçiler Birliği"
+      },
+      "aliases": {
+        "en": [
+          "IWA",
+          "IWA-AIT"
+        ],
+        "tr": []
+      },
+      "description": {
+        "en": "international federation of anarcho-syndicalist labor unions",
+        "tr": "international federation of anarcho-syndicalist labor unions"
+      },
+      "sectionPath": [
+        "Anarchism"
+      ],
+      "types": [
+        "Q5570909"
+      ],
+      "parents": [],
+      "related": [],
+      "opposes": [],
+      "relationEvidence": {
+        "parents": [],
+        "related": [],
+        "opposes": []
+      },
+      "wikipedia": {
+        "en": "https://en.wikipedia.org/wiki/IWA%E2%80%93AIT",
+        "tr": "https://tr.wikipedia.org/wiki/Uluslararas%C4%B1_Emek%C3%A7iler_Birli%C4%9Fi"
+      },
+      "sources": {
+        "wikipedia": "https://en.wikipedia.org/wiki/IWA%E2%80%93AIT",
+        "wikidata": "Q1394961",
+        "match": {
+          "method": "wikipedia-redirect",
           "confidence": 1
         }
       }
@@ -51258,13 +51731,13 @@
       "aliases": {
         "en": [
           "Legion of the Archangel Michael",
-          "Totul pentru Ţară"
+          "Totul pentru Țară"
         ],
         "tr": []
       },
       "description": {
-        "en": "Romanian ultranationalist movement (1930–1941)",
-        "tr": "Romanian ultranationalist movement (1930–1941)"
+        "en": "Romanian ultranationalist movement and fascist political party (1930–1941)",
+        "tr": "Romanian ultranationalist movement and fascist political party (1930–1941)"
       },
       "sectionPath": [
         "Fascism",
@@ -51586,7 +52059,7 @@
       },
       "description": {
         "en": "form of feminist discourse concerned with the role of women in Islam; aims for the full equality of all Muslims, regardless of gender, in public and private life; advocates for women's rights, gender equality, and social justice grounded in Islam",
-        "tr": "İdeoloji"
+        "tr": "ideoloji"
       },
       "sectionPath": [
         "Identity politics",
@@ -51854,14 +52327,14 @@
       "id": "islamic-socialism",
       "qid": "Q1150339",
       "name": {
-        "en": "islamic socialism",
+        "en": "Islāmic Socialism",
         "tr": "İslami sosyalizm"
       },
       "aliases": {
         "en": [
-          "socialist Islam",
-          "communist Islam",
-          "Islamic communism"
+          "Socialist Islām",
+          "Communist Islām",
+          "Islāmic Communism"
         ],
         "tr": []
       },
@@ -51965,17 +52438,12 @@
           "radical Islam"
         ],
         "tr": [
-          "Politik İslam",
-          "Siyasal İslam",
-          "İslamcı",
-          "Panislâmizm",
-          "İslâmcı",
-          "İslâmcılık"
+          "Siyasal İslam"
         ]
       },
       "description": {
         "en": "political ideology for applying Islamic doctrine to politics and society",
-        "tr": "politik-dinî ideoloji"
+        "tr": "İslam doktrinini siyasete ve topluma uygulama konusunda siyasi ideoloji"
       },
       "sectionPath": [
         "Conservatism",
@@ -52718,23 +53186,29 @@
       "id": "italian-socialist-party",
       "qid": "Q590750",
       "name": {
-        "en": "Italy",
-        "tr": "Italy"
+        "en": "Italian Socialist Party",
+        "tr": "İtalyan Sosyalist Partisi"
       },
       "aliases": {
-        "en": [],
+        "en": [
+          "PSI",
+          "Partito Socialista Italiano",
+          "Socialist Party of Italy"
+        ],
         "tr": []
       },
       "description": {
-        "en": "",
-        "tr": ""
+        "en": "political party that existed in Italy from 1892 to 1994",
+        "tr": "political party that existed in Italy from 1892 to 1994"
       },
       "sectionPath": [
         "Socialism",
         "Regional variants",
         "European"
       ],
-      "types": [],
+      "types": [
+        "Q7278"
+      ],
       "parents": [],
       "related": [],
       "opposes": [],
@@ -52745,53 +53219,13 @@
       },
       "wikipedia": {
         "en": "https://en.wikipedia.org/wiki/Italian_Socialist_Party",
-        "tr": null
+        "tr": "https://tr.wikipedia.org/wiki/%C4%B0talyan_Sosyalist_Partisi"
       },
       "sources": {
         "wikipedia": "https://en.wikipedia.org/wiki/Italian_Socialist_Party",
         "wikidata": "Q590750",
         "match": {
           "method": "wikipedia-page",
-          "confidence": 1
-        }
-      }
-    },
-    {
-      "id": "iwa-ait",
-      "qid": "Q1394961",
-      "name": {
-        "en": "International Confederation of Labor",
-        "tr": "International Confederation of Labor"
-      },
-      "aliases": {
-        "en": [],
-        "tr": []
-      },
-      "description": {
-        "en": "",
-        "tr": ""
-      },
-      "sectionPath": [
-        "Syndicalism"
-      ],
-      "types": [],
-      "parents": [],
-      "related": [],
-      "opposes": [],
-      "relationEvidence": {
-        "parents": [],
-        "related": [],
-        "opposes": []
-      },
-      "wikipedia": {
-        "en": "https://en.wikipedia.org/wiki/IWA%E2%80%93AIT",
-        "tr": null
-      },
-      "sources": {
-        "wikipedia": "https://en.wikipedia.org/wiki/IWA%E2%80%93AIT",
-        "wikidata": "Q1394961",
-        "match": {
-          "method": "wikipedia-redirect",
           "confidence": 1
         }
       }
@@ -53053,7 +53487,7 @@
         "tr": "38. Brezilya devlet başkanı"
       },
       "sectionPath": [
-        "Conservatism",
+        "Populism",
         "Regional variants",
         "American"
       ],
@@ -53291,13 +53725,7 @@
         "tr": "Cevahirlal Nehru"
       },
       "aliases": {
-        "en": [
-          "Panditji",
-          "Jawaharlal Motilal Nehru",
-          "Chacha Nehru",
-          "Pandit Nehru",
-          "Nehru"
-        ],
+        "en": [],
         "tr": [
           "Pandit Cevahirlal"
         ]
@@ -54566,8 +54994,7 @@
       },
       "sectionPath": [
         "Fascism",
-        "Regional variants",
-        "Asian"
+        "Religious variants"
       ],
       "types": [
         "Q12909644"
@@ -55591,53 +56018,6 @@
       }
     },
     {
-      "id": "kilusang-bagong-lipunan",
-      "qid": "Q2597155",
-      "name": {
-        "en": "Kilusang Bagong Lipunan",
-        "tr": "Kilusang Bagong Lipunan"
-      },
-      "aliases": {
-        "en": [
-          "New Society Movement",
-          "New Society Movement of United Nationalists, Liberals, et cetera"
-        ],
-        "tr": []
-      },
-      "description": {
-        "en": "Philippine political party",
-        "tr": "Philippine political party"
-      },
-      "sectionPath": [
-        "Authoritarianism",
-        "Regional variants",
-        "Asian"
-      ],
-      "types": [
-        "Q7278"
-      ],
-      "parents": [],
-      "related": [],
-      "opposes": [],
-      "relationEvidence": {
-        "parents": [],
-        "related": [],
-        "opposes": []
-      },
-      "wikipedia": {
-        "en": "https://en.wikipedia.org/wiki/Kilusang_Bagong_Lipunan",
-        "tr": null
-      },
-      "sources": {
-        "wikipedia": "https://en.wikipedia.org/wiki/Kilusang_Bagong_Lipunan",
-        "wikidata": "Q2597155",
-        "match": {
-          "method": "wikipedia-page",
-          "confidence": 1
-        }
-      }
-    },
-    {
       "id": "kirchnerism",
       "qid": "Q166807",
       "name": {
@@ -56243,11 +56623,11 @@
         "opposes": []
       },
       "wikipedia": {
-        "en": "https://en.wikipedia.org/wiki/Kurdistan_Social_Democratic_Party",
+        "en": "https://en.wikipedia.org/wiki/Kurdistan_Social_Democratic_Party_(Iraq)",
         "tr": null
       },
       "sources": {
-        "wikipedia": "https://en.wikipedia.org/wiki/Kurdistan_Social_Democratic_Party",
+        "wikipedia": "https://en.wikipedia.org/wiki/Kurdistan_Social_Democratic_Party_(Iraq)",
         "wikidata": "Q3773588",
         "match": {
           "method": "wikipedia-redirect",
@@ -56307,8 +56687,8 @@
       "id": "labor-feminism",
       "qid": "Q25091520",
       "name": {
-        "en": "Labor feminism",
-        "tr": "Labor feminism"
+        "en": "labor feminism",
+        "tr": "labor feminism"
       },
       "aliases": {
         "en": [],
@@ -56323,7 +56703,10 @@
         "Feminism",
         "General"
       ],
-      "types": [],
+      "types": [
+        "Q49773",
+        "Q15580856"
+      ],
       "parents": [],
       "related": [],
       "opposes": [],
@@ -57050,34 +57433,53 @@
       "id": "latvian-soviet-socialist-republic",
       "qid": "Q192180",
       "name": {
-        "en": "Latvia",
-        "tr": "Latvia"
+        "en": "Latvian Soviet Socialist Republic",
+        "tr": "Letonya Sovyet Sosyalist Cumhuriyeti"
       },
       "aliases": {
-        "en": [],
-        "tr": []
+        "en": [
+          "Latvian SSR",
+          "LSSR",
+          "Soviet Latvia",
+          "Latvijas Padomju Sociālistiskā Republika",
+          "Латвийская Советская Социалистическая Республика",
+          "LPSR",
+          "ЛССР",
+          "Latvijas PSR"
+        ],
+        "tr": [
+          "Letonya SSC"
+        ]
       },
       "description": {
-        "en": "",
-        "tr": ""
+        "en": "republic of the Soviet Union (1940-1991)",
+        "tr": "republic of the Soviet Union (1940-1991)"
       },
       "sectionPath": [
         "Socialism",
         "Regional variants",
         "European"
       ],
-      "types": [],
+      "types": [
+        "Q236036"
+      ],
       "parents": [],
       "related": [],
       "opposes": [],
       "relationEvidence": {
         "parents": [],
-        "related": [],
+        "related": [
+          {
+            "id": "q211",
+            "qid": "Q211",
+            "property": "P361"
+          }
+        ],
         "opposes": []
       },
       "wikipedia": {
         "en": "https://en.wikipedia.org/wiki/Latvian_Soviet_Socialist_Republic",
-        "tr": null
+        "tr": "https://tr.wikipedia.org/wiki/Letonya_Sovyet_Sosyalist_Cumhuriyeti"
       },
       "sources": {
         "wikipedia": "https://en.wikipedia.org/wiki/Latvian_Soviet_Socialist_Republic",
@@ -59267,6 +59669,8 @@
           "Liberal Democratic Party of Japan",
           "Jimintō",
           "LDP",
+          "Liberal Democrats",
+          "Liberal Democrats of Japan",
           "Lib Dems"
         ],
         "tr": [
@@ -64173,23 +64577,33 @@
       "id": "lithuanian-soviet-socialist-republic",
       "qid": "Q173761",
       "name": {
-        "en": "Lithuania",
-        "tr": "Lithuania"
+        "en": "Lithuanian Soviet Socialist Republic",
+        "tr": "Litvanya Sovyet Sosyalist Cumhuriyeti"
       },
       "aliases": {
-        "en": [],
-        "tr": []
+        "en": [
+          "Lithuanian SSR",
+          "Lietuvos TSR",
+          "Lietuvos Tarybų Socialistinė Respublika",
+          "Litovskaya Sovetskaya Sotsialisticheskaya Respublika",
+          "Soviet Lithuania"
+        ],
+        "tr": [
+          "Litvanya SSC"
+        ]
       },
       "description": {
-        "en": "",
-        "tr": ""
+        "en": "republic of the Soviet Union (1940-1991)",
+        "tr": "Sovyetler Birliği'ne bağlı cumhuriyetlerden biri (1940-1990)"
       },
       "sectionPath": [
         "Socialism",
         "Regional variants",
         "European"
       ],
-      "types": [],
+      "types": [
+        "Q236036"
+      ],
       "parents": [],
       "related": [],
       "opposes": [],
@@ -64200,7 +64614,7 @@
       },
       "wikipedia": {
         "en": "https://en.wikipedia.org/wiki/Lithuanian_Soviet_Socialist_Republic",
-        "tr": null
+        "tr": "https://tr.wikipedia.org/wiki/Litvanya_Sovyet_Sosyalist_Cumhuriyeti"
       },
       "sources": {
         "wikipedia": "https://en.wikipedia.org/wiki/Lithuanian_Soviet_Socialist_Republic",
@@ -64872,37 +65286,56 @@
       }
     },
     {
-      "id": "makhnovism",
+      "id": "makhnovshchina",
       "qid": "Q1436243",
       "name": {
-        "en": "Makhnovism",
-        "tr": "Makhnovism"
+        "en": "Makhnovshchina",
+        "tr": "Mahnovşçina"
       },
       "aliases": {
-        "en": [],
+        "en": [
+          "Makhnovshchyna",
+          "Anarchist Ukraine",
+          "Makhnovia",
+          "Makhnovtchina",
+          "Vilna teritoriya",
+          "Volnaya territoriya",
+          "Makhnovschina"
+        ],
         "tr": []
       },
       "description": {
-        "en": "",
-        "tr": ""
+        "en": "Ukrainian anarchist movement",
+        "tr": "rus iç savaşı sırasında ukrayna'da vuku bulmuş anarşist hareket"
       },
       "sectionPath": [
         "Socialism",
         "Regional variants",
         "European"
       ],
-      "types": [],
+      "types": [
+        "Q3024240",
+        "Q1708603",
+        "Q2738074",
+        "Q14946528"
+      ],
       "parents": [],
       "related": [],
       "opposes": [],
       "relationEvidence": {
         "parents": [],
-        "related": [],
+        "related": [
+          {
+            "id": "q79911",
+            "qid": "Q79911",
+            "property": "P361"
+          }
+        ],
         "opposes": []
       },
       "wikipedia": {
         "en": "https://en.wikipedia.org/wiki/Makhnovshchina",
-        "tr": null
+        "tr": "https://tr.wikipedia.org/wiki/Mahnov%C5%9F%C3%A7ina"
       },
       "sources": {
         "wikipedia": "https://en.wikipedia.org/wiki/Makhnovshchina",
@@ -65816,7 +66249,7 @@
         "tr": "Alman filozof Marx'ın düşüncelerine dayanan devrimci sosyalist akım"
       },
       "sectionPath": [
-        "Communism",
+        "Socialism",
         "Libertarian"
       ],
       "types": [
@@ -66310,7 +66743,7 @@
         ]
       },
       "description": {
-        "en": "movements and ideologies aimed at the defence and promotion of men",
+        "en": "movements and ideologies aimed at defending and advancing men's rights and interests",
         "tr": "erkeklerin üzerine bina edilmiş toplumsal teori ve politik bir hareket tarzı"
       },
       "sectionPath": [
@@ -66373,7 +66806,7 @@
         "General"
       ],
       "types": [
-        "Q17737",
+        "Q9357091",
         "Q1387659"
       ],
       "parents": [
@@ -66836,28 +67269,38 @@
       "id": "melanesian-socialism",
       "qid": "Q979616",
       "name": {
-        "en": "Melanesia",
-        "tr": "Melanesia"
+        "en": "Melanesian socialism",
+        "tr": "Melanesian socialism"
       },
       "aliases": {
         "en": [],
         "tr": []
       },
       "description": {
-        "en": "",
-        "tr": ""
+        "en": "political ideology",
+        "tr": "political ideology"
       },
       "sectionPath": [
         "Socialism",
         "Regional variants",
         "Oceanian"
       ],
-      "types": [],
-      "parents": [],
+      "types": [
+        "Q12909644"
+      ],
+      "parents": [
+        "socialism"
+      ],
       "related": [],
       "opposes": [],
       "relationEvidence": {
-        "parents": [],
+        "parents": [
+          {
+            "id": "socialism",
+            "qid": "Q7272",
+            "property": "P279"
+          }
+        ],
         "related": [],
         "opposes": []
       },
@@ -68339,23 +68782,37 @@
       "id": "moldavian-soviet-socialist-republic",
       "qid": "Q170895",
       "name": {
-        "en": "Moldova",
-        "tr": "Moldova"
+        "en": "Moldavian Soviet Socialist Republic",
+        "tr": "Moldova Sovyet Sosyalist Cumhuriyeti"
       },
       "aliases": {
-        "en": [],
-        "tr": []
+        "en": [
+          "Moldavian SSR",
+          "Soviet Moldova",
+          "Soviet Moldavia",
+          "Moldovan Soviet Socialist Republic",
+          "Moldovan SSR",
+          "Soviet Socialist Republic of Moldova"
+        ],
+        "tr": [
+          "Moldovya SSC",
+          "MSSC",
+          "Moldova SSC",
+          "Moldava SSC"
+        ]
       },
       "description": {
-        "en": "",
-        "tr": ""
+        "en": "republic of the Soviet Union (1940-1991)",
+        "tr": "republic of the Soviet Union (1940-1991)"
       },
       "sectionPath": [
         "Socialism",
         "Regional variants",
         "European"
       ],
-      "types": [],
+      "types": [
+        "Q236036"
+      ],
       "parents": [],
       "related": [],
       "opposes": [],
@@ -68366,7 +68823,7 @@
       },
       "wikipedia": {
         "en": "https://en.wikipedia.org/wiki/Moldavian_Soviet_Socialist_Republic",
-        "tr": null
+        "tr": "https://tr.wikipedia.org/wiki/Moldova_Sovyet_Sosyalist_Cumhuriyeti"
       },
       "sources": {
         "wikipedia": "https://en.wikipedia.org/wiki/Moldavian_Soviet_Socialist_Republic",
@@ -69948,12 +70405,10 @@
           "(Jamaat) Al-Ikhwan Al-Muslimeen",
           "Egyptian Muslim Brotherhood"
         ],
-        "tr": [
-          "İhvan-ı Müslimin"
-        ]
+        "tr": []
       },
       "description": {
-        "en": "global Islamic supremacist organization that serves as the primary reference for many Islamic groups, classified as a terrorist organization by many states and countries",
+        "en": "transnational Sunni Islamist organization",
         "tr": "uluslararası Sünni İslamcı örgüt"
       },
       "sectionPath": [
@@ -71404,22 +71859,26 @@
       "id": "national-labor-secretariat",
       "qid": "Q3070646",
       "name": {
-        "en": "Netherlands",
-        "tr": "Netherlands"
+        "en": "National Labor Secretariat",
+        "tr": "National Labor Secretariat"
       },
       "aliases": {
-        "en": [],
+        "en": [
+          "Nationaal Arbeids-Secretariaat"
+        ],
         "tr": []
       },
       "description": {
-        "en": "",
-        "tr": ""
+        "en": "Dutch syndicalist trade union confederation",
+        "tr": "Dutch syndicalist trade union confederation"
       },
       "sectionPath": [
         "Syndicalism",
         "Regional variants"
       ],
-      "types": [],
+      "types": [
+        "Q178790"
+      ],
       "parents": [],
       "related": [],
       "opposes": [],
@@ -74203,6 +74662,11 @@
             "id": "q2738074",
             "qid": "Q2738074",
             "property": "P279"
+          },
+          {
+            "id": "q12909644",
+            "qid": "Q12909644",
+            "property": "P279"
           }
         ],
         "related": [],
@@ -74278,9 +74742,8 @@
         "tr": "right-wing form of Zionism that advocates Jewish settlement in—and displacement of Arabs from—the West Bank and Gaza Strip, and sometimes all areas in the Green Line"
       },
       "sectionPath": [
-        "Nationalism",
-        "Regional variants",
-        "Asian"
+        "Fascism",
+        "Religious variants"
       ],
       "types": [
         "Q12909644"
@@ -75037,14 +75500,16 @@
       "qid": "Q2915349",
       "name": {
         "en": "neurodiversity",
-        "tr": "nöroçeşitlilik"
+        "tr": "Nöroçeşitlilik"
       },
       "aliases": {
-        "en": [],
+        "en": [
+          "neurological diversity"
+        ],
         "tr": []
       },
       "description": {
-        "en": "the notion that neurological functioning different from the norm is not necessarily pathological and does not diminish the human rights of people with such differences",
+        "en": "diversity of human minds and brains, encompassing both neurotypicality and neurodivergence",
         "tr": "Zihinsel işlevlerdeki çeşitliliklerin patolojik olmayan açıklaması"
       },
       "sectionPath": [
@@ -75706,15 +76171,18 @@
       "qid": "Q160637",
       "name": {
         "en": "New Left",
-        "tr": "New Left"
+        "tr": "Yeni Sol"
       },
       "aliases": {
         "en": [],
-        "tr": []
+        "tr": [
+          "Neo-Sol",
+          "Neo Sol"
+        ]
       },
       "description": {
-        "en": "",
-        "tr": ""
+        "en": "international leftist political movement mainly in the 1960s and 1970s",
+        "tr": "Siyasal hareket"
       },
       "sectionPath": [
         "Socialism",
@@ -75726,13 +76194,24 @@
       "related": [],
       "opposes": [],
       "relationEvidence": {
-        "parents": [],
+        "parents": [
+          {
+            "id": "q164597",
+            "qid": "Q164597",
+            "property": "P279"
+          },
+          {
+            "id": "q2738074",
+            "qid": "Q2738074",
+            "property": "P279"
+          }
+        ],
         "related": [],
         "opposes": []
       },
       "wikipedia": {
         "en": "https://en.wikipedia.org/wiki/New_Left",
-        "tr": null
+        "tr": "https://tr.wikipedia.org/wiki/Yeni_sol"
       },
       "sources": {
         "wikipedia": "https://en.wikipedia.org/wiki/New_Left",
@@ -76284,23 +76763,35 @@
       "id": "nikolai-bukharin",
       "qid": "Q186709",
       "name": {
-        "en": "Bukharinism",
-        "tr": "Bukharinism"
+        "en": "Nikolai Bukharin",
+        "tr": "Nikolay Buharin"
       },
       "aliases": {
-        "en": [],
-        "tr": []
+        "en": [
+          "Nikolay Ivanovich Bukharin",
+          "Nikolai Ivanovich Bukharin",
+          "Nikolay Bukharin"
+        ],
+        "tr": [
+          "Nikolay İvanoviç Buharin",
+          "Buharin",
+          "Nikolai Buharin",
+          "Nikolai Ivanovich Bukharin",
+          "Nikolay Bukharin"
+        ]
       },
       "description": {
-        "en": "",
-        "tr": ""
+        "en": "Russian revolutionary and politician (1888–1938)",
+        "tr": "Rus devrimci, entelektüel ve siyasetçi (1888–1938)"
       },
       "sectionPath": [
         "Socialism",
         "Regional variants",
         "European"
       ],
-      "types": [],
+      "types": [
+        "Q5"
+      ],
       "parents": [],
       "related": [],
       "opposes": [],
@@ -76311,7 +76802,7 @@
       },
       "wikipedia": {
         "en": "https://en.wikipedia.org/wiki/Nikolai_Bukharin",
-        "tr": null
+        "tr": "https://tr.wikipedia.org/wiki/Nikolay_Buharin"
       },
       "sources": {
         "wikipedia": "https://en.wikipedia.org/wiki/Nikolai_Bukharin",
@@ -76536,22 +77027,24 @@
       "id": "norsk-syndikalistisk-forbund",
       "qid": "Q1792983",
       "name": {
-        "en": "Norway",
-        "tr": "Norway"
+        "en": "Norsk Syndikalistisk Forbund",
+        "tr": "Norsk Syndikalistisk Forbund"
       },
       "aliases": {
         "en": [],
         "tr": []
       },
       "description": {
-        "en": "",
-        "tr": ""
+        "en": "Norwegian anarcho-syndicalist group",
+        "tr": "Norwegian anarcho-syndicalist group"
       },
       "sectionPath": [
         "Syndicalism",
         "Regional variants"
       ],
-      "types": [],
+      "types": [
+        "Q61741927"
+      ],
       "parents": [],
       "related": [],
       "opposes": [],
@@ -77188,48 +77681,6 @@
         "wikidata": "Q2582100",
         "match": {
           "method": "wikipedia-page",
-          "confidence": 1
-        }
-      }
-    },
-    {
-      "id": "old-labour",
-      "qid": "Q5869158",
-      "name": {
-        "en": "Old Labour",
-        "tr": "Old Labour"
-      },
-      "aliases": {
-        "en": [],
-        "tr": []
-      },
-      "description": {
-        "en": "",
-        "tr": ""
-      },
-      "sectionPath": [
-        "Socialism",
-        "Regional variants",
-        "European"
-      ],
-      "types": [],
-      "parents": [],
-      "related": [],
-      "opposes": [],
-      "relationEvidence": {
-        "parents": [],
-        "related": [],
-        "opposes": []
-      },
-      "wikipedia": {
-        "en": "https://en.wikipedia.org/wiki/History_of_the_Labour_Party_(UK)",
-        "tr": null
-      },
-      "sources": {
-        "wikipedia": "https://en.wikipedia.org/wiki/History_of_the_Labour_Party_(UK)",
-        "wikidata": "Q5869158",
-        "match": {
-          "method": "wikipedia-redirect",
           "confidence": 1
         }
       }
@@ -78951,13 +79402,12 @@
           "paleocon",
           "paleoconservative",
           "paleoconservativism",
-          "paleoconservatives",
-          "Paleoconservatism"
+          "paleoconservatives"
         ],
         "tr": []
       },
       "description": {
-        "en": "Political philosophy",
+        "en": "political philosophy",
         "tr": "Siyaset felsefesi"
       },
       "sectionPath": [
@@ -80363,6 +80813,57 @@
         "wikidata": "Q133132",
         "match": {
           "method": "wikipedia-page",
+          "confidence": 1
+        }
+      }
+    },
+    {
+      "id": "parliamentary-system",
+      "qid": "Q166747",
+      "name": {
+        "en": "parliamentary system",
+        "tr": "parlamenter sistem"
+      },
+      "aliases": {
+        "en": [
+          "cabinet system"
+        ],
+        "tr": []
+      },
+      "description": {
+        "en": "form of government",
+        "tr": "ülke yönetim sistemi"
+      },
+      "sectionPath": [
+        "Democracy",
+        "General"
+      ],
+      "types": [
+        "Q1307214"
+      ],
+      "parents": [],
+      "related": [],
+      "opposes": [],
+      "relationEvidence": {
+        "parents": [
+          {
+            "id": "q28108",
+            "qid": "Q28108",
+            "property": "P279"
+          }
+        ],
+        "related": [],
+        "opposes": []
+      },
+      "wikipedia": {
+        "en": "https://en.wikipedia.org/wiki/Parliamentary_system",
+        "tr": "https://tr.wikipedia.org/wiki/Parlamenter_sistem"
+      },
+      "sources": {
+        "wikipedia": "https://en.wikipedia.org/wiki/Parliamentary_system",
+        "wikidata": "Q166747",
+        "match": {
+          "method": "wikipedia-redirect",
           "confidence": 1
         }
       }
@@ -82509,23 +83010,34 @@
       "id": "peoples-republic-of-bulgaria",
       "qid": "Q121932",
       "name": {
-        "en": "Bulgaria",
-        "tr": "Bulgaria"
+        "en": "People's Republic of Bulgaria",
+        "tr": "Bulgaristan Halk Cumhuriyeti"
       },
       "aliases": {
-        "en": [],
+        "en": [
+          "Narodna republika Balgariya",
+          "PR Bulgaria",
+          "Communist Bulgaria",
+          "Socialist Bulgaria",
+          "PRB"
+        ],
         "tr": []
       },
       "description": {
-        "en": "",
-        "tr": ""
+        "en": "Socialist republic ruled by the Bulgarian Communist Party (1946–1990)",
+        "tr": "Bulgar Komünist Partisi tarafından yönetilen sosyalist cumhuriyet (1946-1990)"
       },
       "sectionPath": [
         "Socialism",
         "Regional variants",
         "European"
       ],
-      "types": [],
+      "types": [
+        "Q3024240",
+        "Q325261",
+        "Q3624078",
+        "Q11514315"
+      ],
       "parents": [],
       "related": [],
       "opposes": [],
@@ -82536,7 +83048,7 @@
       },
       "wikipedia": {
         "en": "https://en.wikipedia.org/wiki/People's_Republic_of_Bulgaria",
-        "tr": null
+        "tr": "https://tr.wikipedia.org/wiki/Bulgaristan_Halk_Cumhuriyeti"
       },
       "sources": {
         "wikipedia": "https://en.wikipedia.org/wiki/People's_Republic_of_Bulgaria",
@@ -82787,23 +83299,36 @@
       "id": "peoples-socialist-republic-of-albania",
       "qid": "Q467864",
       "name": {
-        "en": "Albania",
-        "tr": "Albania"
+        "en": "People's Socialist Republic of Albania",
+        "tr": "Arnavutluk Sosyalist Halk Cumhuriyeti"
       },
       "aliases": {
-        "en": [],
+        "en": [
+          "Republika Popullore Socialiste e Shqipërisë",
+          "PR Albania",
+          "People's Republic of Albania",
+          "Democratic Government of Albania",
+          "PSR Albania",
+          "Communist Albania",
+          "Socialist Albania",
+          "Albanian People's Republic",
+          "Hoxha's Albania"
+        ],
         "tr": []
       },
       "description": {
-        "en": "",
-        "tr": ""
+        "en": "Marxist-Leninist government of Albania (1946–1992)",
+        "tr": "Marxist-Leninist government of Albania (1946–1992)"
       },
       "sectionPath": [
         "Socialism",
         "Regional variants",
         "European"
       ],
-      "types": [],
+      "types": [
+        "Q3024240",
+        "Q465613"
+      ],
       "parents": [],
       "related": [],
       "opposes": [],
@@ -82814,7 +83339,7 @@
       },
       "wikipedia": {
         "en": "https://en.wikipedia.org/wiki/People's_Socialist_Republic_of_Albania",
-        "tr": null
+        "tr": "https://tr.wikipedia.org/wiki/Arnavutluk_Sosyalist_Halk_Cumhuriyeti"
       },
       "sources": {
         "wikipedia": "https://en.wikipedia.org/wiki/People's_Socialist_Republic_of_Albania",
@@ -83646,8 +84171,7 @@
         "tr": "anarşist örgütlenme biçimi"
       },
       "sectionPath": [
-        "Anarchism",
-        "Post-classical"
+        "Anarchism"
       ],
       "types": [
         "Q12909644",
@@ -84127,34 +84651,50 @@
       "id": "polish-peoples-republic",
       "qid": "Q211274",
       "name": {
-        "en": "Poland",
-        "tr": "Poland"
+        "en": "Polish People's Republic",
+        "tr": "Polonya Halk Cumhuriyeti"
       },
       "aliases": {
-        "en": [],
-        "tr": []
+        "en": [
+          "Communist Poland",
+          "People's Republic of Poland",
+          "PRL"
+        ],
+        "tr": [
+          "Polonya HC"
+        ]
       },
       "description": {
-        "en": "",
-        "tr": ""
+        "en": "country of the Warsaw Pact and Eastern Bloc from 1947 to 1989",
+        "tr": "country of the Warsaw Pact and Eastern Bloc from 1947 to 1989"
       },
       "sectionPath": [
         "Socialism",
         "Regional variants",
         "European"
       ],
-      "types": [],
+      "types": [
+        "Q3024240",
+        "Q465613",
+        "Q109614735"
+      ],
       "parents": [],
       "related": [],
       "opposes": [],
       "relationEvidence": {
         "parents": [],
-        "related": [],
+        "related": [
+          {
+            "id": "q199569",
+            "qid": "Q199569",
+            "property": "P361"
+          }
+        ],
         "opposes": []
       },
       "wikipedia": {
         "en": "https://en.wikipedia.org/wiki/Polish_People's_Republic",
-        "tr": null
+        "tr": "https://tr.wikipedia.org/wiki/Polonya_Halk_Cumhuriyeti"
       },
       "sources": {
         "wikipedia": "https://en.wikipedia.org/wiki/Polish_People's_Republic",
@@ -84777,6 +85317,50 @@
       }
     },
     {
+      "id": "political-positions-of-jeremy-corbyn",
+      "qid": "Q24963562",
+      "name": {
+        "en": "Political positions of Jeremy Corbyn",
+        "tr": "Political positions of Jeremy Corbyn"
+      },
+      "aliases": {
+        "en": [],
+        "tr": []
+      },
+      "description": {
+        "en": "views and voting record of the British politician",
+        "tr": "views and voting record of the British politician"
+      },
+      "sectionPath": [
+        "Socialism",
+        "Regional variants",
+        "European"
+      ],
+      "types": [
+        "Q20045456"
+      ],
+      "parents": [],
+      "related": [],
+      "opposes": [],
+      "relationEvidence": {
+        "parents": [],
+        "related": [],
+        "opposes": []
+      },
+      "wikipedia": {
+        "en": "https://en.wikipedia.org/wiki/Political_positions_of_Jeremy_Corbyn",
+        "tr": null
+      },
+      "sources": {
+        "wikipedia": "https://en.wikipedia.org/wiki/Political_positions_of_Jeremy_Corbyn",
+        "wikidata": "Q24963562",
+        "match": {
+          "method": "wikipedia-redirect",
+          "confidence": 1
+        }
+      }
+    },
+    {
       "id": "political-positions-of-ronald-reagan",
       "qid": "Q5678451",
       "name": {
@@ -85042,60 +85626,6 @@
       "sources": {
         "wikipedia": "https://en.wikipedia.org/wiki/Politics_of_the_United_Kingdom",
         "wikidata": "Q678363",
-        "match": {
-          "method": "wikipedia-redirect",
-          "confidence": 1
-        }
-      }
-    },
-    {
-      "id": "politics-of-the-united-states",
-      "qid": "Q330963",
-      "name": {
-        "en": "politics of the United States",
-        "tr": "Amerika Birleşik Devletleri'nde siyaset"
-      },
-      "aliases": {
-        "en": [
-          "US politics",
-          "United States politics",
-          "American politics",
-          "USA politics",
-          "United States political system",
-          "U.S. politics",
-          "politics in the United States"
-        ],
-        "tr": []
-      },
-      "description": {
-        "en": "overview of political matters in the United States of America",
-        "tr": "Amerikan siyasal sistemi"
-      },
-      "sectionPath": [
-        "Democracy",
-        "Regional variants",
-        "American"
-      ],
-      "types": [
-        "Q28108",
-        "Q12332021",
-        "Q11862829"
-      ],
-      "parents": [],
-      "related": [],
-      "opposes": [],
-      "relationEvidence": {
-        "parents": [],
-        "related": [],
-        "opposes": []
-      },
-      "wikipedia": {
-        "en": "https://en.wikipedia.org/wiki/Politics_of_the_United_States",
-        "tr": "https://tr.wikipedia.org/wiki/Amerika_Birle%C5%9Fik_Devletleri'nde_siyaset"
-      },
-      "sources": {
-        "wikipedia": "https://en.wikipedia.org/wiki/Politics_of_the_United_States",
-        "wikidata": "Q330963",
         "match": {
           "method": "wikipedia-redirect",
           "confidence": 1
@@ -85402,16 +85932,16 @@
       "id": "popular-socialism",
       "qid": "Q134237790",
       "name": {
-        "en": "Denmark",
-        "tr": "Denmark"
+        "en": "Popular socialism",
+        "tr": "Popular socialism"
       },
       "aliases": {
         "en": [],
         "tr": []
       },
       "description": {
-        "en": "",
-        "tr": ""
+        "en": "topics referred to by the same term",
+        "tr": "topics referred to by the same term"
       },
       "sectionPath": [
         "Socialism",
@@ -88037,9 +88567,7 @@
       "parents": [
         "progressivism"
       ],
-      "related": [
-        "politics-of-the-united-states"
-      ],
+      "related": [],
       "opposes": [],
       "relationEvidence": {
         "parents": [
@@ -88051,7 +88579,7 @@
         ],
         "related": [
           {
-            "id": "politics-of-the-united-states",
+            "id": "q330963",
             "qid": "Q330963",
             "property": "P361"
           }
@@ -90213,17 +90741,14 @@
       }
     },
     {
-      "id": "rafael-menestra",
+      "id": "rafael-correa",
       "qid": "Q19581",
       "name": {
-        "en": "Rafael Menestra",
+        "en": "Rafael Correa",
         "tr": "Rafael Correa"
       },
       "aliases": {
-        "en": [
-          "si tú lo apoyas eres de igual de menestra",
-          "jugo de badea"
-        ],
+        "en": [],
         "tr": []
       },
       "description": {
@@ -92965,9 +93490,8 @@
         "tr": "right-leaning faction of the Zionist movement"
       },
       "sectionPath": [
-        "Nationalism",
-        "Regional variants",
-        "Asian"
+        "Fascism",
+        "Religious variants"
       ],
       "types": [
         "Q12909644"
@@ -93178,8 +93702,7 @@
         "tr": "type of syndicalism based on direct-action and worker autonomy"
       },
       "sectionPath": [
-        "Socialism",
-        "Libertarian"
+        "Anarchism"
       ],
       "types": [
         "Q5333510",
@@ -93207,7 +93730,7 @@
         "wikipedia": "https://en.wikipedia.org/wiki/Syndicalism",
         "wikidata": "Q2353993",
         "match": {
-          "method": "wikipedia-page",
+          "method": "wikipedia-redirect",
           "confidence": 1
         }
       }
@@ -93673,7 +94196,18 @@
       "opposes": [],
       "relationEvidence": {
         "parents": [],
-        "related": [],
+        "related": [
+          {
+            "id": "q19848882",
+            "qid": "Q19848882",
+            "property": "P361"
+          },
+          {
+            "id": "q12728623",
+            "qid": "Q12728623",
+            "property": "P361"
+          }
+        ],
         "opposes": []
       },
       "wikipedia": {
@@ -94177,23 +94711,42 @@
       "id": "russian-soviet-federative-socialist-republic",
       "qid": "Q2184",
       "name": {
-        "en": "Russia",
-        "tr": "Russia"
+        "en": "Russian Soviet Federative Socialist Republic",
+        "tr": "Rusya Sovyet Federatif Sosyalist Cumhuriyeti"
       },
       "aliases": {
-        "en": [],
+        "en": [
+          "Soviet Russian Republic",
+          "Russian Socialist Federative Soviet Republic",
+          "Russian SFSR",
+          "Soviet Russia",
+          "RSFSR",
+          "Russian Soviet Federal Socialist Republic",
+          "Russian Soviet Federated Socialist Republic",
+          "Russian Socialist Federated Soviet Republic",
+          "R.S.F.S.R.",
+          "the Russian SFSR",
+          "Communist Russia",
+          "Russian S.F.S.R."
+        ],
         "tr": []
       },
       "description": {
-        "en": "",
-        "tr": ""
+        "en": "constituent republic of the Soviet Union (1922–1991)",
+        "tr": "Sovyetler Birliği'nin nüfus ve yüzölçümü bakımından en büyük ve kurucu cumhuriyeti"
       },
       "sectionPath": [
         "Socialism",
         "Regional variants",
         "European"
       ],
-      "types": [],
+      "types": [
+        "Q3024240",
+        "Q236036",
+        "Q3624078",
+        "Q113393649",
+        "Q6256"
+      ],
       "parents": [],
       "related": [],
       "opposes": [],
@@ -94204,7 +94757,7 @@
       },
       "wikipedia": {
         "en": "https://en.wikipedia.org/wiki/Russian_Soviet_Federative_Socialist_Republic",
-        "tr": null
+        "tr": "https://tr.wikipedia.org/wiki/Rusya_Sovyet_Federatif_Sosyalist_Cumhuriyeti"
       },
       "sources": {
         "wikipedia": "https://en.wikipedia.org/wiki/Russian_Soviet_Federative_Socialist_Republic",
@@ -96202,7 +96755,15 @@
           "anarchist social centres",
           "anarchist social spaces",
           "autonomous space",
-          "self-managed social centre"
+          "self-managed social centre",
+          "multipurpose building",
+          "multi-purpose building",
+          "hybrid building",
+          "mixed-use building",
+          "multiple use building",
+          "multiuse building",
+          "multi-use facility",
+          "multi-use building"
         ],
         "tr": []
       },
@@ -96215,7 +96776,9 @@
         "Student movements",
         "General"
       ],
-      "types": [],
+      "types": [
+        "Q811102"
+      ],
       "parents": [],
       "related": [],
       "opposes": [],
@@ -96240,6 +96803,21 @@
             "id": "q13691604",
             "qid": "Q13691604",
             "property": "P279"
+          },
+          {
+            "id": "q41176",
+            "qid": "Q41176",
+            "property": "P279"
+          },
+          {
+            "id": "q4298922",
+            "qid": "Q4298922",
+            "property": "P279"
+          },
+          {
+            "id": "q123271939",
+            "qid": "Q123271939",
+            "property": "P279"
           }
         ],
         "related": [],
@@ -96255,47 +96833,6 @@
         "match": {
           "method": "wikipedia-redirect",
           "confidence": 1
-        }
-      }
-    },
-    {
-      "id": "semi-democracy",
-      "qid": null,
-      "name": {
-        "en": "Semi-democracy",
-        "tr": "Semi-democracy"
-      },
-      "aliases": {
-        "en": [],
-        "tr": []
-      },
-      "description": {
-        "en": "",
-        "tr": ""
-      },
-      "sectionPath": [
-        "Democracy",
-        "General"
-      ],
-      "types": [],
-      "parents": [],
-      "related": [],
-      "opposes": [],
-      "relationEvidence": {
-        "parents": [],
-        "related": [],
-        "opposes": []
-      },
-      "wikipedia": {
-        "en": "https://en.wikipedia.org/wiki/Semi-democracy",
-        "tr": null
-      },
-      "sources": {
-        "wikipedia": "https://en.wikipedia.org/wiki/Semi-democracy",
-        "wikidata": null,
-        "match": {
-          "method": "unmatched",
-          "confidence": 0
         }
       }
     },
@@ -97828,7 +98365,7 @@
         ]
       },
       "description": {
-        "en": "Yugoslav–Serbian politician",
+        "en": "Yugoslav–Serbian politician (1941–2006)",
         "tr": "Sırbistan'ın ilk cumhurbaşkanı"
       },
       "sectionPath": [
@@ -99594,23 +100131,25 @@
       "id": "socialism-in-australia",
       "qid": "Q24089768",
       "name": {
-        "en": "Australia",
-        "tr": "Australia"
+        "en": "Socialism in Australia",
+        "tr": "Socialism in Australia"
       },
       "aliases": {
         "en": [],
         "tr": []
       },
       "description": {
-        "en": "",
-        "tr": ""
+        "en": "role and influence of socialism in Australia",
+        "tr": "role and influence of socialism in Australia"
       },
       "sectionPath": [
         "Socialism",
         "Regional variants",
         "Oceanian"
       ],
-      "types": [],
+      "types": [
+        "Q74817647"
+      ],
       "parents": [],
       "related": [],
       "opposes": [],
@@ -99913,23 +100452,25 @@
       "id": "socialism-in-new-zealand",
       "qid": "Q7551489",
       "name": {
-        "en": "New Zealand",
-        "tr": "New Zealand"
+        "en": "Socialism in New Zealand",
+        "tr": "Socialism in New Zealand"
       },
       "aliases": {
         "en": [],
         "tr": []
       },
       "description": {
-        "en": "",
-        "tr": ""
+        "en": "political movement advocating socio-economic change in New Zealand",
+        "tr": "political movement advocating socio-economic change in New Zealand"
       },
       "sectionPath": [
         "Socialism",
         "Regional variants",
         "Oceanian"
       ],
-      "types": [],
+      "types": [
+        "Q74817647"
+      ],
       "parents": [],
       "related": [],
       "opposes": [],
@@ -100052,23 +100593,25 @@
       "id": "socialism-in-the-netherlands",
       "qid": "Q7551497",
       "name": {
-        "en": "Netherlands",
-        "tr": "Netherlands"
+        "en": "Socialism in the Netherlands",
+        "tr": "Socialism in the Netherlands"
       },
       "aliases": {
         "en": [],
         "tr": []
       },
       "description": {
-        "en": "",
-        "tr": ""
+        "en": "Overview of socialism in the Netherlands",
+        "tr": "Overview of socialism in the Netherlands"
       },
       "sectionPath": [
         "Socialism",
         "Regional variants",
         "European"
       ],
-      "types": [],
+      "types": [
+        "Q74817647"
+      ],
       "parents": [],
       "related": [],
       "opposes": [],
@@ -100396,34 +100939,58 @@
       "id": "socialist-federal-republic-of-yugoslavia",
       "qid": "Q83286",
       "name": {
-        "en": "Yugoslavia",
-        "tr": "Yugoslavia"
+        "en": "Socialist Federal Republic of Yugoslavia",
+        "tr": "Yugoslavya Sosyalist Federal Cumhuriyeti"
       },
       "aliases": {
-        "en": [],
-        "tr": []
+        "en": [
+          "SFR Yugoslavia",
+          "SFRY",
+          "Yugoslavia"
+        ],
+        "tr": [
+          "Socialist Federal Republic of Yugoslavia",
+          "Yugoslavya Demokratik Federal Cumhuriyeti",
+          "Yugoslavya SFC",
+          "Demokratik Federal Yugoslavya",
+          "SFR Yugoslavia",
+          "YSFC",
+          "Yugoslavya Federal Halk Cumhuriyeti",
+          "Yugoslavya Sosyalist Federatif Cumhuriyeti"
+        ]
       },
       "description": {
-        "en": "",
-        "tr": ""
+        "en": "Central and Southeast European socialist state (1945–1992)",
+        "tr": "1945-1992 yıllarında Balkanlar'da bulunan sosyalist federal cumhuriyet"
       },
       "sectionPath": [
         "Socialism",
         "Regional variants",
         "European"
       ],
-      "types": [],
+      "types": [
+        "Q3024240",
+        "Q3624078",
+        "Q465613",
+        "Q512187"
+      ],
       "parents": [],
       "related": [],
       "opposes": [],
       "relationEvidence": {
         "parents": [],
-        "related": [],
+        "related": [
+          {
+            "id": "q36704",
+            "qid": "Q36704",
+            "property": "P361"
+          }
+        ],
         "opposes": []
       },
       "wikipedia": {
         "en": "https://en.wikipedia.org/wiki/Socialist_Federal_Republic_of_Yugoslavia",
-        "tr": null
+        "tr": "https://tr.wikipedia.org/wiki/Yugoslavya_Sosyalist_Federal_Cumhuriyeti"
       },
       "sources": {
         "wikipedia": "https://en.wikipedia.org/wiki/Socialist_Federal_Republic_of_Yugoslavia",
@@ -100886,23 +101453,34 @@
       "id": "socialist-republic-of-bosnia-and-herzegovina",
       "qid": "Q208545",
       "name": {
-        "en": "Bosnia, and Herzegovina",
-        "tr": "Bosnia, and Herzegovina"
+        "en": "Socialist Republic of Bosnia and Herzegovina",
+        "tr": "Bosna-Hersek Sosyalist Cumhuriyeti"
       },
       "aliases": {
-        "en": [],
+        "en": [
+          "SR Bosnia and Herzegovina",
+          "PR Bosnia and Herzegovina",
+          "People's Republic of Bosnia and Herzegovina",
+          "Socijalistička Republika Bosna i Hercegovina",
+          "SR Bosna i Hercegovina",
+          "Federal Bosnia and Herzegovina"
+        ],
         "tr": []
       },
       "description": {
-        "en": "",
-        "tr": ""
+        "en": "federated state of Bosnia and Herzegovina within Yugoslavia from 1943 to 1992",
+        "tr": "federated state of Bosnia and Herzegovina within Yugoslavia from 1943 to 1992"
       },
       "sectionPath": [
         "Socialism",
         "Regional variants",
         "European"
       ],
-      "types": [],
+      "types": [
+        "Q12959600",
+        "Q231002",
+        "Q107390"
+      ],
       "parents": [],
       "related": [],
       "opposes": [],
@@ -100913,7 +101491,7 @@
       },
       "wikipedia": {
         "en": "https://en.wikipedia.org/wiki/Socialist_Republic_of_Bosnia_and_Herzegovina",
-        "tr": null
+        "tr": "https://tr.wikipedia.org/wiki/Bosna-Hersek_Sosyalist_Cumhuriyeti"
       },
       "sources": {
         "wikipedia": "https://en.wikipedia.org/wiki/Socialist_Republic_of_Bosnia_and_Herzegovina",
@@ -100928,23 +101506,32 @@
       "id": "socialist-republic-of-croatia",
       "qid": "Q209062",
       "name": {
-        "en": "Croatia",
-        "tr": "Croatia"
+        "en": "Socialist Republic of Croatia",
+        "tr": "Hırvatistan Sosyalist Cumhuriyeti"
       },
       "aliases": {
-        "en": [],
+        "en": [
+          "SR Croatia",
+          "PR Croatia",
+          "People's Republic of Croatia",
+          "Socijalistička Republika Hrvatska",
+          "SR Hrvatska"
+        ],
         "tr": []
       },
       "description": {
-        "en": "",
-        "tr": ""
+        "en": "federated state of Yugoslavia from 1945 to 1990",
+        "tr": "Yugoslavya Sosyalist Federal Cumhuriyeti’ne bağlı anayasal-federal cumhuriyet"
       },
       "sectionPath": [
         "Socialism",
         "Regional variants",
         "European"
       ],
-      "types": [],
+      "types": [
+        "Q12959600",
+        "Q107390"
+      ],
       "parents": [],
       "related": [],
       "opposes": [],
@@ -100955,7 +101542,7 @@
       },
       "wikipedia": {
         "en": "https://en.wikipedia.org/wiki/Socialist_Republic_of_Croatia",
-        "tr": null
+        "tr": "https://tr.wikipedia.org/wiki/H%C4%B1rvatistan_Sosyalist_Cumhuriyeti"
       },
       "sources": {
         "wikipedia": "https://en.wikipedia.org/wiki/Socialist_Republic_of_Croatia",
@@ -100970,23 +101557,30 @@
       "id": "socialist-republic-of-macedonia",
       "qid": "Q240592",
       "name": {
-        "en": "Macedonia",
-        "tr": "Macedonia"
+        "en": "Socialist Republic of Macedonia",
+        "tr": "Makedonya Sosyalist Cumhuriyeti"
       },
       "aliases": {
-        "en": [],
+        "en": [
+          "SR Macedonia",
+          "Socijalistička Republika Makedonija",
+          "SR Makedonija",
+          "Makedonija"
+        ],
         "tr": []
       },
       "description": {
-        "en": "",
-        "tr": ""
+        "en": "the official name of the Macedonian state within federated Yugoslavia during the period of 1963-1991.",
+        "tr": "Eski bir cumhuriyet"
       },
       "sectionPath": [
         "Socialism",
         "Regional variants",
         "European"
       ],
-      "types": [],
+      "types": [
+        "Q12959600"
+      ],
       "parents": [],
       "related": [],
       "opposes": [],
@@ -100997,7 +101591,7 @@
       },
       "wikipedia": {
         "en": "https://en.wikipedia.org/wiki/Socialist_Republic_of_Macedonia",
-        "tr": null
+        "tr": "https://tr.wikipedia.org/wiki/Makedonya_Sosyalist_Cumhuriyeti"
       },
       "sources": {
         "wikipedia": "https://en.wikipedia.org/wiki/Socialist_Republic_of_Macedonia",
@@ -101012,23 +101606,32 @@
       "id": "socialist-republic-of-montenegro",
       "qid": "Q838291",
       "name": {
-        "en": "Montenegro",
-        "tr": "Montenegro"
+        "en": "Socialist Republic of Montenegro",
+        "tr": "Karadağ Sosyalist Cumhuriyeti"
       },
       "aliases": {
-        "en": [],
+        "en": [
+          "SR Montenegro",
+          "PR Montenegro",
+          "People's Republic of Montenegro",
+          "Socijalistička Republika Crna Gora",
+          "SR Crna Gora"
+        ],
         "tr": []
       },
       "description": {
-        "en": "",
-        "tr": ""
+        "en": "federated state, within the Socialist Federal Republic of Yugoslavia, between 1944 and 1992",
+        "tr": "federated state, within the Socialist Federal Republic of Yugoslavia, between 1944 and 1992"
       },
       "sectionPath": [
         "Socialism",
         "Regional variants",
         "European"
       ],
-      "types": [],
+      "types": [
+        "Q3024240",
+        "Q12959600"
+      ],
       "parents": [],
       "related": [],
       "opposes": [],
@@ -101039,7 +101642,7 @@
       },
       "wikipedia": {
         "en": "https://en.wikipedia.org/wiki/Socialist_Republic_of_Montenegro",
-        "tr": null
+        "tr": "https://tr.wikipedia.org/wiki/Karada%C4%9F_Sosyalist_Cumhuriyeti"
       },
       "sources": {
         "wikipedia": "https://en.wikipedia.org/wiki/Socialist_Republic_of_Montenegro",
@@ -101054,34 +101657,57 @@
       "id": "socialist-republic-of-romania",
       "qid": "Q842794",
       "name": {
-        "en": "Romania",
-        "tr": "Romania"
+        "en": "Socialist Republic of Romania",
+        "tr": "Romanya Sosyalist Cumhuriyeti"
       },
       "aliases": {
-        "en": [],
-        "tr": []
+        "en": [
+          "Republica Socialistă România",
+          "RS România",
+          "SR Romania",
+          "Socialist Republic of Rumania",
+          "SR Rumania",
+          "Ceauşescu Romania",
+          "Ceauşescu Rumania",
+          "RS Romania"
+        ],
+        "tr": [
+          "Romanya Halk Cumhuriyeti"
+        ]
       },
       "description": {
-        "en": "",
-        "tr": ""
+        "en": "1965–1989 republic in Southeastern Europe",
+        "tr": "1965-1989 arasında Romanya'da hüküm sürmüş devlet"
       },
       "sectionPath": [
         "Socialism",
         "Regional variants",
         "European"
       ],
-      "types": [],
+      "types": [
+        "Q842112",
+        "Q325261",
+        "Q7270",
+        "Q109614735",
+        "Q3024240"
+      ],
       "parents": [],
       "related": [],
       "opposes": [],
       "relationEvidence": {
         "parents": [],
-        "related": [],
+        "related": [
+          {
+            "id": "q18537079",
+            "qid": "Q18537079",
+            "property": "P361"
+          }
+        ],
         "opposes": []
       },
       "wikipedia": {
         "en": "https://en.wikipedia.org/wiki/Socialist_Republic_of_Romania",
-        "tr": null
+        "tr": "https://tr.wikipedia.org/wiki/Romanya_Sosyalist_Cumhuriyeti"
       },
       "sources": {
         "wikipedia": "https://en.wikipedia.org/wiki/Socialist_Republic_of_Romania",
@@ -101096,23 +101722,31 @@
       "id": "socialist-republic-of-serbia",
       "qid": "Q269864",
       "name": {
-        "en": "Serbia",
-        "tr": "Serbia"
+        "en": "Socialist Republic of Serbia",
+        "tr": "Sırbistan Sosyalist Cumhuriyeti"
       },
       "aliases": {
-        "en": [],
+        "en": [
+          "SR Serbia",
+          "PR Serbia",
+          "People's Republic of Setrbia",
+          "Socijalistička Republika Srbija",
+          "SR Srbija"
+        ],
         "tr": []
       },
       "description": {
-        "en": "",
-        "tr": ""
+        "en": "federated state of Yugoslavia 1943 and 1992",
+        "tr": "federated state of Yugoslavia 1943 and 1992"
       },
       "sectionPath": [
         "Socialism",
         "Regional variants",
         "European"
       ],
-      "types": [],
+      "types": [
+        "Q12959600"
+      ],
       "parents": [],
       "related": [],
       "opposes": [],
@@ -101123,7 +101757,7 @@
       },
       "wikipedia": {
         "en": "https://en.wikipedia.org/wiki/Socialist_Republic_of_Serbia",
-        "tr": null
+        "tr": "https://tr.wikipedia.org/wiki/S%C4%B1rbistan_Sosyalist_Cumhuriyeti"
       },
       "sources": {
         "wikipedia": "https://en.wikipedia.org/wiki/Socialist_Republic_of_Serbia",
@@ -101138,23 +101772,33 @@
       "id": "socialist-republic-of-slovenia",
       "qid": "Q211092",
       "name": {
-        "en": "Slovenia",
-        "tr": "Slovenia"
+        "en": "Socialist Republic of Slovenia",
+        "tr": "Slovenya Sosyalist Cumhuriyeti"
       },
       "aliases": {
-        "en": [],
+        "en": [
+          "SR Slovenia",
+          "PR Slovenia",
+          "People's Republic of Slovenia",
+          "Socialistična republika Slovenija",
+          "SR Slovenija"
+        ],
         "tr": []
       },
       "description": {
-        "en": "",
-        "tr": ""
+        "en": "federated state of Yugoslavia from 1945 to 1991",
+        "tr": "federated state of Yugoslavia from 1945 to 1991"
       },
       "sectionPath": [
         "Socialism",
         "Regional variants",
         "European"
       ],
-      "types": [],
+      "types": [
+        "Q107390",
+        "Q12959600",
+        "Q3024240"
+      ],
       "parents": [],
       "related": [],
       "opposes": [],
@@ -101165,7 +101809,7 @@
       },
       "wikipedia": {
         "en": "https://en.wikipedia.org/wiki/Socialist_Republic_of_Slovenia",
-        "tr": null
+        "tr": "https://tr.wikipedia.org/wiki/Slovenya_Sosyalist_Cumhuriyeti"
       },
       "sources": {
         "wikipedia": "https://en.wikipedia.org/wiki/Socialist_Republic_of_Slovenia",
@@ -101549,22 +102193,26 @@
       "id": "solidarity-federation",
       "qid": "Q5802634",
       "name": {
-        "en": "United Kingdom",
-        "tr": "United Kingdom"
+        "en": "Solidarity Federation",
+        "tr": "Solidarity Federation"
       },
       "aliases": {
-        "en": [],
+        "en": [
+          "SolFed"
+        ],
         "tr": []
       },
       "description": {
-        "en": "",
-        "tr": ""
+        "en": "anarcho-Syndicalism Organisation in the United Kingdom",
+        "tr": "anarcho-Syndicalism Organisation in the United Kingdom"
       },
       "sectionPath": [
         "Syndicalism",
         "Regional variants"
       ],
-      "types": [],
+      "types": [
+        "Q178790"
+      ],
       "parents": [],
       "related": [],
       "opposes": [],
@@ -103424,7 +104072,7 @@
         "tr": "Japon İmparatorluğunun resmî dini, imparatorun kutsallığı bu dinde önemli bir yer tutar"
       },
       "sectionPath": [
-        "Nationalism",
+        "Fascism",
         "Religious variants"
       ],
       "types": [
@@ -104634,8 +105282,7 @@
         "tr": "form of anarchist organization which tries to join anarchists of different tendencies"
       },
       "sectionPath": [
-        "Anarchism",
-        "Post-classical"
+        "Anarchism"
       ],
       "types": [
         "Q12909644",
@@ -104665,7 +105312,7 @@
         "wikipedia": "https://en.wikipedia.org/wiki/Anarchist_synthesis",
         "wikidata": "Q3508949",
         "match": {
-          "method": "wikipedia-page",
+          "method": "wikipedia-redirect",
           "confidence": 1
         }
       }
@@ -109571,34 +110218,54 @@
       "id": "ukrainian-soviet-socialist-republic",
       "qid": "Q133356",
       "name": {
-        "en": "Ukraine",
-        "tr": "Ukraine"
+        "en": "Ukrainian Soviet Socialist Republic",
+        "tr": "Ukrayna Sovyet Sosyalist Cumhuriyeti"
       },
       "aliases": {
-        "en": [],
-        "tr": []
+        "en": [
+          "Ukrainian SSR",
+          "Soviet Ukraine",
+          "Ukrainian S.S.R",
+          "Communist Ukraine"
+        ],
+        "tr": [
+          "USSC",
+          "Ukrayna SSC"
+        ]
       },
       "description": {
-        "en": "",
-        "tr": ""
+        "en": "sovereign state (1919–1922) and a republic of the Soviet Union (1922–1991); one of the founding members of the UN in 1945",
+        "tr": "Devlet"
       },
       "sectionPath": [
         "Socialism",
         "Regional variants",
         "European"
       ],
-      "types": [],
+      "types": [
+        "Q3024240",
+        "Q179164",
+        "Q3624078",
+        "Q236036",
+        "Q23037160"
+      ],
       "parents": [],
       "related": [],
       "opposes": [],
       "relationEvidence": {
-        "parents": [],
+        "parents": [
+          {
+            "id": "q113393649",
+            "qid": "Q113393649",
+            "property": "P279"
+          }
+        ],
         "related": [],
         "opposes": []
       },
       "wikipedia": {
         "en": "https://en.wikipedia.org/wiki/Ukrainian_Soviet_Socialist_Republic",
-        "tr": null
+        "tr": "https://tr.wikipedia.org/wiki/Ukrayna_Sovyet_Sosyalist_Cumhuriyeti"
       },
       "sources": {
         "wikipedia": "https://en.wikipedia.org/wiki/Ukrainian_Soviet_Socialist_Republic",
@@ -110247,22 +110914,24 @@
       "id": "unione-sindacale-italiana",
       "qid": "Q1734052",
       "name": {
-        "en": "Italy",
-        "tr": "Italy"
+        "en": "Unione Sindacale Italiana",
+        "tr": "Unione Sindacale Italiana"
       },
       "aliases": {
         "en": [],
         "tr": []
       },
       "description": {
-        "en": "",
-        "tr": ""
+        "en": "Italian trade union",
+        "tr": "Italian trade union"
       },
       "sectionPath": [
         "Syndicalism",
         "Regional variants"
       ],
-      "types": [],
+      "types": [
+        "Q681615"
+      ],
       "parents": [],
       "related": [],
       "opposes": [],
@@ -112452,7 +113121,7 @@
       "qid": "Q21994376",
       "name": {
         "en": "war of independence",
-        "tr": "Bağımsızlık Savaşı"
+        "tr": "bağımsızlık savaşı"
       },
       "aliases": {
         "en": [
@@ -112462,7 +113131,7 @@
       },
       "description": {
         "en": "conflict occurring over a territory that has declared independence",
-        "tr": "conflict occurring over a territory that has declared independence"
+        "tr": "bağımsızlığını ilan etmiş bir bölge üzerinde meydana gelen çatışma"
       },
       "sectionPath": [
         "Nationalism",
@@ -112931,13 +113600,15 @@
       "types": [
         "Q1307214"
       ],
-      "parents": [],
+      "parents": [
+        "parliamentary-system"
+      ],
       "related": [],
       "opposes": [],
       "relationEvidence": {
         "parents": [
           {
-            "id": "q166747",
+            "id": "parliamentary-system",
             "qid": "Q166747",
             "property": "P279"
           }
@@ -113942,8 +114613,8 @@
       "id": "women-in-haiti",
       "qid": "Q8031221",
       "name": {
-        "en": "women in Haiti",
-        "tr": "women in Haiti"
+        "en": "Women in Haiti",
+        "tr": "Women in Haiti"
       },
       "aliases": {
         "en": [],
@@ -114175,7 +114846,9 @@
         "tr": "women in Nigeria"
       },
       "aliases": {
-        "en": [],
+        "en": [
+          "Women in Nigeria"
+        ],
         "tr": []
       },
       "description": {
@@ -116547,7 +117220,7 @@
         ]
       },
       "description": {
-        "en": "a movement to create and develop a Jewish state in the Levant",
+        "en": "movement to create and develop a Jewish state in the Levant",
         "tr": "Levant'ta bir Yahudi devleti kurma ve geliştirme hareketi"
       },
       "sectionPath": [
