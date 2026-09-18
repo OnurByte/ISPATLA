@@ -3358,11 +3358,17 @@ function summariseDraftBaseline(samples: DraftBaselineSample[], scope: DraftPerf
 }
 
 function publicationBaselineSamples(accountId: number, format: string, categorySlug = ""): DraftBaselineSample[] {
-  const categoryClause = categorySlug ? `AND EXISTS (
-      SELECT 1 FROM observed_posts AS observed
-      INNER JOIN source_categories AS source_category ON source_category.source_handle=observed.source_handle AND source_category.enabled=1
-      INNER JOIN categories AS category ON category.id=source_category.category_id
-      WHERE observed.external_id=draft.external_id AND category.slug=${sqlString(categorySlug)}
+  const categoryClause = categorySlug ? `AND (
+      EXISTS (
+        SELECT 1 FROM draft_evaluations AS historical_evaluation
+        WHERE historical_evaluation.draft_id=draft.id AND historical_evaluation.category_slug=${sqlString(categorySlug)}
+      )
+      OR EXISTS (
+        SELECT 1 FROM observed_posts AS observed
+        INNER JOIN source_categories AS source_category ON source_category.source_handle=observed.source_handle AND source_category.enabled=1
+        INNER JOIN categories AS category ON category.id=source_category.category_id
+        WHERE observed.external_id=draft.external_id AND category.slug=${sqlString(categorySlug)}
+      )
     )` : "";
   return rows<DraftBaselineSample>(`
     SELECT snapshot.likes, snapshot.replies, snapshot.reposts, snapshot.quotes, snapshot.views
