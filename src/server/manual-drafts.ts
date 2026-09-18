@@ -2,13 +2,16 @@ import {
   createDraft,
   createDraftBatch,
   getAccounts,
+  getAccountCategoryConfigs,
+  getDraft,
   getPost,
   updateDraftBatch,
   type DraftBatch,
   type DraftRecord,
 } from "./db";
 import { getAiSettings, isAiEnabled, usageBudgetAllowed } from "./ai";
-import { generateManualDraft, manualQualityGate } from "./pipeline";
+import { accountCategories, generateManualDraft, manualQualityGate } from "./pipeline";
+import { evaluateDraft } from "./draft-evaluator";
 
 export type ManualDraftInput = {
   prompt?: string;
@@ -71,10 +74,12 @@ export async function createManualDraftBatch(input: ManualDraftInput): Promise<{
     }
   }
 
-  const drafts = accounts.map((account, index) => {
+  const categoryConfigurations = getAccountCategoryConfigs();
+  const drafts: DraftRecord[] = [];
+  for (const [index, account] of accounts.entries()) {
     const draftText = generatedTexts[variantMode === "same_text" ? 0 : index];
     const gateReason = manualQualityGate(draftText, sourcePost?.text || "", sourceUrl);
-    return createDraft({
+    const stored = createDraft({
       batchId: batch.id,
       origin: "manual",
       prompt: prompt || text,
@@ -92,7 +97,22 @@ export async function createManualDraftBatch(input: ManualDraftInput): Promise<{
       sourceScore: sourcePost?.score || 0,
       now: Math.floor(Date.now() / 1000),
     });
-  });
+    const categorySlug = categoryConfigurations
+      .filter((item) => item.accountId === account.id && item.enabled)
+      .sort((left, right) => Number(right.primary) - Number(left.primary) || right.priority - left.priority)[0]?.categorySlug
+      || accountCategories(account)[0]
+      || "";
+    await evaluateDraft({
+      draftId: stored.id,
+      text: stored.text,
+      account,
+      categorySlug,
+      format: stored.format,
+      mediaType: "none",
+      sourceText: sourcePost?.text || "",
+    }).catch(() => undefined);
+    drafts.push(getDraft(stored.id) || stored);
+  }
   const status = drafts.some((draft) => draft.status === "blocked") ? "needs_review" : "ready";
   return { batch: updateDraftBatch(batch.id, status, Math.floor(Date.now() / 1000)) || { ...batch, status }, drafts };
 }

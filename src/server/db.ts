@@ -375,6 +375,39 @@ export type ScoreEvidence = {
   breakingReason: string;
 };
 
+export type DraftPerformanceBaseline = {
+  scope: "account_category_format" | "account_format" | "account" | "none";
+  samples: number;
+  medianViews: number | null;
+  medianLikes: number | null;
+  medianReplies: number | null;
+  medianReposts: number | null;
+  medianQuotes: number | null;
+  medianEngagementRate: number | null;
+};
+
+export type DraftEvaluation = {
+  id: number;
+  draftId: number;
+  accountId: number | null;
+  categorySlug: string;
+  mode: "shadow_calibrated" | "shadow_cold_start";
+  score: number;
+  confidence: number;
+  predictedResidual: number | null;
+  baseline: DraftPerformanceBaseline;
+  predictedViews: number | null;
+  predictedReplies: number | null;
+  predictedReposts: number | null;
+  predictedQuotes: number | null;
+  features: Record<string, unknown>;
+  semantic: Record<string, unknown>;
+  helped: string[];
+  hurt: string[];
+  createdAt: number;
+  updatedAt: number;
+};
+
 export type DraftRecord = {
   id: number;
   batchId: string;
@@ -393,6 +426,7 @@ export type DraftRecord = {
   status: string;
   gateReason: string;
   score: number;
+  evaluation: DraftEvaluation | null;
   createdAt: number;
   updatedAt: number;
 };
@@ -834,6 +868,10 @@ function sqlString(value: string): string {
 
 function sqlNumber(value: number): string {
   return Number.isFinite(value) ? String(Math.round(value)) : "0";
+}
+
+function sqlReal(value: number | null | undefined): string {
+  return value === null || value === undefined || !Number.isFinite(value) ? "NULL" : String(value);
 }
 
 function sqlBool(value: boolean): string {
@@ -1322,6 +1360,41 @@ function applyMigrations(): void {
     addColumn("publications", "publication_intent_id", "INTEGER");
     command("CREATE UNIQUE INDEX IF NOT EXISTS publications_intent_idx ON publications(publication_intent_id) WHERE publication_intent_id IS NOT NULL;");
     command("INSERT INTO schema_migrations (version, applied_at) VALUES (14, unixepoch());");
+  }
+  if (!applied.has(15)) {
+    command(`CREATE TABLE IF NOT EXISTS draft_evaluations (
+      id INTEGER PRIMARY KEY,
+      draft_id INTEGER NOT NULL UNIQUE,
+      account_id INTEGER,
+      category_slug TEXT NOT NULL DEFAULT '',
+      mode TEXT NOT NULL DEFAULT 'shadow_cold_start',
+      score REAL NOT NULL DEFAULT 0,
+      confidence REAL NOT NULL DEFAULT 0,
+      predicted_residual REAL,
+      baseline_scope TEXT NOT NULL DEFAULT 'none',
+      baseline_samples INTEGER NOT NULL DEFAULT 0,
+      baseline_views REAL,
+      baseline_likes REAL,
+      baseline_replies REAL,
+      baseline_reposts REAL,
+      baseline_quotes REAL,
+      baseline_engagement_rate REAL,
+      predicted_views REAL,
+      predicted_replies REAL,
+      predicted_reposts REAL,
+      predicted_quotes REAL,
+      features_json TEXT NOT NULL DEFAULT '{}',
+      semantic_json TEXT NOT NULL DEFAULT '{}',
+      helped_json TEXT NOT NULL DEFAULT '[]',
+      hurt_json TEXT NOT NULL DEFAULT '[]',
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL,
+      FOREIGN KEY(draft_id) REFERENCES drafts(id),
+      FOREIGN KEY(account_id) REFERENCES accounts(id)
+    );
+    CREATE INDEX IF NOT EXISTS draft_evaluations_account_idx
+      ON draft_evaluations(account_id, updated_at DESC);`);
+    command("INSERT INTO schema_migrations (version, applied_at) VALUES (15, unixepoch());");
   }
 }
 
@@ -3245,6 +3318,7 @@ export function getDrafts(limit = 100): DraftRecord[] {
     sourceHandle: draft.source_handle || "",
     sourceUrl: draft.source_url || "",
     score: draft.source_score || 0,
+    evaluation: getDraftEvaluation(draft.id),
     createdAt: draft.created_at,
     updatedAt: draft.updated_at,
   }));
@@ -3252,6 +3326,195 @@ export function getDrafts(limit = 100): DraftRecord[] {
 
 export function getDraft(id: number): DraftRecord | null {
   return getDrafts(200).find((draft) => draft.id === id) || null;
+}
+
+type DraftBaselineSample = {
+  likes: number | null;
+  replies: number | null;
+  reposts: number | null;
+  quotes: number | null;
+  views: number | null;
+};
+
+function summariseDraftBaseline(samples: DraftBaselineSample[], scope: DraftPerformanceBaseline["scope"]): DraftPerformanceBaseline {
+  const valid = samples.filter((sample) => sample.views !== null || sample.likes !== null || sample.replies !== null || sample.reposts !== null || sample.quotes !== null);
+  const metric = (key: keyof DraftBaselineSample) => median(valid.map((sample) => sample[key]).filter((value): value is number => value !== null && Number.isFinite(value)));
+  const rates = valid.flatMap((sample) => {
+    const views = sample.views;
+    if (views === null || views <= 0) return [];
+    const actions = (sample.likes || 0) + (sample.replies || 0) + (sample.reposts || 0) + (sample.quotes || 0);
+    return [actions / views];
+  });
+  return {
+    scope,
+    samples: valid.length,
+    medianViews: metric("views"),
+    medianLikes: metric("likes"),
+    medianReplies: metric("replies"),
+    medianReposts: metric("reposts"),
+    medianQuotes: metric("quotes"),
+    medianEngagementRate: median(rates),
+  };
+}
+
+function publicationBaselineSamples(accountId: number, format: string, categorySlug = ""): DraftBaselineSample[] {
+  const categoryClause = categorySlug ? `AND (
+      EXISTS (
+        SELECT 1 FROM draft_evaluations AS historical_evaluation
+        WHERE historical_evaluation.draft_id=draft.id AND historical_evaluation.category_slug=${sqlString(categorySlug)}
+      )
+      OR EXISTS (
+        SELECT 1 FROM observed_posts AS observed
+        INNER JOIN source_categories AS source_category ON source_category.source_handle=observed.source_handle AND source_category.enabled=1
+        INNER JOIN categories AS category ON category.id=source_category.category_id
+        WHERE observed.external_id=draft.external_id AND category.slug=${sqlString(categorySlug)}
+      )
+    )` : "";
+  return rows<DraftBaselineSample>(`
+    SELECT snapshot.likes, snapshot.replies, snapshot.reposts, snapshot.quotes, snapshot.views
+    FROM publications AS publication
+    INNER JOIN drafts AS draft ON draft.id=publication.draft_id
+    INNER JOIN (
+      SELECT publication_id, MAX(captured_at) AS captured_at
+      FROM publication_metric_snapshots
+      WHERE metric_quality='ok'
+      GROUP BY publication_id
+    ) AS latest ON latest.publication_id=publication.id
+    INNER JOIN publication_metric_snapshots AS snapshot
+      ON snapshot.publication_id=latest.publication_id AND snapshot.captured_at=latest.captured_at
+    WHERE publication.account_id=${sqlNumber(accountId)}
+      AND publication.status='confirmed'
+      AND draft.format=${sqlString(format)}
+      ${categoryClause}
+    ORDER BY snapshot.captured_at DESC
+    LIMIT 80;
+  `);
+}
+
+export function draftPerformanceBaseline(input: { accountId: number; format: string; categorySlug?: string }): DraftPerformanceBaseline {
+  const categorySlug = String(input.categorySlug || "").trim().toLocaleLowerCase("tr-TR");
+  if (categorySlug) {
+    const exact = publicationBaselineSamples(input.accountId, input.format, categorySlug);
+    if (exact.length >= 5) return summariseDraftBaseline(exact, "account_category_format");
+  }
+  const formatSamples = publicationBaselineSamples(input.accountId, input.format);
+  if (formatSamples.length >= 5) return summariseDraftBaseline(formatSamples, "account_format");
+  const accountSamples = rows<DraftBaselineSample>(`
+    SELECT feedback.likes, feedback.replies, feedback.reposts, feedback.quotes, feedback.views
+    FROM publish_attempts AS attempt
+    INNER JOIN feedback_snapshots AS feedback ON feedback.post_external_id=attempt.post_external_id
+    INNER JOIN (
+      SELECT post_external_id, MAX(captured_at) AS captured_at
+      FROM feedback_snapshots
+      WHERE milestone IN ('60dk', '24s', 'legacy')
+      GROUP BY post_external_id
+    ) AS latest ON latest.post_external_id=feedback.post_external_id AND latest.captured_at=feedback.captured_at
+    WHERE attempt.account_id=${sqlNumber(input.accountId)} AND attempt.status='confirmed'
+    ORDER BY feedback.captured_at DESC
+    LIMIT 80;
+  `);
+  return accountSamples.length
+    ? summariseDraftBaseline(accountSamples, "account")
+    : summariseDraftBaseline([], "none");
+}
+
+function parseStringList(value: string): string[] {
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    return Array.isArray(parsed) ? parsed.map(String).map((item) => item.trim()).filter(Boolean).slice(0, 8) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function getDraftEvaluation(draftId: number): DraftEvaluation | null {
+  const row = rows<{
+    id: number; draft_id: number; account_id: number | null; category_slug: string; mode: string; score: number; confidence: number;
+    predicted_residual: number | null; baseline_scope: DraftPerformanceBaseline["scope"]; baseline_samples: number;
+    baseline_views: number | null; baseline_likes: number | null; baseline_replies: number | null; baseline_reposts: number | null;
+    baseline_quotes: number | null; baseline_engagement_rate: number | null; predicted_views: number | null; predicted_replies: number | null;
+    predicted_reposts: number | null; predicted_quotes: number | null; features_json: string; semantic_json: string;
+    helped_json: string; hurt_json: string; created_at: number; updated_at: number;
+  }>(`SELECT * FROM draft_evaluations WHERE draft_id=${sqlNumber(draftId)} LIMIT 1;`)[0];
+  if (!row) return null;
+  return {
+    id: row.id,
+    draftId: row.draft_id,
+    accountId: row.account_id,
+    categorySlug: row.category_slug,
+    mode: row.mode === "shadow_calibrated" ? "shadow_calibrated" : "shadow_cold_start",
+    score: Math.round(row.score),
+    confidence: Math.round(row.confidence),
+    predictedResidual: row.predicted_residual,
+    baseline: {
+      scope: row.baseline_scope || "none",
+      samples: row.baseline_samples,
+      medianViews: row.baseline_views,
+      medianLikes: row.baseline_likes,
+      medianReplies: row.baseline_replies,
+      medianReposts: row.baseline_reposts,
+      medianQuotes: row.baseline_quotes,
+      medianEngagementRate: row.baseline_engagement_rate,
+    },
+    predictedViews: row.predicted_views,
+    predictedReplies: row.predicted_replies,
+    predictedReposts: row.predicted_reposts,
+    predictedQuotes: row.predicted_quotes,
+    features: parseObject(row.features_json),
+    semantic: parseObject(row.semantic_json),
+    helped: parseStringList(row.helped_json),
+    hurt: parseStringList(row.hurt_json),
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+export function recordDraftEvaluation(input: {
+  draftId: number;
+  accountId: number | null;
+  categorySlug: string;
+  mode: DraftEvaluation["mode"];
+  score: number;
+  confidence: number;
+  predictedResidual: number | null;
+  baseline: DraftPerformanceBaseline;
+  predictedViews: number | null;
+  predictedReplies: number | null;
+  predictedReposts: number | null;
+  predictedQuotes: number | null;
+  features: Record<string, unknown>;
+  semantic: Record<string, unknown>;
+  helped: string[];
+  hurt: string[];
+  now: number;
+}): DraftEvaluation {
+  exec(`INSERT INTO draft_evaluations (
+      draft_id, account_id, category_slug, mode, score, confidence, predicted_residual,
+      baseline_scope, baseline_samples, baseline_views, baseline_likes, baseline_replies, baseline_reposts, baseline_quotes,
+      baseline_engagement_rate, predicted_views, predicted_replies, predicted_reposts, predicted_quotes,
+      features_json, semantic_json, helped_json, hurt_json, created_at, updated_at
+    ) VALUES (
+      ${sqlNumber(input.draftId)}, ${input.accountId ? sqlNumber(input.accountId) : "NULL"}, ${sqlString(input.categorySlug)},
+      ${sqlString(input.mode)}, ${sqlReal(input.score)}, ${sqlReal(input.confidence)}, ${sqlReal(input.predictedResidual)},
+      ${sqlString(input.baseline.scope)}, ${sqlNumber(input.baseline.samples)}, ${sqlReal(input.baseline.medianViews)},
+      ${sqlReal(input.baseline.medianLikes)}, ${sqlReal(input.baseline.medianReplies)}, ${sqlReal(input.baseline.medianReposts)},
+      ${sqlReal(input.baseline.medianQuotes)}, ${sqlReal(input.baseline.medianEngagementRate)}, ${sqlReal(input.predictedViews)},
+      ${sqlReal(input.predictedReplies)}, ${sqlReal(input.predictedReposts)}, ${sqlReal(input.predictedQuotes)},
+      ${sqlString(JSON.stringify(input.features))}, ${sqlString(JSON.stringify(input.semantic))},
+      ${sqlString(JSON.stringify(input.helped.slice(0, 8)))}, ${sqlString(JSON.stringify(input.hurt.slice(0, 8)))},
+      ${sqlNumber(input.now)}, ${sqlNumber(input.now)}
+    ) ON CONFLICT(draft_id) DO UPDATE SET
+      account_id=excluded.account_id, category_slug=excluded.category_slug, mode=excluded.mode, score=excluded.score,
+      confidence=excluded.confidence, predicted_residual=excluded.predicted_residual, baseline_scope=excluded.baseline_scope,
+      baseline_samples=excluded.baseline_samples, baseline_views=excluded.baseline_views, baseline_likes=excluded.baseline_likes,
+      baseline_replies=excluded.baseline_replies, baseline_reposts=excluded.baseline_reposts, baseline_quotes=excluded.baseline_quotes,
+      baseline_engagement_rate=excluded.baseline_engagement_rate, predicted_views=excluded.predicted_views,
+      predicted_replies=excluded.predicted_replies, predicted_reposts=excluded.predicted_reposts, predicted_quotes=excluded.predicted_quotes,
+      features_json=excluded.features_json, semantic_json=excluded.semantic_json, helped_json=excluded.helped_json,
+      hurt_json=excluded.hurt_json, updated_at=excluded.updated_at;`);
+  const result = getDraftEvaluation(input.draftId);
+  if (!result) throw new Error("draft evaluation kaydedilemedi");
+  return result;
 }
 
 type PublicationIntentRow = {
@@ -3418,7 +3681,7 @@ export function updateDraft(input: {
 
 export function deleteDraft(id: number): boolean {
   if (!getDraft(id)) return false;
-  exec(`DELETE FROM automation_jobs WHERE draft_id=${sqlNumber(id)}; DELETE FROM drafts WHERE id=${sqlNumber(id)};`);
+  exec(`DELETE FROM automation_jobs WHERE draft_id=${sqlNumber(id)}; DELETE FROM draft_evaluations WHERE draft_id=${sqlNumber(id)}; DELETE FROM drafts WHERE id=${sqlNumber(id)};`);
   return !getDraft(id);
 }
 

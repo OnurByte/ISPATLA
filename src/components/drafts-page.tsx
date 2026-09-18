@@ -27,6 +27,7 @@ type DraftForm = {
   sourceHandle: string;
   sourceUrl: string;
   score: number;
+  evaluation: DraftRecord["evaluation"];
 };
 
 function asForm(draft?: DraftRecord): DraftForm {
@@ -42,6 +43,7 @@ function asForm(draft?: DraftRecord): DraftForm {
         sourceHandle: "",
         sourceUrl: "",
         score: 0,
+        evaluation: null,
       };
 }
 
@@ -296,7 +298,7 @@ export function DraftsPage({ initial, accounts, selectedDraftId }: { initial: Dr
               const selected = form.id === draft.id;
               return (
                 <Button key={draft.id} type="button" variant={selected ? "secondary" : "ghost"} className="h-auto min-h-28 flex-col items-stretch gap-2 border border-transparent p-3 text-left" data-selected={selected} onClick={() => setForm(asForm(draft))}>
-                  <span className="flex items-center justify-between gap-2"><Badge variant="outline">{draft.format}</Badge><Badge variant={draft.status === "ready" ? "default" : draft.status === "blocked" ? "destructive" : "secondary"}>{draft.status}</Badge></span>
+                  <span className="flex items-center justify-between gap-2"><span className="flex items-center gap-1.5"><Badge variant="outline">{draft.format}</Badge>{draft.evaluation ? <Badge variant="secondary">draft {draft.evaluation.score}</Badge> : null}</span><Badge variant={draft.status === "ready" ? "default" : draft.status === "blocked" ? "destructive" : "secondary"}>{draft.status}</Badge></span>
                   <span className="line-clamp-3 text-sm font-normal">{draft.text}</span>
                   <span className="text-xs font-normal text-muted-foreground">@{draft.accountHandle} · {draft.origin || "manual"}{draft.batchId ? ` · ${draft.batchId.slice(0, 12)}` : ""}</span>
                 </Button>
@@ -319,6 +321,43 @@ export function DraftsPage({ initial, accounts, selectedDraftId }: { initial: Dr
             <Field><FieldLabel htmlFor="draft-text">İçerik</FieldLabel><Textarea id="draft-text" className="min-h-52" value={form.text} onChange={(event) => update("text", event.target.value)} placeholder="Özgün taslak metni..." /><FieldDescription className="text-right">{form.text.length}/280 karakter</FieldDescription></Field>
             {form.sourceUrl && <a href={form.sourceUrl} target="_blank" rel="noreferrer" className="text-sm text-primary underline-offset-4 hover:underline">Kaynak postunu aç</a>}
             {form.gateReason && <Alert variant={form.status === "blocked" ? "destructive" : "default"}><AlertDescription>Gate: {form.gateReason}</AlertDescription></Alert>}
+            {form.evaluation ? (
+              <div className="rounded-lg border p-4">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <div className="text-sm font-medium">Draft performance evaluator</div>
+                    <div className="mt-1 text-xs text-muted-foreground">Shadow mode; X'in iç ranking skoru veya erişim garantisi değildir.</div>
+                  </div>
+                  <div className="flex gap-2">
+                    <Badge>{form.evaluation.score}/100</Badge>
+                    <Badge variant="outline">güven %{form.evaluation.confidence}</Badge>
+                  </div>
+                </div>
+                <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                  <div className="rounded-md bg-muted/40 p-3">
+                    <div className="text-xs text-muted-foreground">Baseline</div>
+                    <div className="mt-1 text-sm font-medium">{form.evaluation.baseline.samples} örnek</div>
+                    <div className="text-xs text-muted-foreground">{form.evaluation.baseline.scope.replaceAll("_", " ")}</div>
+                  </div>
+                  <div className="rounded-md bg-muted/40 p-3">
+                    <div className="text-xs text-muted-foreground">Beklenen residual</div>
+                    <div className="mt-1 text-sm font-medium">{form.evaluation.predictedResidual === null ? "veri yetersiz" : form.evaluation.predictedResidual.toFixed(2) + "x"}</div>
+                    <div className="text-xs text-muted-foreground">hesabın normaline göre</div>
+                  </div>
+                  <div className="rounded-md bg-muted/40 p-3">
+                    <div className="text-xs text-muted-foreground">Tahmini görüntülenme</div>
+                    <div className="mt-1 text-sm font-medium">{form.evaluation.predictedViews === null ? "—" : Math.round(form.evaluation.predictedViews).toLocaleString("tr-TR")}</div>
+                    <div className="text-xs text-muted-foreground">yalnız mature baseline varsa</div>
+                  </div>
+                </div>
+                {(form.evaluation.helped.length || form.evaluation.hurt.length) ? (
+                  <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                    <div><div className="mb-1 text-xs font-medium">Güçlendiren</div>{form.evaluation.helped.length ? form.evaluation.helped.map((reason) => <div key={reason} className="text-xs text-muted-foreground">+ {reason}</div>) : <div className="text-xs text-muted-foreground">belirgin sinyal yok</div>}</div>
+                    <div><div className="mb-1 text-xs font-medium">Zayıflatan</div>{form.evaluation.hurt.length ? form.evaluation.hurt.map((reason) => <div key={reason} className="text-xs text-muted-foreground">- {reason}</div>) : <div className="text-xs text-muted-foreground">belirgin sinyal yok</div>}</div>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
             {message && <Alert><AlertDescription>{message}</AlertDescription></Alert>}
             <div className="flex flex-wrap items-center gap-2">
               <Button onClick={save} disabled={pending}>{pending ? <Spinner data-icon="inline-start" /> : <Save data-icon="inline-start" aria-hidden="true" />} Kaydet</Button>
