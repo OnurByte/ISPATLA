@@ -76,6 +76,7 @@ import { isAllowedAvatarUrl, isAllowedMediaContentType, isAllowedMediaUrl } from
 import { resolveIdeology } from "./ideologies";
 import { FxTwitterReader, normalizeFxPost, type XPost, type XProfile } from "./x-reader";
 import { AI_PROVIDERS, aiConfigured, aiModelLabel, getAiSettings, needsTerraReview, requestAiScore, requestAiText, reviewModel, type AiProvider, type AiScore } from "./ai";
+import { evaluateDraft } from "./draft-evaluator";
 import { approvePublicationIntent, createIntentForDraft } from "./publication-service";
 
 export { xuseCapability } from "./xuse";
@@ -647,6 +648,18 @@ async function publishCandidate(post: ObservedPost): Promise<void> {
     origin: "automatic", externalId: post.externalId, accountId: account.id, format: "post", text: draft.text,
     status: "ready", sourceHandle: post.sourceHandle, sourceUrl: post.statusUrl, sourceScore: post.score, now,
   });
+  // Shadow-only: evaluation is evidence for selection/calibration and must not block a publish in v1.
+  await evaluateDraft({
+    draftId: storedDraft.id,
+    text: storedDraft.text,
+    account,
+    categorySlug: categoryConfig?.categorySlug || categories[0] || "",
+    format: storedDraft.format,
+    mediaType: "none",
+    sourceText: post.text,
+    aiRoute: resolveAccountAiRoute(account, categoryConfig, "analysis"),
+    now,
+  }).catch(() => undefined);
   const intent = createIntentForDraft(storedDraft.id, account.id, now);
   approvePublicationIntent(intent.id, now);
   markDraft(post.externalId, draft.text, `publication_intent:${intent.id}${subscriptionReason}`);
