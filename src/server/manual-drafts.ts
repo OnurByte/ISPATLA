@@ -3,6 +3,7 @@ import {
   createDraftBatch,
   getAccounts,
   getAccountCategoryConfigs,
+  getDraft,
   getPost,
   updateDraftBatch,
   type DraftBatch,
@@ -11,17 +12,6 @@ import {
 import { getAiSettings, isAiEnabled, usageBudgetAllowed } from "./ai";
 import { accountCategories, generateManualDraft, manualQualityGate } from "./pipeline";
 import { evaluateDraft } from "./draft-evaluator";
-
-function createDraftResult(id: number): DraftRecord {
-  const draft = (awaitableDraftLookup(id));
-  if (!draft) throw new Error("draft değerlendirme sonrası bulunamadı");
-  return draft;
-}
-
-function awaitableDraftLookup(id: number): DraftRecord | null {
-  const { getDraft } = require("./db") as typeof import("./db");
-  return getDraft(id);
-}
 
 export type ManualDraftInput = {
   prompt?: string;
@@ -121,7 +111,7 @@ export async function createManualDraftBatch(input: ManualDraftInput): Promise<{
       mediaType: "none",
       sourceText: sourcePost?.text || "",
     }).catch(() => undefined);
-    drafts.push(getPost(sourceExternalId) ? createDraftResult(stored.id) : createDraftResult(stored.id));
+    drafts.push(getDraft(stored.id) || stored);
   }
   const status = drafts.some((draft) => draft.status === "blocked") ? "needs_review" : "ready";
   return { batch: updateDraftBatch(batch.id, status, Math.floor(Date.now() / 1000)) || { ...batch, status }, drafts };
