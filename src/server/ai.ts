@@ -65,6 +65,23 @@ const DRAFT_SCHEMA = {
   properties: { text: { type: "string", minLength: 1, maxLength: 280 } },
   required: ["text"],
 } as const;
+const DRAFT_SEMANTIC_FEATURE_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  properties: {
+    hookStrength: { type: "number", minimum: 0, maximum: 100 },
+    specificity: { type: "number", minimum: 0, maximum: 100 },
+    clarity: { type: "number", minimum: 0, maximum: 100 },
+    novelty: { type: "number", minimum: 0, maximum: 100 },
+    replyPotential: { type: "number", minimum: 0, maximum: 100 },
+    repostPotential: { type: "number", minimum: 0, maximum: 100 },
+    accountFit: { type: "number", minimum: 0, maximum: 100 },
+    baitRisk: { type: "number", minimum: 0, maximum: 100 },
+    helped: { type: "array", items: { type: "string", minLength: 1, maxLength: 120 }, maxItems: 4 },
+    hurt: { type: "array", items: { type: "string", minLength: 1, maxLength: 120 }, maxItems: 4 },
+  },
+  required: ["hookStrength", "specificity", "clarity", "novelty", "replyPotential", "repostPotential", "accountFit", "baitRisk", "helped", "hurt"],
+} as const;
 export type AiSettings = { provider: AiProvider; model: string };
 export type AiCompatibleSettings = { baseUrl: string; name: string };
 
@@ -95,6 +112,21 @@ export type AiScore = {
     basis: IdeologyBasis;
     reason: string;
   };
+};
+
+export type DraftSemanticFeatures = {
+  hookStrength: number;
+  specificity: number;
+  clarity: number;
+  novelty: number;
+  replyPotential: number;
+  repostPotential: number;
+  accountFit: number;
+  baitRisk: number;
+  helped: string[];
+  hurt: string[];
+  model: string;
+  provider: AiProvider;
 };
 
 function record(value: unknown): Record<string, unknown> {
@@ -515,4 +547,56 @@ export async function requestAiText(input: {
   if (!text) throw new Error("AI response contained no text");
   recordUsage(input.usageKind || "generation", provider, model, undefined, input.usageUnits || 15);
   return text;
+}
+
+
+export async function requestDraftSemanticFeatures(input: {
+  text: string;
+  accountHandle?: string;
+  category?: string;
+  format?: string;
+  sourceText?: string;
+  provider?: AiProvider;
+  model?: string;
+}): Promise<DraftSemanticFeatures> {
+  if (!isAiEnabled()) throw new Error("AI kullanımı kapalı");
+  const settings = getAiSettings();
+  const provider = input.provider || settings.provider;
+  const model = input.model || settings.model;
+  if (!isModel(provider, model)) throw new Error(`AI model ${model} is not allowed for ${provider}`);
+  if (!usageBudgetAllowed(provider, model)) throw new Error("AI aylık yerel bütçe limiti aşıldı");
+  const value = record(await requestStructured({
+    provider,
+    model,
+    schemaName: "ispatla_draft_semantic_features",
+    schema: DRAFT_SEMANTIC_FEATURE_SCHEMA,
+    instructions:
+      "Bir X taslağını yalnız yayın öncesi içerik özellikleri açısından analiz et. X'in gizli ranking skorunu bildiğini iddia etme, viral olacağına dair garanti verme ve engagement bait'i ödüllendirme. Her 0-100 alanı gözlenebilir metin niteliği olarak yorumla. helped ve hurt kısa, somut Türkçe nedenler olsun.",
+    prompt: JSON.stringify({
+      text: input.text.slice(0, 1200),
+      accountHandle: input.accountHandle || "",
+      category: input.category || "",
+      format: input.format || "post",
+      sourceText: (input.sourceText || "").slice(0, 1600),
+    }),
+  }));
+  const stringList = (raw: unknown): string[] => Array.isArray(raw)
+    ? raw.map(String).map((item) => item.trim()).filter(Boolean).slice(0, 4)
+    : [];
+  const result: DraftSemanticFeatures = {
+    hookStrength: clamp(value.hookStrength),
+    specificity: clamp(value.specificity),
+    clarity: clamp(value.clarity),
+    novelty: clamp(value.novelty),
+    replyPotential: clamp(value.replyPotential),
+    repostPotential: clamp(value.repostPotential),
+    accountFit: clamp(value.accountFit),
+    baitRisk: clamp(value.baitRisk),
+    helped: stringList(value.helped),
+    hurt: stringList(value.hurt),
+    model,
+    provider,
+  };
+  recordUsage("evaluation:draft", provider, model, { category: input.category || "", format: input.format || "post" }, 3);
+  return result;
 }
