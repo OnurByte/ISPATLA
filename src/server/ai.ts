@@ -553,6 +553,7 @@ export async function requestAiText(input: {
 export async function requestDraftSemanticFeatures(input: {
   text: string;
   accountHandle?: string;
+  accountContext?: Record<string, unknown>;
   category?: string;
   format?: string;
   sourceText?: string;
@@ -575,6 +576,7 @@ export async function requestDraftSemanticFeatures(input: {
     prompt: JSON.stringify({
       text: input.text.slice(0, 1200),
       accountHandle: input.accountHandle || "",
+      accountContext: input.accountContext || {},
       category: input.category || "",
       format: input.format || "post",
       sourceText: (input.sourceText || "").slice(0, 1600),
