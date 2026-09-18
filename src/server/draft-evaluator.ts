@@ -162,6 +162,13 @@ export async function evaluateDraft(input: {
       semantic = await requestDraftSemanticFeatures({
         text: input.text,
         accountHandle: input.account.handle,
+        accountContext: {
+          niche: input.account.styleProfile.niche || "",
+          tone: input.account.styleProfile.tone || "",
+          opening: input.account.styleProfile.opening || "",
+          formatRule: input.account.styleProfile.formatRule || "",
+          categories: input.account.styleProfile.categories || [],
+        },
         category: categorySlug,
         format: input.format,
         sourceText: input.sourceText,
