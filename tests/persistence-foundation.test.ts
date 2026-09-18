@@ -753,3 +753,45 @@ test("migrates recognized legacy account category tags without inventing custom 
   ]);
   expect(result.custom).toBe(0);
 });
+
+
+test("persists shadow draft evaluations with migration 15", () => {
+  const output = runIsolatedDatabase(`
+    import { Database } from "bun:sqlite";
+    import { createDraft, ensureDatabase, getDraft, recordDraftEvaluation, saveAccount } from "./src/server/db.ts";
+    if (!ensureDatabase()) throw new Error("database did not initialize");
+    const account = saveAccount({ accountKey: "publisher", handle: "publisher", displayName: "Publisher", xuseAccountId: "", enabled: true, defaultAccount: true, automationMode: "manual", dailyLimit: 24, capabilities: ["post"], styleProfile: {}, now: 1 });
+    const draft = createDraft({ externalId: "", accountId: account.id, format: "post", text: "Bu taslak 2026 yılında somut bir veri anlatıyor.", status: "ready", now: 2 });
+    recordDraftEvaluation({
+      draftId: draft.id,
+      accountId: account.id,
+      categorySlug: "technology",
+      mode: "shadow_cold_start",
+      score: 77,
+      confidence: 35,
+      predictedResidual: null,
+      baseline: { scope: "none", samples: 0, medianViews: null, medianLikes: null, medianReplies: null, medianReposts: null, medianQuotes: null, medianEngagementRate: null },
+      predictedViews: null,
+      predictedReplies: null,
+      predictedReposts: null,
+      predictedQuotes: null,
+      features: { charCount: 48 },
+      semantic: { unavailable: true },
+      helped: ["somut sayı veya ölçü içeriyor"],
+      hurt: [],
+      now: 3,
+    });
+    const db = new Database(process.env.ISPATLA_DB, { strict: true });
+    console.log(JSON.stringify({ version: db.query("SELECT MAX(version) AS version FROM schema_migrations").get()?.version, evaluation: getDraft(draft.id)?.evaluation }));
+  `);
+  const result = JSON.parse(output);
+  expect(result.version).toBe(15);
+  expect(result.evaluation).toMatchObject({
+    score: 77,
+    confidence: 35,
+    categorySlug: "technology",
+    mode: "shadow_cold_start",
+    baseline: { scope: "none", samples: 0 },
+    helped: ["somut sayı veya ölçü içeriyor"],
+  });
+});
