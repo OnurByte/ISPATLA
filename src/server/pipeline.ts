@@ -56,6 +56,9 @@ import {
   upsertSource,
   type Account,
   type AccountCategoryConfig,
+  type CategoryDefinition,
+  type JevScoreEntry,
+  type SourceProfile,
   type SourceCategoryConfig,
   type ObservedPost,
   type RecentPost,
@@ -76,6 +79,17 @@ import { isAllowedAvatarUrl, isAllowedMediaContentType, isAllowedMediaUrl } from
 import { resolveIdeology } from "./ideologies";
 import { FxTwitterReader, normalizeFxPost, type XPost, type XProfile } from "./x-reader";
 import { AI_PROVIDERS, aiConfigured, aiModelLabel, getAiSettings, needsTerraReview, requestAiScore, requestAiText, reviewModel, type AiProvider, type AiScore } from "./ai";
+import {
+  JEV_MAX_CANDIDATES,
+  JEV_MAX_FACETS,
+  JEV_MAX_QUESTIONS,
+  jevMode,
+  jevScore,
+  jevToPercent,
+  recordJevScores,
+  type JevCandidate,
+  type JevMode,
+} from "./jev";
 import { evaluateDraft } from "./draft-evaluator";
 import { approvePublicationIntent, createIntentForDraft } from "./publication-service";
 
@@ -951,7 +965,241 @@ function combinedSourceScore(ai: AiScore, activity: number, historical: number |
   return { ...ai, score: Math.round(score) };
 }
 
-async function scoreSources(
+// --- Source relevance (Jev) ------------------------------------------------
+// Jev reranks the sources this pipeline already selected against the enabled
+// category definitions. Mode "on" replaces the OpenAI relevance number inside
+// combinedSourceScore; "shadow" only writes the ledger; "off" and every
+// degraded call leave the existing OpenAI path untouched.
+
+export const JEV_SOURCE_QUERY = "Bu kaynak hesap hangi kategorilerde fırsat üretir?";
+export const JEV_SOURCE_SUBJECT = "source";
+export const JEV_SOURCE_SCOPE = "source-discovery";
+/** Statement budget for one batch; the whole request body is capped at 24000 chars. */
+const JEV_SOURCE_STATEMENT_BUDGET = 14_000;
+const JEV_SOURCE_MIN_STATEMENT = 320;
+const JEV_SOURCE_POST_SNIPPETS = 6;
+const JEV_SOURCE_POST_CHARS = 240;
+const JEV_SOURCE_FACET_CHARS = 420;
+
+export type SourceJevEvidence = {
+  handle: string;
+  name: string;
+  bio: string;
+  niche: string;
+  topics: string[];
+  tone: string;
+  recentPosts: string[];
+};
+
+/** Per-source Jev outcome. `relevance` is null when Jev produced no usable score. */
+export type SourceJevRelevance = {
+  relevance: number | null;
+  categoryScores: Record<string, number>;
+  diagnostics: string[];
+  degraded: boolean;
+};
+
+function compactText(value: string): string {
+  return String(value || "").replace(/\s+/gu, " ").trim();
+}
+
+/** Even split of the batch statement budget; the floor keeps short batches readable. */
+export function sourceStatementBudget(count: number): number {
+  if (count <= 0) return JEV_SOURCE_STATEMENT_BUDGET;
+  return Math.max(JEV_SOURCE_MIN_STATEMENT, Math.floor(JEV_SOURCE_STATEMENT_BUDGET / count));
+}
+
+export function buildSourceJevCandidate(evidence: SourceJevEvidence, statementChars: number): JevCandidate {
+  const topics = (evidence.topics || []).map(compactText).filter(Boolean).slice(0, 8);
+  const parts: string[] = [];
+  const bio = compactText(evidence.bio);
+  if (bio) parts.push(bio);
+  const niche = compactText(evidence.niche);
+  if (niche) parts.push(`Alan: ${niche}`);
+  if (topics.length) parts.push(`Konular: ${topics.join(", ")}`);
+  const tone = compactText(evidence.tone);
+  if (tone) parts.push(`Üslup: ${tone}`);
+  for (const post of (evidence.recentPosts || []).slice(0, JEV_SOURCE_POST_SNIPPETS)) {
+    const snippet = compactText(post).slice(0, JEV_SOURCE_POST_CHARS);
+    if (snippet) parts.push(`Gönderi: ${snippet}`);
+  }
+  const handle = evidence.handle;
+  const statement = parts.join("\n").slice(0, Math.max(JEV_SOURCE_MIN_STATEMENT, statementChars));
+  return {
+    id: handle,
+    title: compactText(evidence.name) || handle,
+    statement: statement || handle,
+    scope: handle,
+    domains: [niche, ...topics].filter(Boolean).slice(0, 8),
+  };
+}
+
+export function categoryFacetText(category: CategoryDefinition): string {
+  const parts = [compactText(category.name)];
+  const description = compactText(category.description);
+  if (description) parts.push(description);
+  const keywords = (category.keywords || []).map(compactText).filter(Boolean).slice(0, 6);
+  if (keywords.length) parts.push(`Anahtar: ${keywords.join(", ")}`);
+  const examples = (category.positiveExamples || []).map(compactText).filter(Boolean).slice(0, 2);
+  if (examples.length) parts.push(`Örnek: ${examples.join(" | ")}`);
+  return parts.filter(Boolean).join(" — ").slice(0, JEV_SOURCE_FACET_CHARS);
+}
+
+/** Jev takes at most 3 facets per call and candidates x facets must stay under 96. */
+export function jevFacetChunks<T>(items: T[], candidateCount: number): T[][] {
+  const byBudget = candidateCount > 0 ? Math.floor(JEV_MAX_QUESTIONS / candidateCount) : JEV_MAX_FACETS;
+  const perCall = Math.max(1, Math.min(JEV_MAX_FACETS, byBudget));
+  const chunks: T[][] = [];
+  for (let offset = 0; offset < items.length; offset += perCall) chunks.push(items.slice(offset, offset + perCall));
+  return chunks;
+}
+
+/** Only mode "on" with a usable Jev score replaces the OpenAI relevance number. */
+export function sourceRelevanceChoice(mode: JevMode, relevance: SourceJevRelevance | undefined): {
+  relevance: number | null;
+  relevanceSource: "jev" | "openai" | "openai_fallback";
+} {
+  if (mode !== "on") return { relevance: null, relevanceSource: "openai" };
+  if (relevance && relevance.relevance !== null) return { relevance: relevance.relevance, relevanceSource: "jev" };
+  return { relevance: null, relevanceSource: "openai_fallback" };
+}
+
+/** Additive profile_json keys; mode "off" writes nothing so the old shape is kept. */
+export function sourceJevProfileFields(mode: JevMode, relevance: SourceJevRelevance | undefined): Partial<SourceProfile> {
+  if (mode === "off") return {};
+  const fields: Partial<SourceProfile> = { sourceRelevanceSource: sourceRelevanceChoice(mode, relevance).relevanceSource };
+  if (relevance?.relevance !== null && relevance !== undefined) fields.jevRelevance = relevance.relevance ?? undefined;
+  if (relevance && Object.keys(relevance.categoryScores).length) fields.jevCategoryScores = { ...relevance.categoryScores };
+  if (relevance?.diagnostics.length) fields.jevDiagnostics = [...relevance.diagnostics];
+  return fields;
+}
+
+function applyJevRelevance(ai: AiScore, relevance: number | null): AiScore {
+  return relevance === null ? ai : { ...ai, score: relevance };
+}
+
+/**
+ * One Jev pass for the whole due batch: candidates are the sources, facets are
+ * the enabled categories chunked into groups of at most three.
+ */
+async function sourceJevRelevance(
+  mode: JevMode,
+  evidences: SourceJevEvidence[],
+  now: number,
+  errors: string[],
+): Promise<Map<string, SourceJevRelevance>> {
+  const byHandle = new Map<string, SourceJevRelevance>();
+  if (mode === "off" || !evidences.length) return byHandle;
+  const categories = getCategories().filter((category) => category.enabled);
+  if (!categories.length) return byHandle;
+
+  const batch = evidences.slice(0, JEV_MAX_CANDIDATES);
+  const statementChars = sourceStatementBudget(batch.length);
+  const candidateList = batch.map((evidence) => buildSourceJevCandidate(evidence, statementChars));
+  for (const evidence of batch) byHandle.set(evidence.handle, { relevance: null, categoryScores: {}, diagnostics: [], degraded: false });
+
+  let noted = false;
+  for (const chunk of jevFacetChunks(categories, candidateList.length)) {
+    const result = await jevScore({
+      query: JEV_SOURCE_QUERY,
+      facets: chunk.map(categoryFacetText),
+      candidates: candidateList,
+      scope: JEV_SOURCE_SCOPE,
+    });
+    if (result.degraded) {
+      for (const state of byHandle.values()) {
+        state.degraded = true;
+        for (const code of result.diagnostics) if (!state.diagnostics.includes(code)) state.diagnostics.push(code);
+      }
+      if (!noted) {
+        errors.push(`jev kaynak ilgililiği kullanılamadı: ${result.diagnostics.join(", ") || "degraded"}`);
+        noted = true;
+      }
+      continue;
+    }
+    const entries: JevScoreEntry[] = [];
+    for (const [facetIndex, category] of chunk.entries()) {
+      const bucket = result.facetScores[String(facetIndex)] || {};
+      for (const candidate of candidateList) {
+        const raw = Number(bucket[candidate.id]);
+        const state = byHandle.get(candidate.id);
+        if (!state || !Number.isFinite(raw)) continue;
+        entries.push({ subjectId: candidate.id, questionKey: category.slug, score: raw });
+        const percent = jevToPercent(raw);
+        state.categoryScores[category.slug] = percent;
+        state.relevance = Math.max(state.relevance ?? 0, percent);
+      }
+    }
+    if (entries.length) recordJevScores({ subjectKind: JEV_SOURCE_SUBJECT, entries, result, now });
+  }
+  return byHandle;
+}
+
+type PreparedSource = {
+  source: SourceConfig;
+  user: XProfile;
+  samples: XPost[];
+  activity: number;
+  evidence: string;
+  jevEvidence: SourceJevEvidence;
+};
+
+async function prepareSourceScoring(
+  source: SourceConfig,
+  now: number,
+  samplesBySource: Map<string, XPost[]>,
+  errors: string[],
+): Promise<PreparedSource | null> {
+  const user = await xReader.fetchProfile({ handle: source.handle });
+  const reportedHandle = user.handle;
+  if (reportedHandle && reportedHandle !== source.handle.toLowerCase()) {
+    recordSourceEvent({ handle: source.handle, event: "identity_warning", score: Number(source.profile.sourceScore || 0), reason: `profil kimliği doğrulanamadı: @${reportedHandle}`, model: "source-scoring", now });
+    errors.push(`${source.handle}: profil kimliği doğrulanamadı: @${reportedHandle}`);
+    return null;
+  }
+  let samples = samplesBySource.get(source.handle) || [];
+  if (samples.length === 0) {
+    samples = (await xReader.fetchTimeline({ handle: source.handle, maxPosts: 10 })).posts;
+  }
+  const activity = sourceActivity(samples, now);
+  const evidence = JSON.stringify({
+    handle: source.handle,
+    name: user.name || source.name,
+    bio: user.bio,
+    followers: user.followers || 0,
+    blueCheckStatus: user.verification,
+    niche: source.profile.niche || "",
+    topics: source.profile.topics || [],
+    tone: source.profile.tone || "",
+    existingPoliticalProfile: {
+      ideology: source.profile.ideology || "belirsiz",
+      tags: source.profile.ideologyTags || [],
+      confidence: source.profile.ideologyConfidence || 0,
+      basis: source.profile.ideologyBasis || "insufficient_evidence",
+    },
+    parentHandles: source.profile.parentHandles || [],
+    recentPosts: samples.slice(0, 10).map((value) => value.text.slice(0, 600)),
+  });
+  return {
+    source,
+    user,
+    samples,
+    activity,
+    evidence,
+    jevEvidence: {
+      handle: source.handle,
+      name: user.name || source.name,
+      bio: user.bio || source.profile.bio || "",
+      niche: source.profile.niche || "",
+      topics: source.profile.topics || [],
+      tone: source.profile.tone || "",
+      recentPosts: samples.map((value) => value.text),
+    },
+  };
+}
+
+/** Exported for the discovery tests; the scan path is the only production caller. */
+export async function scoreSources(
   now: number,
   samplesBySource: Map<string, XPost[]>,
   errors: string[],
@@ -964,50 +1212,37 @@ async function scoreSources(
     .filter((source) => now - Number(source.profile.lastScoredAt || 0) >= 86400)
     .slice(0, 10);
 
+  const prepared: PreparedSource[] = [];
   for (let offset = 0; offset < due.length; offset += 3) {
     await Promise.all(due.slice(offset, offset + 3).map(async (source) => {
       try {
-      const user = await xReader.fetchProfile({ handle: source.handle });
-      const reportedHandle = user.handle;
-      if (reportedHandle && reportedHandle !== source.handle.toLowerCase()) {
-        recordSourceEvent({ handle: source.handle, event: "identity_warning", score: Number(source.profile.sourceScore || 0), reason: `profil kimliği doğrulanamadı: @${reportedHandle}`, model: "source-scoring", now });
-        errors.push(`${source.handle}: profil kimliği doğrulanamadı: @${reportedHandle}`);
-        return;
+        const entry = await prepareSourceScoring(source, now, samplesBySource, errors);
+        if (entry) prepared.push(entry);
+      } catch (error) {
+        errors.push(`${source.handle} score: ${error instanceof Error ? error.message : String(error)}`);
       }
-      let samples = samplesBySource.get(source.handle) || [];
-      if (samples.length === 0) {
-        samples = (await xReader.fetchTimeline({ handle: source.handle, maxPosts: 10 })).posts;
-      }
-      const activity = sourceActivity(samples, now);
-      const evidence = JSON.stringify({
-        handle: source.handle,
-        name: user.name || source.name,
-        bio: user.bio,
-        followers: user.followers || 0,
-        blueCheckStatus: user.verification,
-        niche: source.profile.niche || "",
-        topics: source.profile.topics || [],
-        tone: source.profile.tone || "",
-        existingPoliticalProfile: {
-          ideology: source.profile.ideology || "belirsiz",
-          tags: source.profile.ideologyTags || [],
-          confidence: source.profile.ideologyConfidence || 0,
-          basis: source.profile.ideologyBasis || "insufficient_evidence",
-        },
-        parentHandles: source.profile.parentHandles || [],
-        recentPosts: samples.slice(0, 10).map((value) => value.text.slice(0, 600)),
-      });
+    }));
+  }
+
+  const mode = jevMode();
+  const relevanceByHandle = await sourceJevRelevance(mode, prepared.map((entry) => entry.jevEvidence), now, errors);
+
+  for (let offset = 0; offset < prepared.length; offset += 3) {
+    await Promise.all(prepared.slice(offset, offset + 3).map(async (entry) => {
+      const { source, user, activity, evidence } = entry;
+      try {
+      const choice = sourceRelevanceChoice(mode, relevanceByHandle.get(source.handle));
       const historical = sourceFeedbackScore(source.handle);
-      const luna = combinedSourceScore(await requestAiScore({ evidence }), activity, historical);
+      const luna = combinedSourceScore(applyJevRelevance(await requestAiScore({ evidence }), choice.relevance), activity, historical);
       let final = luna;
       let state = nextSourceState(source.profile, final.score, final.confidence);
       if (needsTerraReview(final, state.deleteReady)) {
-        final = combinedSourceScore(await requestAiScore({ evidence, model: reviewModel(getAiSettings().provider, luna.model), prior: luna }), activity, historical);
+        final = combinedSourceScore(applyJevRelevance(await requestAiScore({ evidence, model: reviewModel(getAiSettings().provider, luna.model), prior: luna }), choice.relevance), activity, historical);
         state = nextSourceState(source.profile, final.score, final.confidence);
       }
 
       const avatarUrl = user.avatarUrl;
-      const identityVerified = reportedHandle === source.handle.toLowerCase();
+      const identityVerified = user.handle === source.handle.toLowerCase();
       const nextProfile = {
         ...source.profile,
         origin: source.profile.origin || (source.enabled ? "manual" : "discovered"),
@@ -1034,6 +1269,7 @@ async function scoreSources(
         lastScoredAt: now,
         lowScoreStreak: state.lowScoreStreak,
         historicalPerformance: historical,
+        ...sourceJevProfileFields(mode, relevanceByHandle.get(source.handle)),
       } satisfies SourceConfig["profile"];
 
       scored += 1;

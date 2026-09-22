@@ -102,6 +102,11 @@ export type SourceProfile = {
   lowScoreStreak?: number;
   historicalPerformance?: number | null;
   blueCheckStatus?: BlueCheckStatus;
+  // --- Source relevance (Jev) --- additive, written only when jev_mode is not "off".
+  sourceRelevanceSource?: "jev" | "openai" | "openai_fallback";
+  jevRelevance?: number;
+  jevCategoryScores?: Record<string, number>;
+  jevDiagnostics?: string[];
 };
 
 export type SourceConfig = {
