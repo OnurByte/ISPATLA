@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { ageNormalizedOverperformance, clusterKey, historicalPerformanceScore, isCurrentOpportunity, isNumericalHit, observedEngagement, opportunityFreshness, opportunityScore, opportunityScoreWithRelevance, OPPORTUNITY_MAX_AGE_SECONDS, overperformance, relevanceFactor, scorePost, selectDiverseCandidates, snapshotAcceleration } from "@/server/scoring";
+import { ageNormalizedOverperformance, clusterKey, freshnessDecayPerHour, historicalPerformanceScore, isCurrentOpportunity, isNumericalHit, LEGACY_FRESHNESS_DECAY_PER_HOUR, MAX_FRESHNESS_DECAY_PER_HOUR, MIN_FRESHNESS_DECAY_PER_HOUR, observedEngagement, opportunityFreshness, opportunityFreshnessForRelevance, opportunityScore, opportunityScoreRelevanceAware, opportunityScoreWithRelevance, OPPORTUNITY_MAX_AGE_SECONDS, overperformance, relevanceFactor, scorePost, selectDiverseCandidates, snapshotAcceleration } from "@/server/scoring";
 import { metricBreakdown } from "@/server/db";
 
 describe("market scoring", () => {
@@ -170,5 +170,77 @@ describe("layered relevance score", () => {
   test("never revives a post the deterministic gate already zeroed", () => {
     expect(opportunityScoreWithRelevance(100, fresh, 100, 100, now)).toBe(0);
     expect(opportunityScoreWithRelevance(100, now - 30 * 3600, 15, 100, now)).toBe(0);
+  });
+});
+
+describe("relevance-aware freshness", () => {
+  const now = 1_750_000_000;
+  const hoursAgo = (hours: number) => now - Math.round(hours * 3600);
+
+  test("scales the decay rate between 6 and 2 points per hour", () => {
+    expect(freshnessDecayPerHour(null)).toBe(LEGACY_FRESHNESS_DECAY_PER_HOUR);
+    expect(freshnessDecayPerHour(Number.NaN)).toBe(LEGACY_FRESHNESS_DECAY_PER_HOUR);
+    expect(freshnessDecayPerHour(0)).toBe(MAX_FRESHNESS_DECAY_PER_HOUR);
+    expect(freshnessDecayPerHour(20)).toBe(MAX_FRESHNESS_DECAY_PER_HOUR);
+    expect(freshnessDecayPerHour(-50)).toBe(MAX_FRESHNESS_DECAY_PER_HOUR);
+    expect(freshnessDecayPerHour(80)).toBe(MIN_FRESHNESS_DECAY_PER_HOUR);
+    expect(freshnessDecayPerHour(100)).toBe(MIN_FRESHNESS_DECAY_PER_HOUR);
+    expect(freshnessDecayPerHour(400)).toBe(MIN_FRESHNESS_DECAY_PER_HOUR);
+    // Linear in between: 50 sits halfway between 6 and 2.
+    expect(freshnessDecayPerHour(50)).toBeCloseTo(4, 10);
+    expect(freshnessDecayPerHour(35)).toBeCloseTo(5, 10);
+    expect(freshnessDecayPerHour(65)).toBeCloseTo(3, 10);
+  });
+
+  test("decay is monotonically non-increasing in relevance", () => {
+    let previous = Number.POSITIVE_INFINITY;
+    for (let relevance = 0; relevance <= 100; relevance += 5) {
+      const decay = freshnessDecayPerHour(relevance);
+      expect(decay).toBeLessThanOrEqual(previous);
+      previous = decay;
+    }
+  });
+
+  test("null relevance reproduces opportunityFreshness and the 24h window is unchanged", () => {
+    for (const hours of [0, 0.5, 6, 18, 23.9, 25]) {
+      expect(opportunityFreshnessForRelevance(hoursAgo(hours), null, now)).toBe(opportunityFreshness(hoursAgo(hours), now));
+    }
+    // Relevance slows decay inside the window; it never extends the window.
+    expect(opportunityFreshnessForRelevance(hoursAgo(25), 100, now)).toBe(0);
+    expect(opportunityFreshnessForRelevance(now - OPPORTUNITY_MAX_AGE_SECONDS - 1, 100, now)).toBe(0);
+    expect(opportunityFreshnessForRelevance(hoursAgo(19), 100, now)).toBe(62);
+    expect(opportunityFreshnessForRelevance(hoursAgo(19), 0, now)).toBe(0);
+  });
+
+  test("null relevance keeps opportunityScoreRelevanceAware byte-identical to the legacy score", () => {
+    for (const momentum of [0, 37, 70, 76, 93, 100]) {
+      for (const hours of [0, 1, 6, 19, 23, 30]) {
+        for (const risk of [0, 15, 45, 70, 100]) {
+          expect(opportunityScoreRelevanceAware(momentum, hoursAgo(hours), risk, null, now))
+            .toBe(opportunityScore(momentum, hoursAgo(hours), risk, now));
+        }
+      }
+    }
+  });
+
+  test("a 19h old highly relevant post survives while a fresh irrelevant one does not", () => {
+    // The motivating case: momentum 76, 19h old, relevance 100.
+    expect(opportunityScoreWithRelevance(76, hoursAgo(19), 15, 100, now)).toBeLessThan(40);
+    expect(opportunityScoreRelevanceAware(76, hoursAgo(19), 15, 100, now)).toBeGreaterThanOrEqual(70);
+    // A fresh but irrelevant post loses the pool place it used to take.
+    expect(opportunityScore(76, hoursAgo(0.2), 15, now)).toBeGreaterThanOrEqual(70);
+    expect(opportunityScoreRelevanceAware(76, hoursAgo(0.2), 15, 10, now)).toBeLessThan(70);
+  });
+
+  test("stays inside 0-100, honours the risk gate and is monotonic in relevance", () => {
+    expect(opportunityScoreRelevanceAware(100, hoursAgo(1), 100, 100, now)).toBe(0);
+    expect(opportunityScoreRelevanceAware(100, hoursAgo(1), 70, 100, now)).toBe(0);
+    expect(opportunityScoreRelevanceAware(100, now, 15, 100, now)).toBe(100);
+    const scores = [0, 20, 40, 60, 80, 100].map((relevance) => opportunityScoreRelevanceAware(80, hoursAgo(6), 15, relevance, now));
+    for (let index = 1; index < scores.length; index += 1) expect(scores[index]).toBeGreaterThanOrEqual(scores[index - 1]);
+    for (const score of scores) {
+      expect(score).toBeGreaterThanOrEqual(0);
+      expect(score).toBeLessThanOrEqual(100);
+    }
   });
 });

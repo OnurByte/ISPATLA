@@ -140,7 +140,13 @@ export function relevanceFactor(relevance: number | null): number {
   return Math.min(1.5, Math.max(0.5, 0.5 + relevance / 100));
 }
 
-/** opportunityScore scaled by relevanceFactor and clamped back to 0-100. */
+/**
+ * opportunityScore scaled by relevanceFactor and clamped back to 0-100.
+ *
+ * Faz B3 shape, kept for the version-2 fixture snapshot and its tests. The live
+ * path uses opportunityScoreRelevanceAware(), which additionally scales the
+ * freshness decay rate.
+ */
 export function opportunityScoreWithRelevance(
   momentum: number,
   createdTimestamp: number,
@@ -150,4 +156,69 @@ export function opportunityScoreWithRelevance(
 ): number {
   const base = opportunityScore(momentum, createdTimestamp, risk, now);
   return Math.min(100, Math.max(0, Math.round(base * relevanceFactor(relevance))));
+}
+
+/**
+ * Relevance-aware freshness (Faz B4).
+ *
+ * Legacy freshness burns a flat 4 points per hour, so a 19h old post keeps 24% of
+ * its momentum no matter how well it fits the account. The decay rate now scales
+ * with the same 0-100 relevance the opportunity batch persists: highly relevant
+ * posts age slowly, irrelevant ones age fast.
+ *
+ *   relevance >= 80        -> 2 points/hour
+ *   relevance <= 20        -> 6 points/hour
+ *   20 < relevance < 80    -> linear between 6 and 2
+ *   relevance === null     -> 4 points/hour (legacy, byte-identical)
+ */
+export const LEGACY_FRESHNESS_DECAY_PER_HOUR = 4;
+export const MIN_FRESHNESS_DECAY_PER_HOUR = 2;
+export const MAX_FRESHNESS_DECAY_PER_HOUR = 6;
+export const FRESHNESS_DECAY_HIGH_RELEVANCE = 80;
+export const FRESHNESS_DECAY_LOW_RELEVANCE = 20;
+
+export function freshnessDecayPerHour(relevance: number | null): number {
+  if (relevance === null || relevance === undefined || !Number.isFinite(relevance)) return LEGACY_FRESHNESS_DECAY_PER_HOUR;
+  const value = Math.min(100, Math.max(0, relevance));
+  if (value >= FRESHNESS_DECAY_HIGH_RELEVANCE) return MIN_FRESHNESS_DECAY_PER_HOUR;
+  if (value <= FRESHNESS_DECAY_LOW_RELEVANCE) return MAX_FRESHNESS_DECAY_PER_HOUR;
+  const span = FRESHNESS_DECAY_HIGH_RELEVANCE - FRESHNESS_DECAY_LOW_RELEVANCE;
+  const drop = MAX_FRESHNESS_DECAY_PER_HOUR - MIN_FRESHNESS_DECAY_PER_HOUR;
+  return MAX_FRESHNESS_DECAY_PER_HOUR - ((value - FRESHNESS_DECAY_LOW_RELEVANCE) * drop) / span;
+}
+
+/**
+ * opportunityFreshness with a relevance-scaled decay rate. The 24h opportunity
+ * window (isCurrentOpportunity) is unchanged: relevance slows the decay inside the
+ * window, it never extends it. `relevance === null` returns opportunityFreshness().
+ */
+export function opportunityFreshnessForRelevance(
+  createdTimestamp: number,
+  relevance: number | null,
+  now = Math.floor(Date.now() / 1000),
+): number {
+  if (!isCurrentOpportunity(createdTimestamp, now)) return 0;
+  const ageHours = Math.max(0, (now - createdTimestamp) / 3600);
+  return Math.max(0, Math.round(100 - ageHours * freshnessDecayPerHour(relevance)));
+}
+
+/**
+ * The live opportunity score (jev_mode "on"): relevance both slows the freshness
+ * decay and scales the result through relevanceFactor. `relevance === null` falls
+ * back to opportunityScore() exactly, so mode "off" stays byte-identical.
+ */
+export function opportunityScoreRelevanceAware(
+  momentum: number,
+  createdTimestamp: number,
+  risk = 0,
+  relevance: number | null = null,
+  now = Math.floor(Date.now() / 1000),
+): number {
+  if (risk >= 70) return 0;
+  if (relevance === null || relevance === undefined || !Number.isFinite(relevance)) {
+    return opportunityScore(momentum, createdTimestamp, risk, now);
+  }
+  const freshness = opportunityFreshnessForRelevance(createdTimestamp, relevance, now);
+  const raw = (Math.max(0, momentum) * freshness * relevanceFactor(relevance)) / 100;
+  return Math.min(100, Math.max(0, Math.round(raw)));
 }

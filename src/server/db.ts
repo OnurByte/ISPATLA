@@ -1,7 +1,7 @@
 import { createHash, randomUUID } from "node:crypto";
 import { mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { historicalPerformanceScore, isNumericalHit, observedEngagement, opportunityFreshness, opportunityScore, opportunityScoreWithRelevance, OPPORTUNITY_MAX_AGE_SECONDS, relevanceFactor, scorePost } from "./scoring";
+import { historicalPerformanceScore, isNumericalHit, observedEngagement, opportunityFreshness, opportunityScoreRelevanceAware, OPPORTUNITY_MAX_AGE_SECONDS, relevanceFactor, scorePost } from "./scoring";
 import type { MetricSnapshot } from "./scoring";
 
 // SQLite driver compat shim.
@@ -2059,9 +2059,10 @@ export function recordRun(run: {
 
 export function candidates(limit = 12, now = Math.floor(Date.now() / 1000)): RecentPost[] {
   const configuredSources = new Set(getSourceCategoryConfigs().filter((item) => item.enabled).map((item) => item.sourceHandle));
+  const threshold = opportunityPoolThreshold();
   return selectPosts(`${opportunityWhere(now)} AND score_reason LIKE 'deterministic:%' AND publish_status IN ('not_started','blocked')`, "created_timestamp DESC")
     .filter((post) => configuredSources.has(post.sourceHandle))
-    .filter((post) => opportunityScoreForPost(post, now) >= 70)
+    .filter((post) => opportunityScoreForPost(post, now) >= threshold)
     .sort((left, right) => opportunityScoreForPost(right, now) - opportunityScoreForPost(left, now) || right.createdTimestamp - left.createdTimestamp)
     .slice(0, limit);
 }
@@ -3220,7 +3221,7 @@ function marketDecisionFor(post: RecentPost, now: number): MarketDecision {
   if (post.publishStatus === "confirmed" || post.publishStatus === "pending_reconciliation") return "processed";
   if (post.createdTimestamp <= 0 || post.createdTimestamp > now + 300 || now - post.createdTimestamp > OPPORTUNITY_MAX_AGE_SECONDS) return "expired";
   if (scoreEvidenceFor(post.scoreReason, post.score).kind !== "deterministic") return "not_eligible_evidence";
-  return opportunityScoreForPost(post, now) >= 70 ? "opportunity" : "below_threshold";
+  return opportunityScoreForPost(post, now) >= opportunityPoolThreshold() ? "opportunity" : "below_threshold";
 }
 
 function toMarketItem(post: RecentPost, now = Math.floor(Date.now() / 1000)): MarketItem {
@@ -3294,7 +3295,8 @@ export function getMarketInbox(input: { view?: MarketView; limit?: number; offse
 }
 
 export function opportunityCount(now = Math.floor(Date.now() / 1000)): number {
-  return selectPosts(opportunityWhere(now), "created_timestamp DESC").filter((post) => scoreEvidenceFor(post.scoreReason, post.score).kind === "deterministic" && opportunityScoreForPost(post, now) >= 70).length;
+  const threshold = opportunityPoolThreshold();
+  return selectPosts(opportunityWhere(now), "created_timestamp DESC").filter((post) => scoreEvidenceFor(post.scoreReason, post.score).kind === "deterministic" && opportunityScoreForPost(post, now) >= threshold).length;
 }
 
 export function scoreEvidenceFor(value: string, score: number): ScoreEvidence {
@@ -3380,13 +3382,36 @@ export function updatePostRelevance(input: {
     WHERE external_id=${sqlString(input.externalId)};`);
 }
 
+export const OPPORTUNITY_POOL_THRESHOLD_SETTING = "opportunity_pool_threshold";
+export const DEFAULT_OPPORTUNITY_POOL_THRESHOLD = 70;
+
+/**
+ * The score a post must reach to enter the candidate pool.
+ *
+ * The pool used to hardcode 70 while every account could ask for less through its
+ * account_categories.publish_threshold, so a niche account with threshold 55 never
+ * saw the posts it had asked for. The pool threshold is therefore
+ * `min(opportunity_pool_threshold, lowest enabled account publish_threshold)`:
+ * the pool is never stricter than the strictest gate downstream, and
+ * publishCandidate() still applies each account's own threshold afterwards.
+ */
+export function opportunityPoolThreshold(): number {
+  const raw = Number(getSetting(OPPORTUNITY_POOL_THRESHOLD_SETTING, String(DEFAULT_OPPORTUNITY_POOL_THRESHOLD)));
+  const configured = Number.isFinite(raw) ? Math.min(100, Math.max(0, raw)) : DEFAULT_OPPORTUNITY_POOL_THRESHOLD;
+  const enabledAccounts = new Set(getAccounts().filter((account) => account.enabled).map((account) => account.id));
+  const thresholds = getAccountCategoryConfigs()
+    .filter((item) => item.enabled && enabledAccounts.has(item.accountId))
+    .map((item) => item.publishThreshold)
+    .filter((value): value is number => value !== null && value !== undefined && Number.isFinite(value));
+  return thresholds.length ? Math.min(configured, ...thresholds) : configured;
+}
+
 export function opportunityScoreForPost(post: Pick<RecentPost, "score" | "scoreReason" | "sensitive" | "createdTimestamp"> & Pick<ObservedPost, "relevanceScore">, now = Math.floor(Date.now() / 1000)): number {
   const evidence = scoreEvidenceFor(post.scoreReason, post.score);
   const risk = post.sensitive ? 100 : evidence.risk;
   const relevance = relevanceApplies() ? postRelevance(post) : null;
-  return relevance === null
-    ? opportunityScore(post.score, post.createdTimestamp, risk, now)
-    : opportunityScoreWithRelevance(post.score, post.createdTimestamp, risk, relevance, now);
+  // Relevance null (mode off, or no evidence) reproduces the legacy score exactly.
+  return opportunityScoreRelevanceAware(post.score, post.createdTimestamp, risk, relevance, now);
 }
 
 export function getDrafts(limit = 100): DraftRecord[] {
@@ -4078,6 +4103,43 @@ export function getSecretMetas(mask: (name: string) => string): SecretMeta[] {
     masked: mask(secret.name),
     updatedAt: secret.updated_at,
   }));
+}
+
+/**
+ * Single-writer guard for the automation loop (worker vs. the Next in-process
+ * scheduler). Both claim the same app_settings row; a claim succeeds when the row
+ * is empty, expired, or already owned by this exact owner+pid. The lock is a
+ * heartbeat, not a mutex: it is refreshed on every tick and forgotten after
+ * AUTOMATION_LOCK_TTL_SECONDS, so a killed process never blocks the next start.
+ */
+export const AUTOMATION_LOCK_SETTING = "automation_lock";
+export const AUTOMATION_LOCK_TTL_SECONDS = 120;
+
+export type AutomationLock = { owner: string; pid: number; host: string; at: number };
+
+export function readAutomationLock(now = Math.floor(Date.now() / 1000)): AutomationLock | null {
+  const parsed = parseObject(getSetting(AUTOMATION_LOCK_SETTING, "") || "{}");
+  const owner = String(parsed.owner || "");
+  const at = Number(parsed.at || 0);
+  if (!owner || !Number.isFinite(at) || now - at > AUTOMATION_LOCK_TTL_SECONDS) return null;
+  return { owner, pid: Number(parsed.pid || 0), host: String(parsed.host || ""), at };
+}
+
+export function claimAutomationLock(
+  owner: string,
+  now = Math.floor(Date.now() / 1000),
+  pid = process.pid,
+  host = process.env.HOSTNAME || "",
+): { ok: boolean; holder: AutomationLock | null } {
+  const holder = readAutomationLock(now);
+  if (holder && !(holder.owner === owner && holder.pid === pid)) return { ok: false, holder };
+  setSetting(AUTOMATION_LOCK_SETTING, JSON.stringify({ owner, pid, host, at: now }), now);
+  return { ok: true, holder: { owner, pid, host, at: now } };
+}
+
+export function releaseAutomationLock(owner: string, pid = process.pid, now = Math.floor(Date.now() / 1000)): void {
+  const holder = readAutomationLock(now);
+  if (holder && holder.owner === owner && holder.pid === pid) setSetting(AUTOMATION_LOCK_SETTING, "", now);
 }
 
 export function getSetting(name: string, fallback = ""): string {

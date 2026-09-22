@@ -9,7 +9,7 @@
 //
 // Rerun it unchanged after the Jev integration: any diff is a behaviour change.
 
-import { isNumericalHit, opportunityFreshness, opportunityScore, opportunityScoreWithRelevance, relevanceFactor, scorePost, selectDiverseCandidates } from "../src/server/scoring";
+import { freshnessDecayPerHour, isNumericalHit, opportunityFreshness, opportunityFreshnessForRelevance, opportunityScore, opportunityScoreRelevanceAware, opportunityScoreWithRelevance, relevanceFactor, scorePost, selectDiverseCandidates } from "../src/server/scoring";
 import { FIXTURE_NOW, FIXTURE_RELEVANCE, OPPORTUNITY_FIXTURE } from "../tests/fixtures/opportunity-fixture";
 
 const NOW = FIXTURE_NOW;
@@ -51,6 +51,10 @@ const scored = OPPORTUNITY_FIXTURE.map((post) => {
     relevance: FIXTURE_RELEVANCE[post.externalId] ?? null,
     relevanceFactor: relevanceFactor(FIXTURE_RELEVANCE[post.externalId] ?? null),
     opportunityScoreWithRelevance: opportunityScoreWithRelevance(score, post.createdTimestamp, risk, FIXTURE_RELEVANCE[post.externalId] ?? null, NOW),
+    // version 3, appended again: relevance-aware freshness decay (docs/OPPORTUNITY-SCORING.md).
+    freshnessDecayPerHour: freshnessDecayPerHour(FIXTURE_RELEVANCE[post.externalId] ?? null),
+    freshnessRelevanceAware: opportunityFreshnessForRelevance(post.createdTimestamp, FIXTURE_RELEVANCE[post.externalId] ?? null, NOW),
+    opportunityScoreRelevanceAware: opportunityScoreRelevanceAware(score, post.createdTimestamp, risk, FIXTURE_RELEVANCE[post.externalId] ?? null, NOW),
   };
 });
 
@@ -70,11 +74,20 @@ const rankedWithRelevance = [...scored].sort(
 const poolWithRelevance = rankedWithRelevance.filter((item) => item.opportunityScoreWithRelevance >= 70);
 const selectedWithRelevance = selectDiverseCandidates(poolWithRelevance.slice(0, 24), 6).map((item) => item.externalId);
 
+// version 3: the live jev_mode "on" chain — relevance-aware freshness decay AND the
+// relevanceFactor — at the pool threshold. Versions 1 and 2 above are untouched.
+const POOL_THRESHOLD_V3 = 70;
+const rankedRelevanceAware = [...scored].sort(
+  (left, right) => right.opportunityScoreRelevanceAware - left.opportunityScoreRelevanceAware || right.ageSeconds - left.ageSeconds,
+);
+const poolRelevanceAware = rankedRelevanceAware.filter((item) => item.opportunityScoreRelevanceAware >= POOL_THRESHOLD_V3);
+const selectedRelevanceAware = selectDiverseCandidates(poolRelevanceAware.slice(0, 24), 6).map((item) => item.externalId);
+
 console.log(
   JSON.stringify(
     {
       snapshot: "opportunity-scoring",
-      version: 2,
+      version: 3,
       now: NOW,
       fixtureCount: OPPORTUNITY_FIXTURE.length,
       opportunityThreshold: 70,
@@ -84,6 +97,10 @@ console.log(
       poolSizeWithRelevance: poolWithRelevance.length,
       selectedWithRelevance,
       rankedWithRelevance: rankedWithRelevance.map((item) => item.externalId),
+      poolThresholdRelevanceAware: POOL_THRESHOLD_V3,
+      poolSizeRelevanceAware: poolRelevanceAware.length,
+      selectedRelevanceAware,
+      rankedRelevanceAware: rankedRelevanceAware.map((item) => item.externalId),
     },
     null,
     2,
