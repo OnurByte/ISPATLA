@@ -1,7 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
 import { mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { createRequire } from "node:module";
 import { historicalPerformanceScore, isNumericalHit, observedEngagement, opportunityFreshness, opportunityScore, opportunityScoreWithRelevance, OPPORTUNITY_MAX_AGE_SECONDS, relevanceFactor, scorePost } from "./scoring";
 import type { MetricSnapshot } from "./scoring";
 
@@ -9,17 +8,17 @@ import type { MetricSnapshot } from "./scoring";
 // Production runs on Node >= 22 and uses the built-in `node:sqlite` (DatabaseSync).
 // Bun -- which runs the repo's `bun test` gate -- does not ship `node:sqlite`, so a
 // static import makes every test file fail at resolve time. `bun:sqlite`'s `Database`
-// exposes the exact surface this file uses (new(path), exec(sql), prepare(sql).all()),
-// so we pick the driver at runtime. `createRequire` is used instead of a static/dynamic
-// `import` so the unavailable specifier is never resolved on the other runtime and the
-// call stays synchronous. No behaviour change on Node.
+// exposes the same `exec` / `prepare().all()` surface this module uses, so we pick the
+// driver at runtime via `process.getBuiltinModule` (Node >= 22.3, Bun >= 1.1): it is a
+// plain runtime call, so neither Turbopack (`next dev`) nor webpack (`next build`) tries
+// to resolve the specifier that is unavailable on the other runtime.
 type NativeDatabase = { exec(sql: string): void; prepare(sql: string): { all(): unknown[] } };
 type NativeDatabaseCtor = new (path: string) => NativeDatabase;
-const requireDriver = createRequire(import.meta.url);
+const builtin = (process as unknown as { getBuiltinModule(id: string): unknown }).getBuiltinModule;
 const DatabaseSync: NativeDatabaseCtor =
   typeof (globalThis as { Bun?: unknown }).Bun !== "undefined"
-    ? (requireDriver("bun:sqlite") as { Database: NativeDatabaseCtor }).Database
-    : (requireDriver("node:sqlite") as { DatabaseSync: NativeDatabaseCtor }).DatabaseSync;
+    ? (builtin("bun:sqlite") as { Database: NativeDatabaseCtor }).Database
+    : (builtin("node:sqlite") as { DatabaseSync: NativeDatabaseCtor }).DatabaseSync;
 
 export const IDEOLOGY_AXES = [
   "belirsiz",
