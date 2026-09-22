@@ -1,5 +1,5 @@
 // Manuel hesap için Jev fırsat sıralamasını bir kez çalıştırır (yayın yok). Anahtar env'den.
-import { candidates, getAccounts, getCategories, getPost } from "../src/server/db";
+import { candidates, getAccounts, getCategories } from "../src/server/db";
 import { rankOpportunityBatch } from "../src/server/opportunity-batch";
 const now = Math.floor(Date.now() / 1000);
 const posts = candidates(32, now);

@@ -22,6 +22,8 @@ import {
   getStoredSources,
   getPost,
   opportunityScoreForPost,
+  opportunityPoolThreshold,
+  claimAutomationLock,
   metricRefreshPosts,
   getRecentPosts,
   getSetting,
@@ -604,7 +606,10 @@ export function selectPublishingAccount(
 
 async function publishCandidate(post: ObservedPost & Pick<RecentPost, "relevanceJson">): Promise<void> {
   const now = Math.floor(Date.now() / 1000);
-  if (opportunityScoreForPost(post, now) < 70) return;
+  // publishing_paused stops publishing only; monitoring, scanning and ranking keep
+  // filling the pool. Checked here too so every publishCandidate() caller is covered.
+  if (publishingPaused()) return;
+  if (opportunityScoreForPost(post, now) < opportunityPoolThreshold()) return;
   const source = getStoredSources().find((item) => item.handle === post.sourceHandle);
   const evidence = scoreEvidenceFor(post.scoreReason, post.score);
   const currentScore = opportunityScoreForPost(post, now);
@@ -1498,27 +1503,28 @@ async function runScanInternal(): Promise<ScanResult> {
   await refreshPostMetrics(startedAt, errors);
 
   const automaticAccounts = getAccounts().filter((account) => account.enabled && account.automationMode === "auto" && Boolean(account.xuseAccountId));
-  if (automationEnabled() && readerPublishingReady(startedAt) && automaticAccounts.length > 0) {
-    // The single Jev call site on the post path: one batch per scan over the whole
-    // candidate pool. It only persists relevance; whether that relevance moves a
-    // decision is decided by jev_mode inside opportunityScoreForPost/publishCandidate.
-    // Any failure here must leave the loop below exactly as it was.
-    if (jevMode() !== "off") {
-      try {
-        const sourceConfigurations = getSourceCategoryConfigs();
-        await rankOpportunityBatch({
-          posts: candidates(32, startedAt),
-          accounts: automaticAccounts,
-          categories: getCategories(),
-          accountConfigurations: getAccountCategoryConfigs(),
-          sourceDomains: (post) => sourceConfigurations.filter((item) => item.sourceHandle === post.sourceHandle && item.enabled).map((item) => item.categorySlug),
-          localScore: (post) => opportunityScoreForPost(post, startedAt),
-          now: startedAt,
-        });
-      } catch (error) {
-        errors.push(`jev_batch: ${error instanceof Error ? error.message : String(error)}`);
-      }
+  // The single Jev call site on the post path: one batch per scan over the whole
+  // candidate pool. It only persists relevance; whether that relevance moves a
+  // decision is decided by jev_mode inside opportunityScoreForPost/publishCandidate.
+  // Ranking is pool maintenance, not publishing, so it runs even while publishing is
+  // paused. Any failure here must leave the publish loop below exactly as it was.
+  if (jevMode() !== "off" && automaticAccounts.length > 0) {
+    try {
+      const sourceConfigurations = getSourceCategoryConfigs();
+      await rankOpportunityBatch({
+        posts: candidates(32, startedAt),
+        accounts: automaticAccounts,
+        categories: getCategories(),
+        accountConfigurations: getAccountCategoryConfigs(),
+        sourceDomains: (post) => sourceConfigurations.filter((item) => item.sourceHandle === post.sourceHandle && item.enabled).map((item) => item.categorySlug),
+        localScore: (post) => opportunityScoreForPost(post, startedAt),
+        now: startedAt,
+      });
+    } catch (error) {
+      errors.push(`jev_batch: ${error instanceof Error ? error.message : String(error)}`);
     }
+  }
+  if (publishingEnabled() && readerPublishingReady(startedAt) && automaticAccounts.length > 0) {
     // ponytail: one source and one event cluster per automatic batch; upgrade to a learned portfolio selector only with measured feedback.
     for (const post of selectDiverseCandidates(candidates(24), 6)) {
       try {
@@ -1568,12 +1574,35 @@ export function automationEnabled(): boolean {
   return process.env.ISPATLA_AUTOMATION !== "0" && getSetting("automation_paused", "0") !== "1";
 }
 
+/**
+ * Publishing-only pause. `automation_paused` historically stopped the publish loop
+ * inside a scan; `publishing_paused` is the narrow switch that stops publishing while
+ * monitoring, scanning and Jev ranking keep filling the pool.
+ */
+export function publishingPaused(): boolean {
+  return getSetting("publishing_paused", "0") === "1";
+}
+
+export function publishingEnabled(): boolean {
+  return automationEnabled() && !publishingPaused();
+}
+
 export function startScheduler(): void {
   if (!automationEnabled() || process.env.NEXT_PHASE === "phase-production-build") return;
   const marker = globalThis as typeof globalThis & { __ispatlaScheduler?: boolean };
   if (marker.__ispatlaScheduler) return;
+  // Single writer per database: if the standalone worker holds the lock, the
+  // in-process scheduler stays off instead of racing it (README "Sürekli operasyon").
+  const lock = claimAutomationLock("web");
+  if (!lock.ok) {
+    console.warn(`[ispatla] in-process scheduler devre dışı: automation_lock sahibi ${lock.holder?.owner} pid=${lock.holder?.pid}`);
+    return;
+  }
   marker.__ispatlaScheduler = true;
   void scanOnce();
-  const interval = setInterval(() => void scanOnce(), 60 * 1000);
+  const interval = setInterval(() => {
+    claimAutomationLock("web");
+    void scanOnce();
+  }, 60 * 1000);
   interval.unref?.();
 }
