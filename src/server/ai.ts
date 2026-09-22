@@ -32,6 +32,7 @@ const BUN_CODEX_BIN = join(homedir(), ".bun", "bin", "codex");
 const CODEX_BIN = process.env.CODEX_BIN || (existsSync(BUN_CODEX_BIN) ? BUN_CODEX_BIN : "codex");
 const AI_PROVIDER_SETTING = "ai_provider";
 const AI_MODEL_SETTING = "ai_model";
+const AI_DRAFT_MODEL_SETTING = "ai_draft_model";
 const AI_COMPATIBLE_BASE_URL_SETTING = "ai_compatible_base_url";
 const AI_COMPATIBLE_NAME_SETTING = "ai_compatible_name";
 const AI_ENABLED_SETTING = "ai_enabled";
@@ -601,4 +602,84 @@ export async function requestDraftSemanticFeatures(input: {
   };
   recordUsage("evaluation:draft", provider, model, { category: input.category || "", format: input.format || "post" }, 3);
   return result;
+}
+
+
+// --- Per purpose model routing ---------------------------------------------
+
+/**
+ * Drafting and scoring are different jobs. A cheap scorer (gpt-4.1-mini) is
+ * right for ranking hundreds of observations and wrong for writing the one post
+ * that actually ships, so the draft model is resolved separately.
+ *
+ * Resolution order: explicit account/category route -> `ai_draft_model`
+ * setting -> best preference the compatible gateway actually lists -> global
+ * `ai_model`. Nothing is hardcoded into the request: a preference is used only
+ * after the provider confirms it exists, and every candidate passes the same
+ * `isModel` validation as the global setting.
+ */
+export const DRAFT_MODEL_PREFERENCES = ["anthropic/claude-sonnet-4.5", "openai/gpt-4.1"] as const;
+const MODEL_LIST_TTL_SECONDS = 300;
+let modelListCache: { baseUrl: string; at: number; models: string[] } | null = null;
+
+export function getDraftModelSetting(): string {
+  const configured = getSetting(AI_DRAFT_MODEL_SETTING, "").trim();
+  return configured && isModel(getAiSettings().provider, configured) ? configured : "";
+}
+
+export function setDraftModelSetting(model: string): string {
+  const value = model.trim();
+  if (value && !isModel(getAiSettings().provider, value)) throw new Error("taslak modeli desteklenmiyor");
+  setSetting(AI_DRAFT_MODEL_SETTING, value, Math.floor(Date.now() / 1000));
+  return value;
+}
+
+export function clearCompatibleModelCache(): void {
+  modelListCache = null;
+}
+
+/** The model ids the OpenAI-compatible gateway reports. Never throws. */
+export async function listCompatibleModels(): Promise<string[]> {
+  const baseUrl = getCompatibleSettings().baseUrl;
+  const key = secretOrEnv("compatible_api_key", "AI_COMPATIBLE_API_KEY");
+  if (!baseUrl || !key) return [];
+  const now = Math.floor(Date.now() / 1000);
+  if (modelListCache && modelListCache.baseUrl === baseUrl && now - modelListCache.at < MODEL_LIST_TTL_SECONDS) {
+    return modelListCache.models;
+  }
+  try {
+    const response = await fetch(`${baseUrl}/models`, {
+      headers: { authorization: `Bearer ${key}` },
+      signal: AbortSignal.timeout(15_000),
+    });
+    if (!response.ok) throw new Error(`models ${response.status}`);
+    const body = record(await response.json());
+    const data = Array.isArray(body.data) ? body.data : [];
+    const models = [...new Set(data.map((entry) => String(record(entry).id || "").trim()).filter(Boolean))];
+    modelListCache = { baseUrl, at: now, models };
+    return models;
+  } catch {
+    // A gateway that will not list its catalogue must not block drafting; the
+    // caller falls back to the configured global model.
+    modelListCache = { baseUrl, at: now, models: [] };
+    return [];
+  }
+}
+
+export type DraftModelRoute = { provider: AiProvider; model: string; reason: string };
+
+export async function resolveDraftModel(
+  route: { provider?: AiProvider; model?: string } = {},
+): Promise<DraftModelRoute> {
+  const settings = getAiSettings();
+  const provider = route.provider || settings.provider;
+  if (route.model && isModel(provider, route.model)) return { provider, model: route.model, reason: "account_route" };
+  const configured = getDraftModelSetting();
+  if (configured) return { provider, model: configured, reason: "ai_draft_model" };
+  if (provider === "compatible") {
+    const available = new Set(await listCompatibleModels());
+    const preferred = DRAFT_MODEL_PREFERENCES.find((candidate) => available.has(candidate) && isModel(provider, candidate));
+    if (preferred) return { provider, model: preferred, reason: "gateway_preference" };
+  }
+  return { provider, model: settings.model, reason: "global_default" };
 }

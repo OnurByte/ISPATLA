@@ -1460,6 +1460,30 @@ function applyMigrations(): void {
     addColumn("observed_posts", "relevance_at", "INTEGER");
     command("INSERT INTO schema_migrations (version, applied_at) VALUES (17, unixepoch());");
   }
+  if (!applied.has(18)) {
+    // Multi draft selection: every generated candidate is kept, not only the winner,
+    // so a later calibration can ask what the selector passed over.
+    command(`CREATE TABLE IF NOT EXISTS draft_variants (
+      id INTEGER PRIMARY KEY,
+      draft_id INTEGER NOT NULL,
+      variant_index INTEGER NOT NULL,
+      angle TEXT NOT NULL DEFAULT '',
+      format TEXT NOT NULL DEFAULT 'post',
+      text TEXT NOT NULL DEFAULT '',
+      chosen INTEGER NOT NULL DEFAULT 0,
+      evaluator_score REAL,
+      jev_score REAL,
+      combined_score REAL,
+      selection_mode TEXT NOT NULL DEFAULT 'evaluator',
+      gate_reason TEXT NOT NULL DEFAULT '',
+      detail_json TEXT NOT NULL DEFAULT '{}',
+      created_at INTEGER NOT NULL,
+      UNIQUE(draft_id, variant_index),
+      FOREIGN KEY(draft_id) REFERENCES drafts(id)
+    );
+    CREATE INDEX IF NOT EXISTS draft_variants_draft_idx ON draft_variants(draft_id, variant_index);`);
+    command("INSERT INTO schema_migrations (version, applied_at) VALUES (18, unixepoch());");
+  }
 }
 
 export function ensureDatabase(): boolean {
@@ -3827,7 +3851,7 @@ export function updateDraft(input: {
 
 export function deleteDraft(id: number): boolean {
   if (!getDraft(id)) return false;
-  exec(`DELETE FROM automation_jobs WHERE draft_id=${sqlNumber(id)}; DELETE FROM draft_evaluations WHERE draft_id=${sqlNumber(id)}; DELETE FROM drafts WHERE id=${sqlNumber(id)};`);
+  exec(`DELETE FROM automation_jobs WHERE draft_id=${sqlNumber(id)}; DELETE FROM draft_variants WHERE draft_id=${sqlNumber(id)}; DELETE FROM draft_evaluations WHERE draft_id=${sqlNumber(id)}; DELETE FROM drafts WHERE id=${sqlNumber(id)};`);
   return !getDraft(id);
 }
 
@@ -4640,4 +4664,114 @@ export function saveJevCacheEntry(requestHash: string, scoresJson: string, repor
 
 export function pruneJevCache(before: number): void {
   exec(`DELETE FROM jev_cache WHERE created_at < ${sqlNumber(before)};`);
+}
+
+
+// --- Voice profile and draft variants (migration 18) ------------------------
+
+/**
+ * A measured voice profile lives inside `accounts.style_profile_json` under the
+ * additive `voice` key: it is derived data, it must travel with the account and
+ * it must never overwrite the hand written style fields beside it.
+ */
+export function saveAccountVoiceProfile(accountId: number, voice: Record<string, unknown>, now: number): Account | null {
+  const account = getAccounts().find((item) => item.id === accountId);
+  if (!account) return null;
+  return saveAccount({
+    id: account.id,
+    accountKey: account.accountKey,
+    handle: account.handle,
+    displayName: account.displayName,
+    xuseAccountId: account.xuseAccountId,
+    enabled: account.enabled,
+    defaultAccount: account.defaultAccount,
+    automationMode: account.automationMode,
+    dailyLimit: account.dailyLimit,
+    capabilities: account.capabilities,
+    styleProfile: { ...account.styleProfile, voice },
+    now,
+  });
+}
+
+export function getAccountVoiceProfile(accountId: number): Record<string, unknown> | null {
+  const account = getAccounts().find((item) => item.id === accountId);
+  const voice = account?.styleProfile.voice;
+  return voice && typeof voice === "object" && !Array.isArray(voice) ? voice as Record<string, unknown> : null;
+}
+
+export type DraftVariantRecord = {
+  id: number;
+  draftId: number;
+  variantIndex: number;
+  angle: string;
+  format: string;
+  text: string;
+  chosen: boolean;
+  evaluatorScore: number | null;
+  jevScore: number | null;
+  combinedScore: number | null;
+  selectionMode: string;
+  gateReason: string;
+  detail: Record<string, unknown>;
+  createdAt: number;
+};
+
+export type DraftVariantInput = {
+  variantIndex: number;
+  angle?: string;
+  format?: string;
+  text: string;
+  chosen?: boolean;
+  evaluatorScore?: number | null;
+  jevScore?: number | null;
+  combinedScore?: number | null;
+  selectionMode?: string;
+  gateReason?: string;
+  detail?: Record<string, unknown>;
+};
+
+function nullableNumber(value: number | null | undefined): string {
+  return value === null || value === undefined || !Number.isFinite(value) ? "NULL" : sqlNumber(value);
+}
+
+export function recordDraftVariants(input: { draftId: number; variants: DraftVariantInput[]; now: number }): number {
+  const statements = input.variants.map((variant) => `INSERT INTO draft_variants (
+      draft_id, variant_index, angle, format, text, chosen, evaluator_score, jev_score,
+      combined_score, selection_mode, gate_reason, detail_json, created_at)
+    VALUES (${sqlNumber(input.draftId)}, ${sqlNumber(variant.variantIndex)}, ${sqlString(variant.angle || "")},
+      ${sqlString(variant.format || "post")}, ${sqlString(variant.text)}, ${variant.chosen ? 1 : 0},
+      ${nullableNumber(variant.evaluatorScore)}, ${nullableNumber(variant.jevScore)},
+      ${nullableNumber(variant.combinedScore)}, ${sqlString(variant.selectionMode || "evaluator")},
+      ${sqlString(variant.gateReason || "")}, ${sqlString(JSON.stringify(variant.detail || {}))}, ${sqlNumber(input.now)})
+    ON CONFLICT(draft_id, variant_index) DO UPDATE SET angle=excluded.angle, format=excluded.format,
+      text=excluded.text, chosen=excluded.chosen, evaluator_score=excluded.evaluator_score,
+      jev_score=excluded.jev_score, combined_score=excluded.combined_score,
+      selection_mode=excluded.selection_mode, gate_reason=excluded.gate_reason,
+      detail_json=excluded.detail_json;`);
+  if (!statements.length) return 0;
+  exec(statements.join("\n"));
+  return statements.length;
+}
+
+export function getDraftVariants(draftId: number): DraftVariantRecord[] {
+  return rows<{
+    id: number; draft_id: number; variant_index: number; angle: string; format: string; text: string;
+    chosen: number; evaluator_score: number | null; jev_score: number | null; combined_score: number | null;
+    selection_mode: string; gate_reason: string; detail_json: string; created_at: number;
+  }>(`SELECT * FROM draft_variants WHERE draft_id=${sqlNumber(draftId)} ORDER BY variant_index ASC;`).map((row) => ({
+    id: row.id,
+    draftId: row.draft_id,
+    variantIndex: row.variant_index,
+    angle: row.angle,
+    format: row.format,
+    text: row.text,
+    chosen: row.chosen === 1,
+    evaluatorScore: row.evaluator_score,
+    jevScore: row.jev_score,
+    combinedScore: row.combined_score,
+    selectionMode: row.selection_mode,
+    gateReason: row.gate_reason,
+    detail: parseObject(row.detail_json),
+    createdAt: row.created_at,
+  }));
 }
