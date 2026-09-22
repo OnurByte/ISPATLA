@@ -52,6 +52,7 @@ import {
   sourceWasDeletedSince,
   upsertCompetitorPost,
   markCompetitorInitialized,
+  sourceVersionStamps,
   upsertPost,
   upsertSource,
   type Account,
@@ -1118,7 +1119,11 @@ async function sourceJevRelevance(
   for (const evidence of batch) byHandle.set(evidence.handle, { relevance: null, categoryScores: {}, diagnostics: [], degraded: false });
 
   let noted = false;
+  const handles = candidateList.map((candidate) => candidate.id);
+  /** Handles whose stored profile moved mid-call; their scores are dropped for good. */
+  const changed = new Set<string>();
   for (const chunk of jevFacetChunks(categories, candidateList.length)) {
+    const before = sourceVersionStamps(handles);
     const result = await jevScore({
       query: JEV_SOURCE_QUERY,
       facets: chunk.map(categoryFacetText),
@@ -1136,13 +1141,28 @@ async function sourceJevRelevance(
       }
       continue;
     }
+    // Contract: re-read the source version AFTER the response and drop whatever
+    // moved while the provider was thinking (jev-context/02, "Gizlilik").
+    const after = sourceVersionStamps(handles);
+    for (const handle of handles) {
+      if (before.get(handle) === after.get(handle)) continue;
+      changed.add(handle);
+      const state = byHandle.get(handle);
+      if (!state) continue;
+      state.relevance = null;
+      state.categoryScores = {};
+      state.degraded = true;
+      if (!state.diagnostics.includes("source_changed_during_evaluation")) {
+        state.diagnostics.push("source_changed_during_evaluation");
+      }
+    }
     const entries: JevScoreEntry[] = [];
     for (const [facetIndex, category] of chunk.entries()) {
       const bucket = result.facetScores[String(facetIndex)] || {};
       for (const candidate of candidateList) {
         const raw = Number(bucket[candidate.id]);
         const state = byHandle.get(candidate.id);
-        if (!state || !Number.isFinite(raw)) continue;
+        if (!state || !Number.isFinite(raw) || changed.has(candidate.id)) continue;
         entries.push({ subjectId: candidate.id, questionKey: category.slug, score: raw });
         const percent = jevToPercent(raw);
         state.categoryScores[category.slug] = percent;

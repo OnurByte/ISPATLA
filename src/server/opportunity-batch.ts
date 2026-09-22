@@ -15,6 +15,11 @@
  * jev_scores ledger. Whether the persisted relevance changes a decision is decided
  * elsewhere: opportunityScoreForPost() reads it only in jev_mode "on".
  *
+ * Post-response revalidation: every candidate's cheap version (text + observed_at)
+ * is stamped before the call and re-read after it. A post that moved while the
+ * provider was thinking has its scores dropped and the batch carries the
+ * `source_changed_during_evaluation` diagnostic; nothing is persisted for it.
+ *
  * Cadence guard: a day-keyed counter in app_settings (`jev_batch:YYYY-MM-DD`) is
  * compared against `jev_daily_batch_cap` (default 300) before every call. Beyond the
  * cap nothing touches the network and the decision row carries `budget_exceeded`.
@@ -23,6 +28,7 @@
 import {
   getSetting,
   postAccountRelevance,
+  postVersionStamps,
   recordDecision,
   setSetting,
   updatePostRelevance,
@@ -57,6 +63,8 @@ export type OpportunityBatchResult = {
   localOrder: string[];
   jevOrder: string[];
   capped: boolean;
+  /** Candidate ids whose stored version moved while the call was in flight. */
+  changedDuringEvaluation: string[];
 };
 
 function empty(mode: string, diagnostics: string[], capped = false): OpportunityBatchResult {
@@ -72,6 +80,7 @@ function empty(mode: string, diagnostics: string[], capped = false): Opportunity
     localOrder: [],
     jevOrder: [],
     capped,
+    changedDuringEvaluation: [],
   };
 }
 
@@ -169,6 +178,7 @@ export async function rankOpportunityBatch(input: {
   const relevance: Record<string, number> = {};
   const perAccount: Record<string, Record<number, number>> = {};
   const diagnostics = new Set<string>();
+  const changed = new Set<string>();
   let calls = 0;
   let degraded = false;
   let capped = false;
@@ -181,6 +191,7 @@ export async function rankOpportunityBatch(input: {
     }
     countBatchCall(input.now);
     calls += 1;
+    const before = postVersionStamps(candidates.map((candidate) => candidate.id));
     const result = await jevScore({
       query: JEV_BATCH_QUERY,
       facets: group.map((account) => facetByAccount.get(account.id) || `@${account.handle}`),
@@ -192,12 +203,18 @@ export async function rankOpportunityBatch(input: {
       degraded = true;
       continue;
     }
+    const after = postVersionStamps(candidates.map((candidate) => candidate.id));
+    const drifted = new Set(candidates.map((candidate) => candidate.id).filter((id) => before.get(id) !== after.get(id)));
+    if (drifted.size) {
+      diagnostics.add("source_changed_during_evaluation");
+      for (const id of drifted) changed.add(id);
+    }
     const entries: Array<{ subjectId: string; questionKey: string; score: number }> = [];
     group.forEach((account, facetIndex) => {
       const facetScores = result.facetScores[String(facetIndex)] || {};
       for (const candidate of candidates) {
         const raw = facetScores[candidate.id];
-        if (raw === undefined) continue;
+        if (raw === undefined || drifted.has(candidate.id)) continue;
         const percent = jevToPercent(raw);
         perAccount[candidate.id] = { ...(perAccount[candidate.id] || {}), [account.id]: percent };
         relevance[candidate.id] = Math.max(relevance[candidate.id] ?? 0, percent);
@@ -209,7 +226,7 @@ export async function rankOpportunityBatch(input: {
 
   for (const post of posts) {
     const value = relevance[post.externalId];
-    if (value === undefined) continue;
+    if (value === undefined || changed.has(post.externalId)) continue;
     updatePostRelevance({
       externalId: post.externalId,
       relevance: value,
@@ -238,6 +255,7 @@ export async function rankOpportunityBatch(input: {
         degraded,
         capped,
         diagnostics: [...diagnostics],
+        changedDuringEvaluation: [...changed],
         localOrder,
         jevOrder,
         perAccount,
@@ -260,6 +278,7 @@ export async function rankOpportunityBatch(input: {
     localOrder,
     jevOrder,
     capped,
+    changedDuringEvaluation: [...changed],
   };
 }
 

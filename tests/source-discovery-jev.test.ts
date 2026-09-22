@@ -37,7 +37,7 @@ function runIsolatedDatabase(script: string): Record<string, unknown> {
  * One scoreSources run with a fake FxTwitter profile, a fake OpenAI response
  * and an injected Jev transport. Nothing here reaches the network.
  */
-function scanScript(options: { mode: string; jevStatus?: number; jevScore?: number }): string {
+function scanScript(options: { mode: string; jevStatus?: number; jevScore?: number; drift?: boolean }): string {
   return `
     process.env.OPENAI_API_KEY = "test-only-key";
     process.env.JEV_API_KEY = "jev-test-only-key";
@@ -61,6 +61,11 @@ function scanScript(options: { mode: string; jevStatus?: number; jevScore?: numb
     let jevCalls = 0;
     jev.setJevTransportForTests(async (request) => {
       jevCalls += 1;
+      if (${options.drift ? "true" : "false"} && jevCalls === 1) {
+        // The stored profile moves while the provider is "thinking".
+        const current = db.getStoredSources().find((item) => item.handle === "kaynak");
+        db.upsertSource({ ...current, profile: { ...current.profile, lastScoredAt: now + 60 } }, now + 60);
+      }
       if (${Number(options.jevStatus ?? 200)} !== 200) return { status: ${Number(options.jevStatus ?? 200)}, text: "{}" };
       const body = JSON.parse(request.body);
       const answers = {};
@@ -226,6 +231,20 @@ describe("source scoring with Jev", () => {
     expect(profile.jevRelevance).toBeUndefined();
     expect(profile.jevDiagnostics).toEqual(["http_rate_limited"]);
     expect(output.errors).toEqual(["jev kaynak ilgililiği kullanılamadı: http_rate_limited"]);
+  });
+
+  test("a source whose profile moves during the call drops its scores and falls back", () => {
+    const output = runIsolatedDatabase(scanScript({ mode: "on", drift: true }));
+    const profile = output.profile as Record<string, unknown>;
+    expect(Number(output.jevCalls)).toBeGreaterThan(0);
+    // Nothing from a drifted subject is written to the ledger or to the profile.
+    expect(output.ledgerRows).toBe(0);
+    expect(profile.jevRelevance).toBeUndefined();
+    expect(profile.jevCategoryScores).toBeUndefined();
+    expect(profile.jevDiagnostics).toEqual(["source_changed_during_evaluation"]);
+    // The local OpenAI path is untouched.
+    expect(profile.sourceRelevanceSource).toBe("openai_fallback");
+    expect(profile.sourceScore).toBe(84);
   });
 
   test("chunks more than three categories into separate Jev calls", () => {

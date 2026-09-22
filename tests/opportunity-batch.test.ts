@@ -45,6 +45,8 @@ function batchScript(options: {
   cap?: string;
   callsToday?: string;
   body?: string;
+  /** externalId rewritten from inside the transport, i.e. while the call is in flight. */
+  drift?: string;
 }): string {
   return `
     import { Database } from "bun:sqlite";
@@ -85,17 +87,18 @@ function batchScript(options: {
       });
     }
 
-    for (const post of OPPORTUNITY_FIXTURE) {
+    const seedPost = (post, text, at) => {
       const scored = scorePost({ ...post, now: NOW });
       upsertPost({
         externalId: post.externalId, sourceHandle: post.sourceHandle, authorHandle: post.authorHandle,
-        statusUrl: "https://x.com/" + post.sourceHandle + "/status/" + post.externalId, text: post.text,
+        statusUrl: "https://x.com/" + post.sourceHandle + "/status/" + post.externalId, text,
         createdTimestamp: post.createdTimestamp, likes: post.likes, replies: post.replies,
         reposts: post.reposts, quotes: post.quotes, views: post.views, followers: post.followers,
         mediaCount: post.mediaCount, mediaJson: "[]", rawJson: "{}", score: scored.score,
         scoreReason: scored.reason, sensitive: post.sensitive, clusterKey: post.clusterKey || post.externalId,
-      }, NOW);
-    }
+      }, at);
+    };
+    for (const post of OPPORTUNITY_FIXTURE) seedPost(post, post.text, NOW);
 
     setSetting("jev_mode", ${JSON.stringify(options.mode)}, NOW);
     setSetting("jev_base_url", "https://api.typesafe.ai", NOW);
@@ -104,8 +107,14 @@ function batchScript(options: {
 
     const RELEVANCE = ${JSON.stringify(options.relevance || {})};
     const calls = [];
+    const DRIFT = ${JSON.stringify(options.drift || "")};
     setJevTransportForTests(async (request) => {
       calls.push(JSON.parse(request.body));
+      if (DRIFT && calls.length === 1) {
+        // The post is rewritten while the provider is "thinking".
+        const moved = OPPORTUNITY_FIXTURE.find((post) => post.externalId === DRIFT);
+        seedPost(moved, moved.text + " (guncellendi)", NOW + 60);
+      }
       const body = JSON.parse(request.body);
       const answers = {};
       body.state.candidates.forEach((candidate, candidateIndex) => {
@@ -211,6 +220,29 @@ test("a degraded 429 in on mode keeps the legacy order and never throws", () => 
   expect(output.result.diagnostics).toEqual(["http_rate_limited"]);
   expect(output.posts).toEqual([]);
   expect(output.after).toEqual(output.before);
+});
+
+test("a post rewritten during the call is dropped and reported, the rest are kept", () => {
+  const output = JSON.parse(runIsolatedDatabase(batchScript({
+    mode: "shadow",
+    accounts: 2,
+    drift: "f01",
+    relevance: { 0: { f01: 100, f04: 100 }, 1: { f01: 100, f04: 0 } },
+  })));
+  expect(output.calls).toBe(1);
+  expect(output.result.degraded).toBe(false);
+  expect(output.result.diagnostics).toEqual(["source_changed_during_evaluation"]);
+  expect(output.result.changedDuringEvaluation).toEqual(["f01"]);
+  // The drifted post carries no relevance at all; every other candidate still does.
+  expect(output.result.relevance.f01).toBeUndefined();
+  expect(output.result.relevance.f04).toBe(100);
+  const stored = output.posts.map((post: { external_id: string }) => post.external_id);
+  expect(stored).not.toContain("f01");
+  expect(stored).toContain("f04");
+  expect(output.ledger.count).toBe((output.candidateCount - 1) * 2);
+  const details = JSON.parse(output.decisions[0].details_json);
+  expect(details.changedDuringEvaluation).toEqual(["f01"]);
+  expect(details.diagnostics).toEqual(["source_changed_during_evaluation"]);
 });
 
 test("five accounts are covered by two calls of at most three facets", () => {

@@ -13,7 +13,8 @@
  *   type JevQuestion  = { index, text }       one facet question
  *   type JevConfig / JevSettings              resolved app_settings snapshot
  *   type JevResult    = { mode, scores, facetScores, degraded, diagnostics,
- *                         cacheHit, usage, latencyMs, requestHash, reportedModel? }
+ *                         cacheHit, usage, latencyMs, requestHash, reportedModel?,
+ *                         confidenceProvenance }
  *
  *   jevMode(): JevMode
  *   jevConfigured(): boolean
@@ -32,6 +33,7 @@
  *   - degraded is not "no evidence" and not "score 0"; callers fall back to the
  *     local path unchanged.
  *   - scores[id] aggregates facetScores as the maximum across facets.
+ *   - confidence is counted (confidenceProvenance) and never read for selection.
  */
 
 import { createHash } from "node:crypto";
@@ -68,6 +70,7 @@ export const JEV_DIAGNOSTICS = [
   "credentials_missing",
   "capacity_exceeded",
   "redirect_rejected",
+  "source_changed_during_evaluation",
   "response_too_large",
   "request_failed",
 ] as const;
@@ -82,7 +85,11 @@ export const JEV_DEFAULT_BASE_URL = "https://api.typesafe.ai";
 export const JEV_DEFAULT_TIMEOUT_MS = 3000;
 export const JEV_MIN_TIMEOUT_MS = 500;
 export const JEV_MAX_TIMEOUT_MS = 10_000;
-export const JEV_DEFAULT_CACHE_TTL_SECONDS = 300;
+/** Alias models (jev-latest) may move under us, so their cache window is short. */
+export const JEV_ALIAS_CACHE_TTL_SECONDS = 300;
+/** A pinned version (jev-1.13.0) is immutable, so its answers keep for an hour. */
+export const JEV_PINNED_CACHE_TTL_SECONDS = 3600;
+export const JEV_DEFAULT_CACHE_TTL_SECONDS = JEV_ALIAS_CACHE_TTL_SECONDS;
 export const JEV_MAX_CANDIDATES = 32;
 export const JEV_MAX_QUESTIONS = 96;
 export const JEV_MAX_INPUT_CHARS = 24_000;
@@ -118,6 +125,17 @@ export type JevCandidate = {
 
 export type JevUsage = { input_tokens?: number; output_tokens?: number };
 
+/**
+ * How many answers carried a usable `confidence` field. Counted for calibration
+ * only: `usedForSelection` is a constant false because confidence is never a
+ * permission (jev-context/02, "confidence SEÇİM İÇİN KULLANILMAZ").
+ */
+export type JevConfidenceProvenance = { present: number; missing: number; usedForSelection: false };
+
+export function emptyConfidenceProvenance(): JevConfidenceProvenance {
+  return { present: 0, missing: 0, usedForSelection: false };
+}
+
 export type JevSettings = {
   mode: JevMode;
   model: string;
@@ -148,6 +166,7 @@ export type JevResult = {
   latencyMs: number;
   requestHash: string;
   reportedModel?: string;
+  confidenceProvenance: JevConfidenceProvenance;
 };
 
 export type JevTransport = (
@@ -263,22 +282,40 @@ function setting(name: string, fallback: string): string {
   }
 }
 
+/**
+ * A model name is treated as an alias when it says "latest" or carries no version
+ * digit at all; an alias can change under a cached answer, so it gets the short
+ * window. Anything else looks pinned. An explicit `jev_cache_ttl_seconds` setting
+ * always wins over both.
+ */
+export function isAliasModel(model: string): boolean {
+  const name = String(model || "").trim().toLowerCase();
+  if (!name) return true;
+  return name.includes("latest") || !/\d/.test(name);
+}
+
+export function defaultCacheTtlSeconds(model: string): number {
+  return isAliasModel(model) ? JEV_ALIAS_CACHE_TTL_SECONDS : JEV_PINNED_CACHE_TTL_SECONDS;
+}
+
 export function getJevSettings(): JevSettings {
   const stored = setting(JEV_MODE_SETTING, "").trim();
   const environment = String(process.env.ISPATLA_JEV_MODE || "").trim();
   const candidate = stored || environment;
   const timeout = Number(setting(JEV_TIMEOUT_SETTING, String(JEV_DEFAULT_TIMEOUT_MS)));
-  const ttl = Number(setting(JEV_CACHE_TTL_SETTING, String(JEV_DEFAULT_CACHE_TTL_SECONDS)));
   const provider = setting(JEV_PROVIDER_SETTING, "typesafe").trim();
+  const model = setting(JEV_MODEL_SETTING, JEV_DEFAULT_MODEL).trim() || JEV_DEFAULT_MODEL;
+  const storedTtl = setting(JEV_CACHE_TTL_SETTING, "").trim();
+  const ttl = storedTtl ? Number(storedTtl) : defaultCacheTtlSeconds(model);
   return {
     mode: isMode(candidate) ? candidate : "off",
-    model: setting(JEV_MODEL_SETTING, JEV_DEFAULT_MODEL).trim() || JEV_DEFAULT_MODEL,
+    model,
     provider: isProvider(provider) ? provider : "typesafe",
     baseUrl: setting(JEV_BASE_URL_SETTING, JEV_DEFAULT_BASE_URL).trim() || JEV_DEFAULT_BASE_URL,
     timeoutMs: Number.isFinite(timeout)
       ? Math.min(JEV_MAX_TIMEOUT_MS, Math.max(JEV_MIN_TIMEOUT_MS, Math.round(timeout)))
       : JEV_DEFAULT_TIMEOUT_MS,
-    cacheTtlSeconds: Number.isFinite(ttl) && ttl >= 0 ? Math.round(ttl) : JEV_DEFAULT_CACHE_TTL_SECONDS,
+    cacheTtlSeconds: Number.isFinite(ttl) && ttl >= 0 ? Math.round(ttl) : defaultCacheTtlSeconds(model),
   };
 }
 
@@ -355,6 +392,7 @@ function result(
     usage: {},
     latencyMs: 0,
     requestHash: "",
+    confidenceProvenance: emptyConfidenceProvenance(),
     ...extra,
   };
 }
@@ -442,6 +480,7 @@ type ParsedAnswers = {
   scores: Record<string, number>;
   usage: JevUsage;
   reportedModel?: string;
+  confidenceProvenance: JevConfidenceProvenance;
 };
 
 /**
@@ -470,6 +509,7 @@ function parseAnswers(
   const tolerance = provider === "vercel" ? QUANTIZED_PROBABILITY_TOLERANCE : STRICT_PROBABILITY_TOLERANCE;
   const facetScores: Record<string, Record<string, number>> = {};
   const scores: Record<string, number> = {};
+  const confidenceProvenance = emptyConfidenceProvenance();
   for (let facetIndex = 0; facetIndex < facetCount; facetIndex += 1) {
     const bucket: Record<string, number> = {};
     for (const [candidateIndex, candidate] of candidates.entries()) {
@@ -498,6 +538,9 @@ function parseAnswers(
           throw new JevFailure("answers_invalid");
         }
       }
+      const confidence = Number(answer.confidence);
+      if (answer.confidence !== undefined && Number.isFinite(confidence)) confidenceProvenance.present += 1;
+      else confidenceProvenance.missing += 1;
       bucket[candidate.id] = score;
       scores[candidate.id] = Math.max(scores[candidate.id] ?? Number.NEGATIVE_INFINITY, score);
     }
@@ -508,7 +551,7 @@ function parseAnswers(
   if (Number.isFinite(Number(usageRecord.input_tokens))) usage.input_tokens = Number(usageRecord.input_tokens);
   if (Number.isFinite(Number(usageRecord.output_tokens))) usage.output_tokens = Number(usageRecord.output_tokens);
   const model = typeof payload.model === "string" && MODEL_NAME_PATTERN.test(payload.model) ? payload.model : undefined;
-  return { facetScores, scores, usage, reportedModel: model };
+  return { facetScores, scores, usage, reportedModel: model, confidenceProvenance };
 }
 
 function diagnosticForStatus(status: number): JevDiagnostic {
@@ -646,6 +689,7 @@ async function execute(
       scores: parsed.scores,
       facetScores: parsed.facetScores,
       usage: parsed.usage,
+      confidenceProvenance: parsed.confidenceProvenance,
       latencyMs,
       requestHash,
       reportedModel: parsed.reportedModel,

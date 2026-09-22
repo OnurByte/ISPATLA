@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { createRequire } from "node:module";
@@ -4513,6 +4513,51 @@ export function latestJevScoresFor(
     if (bucket.some((item) => item.questionKey === row.question_key)) continue;
     bucket.push({ questionKey: row.question_key, score: row.score, createdAt: row.created_at });
     result.set(row.subject_id, bucket);
+  }
+  return result;
+}
+
+/**
+ * Cheap change-detection stamps for the subjects of a Jev call.
+ *
+ * The contract (jev-context/02, "Gizlilik") asks the caller to re-read the source
+ * version AFTER the response and drop scores whose subject moved while the
+ * provider was thinking. These two helpers produce that version: a short hash, not
+ * the content, so a stamp is safe to hold in memory and to compare. A subject that
+ * has disappeared is simply absent from the map, which also reads as drift.
+ */
+function stamp(parts: unknown[]): string {
+  return createHash("sha256").update(parts.map((part) => String(part ?? "")).join("\u0000")).digest("hex").slice(0, 16);
+}
+
+/** externalId -> hash(text, observed_at). */
+export function postVersionStamps(externalIds: string[]): Map<string, string> {
+  const result = new Map<string, string>();
+  const ids = [...new Set(externalIds.filter((value) => typeof value === "string" && value.length > 0))];
+  if (!ids.length) return result;
+  const found = rows<{ external_id: string; text: string; observed_at: number }>(
+    `SELECT external_id, text, observed_at FROM observed_posts WHERE external_id IN (${ids.map(sqlString).join(", ")});`,
+  );
+  for (const row of found) result.set(row.external_id, stamp([row.text, row.observed_at]));
+  return result;
+}
+
+/** handle -> hash(profile_json, last_scored_at). */
+export function sourceVersionStamps(handles: string[]): Map<string, string> {
+  const result = new Map<string, string>();
+  const list = [...new Set(handles.filter((value) => typeof value === "string" && value.length > 0))];
+  if (!list.length) return result;
+  const found = rows<{ handle: string; profile_json: string }>(
+    `SELECT handle, profile_json FROM sources WHERE handle IN (${list.map(sqlString).join(", ")});`,
+  );
+  for (const row of found) {
+    let lastScoredAt: unknown = "";
+    try {
+      lastScoredAt = (JSON.parse(row.profile_json || "{}") as Record<string, unknown>).lastScoredAt;
+    } catch {
+      lastScoredAt = "";
+    }
+    result.set(row.handle, stamp([row.profile_json, lastScoredAt]));
   }
   return result;
 }

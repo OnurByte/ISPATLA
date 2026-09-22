@@ -4,6 +4,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { getSetting, setSetting } from "@/server/db";
 import {
+  defaultCacheTtlSeconds,
+  getJevSettings,
+  isAliasModel,
   jevEndpoint,
   jevScore,
   jevToPercent,
@@ -395,5 +398,72 @@ describe("jev persistence", () => {
     const parsed = JSON.parse(output);
     expect(parsed.byKind[0]).toMatchObject({ kind: "score:jev", events: 1, units: 1 });
     expect(parsed.byProvider[0]).toMatchObject({ provider: "jev", events: 1 });
+  });
+});
+
+describe("cache ttl", () => {
+  test("an alias model defaults to 300 seconds and a pinned version to 3600", () => {
+    expect(isAliasModel("jev-latest")).toBe(true);
+    expect(isAliasModel("JEV-LATEST")).toBe(true);
+    // No version digit at all reads as a moving name too.
+    expect(isAliasModel("jev")).toBe(true);
+    expect(isAliasModel("")).toBe(true);
+    expect(isAliasModel("jev-1.13.0")).toBe(false);
+    expect(defaultCacheTtlSeconds("jev-latest")).toBe(300);
+    expect(defaultCacheTtlSeconds("jev-1.13.0")).toBe(3600);
+  });
+
+  test("the resolved settings follow the model when no ttl is configured", () => {
+    withJevSettings({ jev_mode: "shadow", jev_model: "jev-latest", jev_cache_ttl_seconds: "" }, () => {
+      expect(getJevSettings().cacheTtlSeconds).toBe(300);
+    });
+    withJevSettings({ jev_mode: "shadow", jev_model: "jev-1.13.0", jev_cache_ttl_seconds: "" }, () => {
+      expect(getJevSettings().cacheTtlSeconds).toBe(3600);
+    });
+  });
+
+  test("an explicit jev_cache_ttl_seconds always wins over the model default", () => {
+    for (const model of ["jev-latest", "jev-1.13.0"]) {
+      withJevSettings({ jev_mode: "shadow", jev_model: model, jev_cache_ttl_seconds: "42" }, () => {
+        expect(getJevSettings().cacheTtlSeconds, model).toBe(42);
+      });
+      withJevSettings({ jev_mode: "shadow", jev_model: model, jev_cache_ttl_seconds: "0" }, () => {
+        expect(getJevSettings().cacheTtlSeconds, model).toBe(0);
+      });
+    }
+  });
+});
+
+describe("confidence provenance", () => {
+  test("counts answers that carry a confidence and never uses it for selection", async () => {
+    const payload = JSON.stringify({
+      answers: {
+        f0_c0: { type: "score", score: 2, confidence: 0.91 },
+        f0_c1: { type: "score", score: 1 },
+      },
+    });
+    const { transport } = fakeTransport(payload);
+    setJevTransportForTests(transport);
+    await withJevSettings({ jev_mode: "shadow", jev_cache_ttl_seconds: "0" }, async () => {
+      const result = await jevScore({
+        query: uniqueQuery("confidence"),
+        facets: ["a"],
+        candidates: [candidate(0), candidate(1)],
+      });
+      expect(result.degraded).toBe(false);
+      expect(result.confidenceProvenance).toEqual({ present: 1, missing: 1, usedForSelection: false });
+      // The scores are exactly the reported ones: confidence changed nothing.
+      expect(result.scores).toEqual({ c0: 2, c1: 1 });
+    });
+  });
+
+  test("a degraded result still carries an empty provenance", async () => {
+    const { transport } = fakeTransport("", 500);
+    setJevTransportForTests(transport);
+    await withJevSettings({ jev_mode: "on", jev_cache_ttl_seconds: "0" }, async () => {
+      const result = await jevScore({ query: uniqueQuery("provenance-degraded"), facets: ["a"], candidates: [candidate(0)] });
+      expect(result.degraded).toBe(true);
+      expect(result.confidenceProvenance).toEqual({ present: 0, missing: 0, usedForSelection: false });
+    });
   });
 });
