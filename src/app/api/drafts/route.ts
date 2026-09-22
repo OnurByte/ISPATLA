@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createDraft, getAccountCategoryConfigs, getDraft, getDrafts, getPost, getAccounts, getStoredSources } from "@/server/db";
-import { accountCategories, accountMatchesSource, generateDraft, qualityGate } from "@/server/pipeline";
+import { accountCategories, accountMatchesSource, baseStrategyForCategory, composeDraft, qualityGate, storeDraftVariants } from "@/server/pipeline";
 import { evaluateDraft } from "@/server/draft-evaluator";
 import { guardMutation, readJsonBody } from "@/server/api-guard";
 
@@ -24,12 +24,24 @@ export async function POST(request: Request) {
     const format = String(body.format || "post");
     let status = "draft";
     let gateReason = "";
+    let generated: Awaited<ReturnType<typeof composeDraft>> | null = null;
     if (!text && post) {
       if (account && source && !accountMatchesSource(account, source)) {
         return NextResponse.json({ error: "seçilen hesap, kaynak tandansı ile eşleşmiyor" }, { status: 422 });
       }
-      const style = account ? JSON.stringify(account.styleProfile) : "sade, kanıt odaklı";
-      const generated = await generateDraft(post, { format, style, instruction: typeof body.instruction === "string" ? body.instruction : "", account, source });
+      const categorySlug = account
+        ? getAccountCategoryConfigs()
+          .filter((item) => item.accountId === account.id && item.enabled)
+          .sort((left, right) => Number(right.primary) - Number(left.primary) || right.priority - left.priority)[0]?.categorySlug
+          || accountCategories(account)[0]
+          || ""
+        : "";
+      generated = await composeDraft({
+        post, account, source, format,
+        instruction: typeof body.instruction === "string" ? body.instruction : "",
+        categorySlug,
+        baseStrategy: baseStrategyForCategory(categorySlug),
+      });
       if (!("text" in generated)) return NextResponse.json({ error: generated.reason }, { status: 422 });
       text = generated.text;
       gateReason = format === "post" ? qualityGate(post, text) || "quality gate geçti" : "format için manuel kontrol bekliyor";
@@ -46,6 +58,7 @@ export async function POST(request: Request) {
       gateReason,
       now,
     });
+    if (generated && "variants" in generated) storeDraftVariants(draft.id, generated.variants, now);
     if (account) {
       const categorySlug = getAccountCategoryConfigs()
         .filter((item) => item.accountId === account.id && item.enabled)
