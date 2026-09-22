@@ -4,13 +4,21 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { getSetting, setSetting } from "@/server/db";
 import {
+  buildJevRequestBody,
   defaultCacheTtlSeconds,
   getJevSettings,
   isAliasModel,
+  jevConfig,
   jevEndpoint,
+  jevFixedChars,
+  jevPlanCandidateChunks,
+  jevQuestionOverheadChars,
   jevScore,
   jevToPercent,
   setJevTransportForTests,
+  JEV_MAX_CANDIDATES,
+  JEV_MAX_INPUT_CHARS,
+  JEV_MAX_QUESTIONS,
   type JevCandidate,
   type JevTransport,
 } from "@/server/jev";
@@ -465,5 +473,86 @@ describe("confidence provenance", () => {
       expect(result.degraded).toBe(true);
       expect(result.confidenceProvenance).toEqual({ present: 0, missing: 0, usedForSelection: false });
     });
+  });
+});
+
+describe("jev request budget planning", () => {
+  const facetText = (index: number) =>
+    `f${index} — ${"kategori tanımı ve anahtar kelimeler ".repeat(10)}`.slice(0, 600);
+
+  function planned(statementChars: number, facetCount: number, titleChars = 180) {
+    const query = "Bu aday hesabın yayın alanına ne kadar doğrudan giriyor?";
+    const model = "jev-latest";
+    const facets = Array.from({ length: facetCount }, (_, index) => facetText(index));
+    const perCall = jevPlanCandidateChunks({
+      candidateCount: JEV_MAX_CANDIDATES,
+      facets,
+      statementChars,
+      fixedChars: jevFixedChars(query, model),
+      titleChars,
+    });
+    const candidates: JevCandidate[] = Array.from({ length: perCall }, (_, index) => ({
+      id: `post-${index}-${"x".repeat(10)}`,
+      title: "b".repeat(titleChars - 2),
+      statement: "s".repeat(statementChars),
+      scope: "kaynakhesap",
+      domains: ["news", "politics", "technology", "finance", "culture", "sports"],
+    }));
+    const config = { ...jevConfig(), model };
+    return { perCall, body: JSON.stringify(buildJevRequestBody(config, query, facets, candidates)) };
+  }
+
+  test("the questions block is measured from the real serializer", () => {
+    expect(jevQuestionOverheadChars(0, 3)).toBe(2);
+    expect(jevQuestionOverheadChars(1, 1)).toBeLessThan(340);
+    // Monotonic in both axes, and 96 questions alone already blow the budget.
+    expect(jevQuestionOverheadChars(10, 3)).toBeGreaterThan(jevQuestionOverheadChars(10, 2));
+    expect(jevQuestionOverheadChars(32, 3)).toBeGreaterThan(JEV_MAX_INPUT_CHARS);
+  });
+
+  test("a planned body stays inside maxInputChars for every facet count", () => {
+    for (const facetCount of [1, 2, 3]) {
+      const { perCall, body } = planned(400, facetCount);
+      expect(perCall).toBeGreaterThan(0);
+      expect(perCall * facetCount).toBeLessThanOrEqual(JEV_MAX_QUESTIONS);
+      expect(perCall).toBeLessThanOrEqual(JEV_MAX_CANDIDATES);
+      expect(body.length).toBeLessThanOrEqual(JEV_MAX_INPUT_CHARS);
+    }
+  });
+
+  test("a planned body stays inside maxInputChars for large statements", () => {
+    const { perCall, body } = planned(1200, 3, 200);
+    expect(perCall).toBeGreaterThan(0);
+    expect(body.length).toBeLessThanOrEqual(JEV_MAX_INPUT_CHARS);
+  });
+
+  test("a planned call is accepted by jevScore instead of budget_exceeded", async () => {
+    const { perCall } = planned(400, 3);
+    const facets = [facetText(0), facetText(1), facetText(2)];
+    const candidates = Array.from({ length: perCall }, (_, index) => ({
+      ...candidate(index),
+      statement: "s".repeat(400),
+    }));
+    const answers: Record<string, unknown> = {};
+    for (let facetIndex = 0; facetIndex < facets.length; facetIndex += 1) {
+      for (let candidateIndex = 0; candidateIndex < candidates.length; candidateIndex += 1) {
+        answers[`f${facetIndex}_c${candidateIndex}`] = { type: "score", score: 1 };
+      }
+    }
+    const { transport, calls } = fakeTransport(JSON.stringify({ answers }));
+    setJevTransportForTests(transport);
+    await withJevSettings({ jev_mode: "on", jev_cache_ttl_seconds: "0" }, async () => {
+      const result = await jevScore({ query: uniqueQuery("planned"), facets, candidates });
+      expect(result.diagnostics).toEqual([]);
+      expect(result.degraded).toBe(false);
+      expect(calls).toHaveLength(1);
+      expect(calls[0].body.length).toBeLessThanOrEqual(JEV_MAX_INPUT_CHARS);
+    });
+  });
+
+  test("planning refuses when a single candidate cannot fit", () => {
+    expect(jevPlanCandidateChunks({ candidateCount: 8, facets: ["a"], statementChars: 30_000 })).toBe(0);
+    expect(jevPlanCandidateChunks({ candidateCount: 8, facets: [], statementChars: 100 })).toBe(0);
+    expect(jevPlanCandidateChunks({ candidateCount: 0, facets: ["a"], statementChars: 100 })).toBe(0);
   });
 });

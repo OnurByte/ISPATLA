@@ -6,12 +6,15 @@ import type { CategoryDefinition } from "@/server/db";
 import {
   buildSourceJevCandidate,
   categoryFacetText,
+  jevCandidateChunks,
   jevFacetChunks,
+  sourceFieldSizes,
   sourceJevProfileFields,
   sourceRelevanceChoice,
   sourceStatementBudget,
   type SourceJevEvidence,
 } from "@/server/pipeline";
+import { buildJevRequestBody, jevConfig, jevFixedChars, jevPlanCandidateChunks, JEV_MAX_INPUT_CHARS } from "@/server/jev";
 
 /** The Jev source pass is exercised against a throwaway database in a child process. */
 function runIsolatedDatabase(script: string): Record<string, unknown> {
@@ -145,10 +148,44 @@ describe("jev source candidate and facet helpers", () => {
     expect(buildSourceJevCandidate(evidence, 10).statement.length).toBeLessThanOrEqual(320);
   });
 
-  test("splits the batch statement budget and keeps a floor", () => {
-    expect(sourceStatementBudget(10)).toBe(1400);
-    expect(sourceStatementBudget(100)).toBe(320);
-    expect(sourceStatementBudget(0)).toBe(14_000);
+  test("plans the statement budget against the real request size", () => {
+    const facets = [categoryFacetText(category("news", "News")), categoryFacetText(category("politics", "Politics")), categoryFacetText(category("technology", "Technology"))];
+    const fixedChars = jevFixedChars("Bu kaynak hesap hangi kategorilerde fırsat üretir?", "jev-latest");
+    const fields = sourceFieldSizes([buildSourceJevCandidate(evidence, 400)]);
+
+    // 10 due sources still fit in one call, with far more than the 400 char target.
+    const ten = sourceStatementBudget(10, facets, fixedChars, fields);
+    expect(ten).toBeGreaterThanOrEqual(400);
+    expect(ten).toBeGreaterThan(600);
+
+    // A pool too large for one call falls back to the target and gets chunked.
+    expect(sourceStatementBudget(32, facets, fixedChars, fields)).toBe(400);
+    expect(sourceStatementBudget(0, facets, fixedChars, fields)).toBe(1200);
+  });
+
+  test("chunks candidates so the serialized source body stays inside the budget", () => {
+    const facets = [categoryFacetText(category("news", "News")), categoryFacetText(category("politics", "Politics")), categoryFacetText(category("technology", "Technology"))];
+    const query = "Bu kaynak hesap hangi kategorilerde fırsat üretir?";
+    const config = { ...jevConfig(), model: "jev-latest" };
+    const fixedChars = jevFixedChars(query, config.model);
+    const statementChars = 400;
+    const pool = Array.from({ length: 32 }, (_, index) =>
+      buildSourceJevCandidate({ ...evidence, handle: `kaynak${index}` }, statementChars),
+    );
+    const perCall = jevPlanCandidateChunks({
+      candidateCount: pool.length,
+      facets,
+      statementChars,
+      fixedChars,
+      ...sourceFieldSizes(pool),
+    });
+    expect(perCall).toBeGreaterThan(0);
+    const groups = jevCandidateChunks(pool, perCall);
+    expect(groups.length).toBeGreaterThan(1);
+    for (const group of groups) {
+      expect(group.length).toBeLessThanOrEqual(perCall);
+      expect(JSON.stringify(buildJevRequestBody(config, query, facets, group)).length).toBeLessThanOrEqual(JEV_MAX_INPUT_CHARS);
+    }
   });
 
   test("keeps facet text short and free of provider instructions", () => {

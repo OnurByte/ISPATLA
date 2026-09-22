@@ -38,14 +38,28 @@ import {
   type ObservedPost,
   type RecentPost,
 } from "./db";
-import { jevMode, jevScore, jevToPercent, recordJevScores, JEV_MAX_CANDIDATES, JEV_MAX_FACETS, type JevCandidate } from "./jev";
+import {
+  jevFixedChars,
+  jevMode,
+  jevPlanCandidateChunks,
+  jevScore,
+  jevToPercent,
+  recordJevScores,
+  JEV_MAX_CANDIDATES,
+  JEV_MAX_FACETS,
+  type JevCandidate,
+} from "./jev";
 
 export const JEV_DAILY_BATCH_CAP_SETTING = "jev_daily_batch_cap";
 export const JEV_DEFAULT_DAILY_BATCH_CAP = 300;
 export const JEV_BATCH_DAY_PREFIX = "jev_batch:";
 export const JEV_BATCH_SCOPE = "opportunity_batch";
 export const JEV_BATCH_QUERY = "Bu aday hesabın yayın alanına ne kadar doğrudan giriyor?";
-/** Keeps 32 candidates x 3 facets well inside the 24000 char request budget. */
+/**
+ * Evidence per candidate. 32 candidates x 3 facets do NOT fit in one 24000 char
+ * body at this size, so the candidate axis is chunked by `jevPlanCandidateChunks`
+ * and the batch spends several calls instead of losing evidence.
+ */
 const STATEMENT_CHARS = 400;
 const FACET_CHARS = 600;
 
@@ -142,6 +156,17 @@ function chunk<T>(items: T[], size: number): T[][] {
   return groups;
 }
 
+/** Widest serialized title / scope / domains in the pool, for exact planning. */
+function candidateFieldSizes(candidates: JevCandidate[]): { titleChars: number; scopeChars: number; domainsChars: number } {
+  const widest = (pick: (candidate: JevCandidate) => unknown) =>
+    candidates.reduce((max, candidate) => Math.max(max, JSON.stringify(pick(candidate) ?? "").length), 0);
+  return {
+    titleChars: widest((candidate) => candidate.title),
+    scopeChars: widest((candidate) => candidate.scope),
+    domainsChars: widest((candidate) => candidate.domains),
+  };
+}
+
 function orderOf(posts: RecentPost[], score: (post: RecentPost) => number): string[] {
   return [...posts]
     .sort((left, right) => score(right) - score(left) || right.createdTimestamp - left.createdTimestamp)
@@ -183,45 +208,59 @@ export async function rankOpportunityBatch(input: {
   let degraded = false;
   let capped = false;
 
-  for (const group of chunk(accounts, JEV_MAX_FACETS)) {
-    if (batchCallsToday(input.now) >= dailyBatchCap()) {
-      capped = true;
-      diagnostics.add("budget_exceeded");
-      break;
-    }
-    countBatchCall(input.now);
-    calls += 1;
-    const before = postVersionStamps(candidates.map((candidate) => candidate.id));
-    const result = await jevScore({
-      query: JEV_BATCH_QUERY,
-      facets: group.map((account) => facetByAccount.get(account.id) || `@${account.handle}`),
-      candidates,
-      scope: JEV_BATCH_SCOPE,
+  const fixedChars = jevFixedChars(JEV_BATCH_QUERY);
+  const fields = candidateFieldSizes(candidates);
+  outer: for (const group of chunk(accounts, JEV_MAX_FACETS)) {
+    const facets = group.map((account) => facetByAccount.get(account.id) || `@${account.handle}`);
+    const perCall = jevPlanCandidateChunks({
+      candidateCount: candidates.length,
+      facets,
+      statementChars: STATEMENT_CHARS,
+      fixedChars,
+      ...fields,
     });
-    for (const diagnostic of result.diagnostics) diagnostics.add(diagnostic);
-    if (result.degraded) {
+    if (perCall <= 0) {
       degraded = true;
+      diagnostics.add("budget_exceeded");
       continue;
     }
-    const after = postVersionStamps(candidates.map((candidate) => candidate.id));
-    const drifted = new Set(candidates.map((candidate) => candidate.id).filter((id) => before.get(id) !== after.get(id)));
-    if (drifted.size) {
-      diagnostics.add("source_changed_during_evaluation");
-      for (const id of drifted) changed.add(id);
-    }
-    const entries: Array<{ subjectId: string; questionKey: string; score: number }> = [];
-    group.forEach((account, facetIndex) => {
-      const facetScores = result.facetScores[String(facetIndex)] || {};
-      for (const candidate of candidates) {
-        const raw = facetScores[candidate.id];
-        if (raw === undefined || drifted.has(candidate.id)) continue;
-        const percent = jevToPercent(raw);
-        perAccount[candidate.id] = { ...(perAccount[candidate.id] || {}), [account.id]: percent };
-        relevance[candidate.id] = Math.max(relevance[candidate.id] ?? 0, percent);
-        entries.push({ subjectId: candidate.id, questionKey: String(account.id), score: raw });
+    // Every chunk is a separate call and every call counts against the day cap.
+    for (const slice of chunk(candidates, perCall)) {
+      if (batchCallsToday(input.now) >= dailyBatchCap()) {
+        capped = true;
+        diagnostics.add("budget_exceeded");
+        break outer;
       }
-    });
-    if (entries.length) recordJevScores({ subjectKind: "post", entries, result, now: input.now });
+      countBatchCall(input.now);
+      calls += 1;
+      const ids = slice.map((candidate) => candidate.id);
+      const before = postVersionStamps(ids);
+      const result = await jevScore({ query: JEV_BATCH_QUERY, facets, candidates: slice, scope: JEV_BATCH_SCOPE });
+      for (const diagnostic of result.diagnostics) diagnostics.add(diagnostic);
+      if (result.degraded) {
+        degraded = true;
+        continue;
+      }
+      const after = postVersionStamps(ids);
+      const drifted = new Set(ids.filter((id) => before.get(id) !== after.get(id)));
+      if (drifted.size) {
+        diagnostics.add("source_changed_during_evaluation");
+        for (const id of drifted) changed.add(id);
+      }
+      const entries: Array<{ subjectId: string; questionKey: string; score: number }> = [];
+      group.forEach((account, facetIndex) => {
+        const facetScores = result.facetScores[String(facetIndex)] || {};
+        for (const candidate of slice) {
+          const raw = facetScores[candidate.id];
+          if (raw === undefined || drifted.has(candidate.id)) continue;
+          const percent = jevToPercent(raw);
+          perAccount[candidate.id] = { ...(perAccount[candidate.id] || {}), [account.id]: percent };
+          relevance[candidate.id] = Math.max(relevance[candidate.id] ?? 0, percent);
+          entries.push({ subjectId: candidate.id, questionKey: String(account.id), score: raw });
+        }
+      });
+      if (entries.length) recordJevScores({ subjectKind: "post", entries, result, now: input.now });
+    }
   }
 
   for (const post of posts) {

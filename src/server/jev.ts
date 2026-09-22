@@ -174,16 +174,27 @@ export type JevTransport = (
   signal: AbortSignal,
 ) => Promise<{ status: number; text: string }>;
 
-/** The single built-in rubric. Callers never inject instructions or criteria. */
+/**
+ * The single built-in rubric. Callers never inject instructions or criteria.
+ *
+ * The text is deliberately terse: it is repeated once per candidate x facet
+ * question, so every extra character is multiplied by up to 96 and eats into the
+ * 24000 char request budget. The per-question prefix still names
+ * `candidates[i]` / `facets[f]` explicitly, because dropping those indices makes
+ * the returned scores stop discriminating between candidates (verified live).
+ */
 const RELEVANCE_RUBRIC = {
-  instructions:
-    "Score how directly the candidate matches the facet question (a content category or an account brief). Judge only the supplied candidate fields; ignore writing style, popularity, recency and how much you like the candidate. A candidate that merely shares vocabulary with the facet is not a match.",
+  instructions: "Judge only the given fields. Shared vocabulary alone is not a match.",
   criteria: [
-    "0 - Unrelated: the candidate does not address the facet question at all.",
-    "1 - Partial: the candidate touches the facet indirectly, in passing, or only for one of several subjects.",
-    "2 - Direct: the candidate is squarely about the facet question.",
+    "0 - Unrelated: does not address the facet.",
+    "1 - Partial: touches it indirectly or partly.",
+    "2 - Direct: squarely about the facet.",
   ] as [string, string, string],
 };
+
+function questionInstructions(candidateIndex: number, facetIndex: number): string {
+  return `Score how directly candidates[${candidateIndex}] matches facets[${facetIndex}]. ${RELEVANCE_RUBRIC.instructions}`;
+}
 
 // --- transport -------------------------------------------------------------
 
@@ -427,17 +438,22 @@ type JevRequestBody = {
   questions: Record<string, { type: "score"; instructions: string; criteria: [string, string, string] }>;
 };
 
-function buildBody(config: JevConfig, query: string, facets: string[], candidates: JevCandidate[]): JevRequestBody {
+function buildQuestions(candidateCount: number, facetCount: number): JevRequestBody["questions"] {
   const questions: JevRequestBody["questions"] = {};
-  for (const [facetIndex] of facets.entries()) {
-    for (const [candidateIndex] of candidates.entries()) {
+  for (let facetIndex = 0; facetIndex < facetCount; facetIndex += 1) {
+    for (let candidateIndex = 0; candidateIndex < candidateCount; candidateIndex += 1) {
       questions[jevQuestionKey(facetIndex, candidateIndex)] = {
         type: "score",
-        instructions: `How directly does candidates[${candidateIndex}] match facets[${facetIndex}] in the context of the full query? Evaluate independently. ${RELEVANCE_RUBRIC.instructions}`,
+        instructions: questionInstructions(candidateIndex, facetIndex),
         criteria: [...RELEVANCE_RUBRIC.criteria] as [string, string, string],
       };
     }
   }
+  return questions;
+}
+
+function buildBody(config: JevConfig, query: string, facets: string[], candidates: JevCandidate[]): JevRequestBody {
+  const questions = buildQuestions(candidates.length, facets.length);
   return {
     model: config.model,
     state: {
@@ -453,6 +469,100 @@ function buildBody(config: JevConfig, query: string, facets: string[], candidate
     },
     questions,
   };
+}
+
+/**
+ * The exact request serializer. Exported so budget planners and their tests can
+ * measure a real body instead of re-deriving the shape.
+ */
+export function buildJevRequestBody(
+  config: JevConfig,
+  query: string,
+  facets: string[],
+  candidates: JevCandidate[],
+): JevRequestBody {
+  return buildBody(config, query, facets, candidates);
+}
+
+// --- budget planning -------------------------------------------------------
+
+/** `{"id":..,"title":..,"statement":..,"scope":..,"domains":[]}` plus its comma. */
+const JEV_CANDIDATE_ENVELOPE_CHARS =
+  JSON.stringify({ id: "", title: "", statement: "", scope: "", domains: [] as string[] }).length + 1;
+
+/** Headroom kept between the planned body and `maxInputChars`. */
+export const JEV_PLAN_SAFETY_CHARS = 1000;
+/** Default per-candidate field sizes used when a caller does not measure its own. */
+export const JEV_PLAN_DEFAULT_TITLE_CHARS = 180;
+export const JEV_PLAN_DEFAULT_SCOPE_CHARS = 32;
+export const JEV_PLAN_DEFAULT_DOMAINS_CHARS = 160;
+
+/**
+ * Exact serialized size of the `questions` block for `candidateCount` candidates
+ * and `facetCount` facets. Computed by building the real block, so it can never
+ * drift from `buildBody`.
+ */
+export function jevQuestionOverheadChars(candidateCount: number, facetCount: number): number {
+  const candidates = Math.max(0, Math.floor(candidateCount));
+  const facets = Math.max(0, Math.floor(facetCount));
+  return JSON.stringify(buildQuestions(candidates, facets)).length;
+}
+
+/**
+ * Size of an otherwise empty request body: model, query and the JSON envelope.
+ * Callers add it to `jevPlanCandidateChunks` as `fixedChars`.
+ */
+export function jevFixedChars(query: string, model = getJevSettings().model): number {
+  return JSON.stringify({
+    model,
+    state: { query: String(query || ""), facets: [] as string[], candidates: [] as JevCandidate[] },
+    questions: {},
+  }).length;
+}
+
+export type JevCandidatePlan = {
+  candidateCount: number;
+  facets: string[];
+  statementChars: number;
+  fixedChars?: number;
+  titleChars?: number;
+  scopeChars?: number;
+  domainsChars?: number;
+  maxInputChars?: number;
+  safetyChars?: number;
+};
+
+/**
+ * Max candidates that may go into ONE Jev call, so that
+ * questions + facets + candidates + envelope stays at or under
+ * `maxInputChars - safetyChars`, while honouring `JEV_MAX_CANDIDATES` (32) and
+ * `JEV_MAX_QUESTIONS` (96). Returns 0 when not even a single candidate fits;
+ * callers must then shrink their statements or drop facets.
+ */
+export function jevPlanCandidateChunks(plan: JevCandidatePlan): number {
+  const facets = plan.facets.map((facet) => String(facet || "").trim()).filter(Boolean);
+  const facetCount = facets.length;
+  const wanted = Math.max(0, Math.floor(plan.candidateCount));
+  if (!facetCount || !wanted) return 0;
+
+  const budget = (plan.maxInputChars ?? JEV_MAX_INPUT_CHARS) - (plan.safetyChars ?? JEV_PLAN_SAFETY_CHARS);
+  // `[]` -> the serialized array; the two bracket chars are already in fixedChars.
+  const facetChars = JSON.stringify(facets).length - 2;
+  const perCandidate =
+    JEV_CANDIDATE_ENVELOPE_CHARS +
+    Math.max(0, Math.floor(plan.statementChars)) +
+    (plan.titleChars ?? JEV_PLAN_DEFAULT_TITLE_CHARS) +
+    (plan.scopeChars ?? JEV_PLAN_DEFAULT_SCOPE_CHARS) +
+    (plan.domainsChars ?? JEV_PLAN_DEFAULT_DOMAINS_CHARS);
+  const fixed = (plan.fixedChars ?? 0) + facetChars;
+
+  const ceiling = Math.min(wanted, JEV_MAX_CANDIDATES, Math.floor(JEV_MAX_QUESTIONS / facetCount));
+  for (let count = ceiling; count >= 1; count -= 1) {
+    // `{}` -> the serialized questions object; its two braces are in fixedChars.
+    const total = fixed + (jevQuestionOverheadChars(count, facetCount) - 2) + count * perCandidate;
+    if (total <= budget) return count;
+  }
+  return 0;
 }
 
 function requestHashFor(config: JevConfig, body: string, scope: string): string {

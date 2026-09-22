@@ -9,7 +9,8 @@ import { expect, test } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { accountFacet, dayKey, preferredRelevanceAccount, toJevCandidate } from "@/server/opportunity-batch";
+import { accountFacet, dayKey, preferredRelevanceAccount, toJevCandidate, JEV_BATCH_QUERY } from "@/server/opportunity-batch";
+import { buildJevRequestBody, jevConfig, jevFixedChars, jevPlanCandidateChunks, JEV_MAX_INPUT_CHARS } from "@/server/jev";
 import type { Account, AccountCategoryConfig, CategoryDefinition } from "@/server/db";
 
 const FIXTURE_NOW = 1_750_000_000;
@@ -47,6 +48,8 @@ function batchScript(options: {
   body?: string;
   /** externalId rewritten from inside the transport, i.e. while the call is in flight. */
   drift?: string;
+  /** Pads every post text so each candidate carries a full 400 char statement. */
+  padText?: boolean;
 }): string {
   return `
     import { Database } from "bun:sqlite";
@@ -98,7 +101,8 @@ function batchScript(options: {
         scoreReason: scored.reason, sensitive: post.sensitive, clusterKey: post.clusterKey || post.externalId,
       }, at);
     };
-    for (const post of OPPORTUNITY_FIXTURE) seedPost(post, post.text, NOW);
+    const PAD = ${options.padText ? "true" : "false"};
+    for (const post of OPPORTUNITY_FIXTURE) seedPost(post, PAD ? post.text + " " + "dolgu metni ".repeat(80) : post.text, NOW);
 
     setSetting("jev_mode", ${JSON.stringify(options.mode)}, NOW);
     setSetting("jev_base_url", "https://api.typesafe.ai", NOW);
@@ -141,6 +145,8 @@ function batchScript(options: {
     console.log(JSON.stringify({
       calls: calls.length,
       facetCounts: calls.map((call) => call.state.facets.length),
+      candidateCounts: calls.map((call) => call.state.candidates.length),
+      bodySizes: calls.map((call) => JSON.stringify(call).length),
       candidateCount: calls[0] ? calls[0].state.candidates.length : 0,
       firstCandidate: calls[0] ? calls[0].state.candidates[0] : null,
       result,
@@ -251,6 +257,53 @@ test("five accounts are covered by two calls of at most three facets", () => {
   expect(output.facetCounts).toEqual([3, 2]);
   expect(output.result.calls).toBe(2);
   expect(output.callsToday.value).toBe("2");
+});
+
+test("a padded pool is covered by planned calls that stay inside the budget", () => {
+  const output = JSON.parse(runIsolatedDatabase(batchScript({ mode: "shadow", accounts: 3, padText: true })));
+  // Three accounts are one facet group, so every extra call is a candidate chunk.
+  expect(output.facetCounts).toEqual(Array.from({ length: output.calls }, () => 3));
+  expect(output.candidateCounts.reduce((sum: number, count: number) => sum + count, 0)).toBe(output.result.postIds.length);
+  for (const size of output.bodySizes) expect(size).toBeLessThanOrEqual(24_000);
+  expect(output.result.calls).toBe(output.calls);
+  expect(output.callsToday.value).toBe(String(output.calls));
+  expect(output.result.degraded).toBe(false);
+  expect(output.result.diagnostics).toEqual([]);
+  // Every candidate is still scored exactly once per account.
+  expect(output.ledger.count).toBe(output.result.postIds.length * 3);
+  expect(output.posts.length).toBe(output.result.postIds.length);
+});
+
+test("every planned body stays inside the 24000 char request budget", () => {
+  const facets = Array.from({ length: 3 }, (_, index) =>
+    accountFacet(
+      { id: index + 1, handle: `hesap${index}`, styleProfile: { niche: "uzun bir yayın alanı tarifi ".repeat(6) } } as unknown as Account,
+      [{ id: 1, slug: "news", name: "Haber", enabled: true, description: "Uzun kategori tarifi ".repeat(10), keywords: ["a", "b", "c"] }] as unknown as CategoryDefinition[],
+      [{ accountId: index + 1, categoryId: 1, categorySlug: "news", enabled: true }] as unknown as AccountCategoryConfig[],
+    ),
+  );
+  const pool = Array.from({ length: 32 }, (_, index) =>
+    toJevCandidate(
+      { externalId: `post-${index}`, sourceHandle: "kaynakhesap", text: `Başlık ${index} ${"g".repeat(200)}\n${"gövde ".repeat(200)}` },
+      ["news", "politics", "technology", "finance", "culture", "sports"],
+    ),
+  );
+  const perCall = jevPlanCandidateChunks({
+    candidateCount: pool.length,
+    facets,
+    statementChars: 400,
+    fixedChars: jevFixedChars(JEV_BATCH_QUERY, "jev-latest"),
+    titleChars: Math.max(...pool.map((item) => JSON.stringify(item.title).length)),
+    scopeChars: Math.max(...pool.map((item) => JSON.stringify(item.scope).length)),
+    domainsChars: Math.max(...pool.map((item) => JSON.stringify(item.domains).length)),
+  });
+  expect(perCall).toBeGreaterThan(0);
+  expect(perCall).toBeLessThan(pool.length);
+  const config = { ...jevConfig(), model: "jev-latest" };
+  for (let offset = 0; offset < pool.length; offset += perCall) {
+    const body = JSON.stringify(buildJevRequestBody(config, JEV_BATCH_QUERY, facets, pool.slice(offset, offset + perCall)));
+    expect(body.length).toBeLessThanOrEqual(JEV_MAX_INPUT_CHARS);
+  }
 });
 
 test("the daily cap stops the batch before any transport call", () => {

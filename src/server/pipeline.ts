@@ -85,7 +85,9 @@ import {
   JEV_MAX_CANDIDATES,
   JEV_MAX_FACETS,
   JEV_MAX_QUESTIONS,
+  jevFixedChars,
   jevMode,
+  jevPlanCandidateChunks,
   jevScore,
   jevToPercent,
   recordJevScores,
@@ -994,8 +996,16 @@ function combinedSourceScore(ai: AiScore, activity: number, historical: number |
 export const JEV_SOURCE_QUERY = "Bu kaynak hesap hangi kategorilerde fırsat üretir?";
 export const JEV_SOURCE_SUBJECT = "source";
 export const JEV_SOURCE_SCOPE = "source-discovery";
-/** Statement budget for one batch; the whole request body is capped at 24000 chars. */
-const JEV_SOURCE_STATEMENT_BUDGET = 14_000;
+/**
+ * Statement sizing for one batch. The whole request body is capped at 24000
+ * chars, and the per-question rubric is repeated candidates x facets times, so
+ * the statement budget is *planned* against the real serializer
+ * (`jevPlanCandidateChunks`) instead of being split from a flat pool.
+ */
+const JEV_SOURCE_MAX_STATEMENT = 1200;
+/** Contract target: every source should carry at least this much evidence. */
+const JEV_SOURCE_TARGET_STATEMENT = 400;
+const JEV_SOURCE_STATEMENT_STEP = 40;
 const JEV_SOURCE_MIN_STATEMENT = 320;
 const JEV_SOURCE_POST_SNIPPETS = 6;
 const JEV_SOURCE_POST_CHARS = 240;
@@ -1023,10 +1033,36 @@ function compactText(value: string): string {
   return String(value || "").replace(/\s+/gu, " ").trim();
 }
 
-/** Even split of the batch statement budget; the floor keeps short batches readable. */
-export function sourceStatementBudget(count: number): number {
-  if (count <= 0) return JEV_SOURCE_STATEMENT_BUDGET;
-  return Math.max(JEV_SOURCE_MIN_STATEMENT, Math.floor(JEV_SOURCE_STATEMENT_BUDGET / count));
+export type SourceFieldSizes = { titleChars?: number; scopeChars?: number; domainsChars?: number };
+
+/**
+ * Largest per-source statement that still lets the whole batch travel in ONE
+ * call, never below the 400 char target. When even the target does not fit the
+ * caller chunks candidates instead of shrinking evidence further.
+ */
+export function sourceStatementBudget(
+  count: number,
+  facets: string[],
+  fixedChars: number,
+  fields: SourceFieldSizes = {},
+): number {
+  if (count <= 0) return JEV_SOURCE_MAX_STATEMENT;
+  for (let chars = JEV_SOURCE_MAX_STATEMENT; chars > JEV_SOURCE_TARGET_STATEMENT; chars -= JEV_SOURCE_STATEMENT_STEP) {
+    const perCall = jevPlanCandidateChunks({ candidateCount: count, facets, statementChars: chars, fixedChars, ...fields });
+    if (perCall >= count) return chars;
+  }
+  return JEV_SOURCE_TARGET_STATEMENT;
+}
+
+/** Widest serialized title / scope / domains in the batch, for exact planning. */
+export function sourceFieldSizes(candidates: JevCandidate[]): Required<SourceFieldSizes> {
+  const widest = (pick: (candidate: JevCandidate) => unknown) =>
+    candidates.reduce((max, candidate) => Math.max(max, JSON.stringify(pick(candidate) ?? "").length), 0);
+  return {
+    titleChars: widest((candidate) => candidate.title),
+    scopeChars: widest((candidate) => candidate.scope),
+    domainsChars: widest((candidate) => candidate.domains),
+  };
 }
 
 export function buildSourceJevCandidate(evidence: SourceJevEvidence, statementChars: number): JevCandidate {
@@ -1098,9 +1134,19 @@ function applyJevRelevance(ai: AiScore, relevance: number | null): AiScore {
   return relevance === null ? ai : { ...ai, score: relevance };
 }
 
+/** Splits candidates into groups of at most `size` for one call each. */
+export function jevCandidateChunks<T>(items: T[], size: number): T[][] {
+  const perCall = Math.max(1, Math.floor(size));
+  const chunks: T[][] = [];
+  for (let offset = 0; offset < items.length; offset += perCall) chunks.push(items.slice(offset, offset + perCall));
+  return chunks;
+}
+
 /**
  * One Jev pass for the whole due batch: candidates are the sources, facets are
- * the enabled categories chunked into groups of at most three.
+ * the enabled categories chunked into groups of at most three. Both axes are
+ * chunked: when the planned body would not hold every source alongside a facet
+ * group, the sources are split over several calls for that group.
  */
 async function sourceJevRelevance(
   mode: JevMode,
@@ -1114,62 +1160,97 @@ async function sourceJevRelevance(
   if (!categories.length) return byHandle;
 
   const batch = evidences.slice(0, JEV_MAX_CANDIDATES);
-  const statementChars = sourceStatementBudget(batch.length);
-  const candidateList = batch.map((evidence) => buildSourceJevCandidate(evidence, statementChars));
   for (const evidence of batch) byHandle.set(evidence.handle, { relevance: null, categoryScores: {}, diagnostics: [], degraded: false });
 
+  const fixedChars = jevFixedChars(JEV_SOURCE_QUERY);
+  const facetChunks = jevFacetChunks(categories, batch.length);
+  // The widest facet group decides the statement budget, so every call in this
+  // pass serializes the same candidate text (and shares one cache key shape).
+  const facetTextsByChunk = facetChunks.map((chunk) => chunk.map(categoryFacetText));
+  const widestFacets = facetTextsByChunk.reduce(
+    (widest, texts) => (JSON.stringify(texts).length > JSON.stringify(widest).length ? texts : widest),
+    facetTextsByChunk[0] || [],
+  );
+  const probe = batch.map((evidence) => buildSourceJevCandidate(evidence, JEV_SOURCE_TARGET_STATEMENT));
+  const fields = sourceFieldSizes(probe);
+  const statementChars = sourceStatementBudget(batch.length, widestFacets, fixedChars, fields);
+  const candidateList = batch.map((evidence) => buildSourceJevCandidate(evidence, statementChars));
+
   let noted = false;
-  const handles = candidateList.map((candidate) => candidate.id);
   /** Handles whose stored profile moved mid-call; their scores are dropped for good. */
   const changed = new Set<string>();
-  for (const chunk of jevFacetChunks(categories, candidateList.length)) {
-    const before = sourceVersionStamps(handles);
-    const result = await jevScore({
-      query: JEV_SOURCE_QUERY,
-      facets: chunk.map(categoryFacetText),
-      candidates: candidateList,
-      scope: JEV_SOURCE_SCOPE,
+  for (const [chunkIndex, chunk] of facetChunks.entries()) {
+    const facetTexts = facetTextsByChunk[chunkIndex];
+    const perCall = jevPlanCandidateChunks({
+      candidateCount: candidateList.length,
+      facets: facetTexts,
+      statementChars,
+      fixedChars,
+      ...fields,
     });
-    if (result.degraded) {
+    if (perCall <= 0) {
+      if (!noted) {
+        errors.push("jev kaynak ilgililiği kullanılamadı: budget_exceeded");
+        noted = true;
+      }
       for (const state of byHandle.values()) {
         state.degraded = true;
-        for (const code of result.diagnostics) if (!state.diagnostics.includes(code)) state.diagnostics.push(code);
-      }
-      if (!noted) {
-        errors.push(`jev kaynak ilgililiği kullanılamadı: ${result.diagnostics.join(", ") || "degraded"}`);
-        noted = true;
+        if (!state.diagnostics.includes("budget_exceeded")) state.diagnostics.push("budget_exceeded");
       }
       continue;
     }
-    // Contract: re-read the source version AFTER the response and drop whatever
-    // moved while the provider was thinking (jev-context/02, "Gizlilik").
-    const after = sourceVersionStamps(handles);
-    for (const handle of handles) {
-      if (before.get(handle) === after.get(handle)) continue;
-      changed.add(handle);
-      const state = byHandle.get(handle);
-      if (!state) continue;
-      state.relevance = null;
-      state.categoryScores = {};
-      state.degraded = true;
-      if (!state.diagnostics.includes("source_changed_during_evaluation")) {
-        state.diagnostics.push("source_changed_during_evaluation");
+    for (const group of jevCandidateChunks(candidateList, perCall)) {
+      const handles = group.map((candidate) => candidate.id);
+      const before = sourceVersionStamps(handles);
+      const result = await jevScore({
+        query: JEV_SOURCE_QUERY,
+        facets: facetTexts,
+        candidates: group,
+        scope: JEV_SOURCE_SCOPE,
+      });
+      if (result.degraded) {
+        for (const handle of handles) {
+          const state = byHandle.get(handle);
+          if (!state) continue;
+          state.degraded = true;
+          for (const code of result.diagnostics) if (!state.diagnostics.includes(code)) state.diagnostics.push(code);
+        }
+        if (!noted) {
+          errors.push(`jev kaynak ilgililiği kullanılamadı: ${result.diagnostics.join(", ") || "degraded"}`);
+          noted = true;
+        }
+        continue;
       }
-    }
-    const entries: JevScoreEntry[] = [];
-    for (const [facetIndex, category] of chunk.entries()) {
-      const bucket = result.facetScores[String(facetIndex)] || {};
-      for (const candidate of candidateList) {
-        const raw = Number(bucket[candidate.id]);
-        const state = byHandle.get(candidate.id);
-        if (!state || !Number.isFinite(raw) || changed.has(candidate.id)) continue;
-        entries.push({ subjectId: candidate.id, questionKey: category.slug, score: raw });
-        const percent = jevToPercent(raw);
-        state.categoryScores[category.slug] = percent;
-        state.relevance = Math.max(state.relevance ?? 0, percent);
+      // Contract: re-read the source version AFTER the response and drop whatever
+      // moved while the provider was thinking (jev-context/02, "Gizlilik").
+      const after = sourceVersionStamps(handles);
+      for (const handle of handles) {
+        if (before.get(handle) === after.get(handle)) continue;
+        changed.add(handle);
+        const state = byHandle.get(handle);
+        if (!state) continue;
+        state.relevance = null;
+        state.categoryScores = {};
+        state.degraded = true;
+        if (!state.diagnostics.includes("source_changed_during_evaluation")) {
+          state.diagnostics.push("source_changed_during_evaluation");
+        }
       }
+      const entries: JevScoreEntry[] = [];
+      for (const [facetIndex, category] of chunk.entries()) {
+        const bucket = result.facetScores[String(facetIndex)] || {};
+        for (const candidate of group) {
+          const raw = Number(bucket[candidate.id]);
+          const state = byHandle.get(candidate.id);
+          if (!state || !Number.isFinite(raw) || changed.has(candidate.id)) continue;
+          entries.push({ subjectId: candidate.id, questionKey: category.slug, score: raw });
+          const percent = jevToPercent(raw);
+          state.categoryScores[category.slug] = percent;
+          state.relevance = Math.max(state.relevance ?? 0, percent);
+        }
+      }
+      if (entries.length) recordJevScores({ subjectKind: JEV_SOURCE_SUBJECT, entries, result, now });
     }
-    if (entries.length) recordJevScores({ subjectKind: JEV_SOURCE_SUBJECT, entries, result, now });
   }
   return byHandle;
 }
