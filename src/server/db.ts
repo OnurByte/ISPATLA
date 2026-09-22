@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { createRequire } from "node:module";
-import { historicalPerformanceScore, isNumericalHit, observedEngagement, opportunityFreshness, opportunityScore, OPPORTUNITY_MAX_AGE_SECONDS, scorePost } from "./scoring";
+import { historicalPerformanceScore, isNumericalHit, observedEngagement, opportunityFreshness, opportunityScore, opportunityScoreWithRelevance, OPPORTUNITY_MAX_AGE_SECONDS, relevanceFactor, scorePost } from "./scoring";
 import type { MetricSnapshot } from "./scoring";
 
 // SQLite driver compat shim.
@@ -141,6 +141,11 @@ export type ObservedPost = {
   scoreReason: string;
   sensitive: boolean;
   clusterKey: string;
+  /** Layered Jev relevance (migration 17). null / absent means "no relevance evidence". */
+  relevanceScore?: number | null;
+  relevanceSource?: string | null;
+  relevanceJson?: string | null;
+  relevanceAt?: number | null;
 };
 
 export type RecentPost = ObservedPost & {
@@ -370,6 +375,12 @@ export type MarketItem = Omit<RecentPost, "rawJson"> & {
   marketStatus: "new" | "drafted" | "queued" | "published" | "ignored";
   decision: MarketDecision;
   scoreEvidence: ScoreEvidence;
+  /** Layered relevance evidence (Faz B3); null when the post was never Jev-ranked. */
+  jevRelevance: number | null;
+  jevRelevanceFactor: number;
+  jevRelevanceSource: string;
+  jevRelevanceAt: number;
+  jevRelevanceApplied: boolean;
 };
 
 export const MARKET_VIEWS = ["opportunities", "observed", "rejected", "sensitive"] as const;
@@ -1440,6 +1451,16 @@ function applyMigrations(): void {
     CREATE INDEX IF NOT EXISTS jev_cache_created_idx ON jev_cache(created_at DESC);`);
     command("INSERT INTO schema_migrations (version, applied_at) VALUES (16, unixepoch());");
   }
+  if (!applied.has(17)) {
+    // Layered opportunity score: relevance lives beside `score`, never inside score_reason,
+    // because the `deterministic:` prefix in score_reason is load bearing for candidates()
+    // and the market views.
+    addColumn("observed_posts", "relevance_score", "REAL");
+    addColumn("observed_posts", "relevance_source", "TEXT");
+    addColumn("observed_posts", "relevance_json", "TEXT");
+    addColumn("observed_posts", "relevance_at", "INTEGER");
+    command("INSERT INTO schema_migrations (version, applied_at) VALUES (17, unixepoch());");
+  }
 }
 
 export function ensureDatabase(): boolean {
@@ -2109,6 +2130,7 @@ export function getPost(externalId: string): RecentPost | null {
     status_url as statusUrl, text, created_timestamp as createdTimestamp, likes, replies,
     reposts, quotes, views, author_followers as followers, media_count as mediaCount, media_json as mediaJson,
     raw_json as rawJson, score, score_reason as scoreReason, sensitive, cluster_key as clusterKey,
+    relevance_score as relevanceScore, relevance_source as relevanceSource, relevance_json as relevanceJson, relevance_at as relevanceAt,
     observed_at as observedAt, draft_text as draftText, draft_status as draftStatus, publish_status as publishStatus
     FROM observed_posts WHERE external_id=${sqlString(externalId)} LIMIT 1;`)[0] || null;
 }
@@ -2406,6 +2428,7 @@ const POST_COLUMNS = `SELECT
     status_url as statusUrl, text, created_timestamp as createdTimestamp, likes, replies,
     reposts, quotes, views, author_followers as followers, author_verification_status as blueCheckStatus, media_count as mediaCount, media_json as mediaJson,
     raw_json as rawJson, score, score_reason as scoreReason, sensitive, cluster_key as clusterKey,
+    relevance_score as relevanceScore, relevance_source as relevanceSource, relevance_json as relevanceJson, relevance_at as relevanceAt,
     observed_at as observedAt, draft_text as draftText, draft_status as draftStatus, publish_status as publishStatus
     FROM observed_posts`;
 const MARKET_POST_COLUMNS = POST_COLUMNS.replace("raw_json as rawJson", "'' as rawJson");
@@ -3229,6 +3252,11 @@ function toMarketItem(post: RecentPost, now = Math.floor(Date.now() / 1000)): Ma
       marketStatus,
       decision: marketDecisionFor(post, now),
       scoreEvidence,
+      jevRelevance: postRelevance(post),
+      jevRelevanceFactor: relevanceFactor(postRelevance(post)),
+      jevRelevanceSource: String(post.relevanceSource || ""),
+      jevRelevanceAt: Number(post.relevanceAt || 0),
+      jevRelevanceApplied: relevanceApplies() && postRelevance(post) !== null,
     };
 }
 
@@ -3307,9 +3335,59 @@ export function scoreEvidenceFor(value: string, score: number): ScoreEvidence {
   };
 }
 
-export function opportunityScoreForPost(post: Pick<RecentPost, "score" | "scoreReason" | "sensitive" | "createdTimestamp">, now = Math.floor(Date.now() / 1000)): number {
+/**
+ * True only in jev_mode "on". Read through the setting rather than importing jev.ts:
+ * jev.ts already imports db.ts, and a module cycle would be resolved at import time
+ * for every db consumer.
+ */
+function relevanceApplies(): boolean {
+  return getSetting("jev_mode", "off") === "on";
+}
+
+/** The stored 0-100 relevance for a post, or null when there is no relevance evidence. */
+export function postRelevance(post: Pick<ObservedPost, "relevanceScore">): number | null {
+  const value = post.relevanceScore;
+  if (value === null || value === undefined) return null;
+  const number = Number(value);
+  return Number.isFinite(number) ? Math.min(100, Math.max(0, number)) : null;
+}
+
+/** Per-account relevance persisted by the opportunity batch, as { accountId: 0-100 }. */
+export function postAccountRelevance(post: Pick<ObservedPost, "relevanceJson">): Record<number, number> {
+  const parsed = parseObject(post.relevanceJson || "{}");
+  const perAccount = object(parsed.perAccount);
+  const map: Record<number, number> = {};
+  for (const [key, value] of Object.entries(perAccount)) {
+    const accountId = Number(key);
+    const score = Number(value);
+    if (Number.isFinite(accountId) && accountId > 0 && Number.isFinite(score)) map[accountId] = Math.min(100, Math.max(0, score));
+  }
+  return map;
+}
+
+/** Writes the layered relevance columns. Never touches score or score_reason. */
+export function updatePostRelevance(input: {
+  externalId: string;
+  relevance: number | null;
+  source: string;
+  details?: Record<string, unknown>;
+  now: number;
+}): void {
+  exec(`UPDATE observed_posts SET
+    relevance_score=${sqlReal(input.relevance)},
+    relevance_source=${sqlString(input.source)},
+    relevance_json=${sqlString(JSON.stringify(input.details || {}))},
+    relevance_at=${sqlNumber(input.now)}
+    WHERE external_id=${sqlString(input.externalId)};`);
+}
+
+export function opportunityScoreForPost(post: Pick<RecentPost, "score" | "scoreReason" | "sensitive" | "createdTimestamp"> & Pick<ObservedPost, "relevanceScore">, now = Math.floor(Date.now() / 1000)): number {
   const evidence = scoreEvidenceFor(post.scoreReason, post.score);
-  return opportunityScore(post.score, post.createdTimestamp, post.sensitive ? 100 : evidence.risk, now);
+  const risk = post.sensitive ? 100 : evidence.risk;
+  const relevance = relevanceApplies() ? postRelevance(post) : null;
+  return relevance === null
+    ? opportunityScore(post.score, post.createdTimestamp, risk, now)
+    : opportunityScoreWithRelevance(post.score, post.createdTimestamp, risk, relevance, now);
 }
 
 export function getDrafts(limit = 100): DraftRecord[] {

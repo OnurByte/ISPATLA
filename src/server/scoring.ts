@@ -127,3 +127,27 @@ export function selectDiverseCandidates<T extends { sourceHandle: string; cluste
   }
   return selected;
 }
+
+/**
+ * Layered relevance (Faz B3). `relevance` is a 0-100 Jev relevance percentage or
+ * null when no relevance evidence exists. null keeps the legacy behaviour exactly
+ * (factor 1.0); otherwise the factor is 0.5 + relevance/100 clamped to [0.5, 1.5],
+ * so relevance can halve or (at most) 1.5x a deterministic opportunity score but
+ * never replaces it.
+ */
+export function relevanceFactor(relevance: number | null): number {
+  if (relevance === null || relevance === undefined || !Number.isFinite(relevance)) return 1;
+  return Math.min(1.5, Math.max(0.5, 0.5 + relevance / 100));
+}
+
+/** opportunityScore scaled by relevanceFactor and clamped back to 0-100. */
+export function opportunityScoreWithRelevance(
+  momentum: number,
+  createdTimestamp: number,
+  risk = 0,
+  relevance: number | null = null,
+  now = Math.floor(Date.now() / 1000),
+): number {
+  const base = opportunityScore(momentum, createdTimestamp, risk, now);
+  return Math.min(100, Math.max(0, Math.round(base * relevanceFactor(relevance))));
+}

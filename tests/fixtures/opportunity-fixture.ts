@@ -59,3 +59,28 @@ export const OPPORTUNITY_FIXTURE: readonly OpportunityFixturePost[] = [
   // Future-dated inside the +300s tolerance: still a current opportunity.
   { externalId: "f16", sourceHandle: "sondakika", authorHandle: "sondakika", text: "Son dakika aciklama az once geldi", clusterKey: "son-dakika-aciklama-az-once-geldi", createdTimestamp: FIXTURE_NOW + 120, likes: 300, replies: 60, reposts: 140, quotes: 25, views: 22_000, followers: 640_000, mediaCount: 1, sensitive: false },
 ];
+
+/**
+ * FAKE relevance percentages (0-100) for the snapshot's version-2 fields, as a Jev
+ * batch would have persisted them. No network and no model is involved: these are
+ * fixed numbers chosen to exercise the layered score, including posts with no
+ * relevance evidence at all (null -> factor 1.0 -> legacy behaviour).
+ */
+export const FIXTURE_RELEVANCE: Record<string, number | null> = {
+  f01: 20,   // strongly relevant locally, weakly relevant to the accounts: must fall
+  f02: 95,
+  f03: null, // no relevance evidence: legacy score preserved
+  f04: 100,
+  f05: 90,
+  f06: 55,
+  f07: 80,   // sensitive: risk 100 keeps it at 0 regardless of relevance
+  f08: 0,
+  f09: null,
+  f10: 100,
+  f11: 70,
+  f12: 100,  // expired: freshness 0 keeps it at 0
+  f13: 100,
+  f14: 30,
+  f15: 100,
+  f16: 45,
+};

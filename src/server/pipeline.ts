@@ -75,6 +75,8 @@ import {
   type DiscoveryEvidence,
 } from "./sources";
 import { clusterKey, isNumericalHit, scorePost, selectDiverseCandidates } from "./scoring";
+import { preferredRelevanceAccount, rankOpportunityBatch } from "./opportunity-batch";
+import { jevMode } from "./jev";
 import { isAllowedAvatarUrl, isAllowedMediaContentType, isAllowedMediaUrl } from "./security";
 import { resolveIdeology } from "./ideologies";
 import { FxTwitterReader, normalizeFxPost, type XPost, type XProfile } from "./x-reader";
@@ -571,6 +573,18 @@ function accountMatchesCategories(account: Account, categories: string[], automa
   return accountTags.length > 0 && categories.some((category) => accountTags.includes(category.toLocaleLowerCase("tr-TR")));
 }
 
+/** The accounts that pass every eligibility gate; the only set a selector may choose from. */
+export function eligiblePublishingAccounts(
+  accounts: Account[],
+  source?: SourceConfig,
+  categories: string[] = [],
+  automatic = false,
+  configurations: AccountCategoryConfig[] = [],
+  sourceConfigurations: SourceCategoryConfig[] = [],
+): Account[] {
+  return accounts.filter((account) => account.enabled && (!automatic || account.automationMode === "auto") && accountMatchesSource(account, source) && sourceMatchesCategories(source, categories, sourceConfigurations) && accountMatchesCategories(account, categories, automatic, configurations));
+}
+
 export function selectPublishingAccount(
   accounts: Account[],
   performance: (accountId: number) => number | null = accountFeedbackScore,
@@ -581,12 +595,12 @@ export function selectPublishingAccount(
   sourceConfigurations: SourceCategoryConfig[] = [],
   recentPublishes: (accountId: number) => number = () => 0,
 ): Account | undefined {
-  const enabled = accounts.filter((account) => account.enabled && (!automatic || account.automationMode === "auto") && accountMatchesSource(account, source) && sourceMatchesCategories(source, categories, sourceConfigurations) && accountMatchesCategories(account, categories, automatic, configurations));
+  const enabled = eligiblePublishingAccounts(accounts, source, categories, automatic, configurations, sourceConfigurations);
   return enabled.map((account) => ({ account, score: performance(account.id) ?? 0, load: Math.max(0, recentPublishes(account.id)) }))
     .sort((left, right) => left.load - right.load || right.score - left.score || Number(right.account.defaultAccount) - Number(left.account.defaultAccount))[0]?.account;
 }
 
-async function publishCandidate(post: ObservedPost): Promise<void> {
+async function publishCandidate(post: ObservedPost & Pick<RecentPost, "relevanceJson">): Promise<void> {
   const now = Math.floor(Date.now() / 1000);
   if (opportunityScoreForPost(post, now) < 70) return;
   const source = getStoredSources().find((item) => item.handle === post.sourceHandle);
@@ -604,7 +618,13 @@ async function publishCandidate(post: ObservedPost): Promise<void> {
     if (category && categoryPublishingPaused(getCategories().find((definition) => definition.id === category.categoryId))) return false;
     return override || (recentPublishCount(now, account.id) < account.dailyLimit && now - lastPublishAt(account.id) >= 45 * 60 && (!category?.dailyBudget || recentCategoryPublishCount(now, account.id, category.categorySlug) < category.dailyBudget));
   });
-  const account = selectPublishingAccount(availableAccounts, (accountId) => (accountCategoryFeedbackScore(accountId, categories) || 0) + accountSubscriptionEvidence(accountId, now).bonus, source, categories, true, accountConfigurations, sourceConfigurations, (accountId) => recentPublishCount(now, accountId));
+  // jev_mode "on": among the accounts the gates above already accepted, prefer the one
+  // with the highest per-account relevance. No relevance, or a tie, falls back to the
+  // legacy load/performance selector. Eligibility itself is never widened.
+  const relevancePick = jevMode() === "on"
+    ? preferredRelevanceAccount(eligiblePublishingAccounts(availableAccounts, source, categories, true, accountConfigurations, sourceConfigurations), post)
+    : undefined;
+  const account = relevancePick || selectPublishingAccount(availableAccounts, (accountId) => (accountCategoryFeedbackScore(accountId, categories) || 0) + accountSubscriptionEvidence(accountId, now).bonus, source, categories, true, accountConfigurations, sourceConfigurations, (accountId) => recentPublishCount(now, accountId));
   if (!account) return;
   const subscriptionEvidence = accountSubscriptionEvidence(account.id, now);
   const subscriptionReason = subscriptionEvidence.bonus > 0 ? `; tier ${subscriptionEvidence.previousTier}→${subscriptionEvidence.currentTier}; lift=${(subscriptionEvidence.lift! * 100).toFixed(1)}%; samples=${subscriptionEvidence.previousSamples}/${subscriptionEvidence.currentSamples}; bonus=${subscriptionEvidence.bonus}` : "";
@@ -1379,6 +1399,26 @@ async function runScanInternal(): Promise<ScanResult> {
 
   const automaticAccounts = getAccounts().filter((account) => account.enabled && account.automationMode === "auto" && Boolean(account.xuseAccountId));
   if (automationEnabled() && readerPublishingReady(startedAt) && automaticAccounts.length > 0) {
+    // The single Jev call site on the post path: one batch per scan over the whole
+    // candidate pool. It only persists relevance; whether that relevance moves a
+    // decision is decided by jev_mode inside opportunityScoreForPost/publishCandidate.
+    // Any failure here must leave the loop below exactly as it was.
+    if (jevMode() !== "off") {
+      try {
+        const sourceConfigurations = getSourceCategoryConfigs();
+        await rankOpportunityBatch({
+          posts: candidates(32, startedAt),
+          accounts: automaticAccounts,
+          categories: getCategories(),
+          accountConfigurations: getAccountCategoryConfigs(),
+          sourceDomains: (post) => sourceConfigurations.filter((item) => item.sourceHandle === post.sourceHandle && item.enabled).map((item) => item.categorySlug),
+          localScore: (post) => opportunityScoreForPost(post, startedAt),
+          now: startedAt,
+        });
+      } catch (error) {
+        errors.push(`jev_batch: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    }
     // ponytail: one source and one event cluster per automatic batch; upgrade to a learned portfolio selector only with measured feedback.
     for (const post of selectDiverseCandidates(candidates(24), 6)) {
       try {
