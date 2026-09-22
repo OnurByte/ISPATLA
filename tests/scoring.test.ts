@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { ageNormalizedOverperformance, clusterKey, historicalPerformanceScore, isCurrentOpportunity, isNumericalHit, observedEngagement, opportunityFreshness, opportunityScore, OPPORTUNITY_MAX_AGE_SECONDS, overperformance, scorePost, selectDiverseCandidates, snapshotAcceleration } from "@/server/scoring";
+import { ageNormalizedOverperformance, clusterKey, historicalPerformanceScore, isCurrentOpportunity, isNumericalHit, observedEngagement, opportunityFreshness, opportunityScore, opportunityScoreWithRelevance, OPPORTUNITY_MAX_AGE_SECONDS, overperformance, relevanceFactor, scorePost, selectDiverseCandidates, snapshotAcceleration } from "@/server/scoring";
 import { metricBreakdown } from "@/server/db";
 
 describe("market scoring", () => {
@@ -132,5 +132,43 @@ describe("market scoring", () => {
     expect(ageNormalizedOverperformance(snapshot, { engagement: 10, views: 80 })).toBe(2);
     expect(ageNormalizedOverperformance({ ...snapshot, quality: "partial" }, { engagement: 10, views: 80 })).toBeNull();
     expect(ageNormalizedOverperformance(snapshot, null)).toBeNull();
+  });
+});
+
+describe("layered relevance score", () => {
+  const now = 1_750_000_000;
+  const fresh = now - 600;
+
+  test("treats missing relevance as the legacy path and clamps the factor to [0.5, 1.5]", () => {
+    expect(relevanceFactor(null)).toBe(1);
+    expect(relevanceFactor(Number.NaN)).toBe(1);
+    expect(relevanceFactor(0)).toBe(0.5);
+    expect(relevanceFactor(50)).toBe(1);
+    expect(relevanceFactor(100)).toBe(1.5);
+    expect(relevanceFactor(-40)).toBe(0.5);
+    expect(relevanceFactor(400)).toBe(1.5);
+  });
+
+  test("null relevance reproduces opportunityScore exactly", () => {
+    for (const momentum of [0, 37, 70, 93, 100]) {
+      for (const age of [0, 3600, 20 * 3600, 30 * 3600]) {
+        expect(opportunityScoreWithRelevance(momentum, now - age, 15, null, now))
+          .toBe(opportunityScore(momentum, now - age, 15, now));
+      }
+    }
+  });
+
+  test("is monotonic in relevance and stays inside 0-100", () => {
+    const scores = [0, 25, 50, 75, 100].map((relevance) => opportunityScoreWithRelevance(80, fresh, 15, relevance, now));
+    for (let index = 1; index < scores.length; index += 1) expect(scores[index]).toBeGreaterThanOrEqual(scores[index - 1]);
+    expect(scores[0]).toBeLessThan(scores.at(-1)!);
+    for (const score of scores) expect(score).toBeGreaterThanOrEqual(0);
+    for (const score of scores) expect(score).toBeLessThanOrEqual(100);
+    expect(opportunityScoreWithRelevance(100, now, 15, 100, now)).toBe(100);
+  });
+
+  test("never revives a post the deterministic gate already zeroed", () => {
+    expect(opportunityScoreWithRelevance(100, fresh, 100, 100, now)).toBe(0);
+    expect(opportunityScoreWithRelevance(100, now - 30 * 3600, 15, 100, now)).toBe(0);
   });
 });
