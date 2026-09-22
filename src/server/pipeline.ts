@@ -76,7 +76,6 @@ import {
 } from "./sources";
 import { clusterKey, isNumericalHit, scorePost, selectDiverseCandidates } from "./scoring";
 import { preferredRelevanceAccount, rankOpportunityBatch } from "./opportunity-batch";
-import { jevMode } from "./jev";
 import { isAllowedAvatarUrl, isAllowedMediaContentType, isAllowedMediaUrl } from "./security";
 import { resolveIdeology } from "./ideologies";
 import { FxTwitterReader, normalizeFxPost, type XPost, type XProfile } from "./x-reader";
