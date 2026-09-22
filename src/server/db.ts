@@ -1410,6 +1410,31 @@ function applyMigrations(): void {
       ON draft_evaluations(account_id, updated_at DESC);`);
     command("INSERT INTO schema_migrations (version, applied_at) VALUES (15, unixepoch());");
   }
+  if (!applied.has(16)) {
+    command(`CREATE TABLE IF NOT EXISTS jev_scores (
+      id INTEGER PRIMARY KEY,
+      subject_kind TEXT NOT NULL DEFAULT '',
+      subject_id TEXT NOT NULL DEFAULT '',
+      question_key TEXT NOT NULL DEFAULT '',
+      score REAL NOT NULL DEFAULT 0,
+      mode TEXT NOT NULL DEFAULT 'off',
+      model TEXT NOT NULL DEFAULT '',
+      latency_ms INTEGER NOT NULL DEFAULT 0,
+      request_hash TEXT NOT NULL DEFAULT '',
+      diagnostics_json TEXT NOT NULL DEFAULT '[]',
+      created_at INTEGER NOT NULL,
+      UNIQUE(subject_kind, subject_id, question_key, request_hash)
+    );
+    CREATE INDEX IF NOT EXISTS jev_scores_subject_idx ON jev_scores(subject_kind, subject_id, created_at DESC);
+    CREATE TABLE IF NOT EXISTS jev_cache (
+      request_hash TEXT PRIMARY KEY,
+      scores_json TEXT NOT NULL DEFAULT '{}',
+      reported_model TEXT NOT NULL DEFAULT '',
+      created_at INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS jev_cache_created_idx ON jev_cache(created_at DESC);`);
+    command("INSERT INTO schema_migrations (version, applied_at) VALUES (16, unixepoch());");
+  }
 }
 
 export function ensureDatabase(): boolean {
@@ -4339,4 +4364,91 @@ export function getAnalytics(input: { accountId?: number; rangeDays?: 7 | 14 } =
     verificationBarometer,
     algorithmReference,
   };
+}
+
+// --- Jev ledger and cache (migration 16) -----------------------------------
+// Owned by src/server/jev.ts. Rows hold only candidate ids and 0-2 scores:
+// never prompts, credentials, endpoints or provider response bodies.
+
+export type JevScoreRow = {
+  id: number;
+  subjectKind: string;
+  subjectId: string;
+  questionKey: string;
+  score: number;
+  mode: string;
+  model: string;
+  latencyMs: number;
+  requestHash: string;
+  diagnostics: string[];
+  createdAt: number;
+};
+
+export type JevScoreEntry = { subjectId: string; questionKey: string; score: number };
+
+export type JevCacheRow = { requestHash: string; scoresJson: string; reportedModel: string; createdAt: number };
+
+export function recordJevScoreRows(input: {
+  subjectKind: string;
+  entries: JevScoreEntry[];
+  mode: string;
+  model: string;
+  latencyMs: number;
+  requestHash: string;
+  diagnostics: string[];
+  now: number;
+}): number {
+  const values = input.entries.map((entry) => `(${sqlString(input.subjectKind)}, ${sqlString(entry.subjectId)},
+      ${sqlString(entry.questionKey)}, ${sqlReal(entry.score)}, ${sqlString(input.mode)}, ${sqlString(input.model)},
+      ${sqlNumber(input.latencyMs)}, ${sqlString(input.requestHash)}, ${sqlString(JSON.stringify(input.diagnostics))},
+      ${sqlNumber(input.now)})`);
+  if (!values.length) return 0;
+  exec(`INSERT INTO jev_scores
+    (subject_kind, subject_id, question_key, score, mode, model, latency_ms, request_hash, diagnostics_json, created_at)
+    VALUES ${values.join(", ")}
+    ON CONFLICT(subject_kind, subject_id, question_key, request_hash) DO UPDATE SET
+      score=excluded.score, mode=excluded.mode, model=excluded.model, latency_ms=excluded.latency_ms,
+      diagnostics_json=excluded.diagnostics_json, created_at=excluded.created_at;`);
+  return values.length;
+}
+
+export function latestJevScoresFor(
+  subjectKind: string,
+  subjectIds: string[],
+): Map<string, Array<{ questionKey: string; score: number; createdAt: number }>> {
+  const result = new Map<string, Array<{ questionKey: string; score: number; createdAt: number }>>();
+  const ids = [...new Set(subjectIds.filter((value) => typeof value === "string" && value.length > 0))];
+  if (!ids.length) return result;
+  const list = ids.map(sqlString).join(", ");
+  const found = rows<{ subject_id: string; question_key: string; score: number; created_at: number }>(
+    `SELECT subject_id, question_key, score, created_at FROM jev_scores
+      WHERE subject_kind=${sqlString(subjectKind)} AND subject_id IN (${list})
+      ORDER BY created_at DESC, id DESC;`,
+  );
+  for (const row of found) {
+    const bucket = result.get(row.subject_id) || [];
+    if (bucket.some((item) => item.questionKey === row.question_key)) continue;
+    bucket.push({ questionKey: row.question_key, score: row.score, createdAt: row.created_at });
+    result.set(row.subject_id, bucket);
+  }
+  return result;
+}
+
+export function getJevCacheEntry(requestHash: string, minCreatedAt: number): JevCacheRow | null {
+  const row = rows<{ request_hash: string; scores_json: string; reported_model: string; created_at: number }>(
+    `SELECT request_hash, scores_json, reported_model, created_at FROM jev_cache
+      WHERE request_hash=${sqlString(requestHash)} AND created_at >= ${sqlNumber(minCreatedAt)} LIMIT 1;`,
+  )[0];
+  return row ? { requestHash: row.request_hash, scoresJson: row.scores_json, reportedModel: row.reported_model, createdAt: row.created_at } : null;
+}
+
+export function saveJevCacheEntry(requestHash: string, scoresJson: string, reportedModel: string, now: number): void {
+  exec(`INSERT INTO jev_cache (request_hash, scores_json, reported_model, created_at)
+    VALUES (${sqlString(requestHash)}, ${sqlString(scoresJson)}, ${sqlString(reportedModel)}, ${sqlNumber(now)})
+    ON CONFLICT(request_hash) DO UPDATE SET scores_json=excluded.scores_json,
+      reported_model=excluded.reported_model, created_at=excluded.created_at;`);
+}
+
+export function pruneJevCache(before: number): void {
+  exec(`DELETE FROM jev_cache WHERE created_at < ${sqlNumber(before)};`);
 }
