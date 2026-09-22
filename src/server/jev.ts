@@ -395,7 +395,7 @@ function buildBody(config: JevConfig, query: string, facets: string[], candidate
     for (const [candidateIndex] of candidates.entries()) {
       questions[jevQuestionKey(facetIndex, candidateIndex)] = {
         type: "score",
-        instructions: RELEVANCE_RUBRIC.instructions,
+        instructions: `How directly does candidates[${candidateIndex}] match facets[${facetIndex}] in the context of the full query? Evaluate independently. ${RELEVANCE_RUBRIC.instructions}`,
         criteria: [...RELEVANCE_RUBRIC.criteria] as [string, string, string],
       };
     }
@@ -478,8 +478,14 @@ function parseAnswers(
       const score = Number(answer.score);
       if (!Number.isFinite(score) || score < 0 || score > 2) throw new JevFailure("answers_invalid");
       if (answer.probabilities !== undefined) {
-        const probabilities = answer.probabilities;
-        if (!Array.isArray(probabilities) || probabilities.length !== 3) throw new JevFailure("answers_invalid");
+        // Provider may send probabilities as [p0,p1,p2] or as {"0":p0,"1":p1,"2":p2}.
+        const raw = answer.probabilities;
+        const probabilities = Array.isArray(raw)
+          ? raw
+          : raw !== null && typeof raw === "object" && ["0", "1", "2"].every((k) => k in (raw as Record<string, unknown>))
+            ? ["0", "1", "2"].map((k) => (raw as Record<string, unknown>)[k])
+            : null;
+        if (probabilities === null || probabilities.length !== 3) throw new JevFailure("answers_invalid");
         let sum = 0;
         let expectation = 0;
         for (const [position, value] of probabilities.entries()) {

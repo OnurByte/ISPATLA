@@ -272,6 +272,25 @@ describe("jev scoring client", () => {
     }
   });
 
+  test("accepts the live gateway shape: object-keyed probabilities with legend/confidence extras", async () => {
+    // Exact shape observed from the local gateway on 2026-09-22 (score 0.37 vs expectation 0.36 → vercel slack).
+    const payload = JSON.stringify({
+      answers: { f0_c0: { type: "score", score: 0.37, probabilities: { "0": 0.77, "1": 0.1, "2": 0.13 }, legend: { "0": "none", "1": "partial", "2": "direct" }, confidence: 0.77, confidence_source: "adapter_max_probability" } },
+      model: "typesafe-ai/jev",
+      usage: { input_tokens: 333, output_tokens: 20 },
+      latency_ms: 583,
+    });
+    const { transport } = fakeTransport(payload);
+    setJevTransportForTests(transport);
+    await withJevSettings({ jev_mode: "on", jev_provider: "vercel", jev_cache_ttl_seconds: "0" }, async () => {
+      const result = await jevScore({ query: uniqueQuery("gateway-shape"), facets: ["a"], candidates: [candidate(0)] });
+      expect(result.degraded).toBe(false);
+      expect(result.scores).toEqual({ c0: 0.37 });
+      expect(result.reportedModel).toBe("typesafe-ai/jev");
+      expect(result.usage).toEqual({ input_tokens: 333, output_tokens: 20 });
+    });
+  });
+
   test("maps transport failures onto fixed diagnostics without leaking provider text", async () => {
     const secret = "rate limit for account acct_4711 at https://api.typesafe.ai";
     const { transport } = fakeTransport(secret, 429);
