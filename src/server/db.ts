@@ -1,11 +1,25 @@
 import { randomUUID } from "node:crypto";
 import { mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { DatabaseSync } from "node:sqlite";
+import { createRequire } from "node:module";
 import { historicalPerformanceScore, isNumericalHit, observedEngagement, opportunityFreshness, opportunityScore, OPPORTUNITY_MAX_AGE_SECONDS, scorePost } from "./scoring";
 import type { MetricSnapshot } from "./scoring";
 
-type NativeDatabase = InstanceType<typeof DatabaseSync>;
+// SQLite driver compat shim.
+// Production runs on Node >= 22 and uses the built-in `node:sqlite` (DatabaseSync).
+// Bun -- which runs the repo's `bun test` gate -- does not ship `node:sqlite`, so a
+// static import makes every test file fail at resolve time. `bun:sqlite`'s `Database`
+// exposes the exact surface this file uses (new(path), exec(sql), prepare(sql).all()),
+// so we pick the driver at runtime. `createRequire` is used instead of a static/dynamic
+// `import` so the unavailable specifier is never resolved on the other runtime and the
+// call stays synchronous. No behaviour change on Node.
+type NativeDatabase = { exec(sql: string): void; prepare(sql: string): { all(): unknown[] } };
+type NativeDatabaseCtor = new (path: string) => NativeDatabase;
+const requireDriver = createRequire(import.meta.url);
+const DatabaseSync: NativeDatabaseCtor =
+  typeof (globalThis as { Bun?: unknown }).Bun !== "undefined"
+    ? (requireDriver("bun:sqlite") as { Database: NativeDatabaseCtor }).Database
+    : (requireDriver("node:sqlite") as { DatabaseSync: NativeDatabaseCtor }).DatabaseSync;
 
 export const IDEOLOGY_AXES = [
   "belirsiz",
