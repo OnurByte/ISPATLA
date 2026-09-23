@@ -1,11 +1,24 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { DatabaseSync } from "node:sqlite";
-import { historicalPerformanceScore, isNumericalHit, observedEngagement, opportunityFreshness, opportunityScore, OPPORTUNITY_MAX_AGE_SECONDS, scorePost } from "./scoring";
+import { historicalPerformanceScore, isNumericalHit, observedEngagement, opportunityFreshness, opportunityScoreRelevanceAware, OPPORTUNITY_MAX_AGE_SECONDS, relevanceFactor, scorePost } from "./scoring";
 import type { MetricSnapshot } from "./scoring";
 
-type NativeDatabase = InstanceType<typeof DatabaseSync>;
+// SQLite driver compat shim.
+// Production runs on Node >= 22 and uses the built-in `node:sqlite` (DatabaseSync).
+// Bun -- which runs the repo's `bun test` gate -- does not ship `node:sqlite`, so a
+// static import makes every test file fail at resolve time. `bun:sqlite`'s `Database`
+// exposes the same `exec` / `prepare().all()` surface this module uses, so we pick the
+// driver at runtime via `process.getBuiltinModule` (Node >= 22.3, Bun >= 1.1): it is a
+// plain runtime call, so neither Turbopack (`next dev`) nor webpack (`next build`) tries
+// to resolve the specifier that is unavailable on the other runtime.
+type NativeDatabase = { exec(sql: string): void; prepare(sql: string): { all(): unknown[] } };
+type NativeDatabaseCtor = new (path: string) => NativeDatabase;
+const builtin = (process as unknown as { getBuiltinModule(id: string): unknown }).getBuiltinModule;
+const DatabaseSync: NativeDatabaseCtor =
+  typeof (globalThis as { Bun?: unknown }).Bun !== "undefined"
+    ? (builtin("bun:sqlite") as { Database: NativeDatabaseCtor }).Database
+    : (builtin("node:sqlite") as { DatabaseSync: NativeDatabaseCtor }).DatabaseSync;
 
 export const IDEOLOGY_AXES = [
   "belirsiz",
@@ -88,6 +101,11 @@ export type SourceProfile = {
   lowScoreStreak?: number;
   historicalPerformance?: number | null;
   blueCheckStatus?: BlueCheckStatus;
+  // --- Source relevance (Jev) --- additive, written only when jev_mode is not "off".
+  sourceRelevanceSource?: "jev" | "openai" | "openai_fallback";
+  jevRelevance?: number;
+  jevCategoryScores?: Record<string, number>;
+  jevDiagnostics?: string[];
 };
 
 export type SourceConfig = {
@@ -122,6 +140,11 @@ export type ObservedPost = {
   scoreReason: string;
   sensitive: boolean;
   clusterKey: string;
+  /** Layered Jev relevance (migration 17). null / absent means "no relevance evidence". */
+  relevanceScore?: number | null;
+  relevanceSource?: string | null;
+  relevanceJson?: string | null;
+  relevanceAt?: number | null;
 };
 
 export type RecentPost = ObservedPost & {
@@ -351,6 +374,12 @@ export type MarketItem = Omit<RecentPost, "rawJson"> & {
   marketStatus: "new" | "drafted" | "queued" | "published" | "ignored";
   decision: MarketDecision;
   scoreEvidence: ScoreEvidence;
+  /** Layered relevance evidence (Faz B3); null when the post was never Jev-ranked. */
+  jevRelevance: number | null;
+  jevRelevanceFactor: number;
+  jevRelevanceSource: string;
+  jevRelevanceAt: number;
+  jevRelevanceApplied: boolean;
 };
 
 export const MARKET_VIEWS = ["opportunities", "observed", "rejected", "sensitive"] as const;
@@ -1396,6 +1425,65 @@ function applyMigrations(): void {
       ON draft_evaluations(account_id, updated_at DESC);`);
     command("INSERT INTO schema_migrations (version, applied_at) VALUES (15, unixepoch());");
   }
+  if (!applied.has(16)) {
+    command(`CREATE TABLE IF NOT EXISTS jev_scores (
+      id INTEGER PRIMARY KEY,
+      subject_kind TEXT NOT NULL DEFAULT '',
+      subject_id TEXT NOT NULL DEFAULT '',
+      question_key TEXT NOT NULL DEFAULT '',
+      score REAL NOT NULL DEFAULT 0,
+      mode TEXT NOT NULL DEFAULT 'off',
+      model TEXT NOT NULL DEFAULT '',
+      latency_ms INTEGER NOT NULL DEFAULT 0,
+      request_hash TEXT NOT NULL DEFAULT '',
+      diagnostics_json TEXT NOT NULL DEFAULT '[]',
+      created_at INTEGER NOT NULL,
+      UNIQUE(subject_kind, subject_id, question_key, request_hash)
+    );
+    CREATE INDEX IF NOT EXISTS jev_scores_subject_idx ON jev_scores(subject_kind, subject_id, created_at DESC);
+    CREATE TABLE IF NOT EXISTS jev_cache (
+      request_hash TEXT PRIMARY KEY,
+      scores_json TEXT NOT NULL DEFAULT '{}',
+      reported_model TEXT NOT NULL DEFAULT '',
+      created_at INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS jev_cache_created_idx ON jev_cache(created_at DESC);`);
+    command("INSERT INTO schema_migrations (version, applied_at) VALUES (16, unixepoch());");
+  }
+  if (!applied.has(17)) {
+    // Layered opportunity score: relevance lives beside `score`, never inside score_reason,
+    // because the `deterministic:` prefix in score_reason is load bearing for candidates()
+    // and the market views.
+    addColumn("observed_posts", "relevance_score", "REAL");
+    addColumn("observed_posts", "relevance_source", "TEXT");
+    addColumn("observed_posts", "relevance_json", "TEXT");
+    addColumn("observed_posts", "relevance_at", "INTEGER");
+    command("INSERT INTO schema_migrations (version, applied_at) VALUES (17, unixepoch());");
+  }
+  if (!applied.has(18)) {
+    // Multi draft selection: every generated candidate is kept, not only the winner,
+    // so a later calibration can ask what the selector passed over.
+    command(`CREATE TABLE IF NOT EXISTS draft_variants (
+      id INTEGER PRIMARY KEY,
+      draft_id INTEGER NOT NULL,
+      variant_index INTEGER NOT NULL,
+      angle TEXT NOT NULL DEFAULT '',
+      format TEXT NOT NULL DEFAULT 'post',
+      text TEXT NOT NULL DEFAULT '',
+      chosen INTEGER NOT NULL DEFAULT 0,
+      evaluator_score REAL,
+      jev_score REAL,
+      combined_score REAL,
+      selection_mode TEXT NOT NULL DEFAULT 'evaluator',
+      gate_reason TEXT NOT NULL DEFAULT '',
+      detail_json TEXT NOT NULL DEFAULT '{}',
+      created_at INTEGER NOT NULL,
+      UNIQUE(draft_id, variant_index),
+      FOREIGN KEY(draft_id) REFERENCES drafts(id)
+    );
+    CREATE INDEX IF NOT EXISTS draft_variants_draft_idx ON draft_variants(draft_id, variant_index);`);
+    command("INSERT INTO schema_migrations (version, applied_at) VALUES (18, unixepoch());");
+  }
 }
 
 export function ensureDatabase(): boolean {
@@ -1995,9 +2083,10 @@ export function recordRun(run: {
 
 export function candidates(limit = 12, now = Math.floor(Date.now() / 1000)): RecentPost[] {
   const configuredSources = new Set(getSourceCategoryConfigs().filter((item) => item.enabled).map((item) => item.sourceHandle));
+  const threshold = opportunityPoolThreshold();
   return selectPosts(`${opportunityWhere(now)} AND score_reason LIKE 'deterministic:%' AND publish_status IN ('not_started','blocked')`, "created_timestamp DESC")
     .filter((post) => configuredSources.has(post.sourceHandle))
-    .filter((post) => opportunityScoreForPost(post, now) >= 70)
+    .filter((post) => opportunityScoreForPost(post, now) >= threshold)
     .sort((left, right) => opportunityScoreForPost(right, now) - opportunityScoreForPost(left, now) || right.createdTimestamp - left.createdTimestamp)
     .slice(0, limit);
 }
@@ -2065,6 +2154,7 @@ export function getPost(externalId: string): RecentPost | null {
     status_url as statusUrl, text, created_timestamp as createdTimestamp, likes, replies,
     reposts, quotes, views, author_followers as followers, media_count as mediaCount, media_json as mediaJson,
     raw_json as rawJson, score, score_reason as scoreReason, sensitive, cluster_key as clusterKey,
+    relevance_score as relevanceScore, relevance_source as relevanceSource, relevance_json as relevanceJson, relevance_at as relevanceAt,
     observed_at as observedAt, draft_text as draftText, draft_status as draftStatus, publish_status as publishStatus
     FROM observed_posts WHERE external_id=${sqlString(externalId)} LIMIT 1;`)[0] || null;
 }
@@ -2362,6 +2452,7 @@ const POST_COLUMNS = `SELECT
     status_url as statusUrl, text, created_timestamp as createdTimestamp, likes, replies,
     reposts, quotes, views, author_followers as followers, author_verification_status as blueCheckStatus, media_count as mediaCount, media_json as mediaJson,
     raw_json as rawJson, score, score_reason as scoreReason, sensitive, cluster_key as clusterKey,
+    relevance_score as relevanceScore, relevance_source as relevanceSource, relevance_json as relevanceJson, relevance_at as relevanceAt,
     observed_at as observedAt, draft_text as draftText, draft_status as draftStatus, publish_status as publishStatus
     FROM observed_posts`;
 const MARKET_POST_COLUMNS = POST_COLUMNS.replace("raw_json as rawJson", "'' as rawJson");
@@ -3154,7 +3245,7 @@ function marketDecisionFor(post: RecentPost, now: number): MarketDecision {
   if (post.publishStatus === "confirmed" || post.publishStatus === "pending_reconciliation") return "processed";
   if (post.createdTimestamp <= 0 || post.createdTimestamp > now + 300 || now - post.createdTimestamp > OPPORTUNITY_MAX_AGE_SECONDS) return "expired";
   if (scoreEvidenceFor(post.scoreReason, post.score).kind !== "deterministic") return "not_eligible_evidence";
-  return opportunityScoreForPost(post, now) >= 70 ? "opportunity" : "below_threshold";
+  return opportunityScoreForPost(post, now) >= opportunityPoolThreshold() ? "opportunity" : "below_threshold";
 }
 
 function toMarketItem(post: RecentPost, now = Math.floor(Date.now() / 1000)): MarketItem {
@@ -3185,6 +3276,11 @@ function toMarketItem(post: RecentPost, now = Math.floor(Date.now() / 1000)): Ma
       marketStatus,
       decision: marketDecisionFor(post, now),
       scoreEvidence,
+      jevRelevance: postRelevance(post),
+      jevRelevanceFactor: relevanceFactor(postRelevance(post)),
+      jevRelevanceSource: String(post.relevanceSource || ""),
+      jevRelevanceAt: Number(post.relevanceAt || 0),
+      jevRelevanceApplied: relevanceApplies() && postRelevance(post) !== null,
     };
 }
 
@@ -3223,7 +3319,8 @@ export function getMarketInbox(input: { view?: MarketView; limit?: number; offse
 }
 
 export function opportunityCount(now = Math.floor(Date.now() / 1000)): number {
-  return selectPosts(opportunityWhere(now), "created_timestamp DESC").filter((post) => scoreEvidenceFor(post.scoreReason, post.score).kind === "deterministic" && opportunityScoreForPost(post, now) >= 70).length;
+  const threshold = opportunityPoolThreshold();
+  return selectPosts(opportunityWhere(now), "created_timestamp DESC").filter((post) => scoreEvidenceFor(post.scoreReason, post.score).kind === "deterministic" && opportunityScoreForPost(post, now) >= threshold).length;
 }
 
 export function scoreEvidenceFor(value: string, score: number): ScoreEvidence {
@@ -3263,9 +3360,82 @@ export function scoreEvidenceFor(value: string, score: number): ScoreEvidence {
   };
 }
 
-export function opportunityScoreForPost(post: Pick<RecentPost, "score" | "scoreReason" | "sensitive" | "createdTimestamp">, now = Math.floor(Date.now() / 1000)): number {
+/**
+ * True only in jev_mode "on". Read through the setting rather than importing jev.ts:
+ * jev.ts already imports db.ts, and a module cycle would be resolved at import time
+ * for every db consumer.
+ */
+function relevanceApplies(): boolean {
+  return getSetting("jev_mode", "off") === "on";
+}
+
+/** The stored 0-100 relevance for a post, or null when there is no relevance evidence. */
+export function postRelevance(post: Pick<ObservedPost, "relevanceScore">): number | null {
+  const value = post.relevanceScore;
+  if (value === null || value === undefined) return null;
+  const number = Number(value);
+  return Number.isFinite(number) ? Math.min(100, Math.max(0, number)) : null;
+}
+
+/** Per-account relevance persisted by the opportunity batch, as { accountId: 0-100 }. */
+export function postAccountRelevance(post: Pick<ObservedPost, "relevanceJson">): Record<number, number> {
+  const parsed = parseObject(post.relevanceJson || "{}");
+  const perAccount = object(parsed.perAccount);
+  const map: Record<number, number> = {};
+  for (const [key, value] of Object.entries(perAccount)) {
+    const accountId = Number(key);
+    const score = Number(value);
+    if (Number.isFinite(accountId) && accountId > 0 && Number.isFinite(score)) map[accountId] = Math.min(100, Math.max(0, score));
+  }
+  return map;
+}
+
+/** Writes the layered relevance columns. Never touches score or score_reason. */
+export function updatePostRelevance(input: {
+  externalId: string;
+  relevance: number | null;
+  source: string;
+  details?: Record<string, unknown>;
+  now: number;
+}): void {
+  exec(`UPDATE observed_posts SET
+    relevance_score=${sqlReal(input.relevance)},
+    relevance_source=${sqlString(input.source)},
+    relevance_json=${sqlString(JSON.stringify(input.details || {}))},
+    relevance_at=${sqlNumber(input.now)}
+    WHERE external_id=${sqlString(input.externalId)};`);
+}
+
+export const OPPORTUNITY_POOL_THRESHOLD_SETTING = "opportunity_pool_threshold";
+export const DEFAULT_OPPORTUNITY_POOL_THRESHOLD = 70;
+
+/**
+ * The score a post must reach to enter the candidate pool.
+ *
+ * The pool used to hardcode 70 while every account could ask for less through its
+ * account_categories.publish_threshold, so a niche account with threshold 55 never
+ * saw the posts it had asked for. The pool threshold is therefore
+ * `min(opportunity_pool_threshold, lowest enabled account publish_threshold)`:
+ * the pool is never stricter than the strictest gate downstream, and
+ * publishCandidate() still applies each account's own threshold afterwards.
+ */
+export function opportunityPoolThreshold(): number {
+  const raw = Number(getSetting(OPPORTUNITY_POOL_THRESHOLD_SETTING, String(DEFAULT_OPPORTUNITY_POOL_THRESHOLD)));
+  const configured = Number.isFinite(raw) ? Math.min(100, Math.max(0, raw)) : DEFAULT_OPPORTUNITY_POOL_THRESHOLD;
+  const enabledAccounts = new Set(getAccounts().filter((account) => account.enabled).map((account) => account.id));
+  const thresholds = getAccountCategoryConfigs()
+    .filter((item) => item.enabled && enabledAccounts.has(item.accountId))
+    .map((item) => item.publishThreshold)
+    .filter((value): value is number => value !== null && value !== undefined && Number.isFinite(value));
+  return thresholds.length ? Math.min(configured, ...thresholds) : configured;
+}
+
+export function opportunityScoreForPost(post: Pick<RecentPost, "score" | "scoreReason" | "sensitive" | "createdTimestamp"> & Pick<ObservedPost, "relevanceScore">, now = Math.floor(Date.now() / 1000)): number {
   const evidence = scoreEvidenceFor(post.scoreReason, post.score);
-  return opportunityScore(post.score, post.createdTimestamp, post.sensitive ? 100 : evidence.risk, now);
+  const risk = post.sensitive ? 100 : evidence.risk;
+  const relevance = relevanceApplies() ? postRelevance(post) : null;
+  // Relevance null (mode off, or no evidence) reproduces the legacy score exactly.
+  return opportunityScoreRelevanceAware(post.score, post.createdTimestamp, risk, relevance, now);
 }
 
 export function getDrafts(limit = 100): DraftRecord[] {
@@ -3681,7 +3851,7 @@ export function updateDraft(input: {
 
 export function deleteDraft(id: number): boolean {
   if (!getDraft(id)) return false;
-  exec(`DELETE FROM automation_jobs WHERE draft_id=${sqlNumber(id)}; DELETE FROM draft_evaluations WHERE draft_id=${sqlNumber(id)}; DELETE FROM drafts WHERE id=${sqlNumber(id)};`);
+  exec(`DELETE FROM automation_jobs WHERE draft_id=${sqlNumber(id)}; DELETE FROM draft_variants WHERE draft_id=${sqlNumber(id)}; DELETE FROM draft_evaluations WHERE draft_id=${sqlNumber(id)}; DELETE FROM drafts WHERE id=${sqlNumber(id)};`);
   return !getDraft(id);
 }
 
@@ -3957,6 +4127,43 @@ export function getSecretMetas(mask: (name: string) => string): SecretMeta[] {
     masked: mask(secret.name),
     updatedAt: secret.updated_at,
   }));
+}
+
+/**
+ * Single-writer guard for the automation loop (worker vs. the Next in-process
+ * scheduler). Both claim the same app_settings row; a claim succeeds when the row
+ * is empty, expired, or already owned by this exact owner+pid. The lock is a
+ * heartbeat, not a mutex: it is refreshed on every tick and forgotten after
+ * AUTOMATION_LOCK_TTL_SECONDS, so a killed process never blocks the next start.
+ */
+export const AUTOMATION_LOCK_SETTING = "automation_lock";
+export const AUTOMATION_LOCK_TTL_SECONDS = 120;
+
+export type AutomationLock = { owner: string; pid: number; host: string; at: number };
+
+export function readAutomationLock(now = Math.floor(Date.now() / 1000)): AutomationLock | null {
+  const parsed = parseObject(getSetting(AUTOMATION_LOCK_SETTING, "") || "{}");
+  const owner = String(parsed.owner || "");
+  const at = Number(parsed.at || 0);
+  if (!owner || !Number.isFinite(at) || now - at > AUTOMATION_LOCK_TTL_SECONDS) return null;
+  return { owner, pid: Number(parsed.pid || 0), host: String(parsed.host || ""), at };
+}
+
+export function claimAutomationLock(
+  owner: string,
+  now = Math.floor(Date.now() / 1000),
+  pid = process.pid,
+  host = process.env.HOSTNAME || "",
+): { ok: boolean; holder: AutomationLock | null } {
+  const holder = readAutomationLock(now);
+  if (holder && !(holder.owner === owner && holder.pid === pid)) return { ok: false, holder };
+  setSetting(AUTOMATION_LOCK_SETTING, JSON.stringify({ owner, pid, host, at: now }), now);
+  return { ok: true, holder: { owner, pid, host, at: now } };
+}
+
+export function releaseAutomationLock(owner: string, pid = process.pid, now = Math.floor(Date.now() / 1000)): void {
+  const holder = readAutomationLock(now);
+  if (holder && holder.owner === owner && holder.pid === pid) setSetting(AUTOMATION_LOCK_SETTING, "", now);
 }
 
 export function getSetting(name: string, fallback = ""): string {
@@ -4325,4 +4532,246 @@ export function getAnalytics(input: { accountId?: number; rangeDays?: 7 | 14 } =
     verificationBarometer,
     algorithmReference,
   };
+}
+
+// --- Jev ledger and cache (migration 16) -----------------------------------
+// Owned by src/server/jev.ts. Rows hold only candidate ids and 0-2 scores:
+// never prompts, credentials, endpoints or provider response bodies.
+
+export type JevScoreRow = {
+  id: number;
+  subjectKind: string;
+  subjectId: string;
+  questionKey: string;
+  score: number;
+  mode: string;
+  model: string;
+  latencyMs: number;
+  requestHash: string;
+  diagnostics: string[];
+  createdAt: number;
+};
+
+export type JevScoreEntry = { subjectId: string; questionKey: string; score: number };
+
+export type JevCacheRow = { requestHash: string; scoresJson: string; reportedModel: string; createdAt: number };
+
+export function recordJevScoreRows(input: {
+  subjectKind: string;
+  entries: JevScoreEntry[];
+  mode: string;
+  model: string;
+  latencyMs: number;
+  requestHash: string;
+  diagnostics: string[];
+  now: number;
+}): number {
+  const values = input.entries.map((entry) => `(${sqlString(input.subjectKind)}, ${sqlString(entry.subjectId)},
+      ${sqlString(entry.questionKey)}, ${sqlReal(entry.score)}, ${sqlString(input.mode)}, ${sqlString(input.model)},
+      ${sqlNumber(input.latencyMs)}, ${sqlString(input.requestHash)}, ${sqlString(JSON.stringify(input.diagnostics))},
+      ${sqlNumber(input.now)})`);
+  if (!values.length) return 0;
+  exec(`INSERT INTO jev_scores
+    (subject_kind, subject_id, question_key, score, mode, model, latency_ms, request_hash, diagnostics_json, created_at)
+    VALUES ${values.join(", ")}
+    ON CONFLICT(subject_kind, subject_id, question_key, request_hash) DO UPDATE SET
+      score=excluded.score, mode=excluded.mode, model=excluded.model, latency_ms=excluded.latency_ms,
+      diagnostics_json=excluded.diagnostics_json, created_at=excluded.created_at;`);
+  return values.length;
+}
+
+export function latestJevScoresFor(
+  subjectKind: string,
+  subjectIds: string[],
+): Map<string, Array<{ questionKey: string; score: number; createdAt: number }>> {
+  const result = new Map<string, Array<{ questionKey: string; score: number; createdAt: number }>>();
+  const ids = [...new Set(subjectIds.filter((value) => typeof value === "string" && value.length > 0))];
+  if (!ids.length) return result;
+  const list = ids.map(sqlString).join(", ");
+  const found = rows<{ subject_id: string; question_key: string; score: number; created_at: number }>(
+    `SELECT subject_id, question_key, score, created_at FROM jev_scores
+      WHERE subject_kind=${sqlString(subjectKind)} AND subject_id IN (${list})
+      ORDER BY created_at DESC, id DESC;`,
+  );
+  for (const row of found) {
+    const bucket = result.get(row.subject_id) || [];
+    if (bucket.some((item) => item.questionKey === row.question_key)) continue;
+    bucket.push({ questionKey: row.question_key, score: row.score, createdAt: row.created_at });
+    result.set(row.subject_id, bucket);
+  }
+  return result;
+}
+
+/**
+ * Cheap change-detection stamps for the subjects of a Jev call.
+ *
+ * The contract (jev-context/02, "Gizlilik") asks the caller to re-read the source
+ * version AFTER the response and drop scores whose subject moved while the
+ * provider was thinking. These two helpers produce that version: a short hash, not
+ * the content, so a stamp is safe to hold in memory and to compare. A subject that
+ * has disappeared is simply absent from the map, which also reads as drift.
+ */
+function stamp(parts: unknown[]): string {
+  return createHash("sha256").update(parts.map((part) => String(part ?? "")).join("\u0000")).digest("hex").slice(0, 16);
+}
+
+/** externalId -> hash(text, observed_at). */
+export function postVersionStamps(externalIds: string[]): Map<string, string> {
+  const result = new Map<string, string>();
+  const ids = [...new Set(externalIds.filter((value) => typeof value === "string" && value.length > 0))];
+  if (!ids.length) return result;
+  const found = rows<{ external_id: string; text: string; observed_at: number }>(
+    `SELECT external_id, text, observed_at FROM observed_posts WHERE external_id IN (${ids.map(sqlString).join(", ")});`,
+  );
+  for (const row of found) result.set(row.external_id, stamp([row.text, row.observed_at]));
+  return result;
+}
+
+/** handle -> hash(profile_json, last_scored_at). */
+export function sourceVersionStamps(handles: string[]): Map<string, string> {
+  const result = new Map<string, string>();
+  const list = [...new Set(handles.filter((value) => typeof value === "string" && value.length > 0))];
+  if (!list.length) return result;
+  const found = rows<{ handle: string; profile_json: string }>(
+    `SELECT handle, profile_json FROM sources WHERE handle IN (${list.map(sqlString).join(", ")});`,
+  );
+  for (const row of found) {
+    let lastScoredAt: unknown = "";
+    try {
+      lastScoredAt = (JSON.parse(row.profile_json || "{}") as Record<string, unknown>).lastScoredAt;
+    } catch {
+      lastScoredAt = "";
+    }
+    result.set(row.handle, stamp([row.profile_json, lastScoredAt]));
+  }
+  return result;
+}
+
+export function getJevCacheEntry(requestHash: string, minCreatedAt: number): JevCacheRow | null {
+  const row = rows<{ request_hash: string; scores_json: string; reported_model: string; created_at: number }>(
+    `SELECT request_hash, scores_json, reported_model, created_at FROM jev_cache
+      WHERE request_hash=${sqlString(requestHash)} AND created_at >= ${sqlNumber(minCreatedAt)} LIMIT 1;`,
+  )[0];
+  return row ? { requestHash: row.request_hash, scoresJson: row.scores_json, reportedModel: row.reported_model, createdAt: row.created_at } : null;
+}
+
+export function saveJevCacheEntry(requestHash: string, scoresJson: string, reportedModel: string, now: number): void {
+  exec(`INSERT INTO jev_cache (request_hash, scores_json, reported_model, created_at)
+    VALUES (${sqlString(requestHash)}, ${sqlString(scoresJson)}, ${sqlString(reportedModel)}, ${sqlNumber(now)})
+    ON CONFLICT(request_hash) DO UPDATE SET scores_json=excluded.scores_json,
+      reported_model=excluded.reported_model, created_at=excluded.created_at;`);
+}
+
+export function pruneJevCache(before: number): void {
+  exec(`DELETE FROM jev_cache WHERE created_at < ${sqlNumber(before)};`);
+}
+
+
+// --- Voice profile and draft variants (migration 18) ------------------------
+
+/**
+ * A measured voice profile lives inside `accounts.style_profile_json` under the
+ * additive `voice` key: it is derived data, it must travel with the account and
+ * it must never overwrite the hand written style fields beside it.
+ */
+export function saveAccountVoiceProfile(accountId: number, voice: Record<string, unknown>, now: number): Account | null {
+  const account = getAccounts().find((item) => item.id === accountId);
+  if (!account) return null;
+  return saveAccount({
+    id: account.id,
+    accountKey: account.accountKey,
+    handle: account.handle,
+    displayName: account.displayName,
+    xuseAccountId: account.xuseAccountId,
+    enabled: account.enabled,
+    defaultAccount: account.defaultAccount,
+    automationMode: account.automationMode,
+    dailyLimit: account.dailyLimit,
+    capabilities: account.capabilities,
+    styleProfile: { ...account.styleProfile, voice },
+    now,
+  });
+}
+
+export function getAccountVoiceProfile(accountId: number): Record<string, unknown> | null {
+  const account = getAccounts().find((item) => item.id === accountId);
+  const voice = account?.styleProfile.voice;
+  return voice && typeof voice === "object" && !Array.isArray(voice) ? voice as Record<string, unknown> : null;
+}
+
+export type DraftVariantRecord = {
+  id: number;
+  draftId: number;
+  variantIndex: number;
+  angle: string;
+  format: string;
+  text: string;
+  chosen: boolean;
+  evaluatorScore: number | null;
+  jevScore: number | null;
+  combinedScore: number | null;
+  selectionMode: string;
+  gateReason: string;
+  detail: Record<string, unknown>;
+  createdAt: number;
+};
+
+export type DraftVariantInput = {
+  variantIndex: number;
+  angle?: string;
+  format?: string;
+  text: string;
+  chosen?: boolean;
+  evaluatorScore?: number | null;
+  jevScore?: number | null;
+  combinedScore?: number | null;
+  selectionMode?: string;
+  gateReason?: string;
+  detail?: Record<string, unknown>;
+};
+
+function nullableNumber(value: number | null | undefined): string {
+  return value === null || value === undefined || !Number.isFinite(value) ? "NULL" : sqlNumber(value);
+}
+
+export function recordDraftVariants(input: { draftId: number; variants: DraftVariantInput[]; now: number }): number {
+  const statements = input.variants.map((variant) => `INSERT INTO draft_variants (
+      draft_id, variant_index, angle, format, text, chosen, evaluator_score, jev_score,
+      combined_score, selection_mode, gate_reason, detail_json, created_at)
+    VALUES (${sqlNumber(input.draftId)}, ${sqlNumber(variant.variantIndex)}, ${sqlString(variant.angle || "")},
+      ${sqlString(variant.format || "post")}, ${sqlString(variant.text)}, ${variant.chosen ? 1 : 0},
+      ${nullableNumber(variant.evaluatorScore)}, ${nullableNumber(variant.jevScore)},
+      ${nullableNumber(variant.combinedScore)}, ${sqlString(variant.selectionMode || "evaluator")},
+      ${sqlString(variant.gateReason || "")}, ${sqlString(JSON.stringify(variant.detail || {}))}, ${sqlNumber(input.now)})
+    ON CONFLICT(draft_id, variant_index) DO UPDATE SET angle=excluded.angle, format=excluded.format,
+      text=excluded.text, chosen=excluded.chosen, evaluator_score=excluded.evaluator_score,
+      jev_score=excluded.jev_score, combined_score=excluded.combined_score,
+      selection_mode=excluded.selection_mode, gate_reason=excluded.gate_reason,
+      detail_json=excluded.detail_json;`);
+  if (!statements.length) return 0;
+  exec(statements.join("\n"));
+  return statements.length;
+}
+
+export function getDraftVariants(draftId: number): DraftVariantRecord[] {
+  return rows<{
+    id: number; draft_id: number; variant_index: number; angle: string; format: string; text: string;
+    chosen: number; evaluator_score: number | null; jev_score: number | null; combined_score: number | null;
+    selection_mode: string; gate_reason: string; detail_json: string; created_at: number;
+  }>(`SELECT * FROM draft_variants WHERE draft_id=${sqlNumber(draftId)} ORDER BY variant_index ASC;`).map((row) => ({
+    id: row.id,
+    draftId: row.draft_id,
+    variantIndex: row.variant_index,
+    angle: row.angle,
+    format: row.format,
+    text: row.text,
+    chosen: row.chosen === 1,
+    evaluatorScore: row.evaluator_score,
+    jevScore: row.jev_score,
+    combinedScore: row.combined_score,
+    selectionMode: row.selection_mode,
+    gateReason: row.gate_reason,
+    detail: parseObject(row.detail_json),
+    createdAt: row.created_at,
+  }));
 }

@@ -11,7 +11,7 @@ import {
   type PublicationIntent,
 } from "./db";
 import { runXUseJob, type XUseAction } from "./xuse";
-import { automationEnabled, downloadMedia, mediaCandidate, qualityGate } from "./pipeline";
+import { downloadMedia, mediaCandidate, publishingEnabled, qualityGate } from "./pipeline";
 import { createIntentForDraft } from "./publication-service";
 
 export function queueDraftIds(draftIds: number[], now = Math.floor(Date.now() / 1000)): { intents: PublicationIntent[]; jobs: AutomationJob[] } {
@@ -43,7 +43,8 @@ export function queueDraftIds(draftIds: number[], now = Math.floor(Date.now() / 
 }
 
 export async function runDueAutomationJobs(now = Math.floor(Date.now() / 1000), limit = 10): Promise<Array<{ id: number; ok: boolean; reason?: string }>> {
-  if (!automationEnabled()) return [];
+  // publishing_paused and automation_paused both stop the publishing queue.
+  if (!publishingEnabled()) return [];
   const due = getJobs(200)
     .filter((job) => job.status === "queued" && job.scheduledAt <= now && getAccounts().some((account) => account.id === job.accountId && account.automationMode === "auto"))
     .slice(0, Math.max(1, Math.min(50, limit)));

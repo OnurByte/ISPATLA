@@ -1,3 +1,6 @@
+# WorkingDirectory and ExecStart are rewritten by scripts/install-systemd-user.sh
+# (__ISPATLA_REPO_DIR__ -> the repo, __ISPATLA_BUN_BIN__ -> the bun binary).
+# Secrets belong only in %h/.config/ispatla/worker.env — never in this unit.
 [Unit]
 Description=Ispatla adaptive monitoring and publication worker
 After=network-online.target
@@ -5,10 +8,13 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-WorkingDirectory=%h/Documents/makavelli/Ispatla
+WorkingDirectory=__ISPATLA_REPO_DIR__
 Environment=PATH=%h/.bun/bin:/usr/local/bin:/usr/bin
+# The worker is the single automation writer on its database; a Next process on the
+# same DB must run with ISPATLA_AUTOMATION=0 (see docs/RUN-WORKER.md).
+Environment=ISPATLA_AUTOMATION=1
 EnvironmentFile=-%h/.config/ispatla/worker.env
-ExecStart=/usr/bin/flock -n %t/ispatla-worker.lock %h/.bun/bin/bun run automation:worker
+ExecStart=/usr/bin/flock -n %t/ispatla-worker.lock __ISPATLA_BUN_BIN__ run automation:worker
 Restart=on-failure
 RestartSec=10
 

@@ -785,7 +785,7 @@ test("persists shadow draft evaluations with migration 15", () => {
     console.log(JSON.stringify({ version: db.query("SELECT MAX(version) AS version FROM schema_migrations").get()?.version, evaluation: getDraft(draft.id)?.evaluation }));
   `);
   const result = JSON.parse(output);
-  expect(result.version).toBe(15);
+  expect(result.version).toBeGreaterThanOrEqual(17);
   expect(result.evaluation).toMatchObject({
     score: 77,
     confidence: 35,
