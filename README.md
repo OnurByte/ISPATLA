@@ -148,9 +148,20 @@ systemctl --user status ispatla-worker.service
 journalctl --user -u ispatla-worker.service -n 50 --no-pager
 ```
 
-Worker ve Next içi scheduler aynı SQLite dosyasında aynı anda açılmamalıdır.
+Worker ve Next içi scheduler aynı SQLite dosyasında aynı anda açılmamalıdır. Bu
+kural artık `automation_lock` app_setting satırıyla uygulanır: worker kilidi
+tutuyorsa Next içi scheduler kendini kapatır, tersi durumda worker 3 koduyla çıkar.
+Aynı veritabanını kullanan panel `ISPATLA_AUTOMATION=0` ile başlatılmalıdır.
+
 Worker için gerekli secret'lar yalnız `~/.config/ispatla/worker.env` içinde
-tutulur; servis gerektiğinde bu dosyayı oluşturur, var olanını ezmez.
+tutulur; servis gerektiğinde bu dosyayı oluşturur, var olanını ezmez. Worker elle
+başlatıldığında da aynı dosyayı okur ve tanımlı değişkenleri ezmez.
+
+Yayını durdurup havuzun dolmaya devam etmesi için `publishing_paused=1` ayarı
+kullanılır: monitor, scan ve Jev sıralaması çalışmaya devam eder, yalnız yayın
+durur. Komutlar, ortam dosyası şablonu ve kontrol adımları:
+[docs/RUN-WORKER.md](docs/RUN-WORKER.md). Fırsat puanı ve havuz eşiği formülü:
+[docs/OPPORTUNITY-SCORING.md](docs/OPPORTUNITY-SCORING.md).
 
 ## Kaynaklar
 

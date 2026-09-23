@@ -44,6 +44,25 @@ export function safeStatusUrl(value: string, handle: string, externalId: string)
   return `${url.origin}${url.pathname}`;
 }
 
+const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]", "::1"]);
+
+/**
+ * Jev scoring endpoints must be plain HTTPS origins with a path only: no embedded
+ * credentials, query string or fragment. Plain http is tolerated for loopback
+ * development gateways alone.
+ */
+export function isAllowedJevEndpoint(value: string): boolean {
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    return false;
+  }
+  if (url.username || url.password || url.search || url.hash) return false;
+  if (url.protocol === "https:") return url.hostname.length > 0;
+  return url.protocol === "http:" && LOOPBACK_HOSTS.has(url.hostname);
+}
+
 function tokenEquals(expected: string, received: string): boolean {
   const expectedBytes = Buffer.from(expected);
   const receivedBytes = Buffer.from(received);

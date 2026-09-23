@@ -7,6 +7,7 @@ const KNOWN_KEYS = [
   { name: "openai_api_key", provider: "OpenAI" },
   { name: "compatible_api_key", provider: "OpenAI-uyumlu AI" },
   { name: "xuse_credential", provider: "x-use" },
+  { name: "jev_api_key", provider: "Jev" },
 ];
 
 export function GET() {

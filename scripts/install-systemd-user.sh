@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# Installs and starts the user-level Ispatla worker.
+# Reference: docs/RUN-WORKER.md (commands, env file template, checks).
 set -euo pipefail
 
 repo_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
@@ -12,21 +14,33 @@ if [[ ! -x "$bun_bin" ]]; then
   exit 1
 fi
 command -v systemctl >/dev/null || { echo "systemctl bulunamadı" >&2; exit 1; }
+command -v flock >/dev/null || { echo "flock bulunamadı (util-linux gerekli)" >&2; exit 1; }
 
 mkdir -p "$unit_dir" "$env_dir"
-install -m 0644 "$repo_dir/systemd/ispatla-worker.service" "$unit_dir/ispatla-worker.service"
+# WorkingDirectory/ExecStart are placeholders in the repo unit: bind them to this checkout.
+sed -e "s|__ISPATLA_REPO_DIR__|$repo_dir|g" -e "s|__ISPATLA_BUN_BIN__|$bun_bin|g" \
+  "$repo_dir/systemd/ispatla-worker.service" > "$unit_dir/ispatla-worker.service"
+chmod 0644 "$unit_dir/ispatla-worker.service"
 
 env_file="$env_dir/worker.env"
 if [[ ! -e "$env_file" ]]; then
   umask 077
-  cat > "$env_file" <<EOF
-# Ispatla user worker. Secret değerlerini yalnız burada tut.
+  cat > "$env_file" <<TEMPLATE
+# Ispatla user worker. Secret değerlerini yalnız burada tut (chmod 600).
+# Değer yazılan satırın başındaki # işaretini kaldır.
 # ISPATLA_SECRET_KEY=
 # ISPATLA_DB=$repo_dir/state/ispatla.sqlite3
+# ISPATLA_WORKER_TICK_MS=15000
 # AI_COMPATIBLE_API_KEY=
-EOF
+# OPENAI_API_KEY=
+# JEV_API_KEY=
+TEMPLATE
   chmod 600 "$env_file"
 fi
+
+# Single writer rule: a Next process on the same database must not run its own
+# scheduler. The worker refuses to start while another holder owns automation_lock.
+echo "UYARI: aynı veritabanında 'next dev/start' çalışıyorsa ISPATLA_AUTOMATION=0 ile başlat." >&2
 
 systemctl --user daemon-reload
 systemctl --user disable --now ispatla-scan.timer >/dev/null 2>&1 || true
