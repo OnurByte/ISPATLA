@@ -6,6 +6,24 @@
     "confidence": 0.99
   },
   {
+    "id": "platformism",
+    "reason": "duplicate canonical ideology",
+    "kept": "Q176339",
+    "discarded": "Q176339"
+  },
+  {
+    "id": "international-workers-association-asociacion-internacional-de-los-trabajadores",
+    "reason": "duplicate canonical ideology",
+    "kept": "Q1394961",
+    "discarded": "Q1394961"
+  },
+  {
+    "id": "synthesis-anarchism",
+    "reason": "duplicate canonical ideology",
+    "kept": "Q3508949",
+    "discarded": "Q3508949"
+  },
+  {
     "id": "contemporary-anarchism",
     "reason": "duplicate canonical ideology",
     "kept": "Q5165018",
@@ -168,12 +186,6 @@
     "discarded": "Q6991715"
   },
   {
-    "id": "nativism",
-    "reason": "duplicate canonical ideology",
-    "kept": "Q1969722",
-    "discarded": "Q1969722"
-  },
-  {
     "id": "trumpism",
     "reason": "duplicate canonical ideology",
     "kept": "Q31838499",
@@ -298,12 +310,6 @@
     "reason": "duplicate canonical ideology",
     "kept": "Q605479",
     "discarded": "Q605479"
-  },
-  {
-    "id": "representative-democracy",
-    "reason": "duplicate canonical ideology",
-    "kept": "Q188759",
-    "discarded": "Q188759"
   },
   {
     "id": "soviet-democracy",
@@ -1182,7 +1188,7 @@
     "discarded": "Q3292911"
   },
   {
-    "id": "sandinismo",
+    "id": "sandinism",
     "reason": "duplicate canonical ideology",
     "kept": "Q2252089",
     "discarded": "Q2252089"
@@ -1210,12 +1216,6 @@
     "reason": "duplicate canonical ideology",
     "kept": "Q756180",
     "discarded": "Q756180"
-  },
-  {
-    "id": "iwa-ait",
-    "reason": "duplicate canonical ideology",
-    "kept": "Q1394961",
-    "discarded": "Q1394961"
   },
   {
     "id": "transhumanist-politics",
