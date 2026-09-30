@@ -12,7 +12,11 @@ import type { MetricSnapshot } from "./scoring";
 // driver at runtime via `process.getBuiltinModule` (Node >= 22.3, Bun >= 1.1): it is a
 // plain runtime call, so neither Turbopack (`next dev`) nor webpack (`next build`) tries
 // to resolve the specifier that is unavailable on the other runtime.
-type NativeDatabase = { exec(sql: string): void; prepare(sql: string): { all(): unknown[] } };
+// `all` and `run` both take bound parameters. The shape is declared rather than
+// imported because the module differs between the Node and Bun runtimes, so the
+// concrete class differs too.
+type NativeStatement = { all(...params: unknown[]): unknown[]; run(...params: unknown[]): unknown };
+type NativeDatabase = { exec(sql: string): void; prepare(sql: string): NativeStatement };
 type NativeDatabaseCtor = new (path: string) => NativeDatabase;
 const builtin = (process as unknown as { getBuiltinModule(id: string): unknown }).getBuiltinModule;
 const DatabaseSync: NativeDatabaseCtor =
@@ -920,6 +924,29 @@ function command(sql: string, json = false): unknown[] {
   return database.prepare(sql).all();
 }
 
+/**
+ * Parametrised access to the open database, for modules that own their own SQL
+ * (see `auth-store.ts`). The existing `command()` helper interpolates values into
+ * the statement because its callers already sanitise them; anything that binds a
+ * user-supplied value must go through these instead.
+ *
+ * Exported as a narrow surface rather than the raw DatabaseSync handle so a
+ * caller cannot begin an arbitrary transaction against the shared connection.
+ */
+export function isDatabaseOpen(): boolean {
+  return database !== null;
+}
+
+export function runStatement(sql: string, params: Array<string | number | null> = []): void {
+  if (!database) throw new Error("database connection unavailable");
+  database.prepare(sql).run(...params);
+}
+
+export function selectRows<T>(sql: string, params: Array<string | number | null> = []): T[] {
+  if (!database) throw new Error("database connection unavailable");
+  return database.prepare(sql).all(...params) as T[];
+}
+
 function hasColumn(table: string, column: string): boolean {
   return (command(`PRAGMA table_info(${table});`, true) as Array<{ name?: string }>).some((item) => item.name === column);
 }
@@ -1483,6 +1510,36 @@ function applyMigrations(): void {
     );
     CREATE INDEX IF NOT EXISTS draft_variants_draft_idx ON draft_variants(draft_id, variant_index);`);
     command("INSERT INTO schema_migrations (version, applied_at) VALUES (18, unixepoch());");
+  }
+  if (!applied.has(19)) {
+    // Operator sign-in. The panel used to rely entirely on a reverse-proxy
+    // credential, which meant the application had no identity of its own and no
+    // way to render a login screen. Passwords are stored as scrypt digests with
+    // a per-user salt; the session table carries only an opaque random id whose
+    // HMAC is the only thing the browser ever sees.
+    command(`CREATE TABLE IF NOT EXISTS users (
+      id INTEGER PRIMARY KEY,
+      username TEXT NOT NULL UNIQUE,
+      password_hash TEXT NOT NULL,
+      password_salt TEXT NOT NULL,
+      role TEXT NOT NULL DEFAULT 'admin',
+      disabled INTEGER NOT NULL DEFAULT 0,
+      created_at INTEGER NOT NULL,
+      last_login_at INTEGER
+    );
+    CREATE TABLE IF NOT EXISTS sessions (
+      id TEXT PRIMARY KEY,
+      user_id INTEGER NOT NULL,
+      token_hash TEXT NOT NULL,
+      created_at INTEGER NOT NULL,
+      expires_at INTEGER NOT NULL,
+      revoked_at INTEGER,
+      user_agent TEXT NOT NULL DEFAULT '',
+      FOREIGN KEY(user_id) REFERENCES users(id)
+    );
+    CREATE INDEX IF NOT EXISTS sessions_user_idx ON sessions(user_id, expires_at DESC);
+    CREATE INDEX IF NOT EXISTS sessions_expiry_idx ON sessions(expires_at);`);
+    command("INSERT INTO schema_migrations (version, applied_at) VALUES (19, unixepoch());");
   }
 }
 
