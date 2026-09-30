@@ -1,10 +1,9 @@
 /**
  * Ispatla — production process definition for the shared 67 box.
  *
- * Panel auth: the app's own `src/proxy.ts` gate expects an
- * `Authorization: Bearer <ISPAT...EN>` header, but a browser cannot
- * send that. Nginx injects it server-side from a root-only file so the token
- * never reaches the client bundle, localStorage or logs.
+ * Panel auth: the app owns its sign-in screen and issues a signed session
+ * cookie. The admin token stays in the environment for non-browser clients
+ * (scripts, the worker, curl) and is no longer injected by the reverse proxy.
  *
  * Two processes, one writer: the web app never runs the in-app scheduler
  * (ISPATLA_AUTOMATION=0); the standalone worker owns the automation loop
@@ -46,6 +45,11 @@ module.exports = {
         // The panel must not run the in-app scheduler: the standalone worker
         // owns the automation loop against the same SQLite file.
         ISPATLA_AUTOMATION: "0",
+        // The x-use CLI is a Python package installed into its own virtualenv, so
+        // it is not on PATH. Without this the panel reports the X bridge as
+        // unavailable and every publish action 424s.
+        XUSE_BIN: "/root/.xuse-venv/bin/x-use",
+        XUSE_CWD: "/root/ispatla",
       },
     },
     {
@@ -63,6 +67,8 @@ module.exports = {
         // The worker IS the scheduler; the web app keeps this at "0".
         ISPATLA_AUTOMATION: "1",
         ISPATLA_WORKER_TICK_MS: "30000",
+        XUSE_BIN: "/root/.xuse-venv/bin/x-use",
+        XUSE_CWD: "/root/ispatla",
       },
     },
   ],
