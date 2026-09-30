@@ -26,3 +26,6 @@ config/settings.json
 config/accounts.json
 config/*_cookies.json
 config/backups/
+
+# deploy artifacts
+deploy/nginx.conf.local
