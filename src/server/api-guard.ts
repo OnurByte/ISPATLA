@@ -1,5 +1,19 @@
 import { NextResponse } from "next/server";
+import { readSessionCookie, splitSessionCookie } from "./auth";
+import { resolveSession } from "./auth-store";
 import { adminTokenState } from "./security";
+
+/** True when the request carries a valid, unexpired, non-disabled session cookie. */
+export function hasLiveSession(request: Request): boolean {
+  const parsed = splitSessionCookie(readSessionCookie(request.headers.get("cookie")));
+  if (!parsed) return false;
+  try {
+    return resolveSession(parsed.id, parsed.signature) !== null;
+  } catch {
+    // The database may not be open yet; fall back to the bearer decision.
+    return false;
+  }
+}
 
 let lastMutationAt = 0;
 
@@ -20,15 +34,23 @@ export async function readJsonBody(request: Request): Promise<Record<string, unk
     : {};
 }
 
+/**
+ * Accepts either credential: the admin bearer token, or a live session cookie.
+ *
+ * The bearer check stays authoritative for non-browser clients, but a signed-in
+ * browser holds no token, so a session must satisfy the guard too — otherwise
+ * every mutation from the panel would 401 while the read routes worked.
+ */
 export function guardMutation(request: Request, rateLimited = false): NextResponse | null {
   const auth = adminTokenState(request);
-  if (auth === "missing") {
+  if (auth === "ok" || hasLiveSession(request)) {
+    // fall through to the rate limiter below
+  } else if (auth === "missing") {
     return NextResponse.json(
       { error: "ISPATLA_ADMIN_TOKEN must be configured for production mutations" },
       { status: 503 },
     );
-  }
-  if (auth === "invalid") {
+  } else {
     return NextResponse.json(
       { error: "admin authorization required" },
       { status: 401, headers: { "WWW-Authenticate": "Bearer" } },
