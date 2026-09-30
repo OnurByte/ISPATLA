@@ -15,4 +15,11 @@
 set -e
 
 cd /root/ispatla
+
+# The x-use CLI lives in its own virtualenv (it is a Python package), so it is not
+# on the default PATH. XUSE_BIN points at it, but the venv's bin directory also
+# has to be exported for the helpers x-use shells out to.
+PATH="/root/.xuse-venv/bin:$PATH"
+export PATH
+
 exec bun --preload ./scripts/bun-sqlite-shim.mjs scripts/automation-worker.ts
