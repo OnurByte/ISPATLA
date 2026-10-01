@@ -7,7 +7,10 @@ export const runtime = "nodejs";
 const KNOWN_KEYS = new Map([
   ["openai_api_key", "OpenAI"],
   ["compatible_api_key", "OpenAI-uyumlu AI"],
-  ["xuse_credential", "x-use"],
+  ["xuse_credential", "x-use (eski)"],
+  ["x_api_bearer", "X API — Bearer"],
+  ["x_api_client_id", "X API — OAuth client id"],
+  ["x_api_client_secret", "X API — OAuth client secret"],
 ]);
 
 export async function PUT(request: Request, context: { params: Promise<{ name: string }> }) {

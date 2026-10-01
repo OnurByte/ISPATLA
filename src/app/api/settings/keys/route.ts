@@ -6,7 +6,10 @@ export const runtime = "nodejs";
 const KNOWN_KEYS = [
   { name: "openai_api_key", provider: "OpenAI" },
   { name: "compatible_api_key", provider: "OpenAI-uyumlu AI" },
-  { name: "xuse_credential", provider: "x-use" },
+  { name: "xuse_credential", provider: "x-use (eski)" },
+  { name: "x_api_bearer", provider: "X API — Bearer" },
+  { name: "x_api_client_id", provider: "X API — OAuth client id" },
+  { name: "x_api_client_secret", provider: "X API — OAuth client secret" },
   { name: "jev_api_key", provider: "Jev" },
 ];
 
