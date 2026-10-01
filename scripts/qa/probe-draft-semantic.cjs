@@ -7,9 +7,9 @@
 // endpoint with the real schema (read out of the app source, never hand-copied)
 // and prints the shape the parser will actually see.
 
-const key = require("fs").readFileSync("/root/.secrets-backup/provider.key", "utf8").trim();
+const key = require("fs").readFileSync(process.env.MODEL_KEY_FILE || "", "utf8").trim();
 const BASE = "https://api.commandcode.ai/provider/v1";
-const MODEL = "configured-model";
+const MODEL = process.env.MODEL_ID || "";
 
 const SCHEMA = {
   type: "object",
@@ -36,7 +36,7 @@ const INSTRUCTIONS =
 
 const PROMPT = JSON.stringify({
   text: "Bursa ve çevresinde kuvmetli yağmur uyarısı yapıldı. Sel riski taşıyan bölgelerde tedbir alınmalı.",
-  accountHandle: "primary-account",
+  accountHandle: process.env.ACCOUNT_HANDLE || "",
   accountContext: { tone: "sade, kanıt odaklı, kısa", ideology: "belirsiz" },
   category: "",
   format: "post",

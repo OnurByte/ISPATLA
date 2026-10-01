@@ -12,7 +12,7 @@ const t0 = Date.now();
 try {
   const value = await mod.requestDraftSemanticFeatures({
     text: "Bursa ve çevresinde kuvmetli yağmur uyarısı yapıldı. Sel riski taşıyan bölgelerde tedbir alınmalı.",
-    accountHandle: "primary-account",
+    accountHandle: process.env.ACCOUNT_HANDLE || "",
     accountContext: { tone: "sade, kanıt odaklı, kısa" },
     format: "post",
   });
