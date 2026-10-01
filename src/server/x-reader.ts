@@ -45,8 +45,10 @@ export type XPost = {
 export type XTimelineBatch = { posts: XPost[]; cursor: string; receivedAt: number };
 export type XSearchResult = XTimelineBatch & { query: string };
 
+export type XReaderTransport = "fxtwitter" | "x-api-v2";
+
 export type XReaderHealth = {
-  transport: "fxtwitter";
+  transport: XReaderTransport;
   checkedAt: number;
   ok: boolean;
   latencyMs: number;
@@ -62,6 +64,8 @@ export type XReaderCapabilities = {
   conversation: boolean;
   postMetrics: boolean;
   profile: boolean;
+  /** Only the official API can write; the reader transports are read-only. */
+  publish?: boolean;
 };
 
 export interface XReader {
