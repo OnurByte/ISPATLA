@@ -1,5 +1,5 @@
 /* eslint-disable */
-// Probe: does `configured-model` honour Ispatla's strict JSON schema?
+// Probe: does the configured model honour Ispatla's strict JSON schema?
 //
 // Reads the REAL schema + instructions out of the app source (no hand-copied
 // copy that can drift), sends them to the provider exactly as
@@ -50,8 +50,10 @@ console.log("ideologyBasis enum inlined:", ideologyBases.join(", "));
 const instructions = instMatch[1];
 const required = schema.required;
 
-const KEY = readFileSync("/root/.secrets-backup/provider.key", "utf8").trim();
-const MODEL = process.env.PROBE_MODEL || "configured-model";
+const KEY = readFileSync(process.env.PROBE_KEY_FILE || "", "utf8").trim();
+if (!KEY) { console.error("PROBE_KEY_FILE gerekli"); process.exit(2); }
+const MODEL = process.env.PROBE_MODEL || "";
+if (!MODEL) { console.error("PROBE_MODEL gerekli"); process.exit(2); }
 
 const systemPrompt =
   instructions +
