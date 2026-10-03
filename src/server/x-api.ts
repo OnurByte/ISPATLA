@@ -103,6 +103,34 @@ function storeOAuth(credentials: XApiCredentials): void {
   }));
 }
 
+/**
+ * Stores an OAuth token pair the user pasted in by hand.
+ *
+ * This is the escape hatch for the case where the developer-portal redirect flow
+ * is not available: someone who already holds a user access token should not be
+ * told to revoke it and walk through OAuth instead. Without a refresh token the
+ * credential still works for its lifetime, and the status reports that honestly
+ * rather than pretending it can renew itself.
+ */
+export function storeManualOAuthToken(input: { accessToken: string; refreshToken?: string; expiresInSeconds?: number }): XApiCredentials {
+  const clientId = readSecret(X_CLIENT_ID_SECRET)?.trim();
+  const clientSecret = readSecret(X_CLIENT_SECRET_SECRET)?.trim();
+  const credentials: XApiCredentials = {
+    mode: "oauth",
+    accessToken: input.accessToken.trim(),
+    refreshToken: input.refreshToken?.trim() || undefined,
+    expiresAt: input.expiresInSeconds
+      ? Math.floor(Date.now() / 1000) + Number(input.expiresInSeconds)
+      // No lifetime given: assume the standard two hours rather than treating
+      // the token as already expired, and let the first API call judge it.
+      : Math.floor(Date.now() / 1000) + 7200,
+    clientId,
+    clientSecret,
+  };
+  storeOAuth(credentials);
+  return credentials;
+}
+
 export function xApiConfigStatus(): XApiConfigStatus {
   const credentials = loadXApiCredentials();
   const missing: string[] = [];
@@ -233,7 +261,12 @@ export async function ensureXAccessToken(force = false): Promise<string | null> 
   if (credentials.mode !== "oauth" || !credentials.accessToken) return credentials.bearer || null;
   const expiresAtMs = (credentials.expiresAt || 0) * 1000;
   if (!force && expiresAtMs > Date.now() + 60_000) return credentials.accessToken;
-  if (!credentials.refreshToken || !credentials.clientId || !credentials.clientSecret) return credentials.accessToken;
+  if (!credentials.refreshToken || !credentials.clientId || !credentials.clientSecret) {
+    // A hand-pasted token with no client credentials cannot be renewed. Say so:
+    // falling through silently would look like a successful refresh, and the
+    // user would only find out when a publish failed hours later.
+    throw new XApiError(401, "Access token süresi doldu ve yenilenemiyor (client id/secret yok)");
+  }
 
   const response = await fetch("https://api.x.com/2/oauth2/token", {
     method: "POST",
