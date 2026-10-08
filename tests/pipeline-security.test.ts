@@ -27,7 +27,7 @@ function post(overrides: Partial<ObservedPost> = {}): ObservedPost {
 }
 
 function account(id: number, defaultAccount = false): Account {
-  return { id, accountKey: String(id), handle: `account${id}`, displayName: "", xuseAccountId: "", enabled: true, defaultAccount, automationMode: "auto", dailyLimit: 24, capabilities: [], styleProfile: {}, subscriptionHistory: [], subscriptionState: { tier: "unknown", observedAt: 0, historyComplete: false }, updatedAt: 0 };
+  return { id, accountKey: String(id), handle: `account${id}`, displayName: "", enabled: true, defaultAccount, automationMode: "auto", dailyLimit: 24, capabilities: [], styleProfile: {}, subscriptionHistory: [], subscriptionState: { tier: "unknown", observedAt: 0, historyComplete: false }, updatedAt: 0 };
 }
 
 describe("pipeline trust boundaries", () => {

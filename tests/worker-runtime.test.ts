@@ -43,8 +43,7 @@ function poolScript(options: { publishThreshold: number | null; setting?: string
     if (!ensureDatabase()) throw new Error("database did not initialize");
     const category = getCategories().find((item) => item.enabled);
     const account = saveAccount({
-      accountKey: "nis", handle: "nis", displayName: "Nis", xuseAccountId: "x1",
-      enabled: ${options.accountEnabled === false ? "false" : "true"}, defaultAccount: true, automationMode: "auto", dailyLimit: 24,
+      accountKey: "nis", handle: "nis", displayName: "Nis", enabled: ${options.accountEnabled === false ? "false" : "true"}, defaultAccount: true, automationMode: "auto", dailyLimit: 24,
       capabilities: ["post"], styleProfile: { niche: "yapay zeka", categories: [category.slug] }, now: NOW,
     });
     saveAccountCategoryConfig({
@@ -127,7 +126,7 @@ test("the automation lock admits one writer, refreshes its own claim and expires
     const refresh = claimAutomationLock("worker", NOW + 30, 111, "host");
     const afterExpiry = claimAutomationLock("web", NOW + AUTOMATION_LOCK_TTL_SECONDS + 31, 222, "host");
     const beforeRelease = readAutomationLock(NOW + AUTOMATION_LOCK_TTL_SECONDS + 31);
-    releaseAutomationLock("web", 222, NOW + AUTOMATION_LOCK_TTL_SECONDS + 32);
+    releaseAutomationLock("web", 222, NOW + AUTOMATION_LOCK_TTL_SECONDS + 32, "host");
     const afterRelease = readAutomationLock(NOW + AUTOMATION_LOCK_TTL_SECONDS + 33);
     const reclaimed = claimAutomationLock("worker", NOW + AUTOMATION_LOCK_TTL_SECONDS + 34, 333, "host");
     console.log(JSON.stringify({ first, second, refresh, afterExpiry, beforeRelease, afterRelease, reclaimed }));

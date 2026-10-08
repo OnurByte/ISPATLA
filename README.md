@@ -1,169 +1,109 @@
-# MAKE XPATLA GREAT AGAIN
+# İSPATLA
 
-## Ispatla — global X auto-hitmaker
+İSPATLA, X üzerindeki kaynak sinyallerini fırsatlara dönüştüren, hesap için özgün
+taslak hazırlayan ve yayın sonucunu kanıtla doğrulayan bir kontrol odasıdır.
+Erişim, virallik veya gelir garantisi vermez.
 
-İlk sinyali yakala. Kanıtı koru. Hesabın dilinde üret. Sen bakmasan da hit
-akışını çalıştır.
+Uygulama oturumu Better Auth ile yönetilir. X hesabı ayrı, oturuma bağlı OAuth
+2.0 PKCE akışıyla bağlanır. OAuth izni otomatik yayın izni sayılmaz: her hesap ve
+eylem için Observe, Assist veya Off tercihleri ayrı tutulur. Auto arayüzde henüz
+etkin değildir; kazanılmış özerklik kabul koşulları uygulama durum belgesindedir.
 
-Ispatla, X üzerindeki küresel sinyali hesap kimliğine uygun özgün hit'lere
-dönüştüren bir **auto-hitmaker**'dır. Bu yalnızca haber için bir newsroom
-değildir: kültür, spor, finans, eğlence, teknoloji, topluluk ve marka hesapları
-aynı fırsat motorunu kullanabilir.
+## Katkıcı demosu
 
-Auto-hitmaker her şeyi körlemesine yayınlayan bir bot değildir. Ispatla
-günlerce arka planda radar tarar, fırsatı ve doğru formatı bulur, hesabın
-stilinde özgün hit üretir; otomatik moddaki hesaplarda güvenlik kapılarını
-geçen yayını gönderir. Manuel mod da aynı akışta tek tek onay vermek isteyen
-hesaplar için kalır.
+Lisans: AGPL-3.0-or-later ([LICENSE](LICENSE)).
+`bun install --frozen-lockfile` ardından `bun run demo`: geçici veritabanı, sentetik
+kaynak ve yerel demo hesabı oluşturur. X/AI kimlik bilgisi gerekmez. Yayın kapalıdır;
+fixture makbuzu gerçek yayın kanıtı değildir. Ayrıntılar [CONTRIBUTING.md](CONTRIBUTING.md).
 
-> X'in gizli sıralama skorunu, erişimini veya gelirini vaat etmiyoruz. Ispatla;
-> gözlenen açık veriden çalışan, kararları ve kanıt sınırını görünür tutan bir
-> hit operasyon aracıdır.
+## Yerel başlangıç
 
-![Ispatla Kontrol Merkezi: koyu temada kaynaklar, gözlenen postlar, fırsatlar ve operasyon kapıları](docs/assets/ispatla-control-plane-dark.png)
-
-## Tek döngü, bütün operasyon
-
-```text
-Global source graph + discovery queries
-  -> XReader normalization + provenance
-  -> monitoring budget + adaptive cadence
-  -> opportunity and account decision
-  -> style-aware draft + safety gates
-  -> PublicationIntent + account policy
-  -> XPublisher / x-use receipt
-  -> reconciliation + feedback
-  -> stronger monitoring and query choices
-```
-
-### Radar
-
-- Account, keyword, search-query ve conversation monitor'ları tek scheduler
-  içinde çalışır.
-- Hot/warm/normal/cold cadence, breakout sonrası burst mode ve günlük request
-  bütçesi, taramayı her kaynağa eşit kör polling yapmaktan çıkarır.
-- Discovery Query Engine, kategori tanımından sorgu adayları üretir; hit yield,
-  duplicate rate, false-positive rate ve lead time ile iyi sorguları güçlendirir.
-
-### Hit karar masası
-
-- Fırsatlar yalnız taze, sensitive olmayan ve deterministik eşiklerini geçen
-  gözlenen postlardan oluşur; haber, trend, fandom, piyasa, spor veya internet
-  kültürü için `Gözlenen 24s`, `Fırsatlar` ve `Elenen` akışları birbirinden
-  ayrıdır.
-- Hesap başına stil, kategori ve örnek post bağlamı korunur. Aynı olay farklı
-  hesaplarda aynı metne dönüşmek zorunda değildir.
-- Kaynak kimliği ya da transport uyuşmazlığı **teknik uyarıdır**, eleme değildir.
-  Kaynaklar ancak açık bir işlemle kaldırılır; AI'nın öznel düşük puanı kayıt
-  silmez.
-
-![Ispatla Kaynaklar: koyu temada aktif havuz, adaylar, teknik uyarılar ve gerçek kaldırmalar ayrı görünür](docs/assets/ispatla-sources-dark.png)
-
-### Güvenli yayın hattı
-
-- Draft doğrudan yayın kuyruğu değildir. `PublicationIntent`, idempotency key,
-  hesap politikası, x-use receipt'i ve reconciliation ayrı durumlarda tutulur.
-- Receipt başarı kanıtı değildir: exact text ve author FxTwitter üzerinden
-  doğrulanmadan yayın `confirmed` sayılmaz.
-- Sensitive içerik, telif/rights, kopyalama, duplicate cluster ve yayın limiti
-  kapıları yayın denemesinden önce çalışır. Belirsiz write tekrar edilmez.
-
-### Agent-first, provider-independent
-
-- `FxTwitterReader` bugünün transport'udur; canonical `XPost`, `XProfile`,
-  `XMetricSnapshot`, `XTimelineBatch` ve `XSearchResult` modeli yarının
-  sağlayıcısına kilitlenmez.
-- `XUsePublisher` bugünün yayın adaptörüdür; publication sözleşmesi transport
-  ayrıntısından bağımsızdır.
-- Sohbet yüzeyi yerine Ispatla kendi stdio MCP server'ını sunar:
-  `ispatla.opportunities.list`, `ispatla.sources.health`,
-  `ispatla.drafts.generate`, `ispatla.publications.queue` ve
-  `ispatla.analytics.performance` gibi araçlar Codex, Claude veya başka bir
-  MCP istemcisine doğrudan bağlanır. Mutasyon araçları ikinci bir `confirm=true`
-  çağrısı ister.
-
-## Hızlı başlangıç
+Node.js 22.5+ (yerel SQLite) ve Bun gerekir. Kaynak listesini kendi yapılandırmanıza
+göre düzenleyin; bu komut mevcut dosyayı değiştirmez:
 
 ```sh
-cp config/sources.example.json config/sources.json
 bun install --frozen-lockfile
-bun dev
 ```
 
-Arayüz: `http://localhost:3000`
+Ortam değişkenlerini süreçte veya yerel, Git'e eklenmeyen ortam dosyasında ayarlayın:
+
+```text
+BETTER_AUTH_SECRET=<en az 32 karakterlik rastgele gizli değer>
+BETTER_AUTH_URL=http://localhost:3000
+ISPATLA_TOKEN_KEY_CURRENT=<rastgele token şifreleme anahtarı>
+ISPATLA_SECRET_KEY=<AI kasası için ayrı rastgele anahtar>
+ISPATLA_PRIVATE_BETA=1
+ISPATLA_AUTOMATION=0
+```
+
+Private beta seçeneği e-posta doğrulamasını açıkça kapatır. Normal kayıt ve parola
+sıfırlama için sunucu tarafındaki e-posta taşıyıcısını yapılandırın:
+`ISPATLA_MAIL_API_URL` ve `ISPATLA_MAIL_API_TOKEN`. Taşıyıcı HTTPS JSON POST kabul
+etmelidir; içerik `to`, `subject`, `text` alanlarını içerir. Gerçek e-posta
+sağlayıcısının teslimi ayrıca doğrulanmalıdır.
+
+```sh
+bun run dev
+```
+
+Kamusal sayfa `/`, özel kontrol odası `/app`, kayıt ve giriş `/signup` ve `/login`.
+SQLite varsayılan olarak `state/ispatla.sqlite3` içindedir. `ISPATLA_DB` dosyayı,
+`ISPATLA_SOURCES` kaynak JSON yolunu değiştirir.
+
+## Resmi X bağlantısı
+
+X Developer Console'da callback adresini tam eşleşmeyle kaydedin:
+
+```text
+X_OAUTH_CLIENT_ID=<uygulama client ID>
+X_OAUTH_CLIENT_SECRET=<sunucu client secret>
+X_OAUTH_REDIRECT_URI=http://localhost:3000/api/x/oauth/callback
+```
+
+Üretimde uygulama origin'i ve callback HTTPS olmalıdır. `/app/accounts` içindeki
+“X hesabı bağla” akışı gerçek kullanıcı kimliğini `/2/users/me` üzerinden çözer;
+istemcinin girdiği bir hesap kimliği yayın yetkisi vermez. Baseline kapsamları
+`tweet.read tweet.write users.read media.write offline.access`.
+
+Tokenlar ayrı tabloda AES-256-GCM ile saklanır; UI yalnız bağlantı metadatasını
+görür. `ISPATLA_TOKEN_KEY_PREVIOUS_<key_id>` eski anahtarlarla okuma için kullanılabilir.
+Bağlantı kaldırıldığında yerel token ve yenileme kiraları önce iptal edilir;
+uzak sağlayıcı iptalinin sonucu ayrıca gösterilir.
+
+Resmi API yayın kabulü, yayın doğrulaması sayılmaz. İş ve hesap kiraları aynı
+bilinçli gönderimin tekrarlanmasını önler; bağlantı kopması ve belirsiz sunucu
+hataları incelemeye alınır. Doğrulama oturumdaki X kimliği, metin, hedef ilişki ve
+zaman penceresi üzerinden resmi okuma uçlarıyla yapılır. Yeniden yayınlar için
+bağlı kullanıcının hedefi yeniden yayınladığına dair pozitif kanıt gerekir.
+
+Yanıtlar, hedef yazarın hesabı mention veya quote ile çağırdığına dair kayıtlı
+uygunluk kanıtı gerektirir. Quote yetkisi bilinmiyorsa kapalıdır. Otomatik like ve
+DM desteklenmez. Güncel API koşulları [resmi yayın belgesinde](https://docs.x.com/x-api/posts/manage-tweets/introduction),
+OAuth akışı [resmi PKCE belgesinde](https://docs.x.com/fundamentals/authentication/oauth-2-0/authorization-code)
+açıklanır.
+
+## Kontroller ve worker
 
 ```sh
 bun test
 bun run lint
 bun run typecheck
 bun run build
-bun run mcp
+bun run automation:worker
 ```
 
-SQLite state varsayılan olarak `state/ispatla.sqlite3` altındadır.
-`ISPATLA_SOURCES` kaynak JSON'unu, `ISPATLA_DB` SQLite dosyasını değiştirir.
+Worker ve web zamanlayıcısı tek kalıcı çalışma kilidini paylaşır. İşler ayrıca
+süreli kira, heartbeat, deneme sayısı, backoff, hata kuyruğu ve olay çizelgesi tutar.
+Kaynak radar verisi ortaktır; hesap taslakları, kullanım, sırlar, işler ve yayın
+niyetleri oturum sahibinin kapsamındadır. Eski verilerin sahipliği ilk kaydolana
+aktarılmaz; doğrulanmış kullanıcıya açık atama için `scripts/assign-legacy-owner.ts`
+kullanılır.
 
-## X transport ve yayın kurulumu
+Stdio MCP araçları her çağrıda `ISPATLA_MCP_SESSION_COOKIE` ile gerçek uygulama
+oturumunu tekrar doğrular. Bu değer bir gizli oturum bilgisidir; paylaşmayın ve
+Git'e eklemeyin. Başlatma: `bun run mcp`.
 
-Ispatla x-use'ı dependency veya vendored kod olarak taşımaz. x-use ayrı bir
-Python + Chromium runtime'ıdır; Ispatla stdio MCP JSON-RPC üzerinden yalnız
-kanıtlanmış `queue_post` ve açık `process_queue` kapılarını kullanır.
-
-```sh
-pipx install x-use-mcp
-x-use doctor
-```
-
-Alternatif olarak `uv tool install x-use-mcp` kullanılabilir. `XUSE_BIN` ile
-binary seçilir. x-use cookie/session yönetimi x-use tarafında kalır; session
-dosyaları repo içine yazılmaz.
-
-OpenAI API, OpenAI-uyumlu endpoint veya yerel Codex CLI `/settings/keys`
-üzerinden seçilebilir. AI tamamen kapalıyken mevcut hazır metinler korunur;
-yalnız yeni model çağrıları fail-closed durur. Provider anahtarları server-side
-AES-256-GCM kasada tutulur.
-
-Production'da:
-
-```sh
-export ISPATLA_SECRET_KEY="uzun-rastgele-production-secret"
-export ISPATLA_ADMIN_TOKEN="..."
-export ISPUBLISHER_HANDLE="yayin-hesabi-handle"
-```
-
-`ISPATLA_ADMIN_TOKEN` mutation endpoint'lerinde defense-in-depth Bearer
-kontrolüdür. Tüm panel; hesap, draft, yayın ve usage verisi içerdiği için VPN,
-kimlik doğrulayan reverse proxy veya uygulama oturumu arkasında çalışmalıdır.
-Token browser bundle'ına, local storage'a veya loglara konmaz.
-
-## Sürekli operasyon
-
-Web uygulaması kendi scheduler'ını çalıştırabilir. Uzun ömürlü operasyon için
-repo, 15 saniyelik tick ile zamanı gelen monitor, scan, liveness, kuyruk ve
-reconciliation işlerini SQLite üzerinden atomik yürüten ayrı worker sağlar:
-
-```sh
-bash scripts/install-systemd-user.sh
-systemctl --user status ispatla-worker.service
-journalctl --user -u ispatla-worker.service -n 50 --no-pager
-```
-
-Worker ve Next içi scheduler aynı SQLite dosyasında aynı anda açılmamalıdır. Bu
-kural artık `automation_lock` app_setting satırıyla uygulanır: worker kilidi
-tutuyorsa Next içi scheduler kendini kapatır, tersi durumda worker 3 koduyla çıkar.
-Aynı veritabanını kullanan panel `ISPATLA_AUTOMATION=0` ile başlatılmalıdır.
-
-Worker için gerekli secret'lar yalnız `~/.config/ispatla/worker.env` içinde
-tutulur; servis gerektiğinde bu dosyayı oluşturur, var olanını ezmez. Worker elle
-başlatıldığında da aynı dosyayı okur ve tanımlı değişkenleri ezmez.
-
-Yayını durdurup havuzun dolmaya devam etmesi için `publishing_paused=1` ayarı
-kullanılır: monitor, scan ve Jev sıralaması çalışmaya devam eder, yalnız yayın
-durur. Komutlar, ortam dosyası şablonu ve kontrol adımları:
-[docs/RUN-WORKER.md](docs/RUN-WORKER.md). Fırsat puanı ve havuz eşiği formülü:
-[docs/OPPORTUNITY-SCORING.md](docs/OPPORTUNITY-SCORING.md).
-
-## Kaynaklar
-
-- [XPatla](https://xpatla.com)
-- [X algorithm — xai-org/x-algorithm](https://github.com/xai-org/x-algorithm)
+Tam sözleşme [V3 planında](docs/ISPATLA_MASTER_PLAN_V3.md), tamamlanma ve kanıt
+sınırları [uygulama durumunda](docs/V3_IMPLEMENTATION_STATUS.md) tutulur.
+Yerel fixture testleri gerçek X grant'i, e-posta teslimi, üretim yayını veya
+üretim dağıtımı kanıtı değildir.

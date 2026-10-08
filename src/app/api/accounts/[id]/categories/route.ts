@@ -1,3 +1,4 @@
+import { withUser } from "@/server/request-auth";
 import { NextResponse } from "next/server";
 import { getAccountCategoryConfigs, saveAccountCategoryConfig } from "@/server/db";
 import { guardMutation, readJsonBody } from "@/server/api-guard";
@@ -8,12 +9,12 @@ function object(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
 }
 
-export async function GET(_request: Request, context: { params: Promise<{ id: string }> }) {
+async function GETHandler(_request: Request, context: { params: Promise<{ id: string }> }) {
   const accountId = Number((await context.params).id);
   return NextResponse.json(getAccountCategoryConfigs(accountId));
 }
 
-export async function PUT(request: Request, context: { params: Promise<{ id: string }> }) {
+async function PUTHandler(request: Request, context: { params: Promise<{ id: string }> }) {
   const denied = guardMutation(request);
   if (denied) return denied;
   const accountId = Number((await context.params).id);
@@ -36,3 +37,7 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
     return NextResponse.json({ error: error instanceof Error ? error.message : "account category kaydedilemedi" }, { status: 400 });
   }
 }
+
+export const GET = withUser(GETHandler);
+
+export const PUT = withUser(PUTHandler);

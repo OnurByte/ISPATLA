@@ -1,5 +1,8 @@
+import legacyTransportSchema from "../../docs/migrations/legacy-transport-schema.json";
 import { createHash, randomUUID } from "node:crypto";
+import { currentOwnerId } from "./owner-context";
 import { mkdirSync } from "node:fs";
+import { hostname } from "node:os";
 import { dirname, join } from "node:path";
 import { historicalPerformanceScore, isNumericalHit, observedEngagement, opportunityFreshness, opportunityScoreRelevanceAware, OPPORTUNITY_MAX_AGE_SECONDS, relevanceFactor, scorePost } from "./scoring";
 import type { MetricSnapshot } from "./scoring";
@@ -172,13 +175,13 @@ export type DashboardSummary = {
   attemptsPending: number;
   publishedConfirmed: number;
   publishBlocked: number;
+  automationRuntime: { owner: "worker" | "web" | "none"; heartbeatAt: number | null; healthy: boolean; lagSeconds: number | null };
   automationEnabled: boolean;
   openaiConfigured: boolean;
   aiEnabled: boolean;
   aiConfigured: boolean;
   aiProvider: "api" | "compatible" | "codex";
-  xuseAvailable: boolean;
-  xuseBin: string;
+  officialPublisherConfigured: boolean;
   recentPosts: RecentPost[];
   activity: ActivityPoint[];
   lastRun: {
@@ -199,10 +202,10 @@ export type AutomationLog = { id: number; taskId: AutomationTaskId; status: Auto
 
 export type Account = {
   id: number;
+  ownerUserId?: string | null;
   accountKey: string;
   handle: string;
   displayName: string;
-  xuseAccountId: string;
   enabled: boolean;
   defaultAccount: boolean;
   automationMode: "manual" | "auto";
@@ -470,14 +473,42 @@ export type AutomationJob = {
   status: string;
   receipt: string;
   reason: string;
-  xuseQueueId: string;
-  xuseStatus: string;
-  xuseCheckedAt: number;
   remoteUrl: string;
   reconciliationStatus: string;
   attempts: number;
+  maxAttempts: number;
+  leaseToken: string | null;
+  leaseUntil: number | null;
+  heartbeatAt: number | null;
+  nextAttemptAt: number;
+  errorClass: string;
+  deadLetteredAt: number | null;
+  approvalExpiresAt: number | null;
+  approvalSnapshotId: number | null;
+  remoteWriteStartedAt: number | null;
   createdAt: number;
   updatedAt: number;
+};
+
+export type AutomationJobEvent = { id: number; jobId: number; event: string; status: string; errorClass: string; createdAt: number };
+export type AutomationJobLease = { job: AutomationJob; leaseToken: string; leaseUntil: number };
+export type AccountDispatchLease = { accountId: number; leaseToken: string; leaseUntil: number };
+export type PublicationPolicyHistoryRow = {
+  recordType: "publication_intent" | "automation_job";
+  recordId: number;
+  accountId: number;
+  status: string;
+  action: string;
+  text: string;
+  clusterId: number | null;
+  sourceHandle: string;
+  targetId: string;
+  createdAt: number;
+  updatedAt: number;
+  sendStartedAt: number | null;
+  confirmedAt: number | null;
+  publishedAt: number | null;
+  potentialBudgetUsed: boolean;
 };
 
 export type AccountOpportunity = {
@@ -540,7 +571,7 @@ export type MonitorTarget = {
   updatedAt: number;
 };
 
-export type PublicationIntentStatus = "pending_approval" | "approved" | "dispatching" | "xuse_queued" | "pending_reconciliation" | "confirmed" | "blocked" | "cancelled" | "reconciliation_required";
+export type PublicationIntentStatus = "pending_approval" | "approved" | "dispatching" | "pending_reconciliation" | "confirmed" | "blocked" | "cancelled" | "expired" | "reconciliation_required" | "dead_letter";
 export type PublicationIntent = {
   id: number;
   draftId: number;
@@ -551,16 +582,30 @@ export type PublicationIntent = {
   text: string;
   mediaPath: string;
   mediaHash: string;
-  xuseQueueId: string;
   receipt: string;
   remoteUrl: string;
+  remotePostId: string;
   reason: string;
   requestedAt: number;
   approvedAt: number | null;
+  approvalExpiresAt: number | null;
+  approvalSnapshotId: number | null;
   dispatchedAt: number | null;
   confirmedAt: number | null;
   updatedAt: number;
+  leaseToken: string | null;
+  leaseUntil: number | null;
+  heartbeatAt: number | null;
+  attempts: number;
+  maxAttempts: number;
+  nextAttemptAt: number;
+  errorClass: string;
+  deadLetteredAt: number | null;
+  remoteWriteStartedAt: number | null;
 };
+
+export type PublicationIntentEvent = { id: number; intentId: number; event: string; status: string; errorClass: string; createdAt: number };
+export type PublicationIntentLease = { intent: PublicationIntent; leaseToken: string; leaseUntil: number };
 
 export type DraftBatch = {
   id: string;
@@ -622,6 +667,93 @@ let initialized = false;
 let initializationError: string | undefined;
 let database: NativeDatabase | undefined;
 const SCORE_VERSION = "2";
+
+function ownerSql(column = "owner_user_id"): string {
+  const ownerId = currentOwnerId();
+  return ownerId === undefined ? "" : `${column}=${sqlString(ownerId)}`;
+}
+
+function requireOwnedAccount(id: number): void {
+  const ownerId = currentOwnerId();
+  if (ownerId === undefined) return;
+  if (!rows<{ id: number }>(`SELECT id FROM accounts WHERE id=${sqlNumber(id)} AND owner_user_id=${sqlString(ownerId)} LIMIT 1;`).length) {
+    throw new Error("account not found");
+  }
+}
+
+function requireValidOptionalAccount(id: number | null | undefined): void {
+  if (id === null || id === undefined) return;
+  if (!Number.isSafeInteger(id) || id < 1) throw new Error("account id is invalid");
+  requireOwnedAccount(id);
+}
+
+function accountDispatchLeaseGuard(accountColumn: string, leaseToken: string | undefined, now: number): string {
+  const accountLease = `account_dispatch_leases AS account_lease WHERE account_lease.account_id=${accountColumn}`;
+  if (leaseToken === undefined) return `NOT EXISTS (SELECT 1 FROM ${accountLease})`;
+  return `EXISTS (SELECT 1 FROM ${accountLease} AND account_lease.lease_token=${sqlString(leaseToken)} AND account_lease.lease_until>${sqlNumber(now)})`;
+}
+
+type FinalSendAuthorization = {
+  ownerUserId: string; mode: "assist" | "auto"; consentVersion: number; policyVersion: string; copyVersion: string;
+  xUserId: string; credentialVersion: number;
+  category?: string; autonomyEvidenceHash?: string; autonomyModelKey?: string; autonomySelectorVersion?: string;
+};
+
+function finalSendAuthorizationGuard(input: FinalSendAuthorization | undefined, accountExpr: string, actionExpr: string, snapshotExpr: string): string {
+  // ponytail: absent authorization remains available to low-level lease/recovery fixtures; provider dispatch callers must always pass a fresh authorization snapshot.
+  if (!input) return "1=1";
+  // The OAuth store persists the user-facing Assist mode as `manual`.
+  const owner = sqlString(input.ownerUserId), mode = sqlString(input.mode === "assist" ? "manual" : "auto"), action = actionExpr;
+  const autonomy = input.mode === "auto" && input.category && input.autonomyEvidenceHash && input.autonomyModelKey && input.autonomySelectorVersion ? `AND EXISTS (
+      SELECT 1 FROM scoped_autonomy autonomy JOIN autonomy_suggestions suggestion
+        ON suggestion.id=autonomy.suggestion_id AND suggestion.owner_user_id=autonomy.owner_user_id
+      WHERE autonomy.owner_user_id=${owner} AND autonomy.account_id=CAST(${accountExpr} AS TEXT)
+        AND autonomy.action=${action} AND autonomy.category=${sqlString(input.category)} AND autonomy.risk_tier='low'
+        AND autonomy.disabled_at IS NULL AND autonomy.model_key=${sqlString(input.autonomyModelKey)} AND autonomy.selector_version=${sqlString(input.autonomySelectorVersion)}
+        AND suggestion.status='accepted' AND suggestion.evidence_hash=${sqlString(input.autonomyEvidenceHash)}
+        AND suggestion.model_key=autonomy.model_key AND suggestion.selector_version=autonomy.selector_version
+        AND suggestion.model_key=${sqlString(input.autonomyModelKey)} AND suggestion.selector_version=${sqlString(input.autonomySelectorVersion)}
+        AND EXISTS (SELECT 1 FROM evaluation_predictions active_pin
+          WHERE active_pin.owner_user_id=${owner} AND active_pin.account_id=CAST(${accountExpr} AS TEXT)
+            AND active_pin.action=${action} AND active_pin.category=${sqlString(input.category)}
+            AND active_pin.model_key=${sqlString(input.autonomyModelKey)} AND active_pin.selector_version=${sqlString(input.autonomySelectorVersion)}
+            AND NOT EXISTS (SELECT 1 FROM evaluation_predictions newer_pin
+              WHERE newer_pin.owner_user_id=active_pin.owner_user_id AND newer_pin.account_id=active_pin.account_id
+                AND newer_pin.action=active_pin.action AND newer_pin.category=active_pin.category
+                AND (newer_pin.created_at>active_pin.created_at OR (newer_pin.created_at=active_pin.created_at AND newer_pin.id>active_pin.id))))
+        AND EXISTS (SELECT 1 FROM account_categories mapping JOIN categories category ON category.id=mapping.category_id
+          WHERE mapping.account_id=${accountExpr} AND mapping.enabled=1 AND category.slug=${sqlString(input.category)})
+        AND NOT EXISTS (SELECT 1 FROM evaluation_labels incident JOIN evaluation_predictions labeled
+          ON labeled.id=incident.prediction_id AND labeled.owner_user_id=incident.owner_user_id
+          WHERE labeled.owner_user_id=${owner} AND labeled.account_id=CAST(${accountExpr} AS TEXT)
+            AND labeled.action=${action} AND labeled.category=${sqlString(input.category)}
+            AND labeled.model_key=${sqlString(input.autonomyModelKey)} AND labeled.selector_version=${sqlString(input.autonomySelectorVersion)}
+            AND incident.label IN ('policy_block','wrong_account','wrong_format','publisher_failure','cannibalization'))
+        AND NOT EXISTS (SELECT 1 FROM autonomy_audit incident
+          WHERE incident.owner_user_id=${owner} AND incident.account_id=CAST(${accountExpr} AS TEXT)
+            AND incident.action=${action} AND incident.category=${sqlString(input.category)}
+            AND incident.event='demoted' AND incident.reason IN ('policy_failure','auth_uncertainty','duplicate_risk','unacceptable_outcome'))
+        AND NOT EXISTS (SELECT 1 FROM publication_intents intent JOIN drafts incident_draft ON incident_draft.id=intent.draft_id
+          JOIN evaluation_predictions incident_prediction ON incident_prediction.owner_user_id=incident_draft.owner_user_id
+            AND incident_prediction.account_id=CAST(intent.account_id AS TEXT)
+            AND json_extract(incident_prediction.features_json,'$.sourceCandidateId')=incident_draft.external_id
+          JOIN publication_intent_events incident_event ON incident_event.intent_id=intent.id
+          WHERE incident_draft.owner_user_id=${owner} AND intent.account_id=${accountExpr}
+            AND incident_prediction.action=${action} AND incident_prediction.category=${sqlString(input.category)}
+            AND incident_prediction.model_key=${sqlString(input.autonomyModelKey)} AND incident_prediction.selector_version=${sqlString(input.autonomySelectorVersion)}
+            AND (intent.status='blocked' OR incident_event.error_class IN ('policy_blocked','reauth'))))` : input.mode === "auto" ? "AND 1=0" : "";
+  const human = input.mode === "assist" ? `AND EXISTS (SELECT 1 FROM publication_approval_snapshots approval
+        WHERE approval.id=${snapshotExpr} AND approval.approval_source='human')` : "";
+  return `EXISTS (SELECT 1 FROM accounts account JOIN x_oauth_accounts grant_account ON grant_account.account_id=account.id
+      JOIN x_oauth_credentials credential ON credential.account_id=account.id
+      JOIN automation_consents consent ON consent.account_id=account.id AND consent.action_type=${action}
+      WHERE account.id=${accountExpr} AND account.owner_user_id=${owner} AND account.enabled=1
+        AND grant_account.owner_user_id=${owner} AND grant_account.auth_state='connected' AND grant_account.x_user_id=${sqlString(input.xUserId)}
+        AND credential.owner_user_id=${owner} AND credential.revoked_at IS NULL AND credential.token_version=${sqlNumber(input.credentialVersion)}
+        AND consent.owner_user_id=${owner} AND consent.mode=${mode} AND consent.version=${sqlNumber(input.consentVersion)}
+        AND consent.policy_version=${sqlString(input.policyVersion)} AND consent.consent_copy_version=${sqlString(input.copyVersion)}
+        ${input.mode === "auto" ? "AND consent.revoked_at IS NULL" : ""} ${human} ${autonomy})`;
+}
 
 const schema = `
 CREATE TABLE IF NOT EXISTS schema_migrations (
@@ -720,7 +852,6 @@ CREATE TABLE IF NOT EXISTS accounts (
   account_key TEXT NOT NULL UNIQUE,
   handle TEXT NOT NULL UNIQUE,
   display_name TEXT NOT NULL DEFAULT '',
-  xuse_account_id TEXT NOT NULL DEFAULT '',
   enabled INTEGER NOT NULL DEFAULT 1,
   default_account INTEGER NOT NULL DEFAULT 0,
   automation_mode TEXT NOT NULL DEFAULT 'manual',
@@ -854,9 +985,6 @@ CREATE TABLE IF NOT EXISTS automation_jobs (
   status TEXT NOT NULL DEFAULT 'queued',
   receipt TEXT NOT NULL DEFAULT '',
   reason TEXT NOT NULL DEFAULT '',
-  xuse_queue_id TEXT NOT NULL DEFAULT '',
-  xuse_status TEXT NOT NULL DEFAULT '',
-  xuse_checked_at INTEGER NOT NULL DEFAULT 0,
   remote_url TEXT NOT NULL DEFAULT '',
   reconciliation_status TEXT NOT NULL DEFAULT 'not_started',
   attempts INTEGER NOT NULL DEFAULT 0,
@@ -922,6 +1050,10 @@ function command(sql: string, json = false): unknown[] {
 
 function hasColumn(table: string, column: string): boolean {
   return (command(`PRAGMA table_info(${table});`, true) as Array<{ name?: string }>).some((item) => item.name === column);
+}
+
+function hasTable(table: string): boolean {
+  return rows<{ name: string }>(`SELECT name FROM sqlite_master WHERE type='table' AND name=${sqlString(table)} LIMIT 1;`).length > 0;
 }
 
 function addColumn(table: string, column: string, definition: string): void {
@@ -1365,8 +1497,7 @@ function applyMigrations(): void {
       text TEXT NOT NULL,
       media_path TEXT NOT NULL DEFAULT '',
       media_hash TEXT NOT NULL DEFAULT '',
-      xuse_queue_id TEXT NOT NULL DEFAULT '',
-      receipt TEXT NOT NULL DEFAULT '',
+          receipt TEXT NOT NULL DEFAULT '',
       remote_url TEXT NOT NULL DEFAULT '',
       reason TEXT NOT NULL DEFAULT '',
       requested_at INTEGER NOT NULL,
@@ -1484,6 +1615,140 @@ function applyMigrations(): void {
     CREATE INDEX IF NOT EXISTS draft_variants_draft_idx ON draft_variants(draft_id, variant_index);`);
     command("INSERT INTO schema_migrations (version, applied_at) VALUES (18, unixepoch());");
   }
+  if (!applied.has(19)) {
+    addColumn("publish_attempts", "publication_intent_id", "INTEGER REFERENCES publication_intents(id)");
+    command("CREATE INDEX IF NOT EXISTS publish_attempts_intent_idx ON publish_attempts(publication_intent_id) WHERE publication_intent_id IS NOT NULL;");
+    command("INSERT INTO schema_migrations (version, applied_at) VALUES (19, unixepoch());");
+  }
+  if (!applied.has(20)) {
+    command("BEGIN;");
+    try {
+      addColumn("accounts", "owner_user_id", "TEXT");
+      addColumn("drafts", "owner_user_id", "TEXT");
+      addColumn("draft_batches", "owner_user_id", "TEXT");
+      addColumn("usage_events", "owner_user_id", "TEXT");
+      command("CREATE INDEX IF NOT EXISTS accounts_owner_idx ON accounts(owner_user_id, id);");
+      command("CREATE INDEX IF NOT EXISTS drafts_owner_idx ON drafts(owner_user_id, updated_at DESC);");
+      command("CREATE INDEX IF NOT EXISTS draft_batches_owner_idx ON draft_batches(owner_user_id, id);");
+      command("CREATE INDEX IF NOT EXISTS usage_events_owner_idx ON usage_events(owner_user_id, created_at DESC);");
+      command("INSERT INTO schema_migrations (version, applied_at) VALUES (20, unixepoch());");
+      command("COMMIT;");
+    } catch (error) {
+      command("ROLLBACK;");
+      throw error;
+    }
+  }
+  if (!applied.has(21)) {
+    command("BEGIN;");
+    try {
+      for (const table of ["automation_jobs", "publication_intents"]) {
+        addColumn(table, "attempts", "INTEGER NOT NULL DEFAULT 0");
+        addColumn(table, "lease_token", "TEXT");
+        addColumn(table, "lease_until", "INTEGER");
+        addColumn(table, "heartbeat_at", "INTEGER");
+        addColumn(table, "max_attempts", "INTEGER NOT NULL DEFAULT 5");
+        addColumn(table, "next_attempt_at", "INTEGER NOT NULL DEFAULT 0");
+        addColumn(table, "error_class", "TEXT NOT NULL DEFAULT ''");
+        addColumn(table, "dead_lettered_at", "INTEGER");
+        addColumn(table, "remote_write_started_at", "INTEGER");
+      }
+      command(`CREATE TABLE IF NOT EXISTS automation_job_events (
+        id INTEGER PRIMARY KEY,
+        job_id INTEGER NOT NULL,
+        event TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT '',
+        error_class TEXT NOT NULL DEFAULT '',
+        created_at INTEGER NOT NULL,
+        FOREIGN KEY(job_id) REFERENCES automation_jobs(id) ON DELETE CASCADE
+      );
+      CREATE INDEX IF NOT EXISTS automation_job_events_job_idx ON automation_job_events(job_id, id);
+      CREATE TABLE IF NOT EXISTS publication_intent_events (
+        id INTEGER PRIMARY KEY,
+        intent_id INTEGER NOT NULL,
+        event TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT '',
+        error_class TEXT NOT NULL DEFAULT '',
+        created_at INTEGER NOT NULL,
+        FOREIGN KEY(intent_id) REFERENCES publication_intents(id) ON DELETE CASCADE
+      );
+      CREATE INDEX IF NOT EXISTS publication_intent_events_intent_idx ON publication_intent_events(intent_id, id);
+      CREATE INDEX IF NOT EXISTS automation_jobs_retry_idx ON automation_jobs(status, scheduled_at, next_attempt_at);
+      CREATE INDEX IF NOT EXISTS automation_jobs_lease_idx ON automation_jobs(status, lease_until);
+      CREATE INDEX IF NOT EXISTS publication_intents_lease_idx ON publication_intents(status, lease_until);
+      INSERT INTO schema_migrations (version, applied_at) VALUES (21, unixepoch());`);
+      command("COMMIT;");
+    } catch (error) {
+      command("ROLLBACK;");
+      throw error;
+    }
+  }
+  if (!applied.has(22)) {
+    addColumn("publication_intents", "remote_post_id", "TEXT NOT NULL DEFAULT ''");
+    command("INSERT INTO schema_migrations (version, applied_at) VALUES (22, unixepoch());");
+  }
+  if (!applied.has(23)) {
+    command(`CREATE TABLE IF NOT EXISTS account_dispatch_leases (
+      account_id INTEGER PRIMARY KEY,
+      lease_token TEXT NOT NULL,
+      lease_until INTEGER NOT NULL,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL,
+      FOREIGN KEY(account_id) REFERENCES accounts(id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS account_dispatch_leases_expiry_idx ON account_dispatch_leases(lease_until);
+    INSERT INTO schema_migrations (version, applied_at) VALUES (23, unixepoch());`);
+  }
+  if (!applied.has(24)) {
+    command("BEGIN IMMEDIATE;");
+    try {
+      command(`CREATE TABLE IF NOT EXISTS legacy_transport_evidence (
+        entity TEXT NOT NULL, entity_id INTEGER NOT NULL, metadata_json TEXT NOT NULL,
+        archived_at INTEGER NOT NULL, PRIMARY KEY(entity, entity_id)
+      );`);
+      for (const [table, legacyColumns] of Object.entries(legacyTransportSchema.columns)) {
+        const columns = new Set((command(`PRAGMA table_info(${table});`, true) as Array<{ name: string }>).map(row => row.name));
+        const present = legacyColumns.filter(column => columns.has(column));
+        if (!present.length) continue;
+        const fields = present.map(column => `${sqlString(column)}, ${column}`).join(",");
+        const nonempty = present.map(column => `CAST(${column} AS TEXT) NOT IN ('','0')`).join(" OR ");
+        command(`INSERT OR IGNORE INTO legacy_transport_evidence(entity,entity_id,metadata_json,archived_at)
+          SELECT ${sqlString(table)},id,json_object(${fields}),unixepoch() FROM ${table} WHERE ${nonempty};`);
+        for (const column of present) command(`ALTER TABLE ${table} DROP COLUMN ${column};`);
+      }
+      command(`UPDATE publication_intents SET status='reconciliation_required',reason='Historical transport receipt needs manual verification'
+        WHERE status=${sqlString(legacyTransportSchema.intentStatus)};
+        INSERT INTO schema_migrations(version,applied_at) VALUES(24,unixepoch());`);
+      command("COMMIT;");
+    } catch (error) { command("ROLLBACK;"); throw error; }
+  }
+  if (!applied.has(25)) {
+    command("BEGIN IMMEDIATE;");
+    try {
+      command(`CREATE TABLE IF NOT EXISTS publication_approval_snapshots (
+        id INTEGER PRIMARY KEY, entity_type TEXT NOT NULL CHECK(entity_type IN ('publication_intent','automation_job')),
+        entity_id INTEGER NOT NULL, draft_id INTEGER NOT NULL, draft_revision INTEGER NOT NULL, text TEXT NOT NULL, account_id INTEGER,
+        action TEXT NOT NULL, format TEXT NOT NULL, target_id TEXT NOT NULL DEFAULT '', external_id TEXT NOT NULL DEFAULT '',
+        source_handle TEXT NOT NULL DEFAULT '', source_url TEXT NOT NULL DEFAULT '', media_hash TEXT NOT NULL DEFAULT '',
+        approval_source TEXT NOT NULL CHECK(approval_source IN ('human','automatic')), approved_at INTEGER NOT NULL,
+        expires_at INTEGER NOT NULL, UNIQUE(entity_type,entity_id)
+      );
+      CREATE TRIGGER IF NOT EXISTS publication_approval_snapshots_no_update BEFORE UPDATE ON publication_approval_snapshots
+        BEGIN SELECT RAISE(ABORT, 'approval snapshots are immutable'); END;
+      CREATE TRIGGER IF NOT EXISTS publication_approval_snapshots_no_delete BEFORE DELETE ON publication_approval_snapshots
+        BEGIN SELECT RAISE(ABORT, 'approval snapshots are immutable'); END;`);
+      addColumn("publication_intents", "approval_expires_at", "INTEGER");
+      addColumn("publication_intents", "approval_snapshot_id", "INTEGER");
+      addColumn("automation_jobs", "approval_expires_at", "INTEGER");
+      addColumn("automation_jobs", "approval_snapshot_id", "INTEGER");
+      command(`UPDATE publication_intents SET status='expired',reason='legacy_approval_requires_renewal',updated_at=unixepoch()
+        WHERE status='approved' AND remote_write_started_at IS NULL;
+        UPDATE automation_jobs SET status='expired',reason='legacy_approval_requires_renewal',updated_at=unixepoch()
+        WHERE status IN ('queued','scheduled') AND remote_write_started_at IS NULL;
+        INSERT INTO schema_migrations(version,applied_at) VALUES(25,unixepoch());`);
+      command("COMMIT;");
+    } catch (error) { command("ROLLBACK;"); throw error; }
+  }
+
 }
 
 export function ensureDatabase(): boolean {
@@ -1509,9 +1774,6 @@ export function ensureDatabase(): boolean {
       ["drafts", "source_handle", "TEXT NOT NULL DEFAULT ''"],
       ["drafts", "source_url", "TEXT NOT NULL DEFAULT ''"],
       ["drafts", "source_score", "REAL NOT NULL DEFAULT 0"],
-      ["automation_jobs", "xuse_queue_id", "TEXT NOT NULL DEFAULT ''"],
-      ["automation_jobs", "xuse_status", "TEXT NOT NULL DEFAULT ''"],
-      ["automation_jobs", "xuse_checked_at", "INTEGER NOT NULL DEFAULT 0"],
       ["automation_jobs", "remote_url", "TEXT NOT NULL DEFAULT ''"],
       ["automation_jobs", "reconciliation_status", "TEXT NOT NULL DEFAULT 'not_started'"],
       ["publish_attempts", "account_id", "INTEGER"],
@@ -1561,6 +1823,68 @@ export function ensureDatabase(): boolean {
     initializationError = error instanceof Error ? error.message : String(error);
     return false;
   }
+}
+
+export function claimAccountDispatchLease(input: { accountId: number; now: number; leaseSeconds?: number }): AccountDispatchLease | null {
+  if (!Number.isSafeInteger(input.accountId) || input.accountId < 1 || !Number.isFinite(input.now)) throw new Error("account dispatch lease input is invalid");
+  const leaseSeconds = Math.max(10, Math.min(3600, Math.floor(input.leaseSeconds ?? 60)));
+  const leaseToken = randomUUID();
+  command("BEGIN IMMEDIATE;");
+  try {
+    requireOwnedAccount(input.accountId);
+    const lease = criticalRows<{ account_id: number; lease_token: string; lease_until: number }>(`INSERT INTO account_dispatch_leases(account_id,lease_token,lease_until,created_at,updated_at)
+      VALUES (${sqlNumber(input.accountId)},${sqlString(leaseToken)},${sqlNumber(input.now + leaseSeconds)},${sqlNumber(input.now)},${sqlNumber(input.now)})
+      ON CONFLICT(account_id) DO UPDATE SET lease_token=excluded.lease_token,lease_until=excluded.lease_until,updated_at=excluded.updated_at
+        WHERE account_dispatch_leases.lease_until<=${sqlNumber(input.now)}
+      RETURNING account_id,lease_token,lease_until;`)[0];
+    command("COMMIT;");
+    return lease ? { accountId: lease.account_id, leaseToken: lease.lease_token, leaseUntil: lease.lease_until } : null;
+  } catch (error) {
+    command("ROLLBACK;");
+    throw error;
+  }
+}
+
+export function renewAccountDispatchLease(input: { accountId: number; leaseToken: string; now: number; leaseSeconds?: number }): boolean {
+  if (!Number.isSafeInteger(input.accountId) || input.accountId < 1 || !input.leaseToken || !Number.isFinite(input.now)) return false;
+  const leaseSeconds = Math.max(10, Math.min(3600, Math.floor(input.leaseSeconds ?? 60)));
+  const ownerClause = ownerSql("accounts.owner_user_id");
+  command("BEGIN IMMEDIATE;");
+  try {
+    const renewed = criticalRows<{ account_id: number }>(`UPDATE account_dispatch_leases SET lease_until=${sqlNumber(input.now + leaseSeconds)},updated_at=${sqlNumber(input.now)}
+      WHERE account_id=${sqlNumber(input.accountId)} AND lease_token=${sqlString(input.leaseToken)} AND lease_until>${sqlNumber(input.now)}
+        AND EXISTS (SELECT 1 FROM accounts WHERE accounts.id=account_dispatch_leases.account_id ${ownerClause ? `AND ${ownerClause}` : ""}) RETURNING account_id;`);
+    command("COMMIT;");
+    return renewed.length > 0;
+  } catch (error) {
+    command("ROLLBACK;");
+    throw error;
+  }
+}
+
+/** Invalidate, but retain, the lease row as a tombstone so old tokenless workers stay fenced. */
+export function releaseAccountDispatchLease(input: { accountId: number; leaseToken: string; now: number }): boolean {
+  if (!Number.isSafeInteger(input.accountId) || input.accountId < 1 || !input.leaseToken || !Number.isFinite(input.now)) return false;
+  const ownerClause = ownerSql("accounts.owner_user_id");
+  command("BEGIN IMMEDIATE;");
+  try {
+    const released = criticalRows<{ account_id: number }>(`UPDATE account_dispatch_leases SET lease_token=${sqlString(randomUUID())},lease_until=${sqlNumber(input.now)},updated_at=${sqlNumber(input.now)}
+      WHERE account_id=${sqlNumber(input.accountId)} AND lease_token=${sqlString(input.leaseToken)} AND lease_until>${sqlNumber(input.now)}
+        AND EXISTS (SELECT 1 FROM accounts WHERE accounts.id=account_dispatch_leases.account_id ${ownerClause ? `AND ${ownerClause}` : ""}) RETURNING account_id;`);
+    command("COMMIT;");
+    return released.length > 0;
+  } catch (error) {
+    command("ROLLBACK;");
+    throw error;
+  }
+}
+
+export function isAccountDispatchLeaseCurrent(input: { accountId: number; leaseToken: string; now: number }): boolean {
+  if (!Number.isSafeInteger(input.accountId) || input.accountId < 1 || !input.leaseToken || !Number.isFinite(input.now)) return false;
+  const ownerClause = ownerSql("accounts.owner_user_id");
+  return criticalRows<{ account_id: number }>(`SELECT lease.account_id FROM account_dispatch_leases lease JOIN accounts ON accounts.id=lease.account_id
+    WHERE lease.account_id=${sqlNumber(input.accountId)} AND lease.lease_token=${sqlString(input.leaseToken)} AND lease.lease_until>${sqlNumber(input.now)}
+      ${ownerClause ? `AND ${ownerClause}` : ""} LIMIT 1;`).length > 0;
 }
 
 function rows<T>(sql: string): T[] {
@@ -2050,6 +2374,7 @@ export function mergeClusters(fromKey: string, intoKey: string, now: number, rea
 }
 
 export function recordDecision(input: { externalId: string; clusterKey: string; accountIds: number[]; categories: string[]; score: number; selected: boolean; reasonCode: string; details?: Record<string, unknown>; now: number }): void {
+  for (const accountId of input.accountIds) requireOwnedAccount(accountId);
   const cluster = criticalRows<{ id: number }>(`SELECT id FROM opportunity_clusters WHERE cluster_key=${sqlString(input.clusterKey)} LIMIT 1;`)[0];
   exec(`INSERT INTO decision_records (
     cluster_id, post_external_id, candidate_account_ids_json, category_slugs_json, score, selected, reason_code, details_json, decided_at
@@ -2092,6 +2417,7 @@ export function candidates(limit = 12, now = Math.floor(Date.now() / 1000)): Rec
 }
 
 export function hasPublishedCluster(clusterKey: string, accountId?: number): boolean {
+  requireValidOptionalAccount(accountId);
   if (accountId) {
     return criticalRows<{ count: number }>(`SELECT (
       SELECT COUNT(*) FROM publications INNER JOIN opportunity_clusters ON opportunity_clusters.id=publications.cluster_id
@@ -2101,7 +2427,7 @@ export function hasPublishedCluster(clusterKey: string, accountId?: number): boo
       SELECT COUNT(*) FROM publication_intents INNER JOIN drafts ON drafts.id=publication_intents.draft_id
       INNER JOIN observed_posts ON observed_posts.external_id=drafts.external_id
       WHERE observed_posts.cluster_key=${sqlString(clusterKey)} AND publication_intents.account_id=${sqlNumber(accountId)}
-        AND publication_intents.status IN ('pending_approval','approved','dispatching','xuse_queued','pending_reconciliation','reconciliation_required')
+        AND publication_intents.status IN ('pending_approval','approved','dispatching','pending_reconciliation','reconciliation_required')
     ) AS count;`)[0]?.count > 0;
   }
   return criticalRows<{ count: number }>(`SELECT COUNT(*) as count FROM observed_posts
@@ -2109,6 +2435,7 @@ export function hasPublishedCluster(clusterKey: string, accountId?: number): boo
 }
 
 export function recentPublishCount(now: number, accountId?: number): number {
+  requireValidOptionalAccount(accountId);
   const accountWhere = accountId ? ` AND account_id=${sqlNumber(accountId)}` : "";
   return criticalRows<{ count: number }>(`SELECT COUNT(*) as count FROM publish_attempts
     WHERE created_at >= ${sqlNumber(now - 86400)}
@@ -2117,6 +2444,7 @@ export function recentPublishCount(now: number, accountId?: number): number {
 
 export function accountPublishingReady(accountId: number, now: number, failureLimit = 3): boolean {
   if (!Number.isInteger(accountId) || accountId < 1) return false;
+  requireOwnedAccount(accountId);
   const attempts = criticalRows<{ status: string }>(`SELECT status FROM publish_attempts
     WHERE account_id=${sqlNumber(accountId)} AND created_at >= ${sqlNumber(now - 86400)}
     ORDER BY created_at DESC, id DESC LIMIT ${sqlNumber(failureLimit)};`);
@@ -2124,6 +2452,7 @@ export function accountPublishingReady(accountId: number, now: number, failureLi
 }
 
 export function recentCategoryPublishCount(now: number, accountId: number, categorySlug: string): number {
+  requireOwnedAccount(accountId);
   const wanted = categorySlug.toLocaleLowerCase("tr-TR");
   return criticalRows<{ score_reason: string }>(`SELECT observed_posts.score_reason FROM publish_attempts
       INNER JOIN observed_posts ON observed_posts.external_id=publish_attempts.post_external_id
@@ -2134,6 +2463,7 @@ export function recentCategoryPublishCount(now: number, accountId: number, categ
 }
 
 export function lastPublishAt(accountId: number): number {
+  requireOwnedAccount(accountId);
   return criticalRows<{ created_at: number }>(`SELECT created_at FROM publish_attempts
     WHERE account_id=${sqlNumber(accountId)} AND status IN ('pending_reconciliation','confirmed')
     ORDER BY created_at DESC LIMIT 1;`)[0]?.created_at || 0;
@@ -2144,12 +2474,19 @@ export function clusterPosts(cluster: string, now = Math.floor(Date.now() / 1000
 }
 
 export function markDraft(externalId: string, text: string, status: string): void {
+  const ownerId = currentOwnerId();
+  if (ownerId !== undefined) {
+    exec(`UPDATE drafts SET text=${sqlString(text)}, status=${sqlString(status)}, updated_at=${sqlNumber(Math.floor(Date.now() / 1000))}
+      WHERE id=(SELECT id FROM drafts WHERE external_id=${sqlString(externalId)} AND owner_user_id=${sqlString(ownerId)} ORDER BY updated_at DESC, id DESC LIMIT 1)
+        AND owner_user_id=${sqlString(ownerId)};`);
+    return;
+  }
   exec(`UPDATE observed_posts SET draft_text=${sqlString(text)}, draft_status=${sqlString(status)}
     WHERE external_id=${sqlString(externalId)};`);
 }
 
 export function getPost(externalId: string): RecentPost | null {
-  return rows<RecentPost>(`SELECT
+  const post = rows<RecentPost>(`SELECT
     external_id as externalId, source_handle as sourceHandle, author_handle as authorHandle,
     status_url as statusUrl, text, created_timestamp as createdTimestamp, likes, replies,
     reposts, quotes, views, author_followers as followers, media_count as mediaCount, media_json as mediaJson,
@@ -2157,6 +2494,7 @@ export function getPost(externalId: string): RecentPost | null {
     relevance_score as relevanceScore, relevance_source as relevanceSource, relevance_json as relevanceJson, relevance_at as relevanceAt,
     observed_at as observedAt, draft_text as draftText, draft_status as draftStatus, publish_status as publishStatus
     FROM observed_posts WHERE external_id=${sqlString(externalId)} LIMIT 1;`)[0] || null;
+  return post ? ownerPostState(post) : null;
 }
 
 export const METRIC_SNAPSHOT_MILESTONES = [120, 300, 600, 1200, 3600] as const;
@@ -2247,6 +2585,7 @@ export function recordAccountOpportunities(input: {
     : [...new Set(input.accountIds)].filter(Number.isInteger).map((accountId) => ({ accountId, categorySlugs: input.categorySlugs, score: input.score, confidence: input.confidence }));
   for (const profile of profiles) {
     const accountId = profile.accountId;
+    requireOwnedAccount(accountId);
     const profileCategories = categories.filter((category) => profile.categorySlugs.includes(category.slug));
     exec(`INSERT INTO account_opportunities (
       cluster_id, account_id, status, primary_category_id, matched_category_ids_json, category_scores_json,
@@ -2266,12 +2605,14 @@ export function recordAccountOpportunities(input: {
 export function recordPublishAttempt(input: {
   externalId: string;
   accountId?: number;
+  publicationIntentId?: number;
   status: string;
   reason: string;
   receipt: string;
   remoteUrl?: string;
   now: number;
 }): void {
+  requireValidOptionalAccount(input.accountId);
   const accountSql = input.accountId ? sqlNumber(input.accountId) : "NULL";
   if (input.status === "blocked") {
     const existing = rows<{ id: number }>(`SELECT id FROM publish_attempts
@@ -2289,9 +2630,9 @@ export function recordPublishAttempt(input: {
     }
   }
   exec(`INSERT INTO publish_attempts
-    (post_external_id, account_id, status, reason, receipt, remote_url, created_at, updated_at, occurrences)
-    VALUES (${sqlString(input.externalId)}, ${accountSql}, ${sqlString(input.status)},
-      ${sqlString(input.reason)}, ${sqlString(input.receipt)},
+    (post_external_id, account_id, publication_intent_id, status, reason, receipt, remote_url, created_at, updated_at, occurrences)
+    VALUES (${sqlString(input.externalId)}, ${accountSql}, ${input.publicationIntentId ? sqlNumber(input.publicationIntentId) : "NULL"},
+      ${sqlString(input.status)}, ${sqlString(input.reason)}, ${sqlString(input.receipt)},
       ${sqlString(input.remoteUrl || "")}, ${sqlNumber(input.now)}, ${sqlNumber(input.now)}, 1);`);
   exec(`UPDATE observed_posts SET publish_status=${sqlString(input.status)}
     WHERE external_id=${sqlString(input.externalId)};`);
@@ -2378,6 +2719,7 @@ export function feedbackDueAttempts(now: number): Array<{
     SELECT post_external_id, account_id, receipt, remote_url, created_at FROM publish_attempts
     WHERE status='confirmed' AND post_external_id<>''
       AND created_at >= ${sqlNumber(now - 14 * 86400)}
+      ${currentOwnerId() ? `AND account_id IN (SELECT id FROM accounts WHERE owner_user_id=${sqlString(currentOwnerId()!)})` : ""}
     ORDER BY created_at ASC LIMIT 40;
   `);
   return attempts.map((attempt) => {
@@ -2390,13 +2732,21 @@ export function feedbackDueAttempts(now: number): Array<{
   }).filter((attempt) => attempt.milestones.length > 0).slice(0, 20);
 }
 
-export function confirmPublish(attemptId: number, externalId: string): void {
-  const attempt = criticalRows<{ account_id: number | null; remote_url: string }>(`SELECT account_id, remote_url FROM publish_attempts
-    WHERE id=${sqlNumber(attemptId)} LIMIT 1;`)[0];
+export function confirmPublish(attemptId: number, externalId: string): boolean {
+  const attempt = criticalRows<{ account_id: number | null; remote_url: string }>(`SELECT attempt.account_id, attempt.remote_url FROM publish_attempts AS attempt
+    WHERE attempt.id=${sqlNumber(attemptId)} AND attempt.status='pending_reconciliation'
+      ${currentOwnerId() ? `AND EXISTS (SELECT 1 FROM accounts AS owner_account WHERE owner_account.id=attempt.account_id AND owner_account.owner_user_id=${sqlString(currentOwnerId()!)})` : ""} AND EXISTS (
+      SELECT 1 FROM publication_intents AS intent
+      INNER JOIN drafts ON drafts.id=intent.draft_id
+      WHERE intent.account_id=attempt.account_id AND drafts.external_id=attempt.post_external_id
+        AND drafts.external_id=${sqlString(externalId)} AND intent.dispatched_at IS NOT NULL
+        AND attempt.publication_intent_id=intent.id
+        AND intent.status IN ('pending_reconciliation','confirmed')
+    ) LIMIT 1;`)[0];
+  if (!attempt) return false;
   exec(`UPDATE publish_attempts SET status='confirmed', reason='FxTwitter reconciliation confirmed'
-    WHERE id=${sqlNumber(attemptId)};`);
-  exec(`UPDATE observed_posts SET publish_status='confirmed'
-    WHERE external_id=${sqlString(externalId)};`);
+    WHERE id=${sqlNumber(attemptId)} AND status='pending_reconciliation';`);
+  if (currentOwnerId() === undefined) exec(`UPDATE observed_posts SET publish_status='confirmed' WHERE external_id=${sqlString(externalId)};`);
   if (attempt) {
     if (attempt.account_id) {
       exec(`UPDATE automation_jobs SET status='confirmed', reconciliation_status='confirmed', remote_url=${sqlString(attempt.remote_url)}, reason='FxTwitter reconciliation confirmed', updated_at=${sqlNumber(Math.floor(Date.now() / 1000))}
@@ -2412,6 +2762,7 @@ export function confirmPublish(attemptId: number, externalId: string): void {
       now: Math.floor(Date.now() / 1000),
     });
   }
+  return true;
 }
 
 export function recordFeedbackSnapshot(input: {
@@ -2428,6 +2779,7 @@ export function recordFeedbackSnapshot(input: {
   milestone?: string;
   now: number;
 }): void {
+  requireValidOptionalAccount(input.accountId);
   exec(`INSERT INTO feedback_snapshots
     (post_external_id, likes, replies, reposts, quotes, views, poll_votes, publisher_blue_check_status, publisher_verification_status, milestone, captured_at)
     VALUES (${sqlString(input.externalId)}, ${sqlNumber(input.likes)}, ${sqlNumber(input.replies)},
@@ -2460,7 +2812,19 @@ const MARKET_POST_COLUMNS = POST_COLUMNS.replace("raw_json as rawJson", "'' as r
 function selectPosts(where: string, orderBy: string, limit?: number, columns = POST_COLUMNS): RecentPost[] {
   const whereSql = where ? ` WHERE ${where}` : "";
   const limitSql = limit === undefined ? "" : ` LIMIT ${sqlNumber(limit)}`;
-  return rows<RecentPost>(`${columns}${whereSql} ORDER BY ${orderBy}${limitSql};`);
+  return rows<RecentPost>(`${columns}${whereSql} ORDER BY ${orderBy}${limitSql};`).map(ownerPostState);
+}
+
+function ownerPostState(post: RecentPost): RecentPost {
+  const ownerId = currentOwnerId();
+  if (ownerId === undefined) return post;
+  const draft = rows<{ text: string; status: string }>(`SELECT text, status FROM drafts
+    WHERE external_id=${sqlString(post.externalId)} AND owner_user_id=${sqlString(ownerId)}
+    ORDER BY updated_at DESC, id DESC LIMIT 1;`)[0];
+  const attempt = rows<{ status: string }>(`SELECT status FROM publish_attempts
+    WHERE post_external_id=${sqlString(post.externalId)} AND account_id IN (SELECT id FROM accounts WHERE owner_user_id=${sqlString(ownerId)})
+    ORDER BY created_at DESC, id DESC LIMIT 1;`)[0];
+  return { ...post, draftText: draft?.text || "", draftStatus: draft?.status || "not_started", publishStatus: attempt?.status || "not_started" };
 }
 
 function selectMarketPosts(where: string, orderBy: string, limit?: number): RecentPost[] {
@@ -2471,8 +2835,10 @@ export function getRecentPosts(limit = 15): RecentPost[] {
   return selectPosts("", "observed_at DESC", limit);
 }
 
-export function getSummary(sourceCount: number): Omit<DashboardSummary, "generatedAt" | "automationEnabled" | "openaiConfigured" | "aiEnabled" | "aiConfigured" | "aiProvider" | "xuseAvailable" | "xuseBin"> {
+export function getSummary(sourceCount: number): Omit<DashboardSummary, "generatedAt" | "automationEnabled" | "openaiConfigured" | "aiEnabled" | "aiConfigured" | "aiProvider" | "officialPublisherConfigured" | "automationRuntime"> {
   const now = Math.floor(Date.now() / 1000);
+  const ownerAccounts = currentOwnerId() === undefined ? null : getAccounts().map((account) => account.id);
+  const accountFilter = ownerAccounts === null ? "" : ` AND account_id IN (${ownerAccounts.length ? ownerAccounts.map(sqlNumber).join(",") : "-1"})`;
   if (!ensureDatabase()) {
     return {
       dbAvailable: false,
@@ -2501,9 +2867,9 @@ export function getSummary(sourceCount: number): Omit<DashboardSummary, "generat
     (SELECT COUNT(*) FROM sources WHERE enabled=1) as sourcesObserved,
     (SELECT COUNT(*) FROM observed_posts) as postsObserved,
     (SELECT COUNT(*) FROM observed_posts WHERE observed_at >= ${sqlNumber(now - 86400)}) as postsLast24h,
-    (SELECT COUNT(*) FROM publish_attempts WHERE status='pending_reconciliation') as attemptsPending,
-    (SELECT COUNT(*) FROM publish_attempts WHERE status='confirmed') as publishedConfirmed,
-    (SELECT COUNT(*) FROM publish_attempts WHERE status='blocked') as publishBlocked;`)[0];
+    (SELECT COUNT(*) FROM publish_attempts WHERE status='pending_reconciliation'${accountFilter}) as attemptsPending,
+    (SELECT COUNT(*) FROM publish_attempts WHERE status='confirmed'${accountFilter}) as publishedConfirmed,
+    (SELECT COUNT(*) FROM publish_attempts WHERE status='blocked'${accountFilter}) as publishBlocked;`)[0];
   const activity = rows<{ label: string; observed: number; opportunities: number }>(`SELECT
     strftime('%H:00', observed_at, 'unixepoch', 'localtime') as label,
     COUNT(*) as observed,
@@ -2652,13 +3018,17 @@ export function deleteCategory(id: number): boolean {
 }
 
 export function getAccountCategoryConfigs(accountId?: number): AccountCategoryConfig[] {
-  const where = accountId ? `WHERE mapping.account_id=${sqlNumber(accountId)}` : "";
+  requireValidOptionalAccount(accountId);
+  const where = accountId
+    ? `WHERE mapping.account_id=${sqlNumber(accountId)}`
+    : ownerSql("accounts.owner_user_id") ? `WHERE ${ownerSql("accounts.owner_user_id")}` : "";
   return rows<{
     account_id: number; category_id: number; slug: string; name: string; enabled: number; is_primary: number; weight: number; priority: number;
     publish_threshold: number | null; daily_budget: number | null; style_override_json: string; ai_route_override_json: string;
   }>(`SELECT mapping.account_id, mapping.category_id, categories.slug, categories.name, mapping.enabled, mapping.is_primary,
       mapping.weight, mapping.priority, mapping.publish_threshold, mapping.daily_budget, mapping.style_override_json, mapping.ai_route_override_json
-      FROM account_categories AS mapping INNER JOIN categories ON categories.id=mapping.category_id ${where}
+      FROM account_categories AS mapping INNER JOIN categories ON categories.id=mapping.category_id
+      INNER JOIN accounts ON accounts.id=mapping.account_id ${where}
       ORDER BY mapping.account_id, mapping.is_primary DESC, mapping.priority DESC, categories.slug;`).map((item) => ({
     accountId: item.account_id,
     categoryId: item.category_id,
@@ -2676,6 +3046,7 @@ export function getAccountCategoryConfigs(accountId?: number): AccountCategoryCo
 }
 
 export function saveAccountCategoryConfig(input: Omit<AccountCategoryConfig, "categorySlug" | "categoryName">): AccountCategoryConfig {
+  requireOwnedAccount(input.accountId);
   if (!getAccounts().some((account) => account.id === input.accountId)) throw new Error("account bulunamadı");
   if (!getCategories().some((category) => category.id === input.categoryId)) throw new Error("category bulunamadı");
   if (input.primary && !input.enabled) throw new Error("primary category etkin olmalı");
@@ -2815,7 +3186,44 @@ export function getStoredSources(): SourceConfig[] {
 }
 
 export function deleteSource(handle: string): void {
-  exec(`DELETE FROM sources WHERE handle=${sqlString(handle)};`);
+  command("BEGIN IMMEDIATE;");
+  try {
+    exec(`DELETE FROM source_categories WHERE source_handle=${sqlString(handle)};
+      DELETE FROM source_reader_cursors WHERE source_handle=${sqlString(handle)};
+      DELETE FROM sources WHERE handle=${sqlString(handle)};`);
+    command("COMMIT;");
+  } catch (error) {
+    command("ROLLBACK;");
+    throw error;
+  }
+}
+
+export function sourceHasLatestEvent(handle: string, event: string): boolean {
+  return rows<{ event: string }>(`SELECT event FROM source_events WHERE handle=${sqlString(handle)} ORDER BY id DESC LIMIT 1;`)[0]?.event === event;
+}
+
+export function resetSourceRegistry(): void {
+  command("BEGIN IMMEDIATE;");
+  try {
+    exec(`DELETE FROM sources;
+      DELETE FROM source_categories;
+      DELETE FROM source_reader_cursors;
+      DELETE FROM app_settings WHERE name IN ('sources_seed_v1', 'sources_political_v2', 'sources_ai_pool_v1', 'sources_ai_pool_v2', 'sources_ai_pool_v3');`);
+    command("COMMIT;");
+  } catch (error) {
+    command("ROLLBACK;");
+    throw error;
+  }
+}
+
+export function recordSourceRestorations(handles: string[], now: number): void {
+  if (!handles.length) return;
+  const list = handles.map(sqlString).join(", ");
+  exec(`INSERT INTO source_events (handle, event, score, reason, model, created_at)
+    SELECT candidate.handle, 'restored', candidate.score, 'source registry reset', candidate.model, ${sqlNumber(now)}
+    FROM source_events AS candidate
+    WHERE candidate.handle IN (${list}) AND candidate.event='deleted'
+      AND candidate.id=(SELECT MAX(latest.id) FROM source_events AS latest WHERE latest.handle=candidate.handle);`);
 }
 
 export function recordSourceEvent(input: {
@@ -2871,6 +3279,7 @@ export function sourceFeedbackScore(handle: string): number | null {
 }
 
 export function accountFeedbackScore(accountId: number): number | null {
+  requireOwnedAccount(accountId);
   const samples = rows<{ likes: number; replies: number; reposts: number; quotes: number; views: number }>(`
     SELECT DISTINCT feedback.id, feedback.likes, feedback.replies, feedback.reposts, feedback.quotes, feedback.views
     FROM publish_attempts AS attempt
@@ -2886,6 +3295,7 @@ export function accountFeedbackScore(accountId: number): number | null {
 }
 
 export function accountCategoryFeedbackScore(accountId: number, categories: string[]): number | null {
+  requireOwnedAccount(accountId);
   const wanted = new Set(categories.map((item) => item.trim().toLocaleLowerCase("tr-TR")).filter(Boolean));
   if (!wanted.size) return accountFeedbackScore(accountId);
   const samples = rows<{ likes: number; replies: number; reposts: number; quotes: number; views: number; score_reason: string }>(`
@@ -2930,6 +3340,7 @@ export function recordAccountSubscriptionSync(input: {
   history?: Array<{ tier: SubscriptionTier; effectiveAt: number }>;
   historyComplete?: boolean;
 }): void {
+  requireOwnedAccount(input.accountId);
   const tier = SUBSCRIPTION_TIERS.includes(input.tier) ? input.tier : "unknown";
   const observedAt = Math.max(0, Math.floor(input.observedAt));
   const history = normaliseSubscriptionHistory(input.history || [], observedAt || Math.floor(Date.now() / 1000));
@@ -3007,6 +3418,7 @@ function median(values: number[]): number | null {
 }
 
 export function accountSubscriptionEvidence(accountId: number, now = Math.floor(Date.now() / 1000)): AccountSubscriptionEvidence {
+  requireOwnedAccount(accountId);
   const history = subscriptionHistoryFor(accountId).filter((event) => event.effectiveAt <= now);
   const observed = subscriptionStateFor(accountId);
   const recordedCurrent = history.at(-1);
@@ -3043,25 +3455,26 @@ export function getAccounts(): Account[] {
     account_key: string;
     handle: string;
     display_name: string;
-    xuse_account_id: string;
     enabled: number;
     default_account: number;
     automation_mode: string;
     daily_limit: number;
     capabilities_json: string;
     style_profile_json: string;
+    owner_user_id: string | null;
     verification_status: string | null;
     updated_at: number;
-  }>(`SELECT id, account_key, handle, display_name, xuse_account_id, enabled,
+  }>(`SELECT id, account_key, handle, display_name, enabled,
       default_account, automation_mode, daily_limit, capabilities_json,
       style_profile_json,
+      owner_user_id,
       (SELECT verification_status FROM account_metric_snapshots profile WHERE profile.account_id=accounts.id ORDER BY profile.captured_at DESC LIMIT 1) AS verification_status,
-      updated_at FROM accounts ORDER BY default_account DESC, handle;`).map((account) => ({
+      updated_at FROM accounts ${ownerSql("owner_user_id") ? `WHERE ${ownerSql("owner_user_id")}` : ""} ORDER BY default_account DESC, handle;`).map((account) => ({
     id: account.id,
+    ownerUserId: account.owner_user_id as string | null,
     accountKey: account.account_key,
     handle: account.handle,
     displayName: account.display_name,
-    xuseAccountId: account.xuse_account_id,
     enabled: account.enabled === 1,
     defaultAccount: account.default_account === 1,
     automationMode: account.automation_mode === "auto" ? "auto" : "manual",
@@ -3080,7 +3493,6 @@ export function saveAccount(input: {
   accountKey: string;
   handle: string;
   displayName: string;
-  xuseAccountId: string;
   enabled: boolean;
   defaultAccount: boolean;
   automationMode: "manual" | "auto";
@@ -3090,6 +3502,7 @@ export function saveAccount(input: {
   subscriptionHistory?: unknown;
   now: number;
 }): Account {
+  if (input.id !== undefined && (!Number.isSafeInteger(input.id) || input.id < 1)) throw new Error("account id is invalid");
   const styleProfile = { ...(input.styleProfile || {}) };
   if ("editorialInstruction" in styleProfile) {
     const instruction = writeEditorialInstruction(styleProfile.editorialInstruction, "");
@@ -3102,27 +3515,29 @@ export function saveAccount(input: {
     styleProfile.categories = categories;
   }
   if (input.defaultAccount) {
-    exec("UPDATE accounts SET default_account=0;");
+    exec(`UPDATE accounts SET default_account=0 ${ownerSql("owner_user_id") ? `WHERE ${ownerSql("owner_user_id")}` : ""};`);
   }
   const id = input.id && Number.isInteger(input.id) ? input.id : 0;
   if (id > 0) {
+    requireOwnedAccount(id);
     exec(`UPDATE accounts SET account_key=${sqlString(input.accountKey)}, handle=${sqlString(input.handle)},
-      display_name=${sqlString(input.displayName)}, xuse_account_id=${sqlString(input.xuseAccountId)},
+      display_name=${sqlString(input.displayName)},
       enabled=${sqlBool(input.enabled)}, default_account=${sqlBool(input.defaultAccount)},
       automation_mode=${sqlString(input.automationMode)}, daily_limit=${sqlNumber(input.dailyLimit)},
       capabilities_json=${sqlString(JSON.stringify(input.capabilities))},
       style_profile_json=${sqlString(JSON.stringify(styleProfile))}, updated_at=${sqlNumber(input.now)}
-      WHERE id=${sqlNumber(id)};`);
+      WHERE id=${sqlNumber(id)} ${ownerSql("owner_user_id") ? `AND ${ownerSql("owner_user_id")}` : ""};`);
   } else {
-    exec(`INSERT INTO accounts (account_key, handle, display_name, xuse_account_id, enabled,
-      default_account, automation_mode, daily_limit, capabilities_json, style_profile_json, updated_at)
+    exec(`INSERT INTO accounts (account_key, handle, display_name, enabled,
+      default_account, automation_mode, daily_limit, capabilities_json, style_profile_json, owner_user_id, updated_at)
       VALUES (${sqlString(input.accountKey)}, ${sqlString(input.handle)}, ${sqlString(input.displayName)},
-      ${sqlString(input.xuseAccountId)}, ${sqlBool(input.enabled)}, ${sqlBool(input.defaultAccount)},
+      ${sqlBool(input.enabled)}, ${sqlBool(input.defaultAccount)},
       ${sqlString(input.automationMode)}, ${sqlNumber(input.dailyLimit)},
       ${sqlString(JSON.stringify(input.capabilities))}, ${sqlString(JSON.stringify(styleProfile))},
+      ${currentOwnerId() === undefined ? "NULL" : sqlString(currentOwnerId()!)},
       ${sqlNumber(input.now)});`);
   }
-  const savedId = id > 0 ? id : getAccounts().find((account) => account.accountKey === input.accountKey)?.id;
+  const savedId = id > 0 ? id : Number(rows<{ id: number }>("SELECT last_insert_rowid() AS id;")[0]?.id);
   if (!savedId) throw new Error("account could not be saved");
   if (input.subscriptionHistory !== undefined) replaceSubscriptionHistory(savedId, input.subscriptionHistory, input.now);
   const result = getAccounts().find((account) => account.id === savedId);
@@ -3131,6 +3546,7 @@ export function saveAccount(input: {
 }
 
 export function deleteAccount(id: number): void {
+  requireOwnedAccount(id);
   exec(`DELETE FROM automation_jobs WHERE account_id=${sqlNumber(id)};`);
   exec(`DELETE FROM drafts WHERE account_id=${sqlNumber(id)};`);
   exec(`DELETE FROM account_metric_snapshots WHERE account_id=${sqlNumber(id)};`);
@@ -3182,6 +3598,7 @@ export function deleteCompetitor(id: number): void {
 }
 
 export function recordAccountMetric(input: { accountId: number; followers: number; following: number; statuses: number; likes: number; mediaCount: number; blueCheckStatus?: BlueCheckStatus; now: number }): void {
+  requireOwnedAccount(input.accountId);
   const latest = rows<{ captured_at: number }>(`SELECT captured_at FROM account_metric_snapshots WHERE account_id=${sqlNumber(input.accountId)} ORDER BY captured_at DESC LIMIT 1;`)[0];
   if (latest && input.now - latest.captured_at < 3600) return;
   exec(`INSERT INTO account_metric_snapshots (account_id, followers, following, statuses, likes, media_count, blue_check_status, verification_status, captured_at)
@@ -3470,6 +3887,7 @@ export function getDrafts(limit = 100): DraftRecord[] {
       FROM drafts
       LEFT JOIN accounts ON accounts.id=drafts.account_id
       LEFT JOIN observed_posts ON observed_posts.external_id=drafts.external_id
+      ${ownerSql("drafts.owner_user_id") ? `WHERE ${ownerSql("drafts.owner_user_id")}` : ""}
   ORDER BY drafts.updated_at DESC, drafts.id DESC LIMIT ${sqlNumber(limit)};`).map((draft) => ({
     id: draft.id,
     batchId: draft.batch_id || "",
@@ -3562,6 +3980,7 @@ function publicationBaselineSamples(accountId: number, format: string, categoryS
 }
 
 export function draftPerformanceBaseline(input: { accountId: number; format: string; categorySlug?: string }): DraftPerformanceBaseline {
+  requireOwnedAccount(input.accountId);
   const categorySlug = String(input.categorySlug || "").trim().toLocaleLowerCase("tr-TR");
   if (categorySlug) {
     const exact = publicationBaselineSamples(input.accountId, input.format, categorySlug);
@@ -3598,6 +4017,7 @@ function parseStringList(value: string): string[] {
 }
 
 export function getDraftEvaluation(draftId: number): DraftEvaluation | null {
+  if (!rows<{ id: number }>(`SELECT id FROM drafts WHERE id=${sqlNumber(draftId)} ${ownerSql("owner_user_id") ? `AND ${ownerSql("owner_user_id")}` : ""} LIMIT 1;`).length) return null;
   const row = rows<{
     id: number; draft_id: number; account_id: number | null; category_slug: string; mode: string; score: number; confidence: number;
     predicted_residual: number | null; baseline_scope: DraftPerformanceBaseline["scope"]; baseline_samples: number;
@@ -3658,6 +4078,8 @@ export function recordDraftEvaluation(input: {
   hurt: string[];
   now: number;
 }): DraftEvaluation {
+  if (!getDraft(input.draftId)) throw new Error("draft not found");
+  if (input.accountId) requireOwnedAccount(input.accountId);
   exec(`INSERT INTO draft_evaluations (
       draft_id, account_id, category_slug, mode, score, confidence, predicted_residual,
       baseline_scope, baseline_samples, baseline_views, baseline_likes, baseline_replies, baseline_reposts, baseline_quotes,
@@ -3689,33 +4111,95 @@ export function recordDraftEvaluation(input: {
 
 type PublicationIntentRow = {
   id: number; draft_id: number; account_id: number; handle: string | null; status: PublicationIntentStatus;
-  idempotency_key: string; text: string; media_path: string; media_hash: string; xuse_queue_id: string;
-  receipt: string; remote_url: string; reason: string; requested_at: number; approved_at: number | null;
+  idempotency_key: string; text: string; media_path: string; media_hash: string;
+  receipt: string; remote_url: string; remote_post_id: string; reason: string; requested_at: number; approved_at: number | null;
+  approval_expires_at: number | null; approval_snapshot_id: number | null;
   dispatched_at: number | null; confirmed_at: number | null; updated_at: number;
+  lease_token: string | null; lease_until: number | null; heartbeat_at: number | null; attempts: number; max_attempts: number;
+  next_attempt_at: number; error_class: string; dead_lettered_at: number | null; remote_write_started_at: number | null;
 };
 
 function publicationIntent(row: PublicationIntentRow): PublicationIntent {
   return {
     id: row.id, draftId: row.draft_id, accountId: row.account_id, accountHandle: row.handle || "",
     status: row.status, idempotencyKey: row.idempotency_key, text: row.text, mediaPath: row.media_path,
-    mediaHash: row.media_hash, xuseQueueId: row.xuse_queue_id, receipt: row.receipt, remoteUrl: row.remote_url,
+    mediaHash: row.media_hash, receipt: row.receipt, remoteUrl: row.remote_url, remotePostId: row.remote_post_id,
     reason: row.reason, requestedAt: row.requested_at, approvedAt: row.approved_at,
+    approvalExpiresAt: row.approval_expires_at, approvalSnapshotId: row.approval_snapshot_id,
     dispatchedAt: row.dispatched_at, confirmedAt: row.confirmed_at, updatedAt: row.updated_at,
+    leaseToken: row.lease_token, leaseUntil: row.lease_until, heartbeatAt: row.heartbeat_at,
+    attempts: row.attempts, maxAttempts: row.max_attempts, nextAttemptAt: row.next_attempt_at,
+    errorClass: row.error_class, deadLetteredAt: row.dead_lettered_at, remoteWriteStartedAt: row.remote_write_started_at,
   };
+}
+
+function recordPublicationIntentEvent(intentId: number, event: string, status: string, errorClass: string, now: number): void {
+  exec(`INSERT INTO publication_intent_events (intent_id, event, status, error_class, created_at)
+    VALUES (${sqlNumber(intentId)}, ${sqlString(event)}, ${sqlString(status)}, ${sqlString(errorClass)}, ${sqlNumber(now)});`);
+}
+
+function approvalExpiry(draft: DraftRecord, now: number): number {
+  return now + (draft.externalId || draft.sourceUrl || draft.sourceHandle ? 15 * 60 : 24 * 60 * 60);
+}
+
+function recordApprovalSnapshot(input: {
+  entityType: "publication_intent" | "automation_job"; entityId: number; draft: DraftRecord; accountId: number | null;
+  action: string; text: string; mediaHash?: string; source: "human" | "automatic"; now: number; expiresAt: number;
+}): number {
+  const revision = Number(rows<{ revision: number }>(`SELECT COALESCE(MAX(draft_revision),0)+1 AS revision
+    FROM publication_approval_snapshots WHERE draft_id=${sqlNumber(input.draft.id)};`)[0]?.revision || 1);
+  const targetId = input.draft.sourceUrl.match(/\/status\/(\d{1,19})/)?.[1] ||
+    (/^(reply|repost|quote)$/.test(input.action) ? input.draft.externalId : "");
+  exec(`INSERT INTO publication_approval_snapshots(
+      entity_type,entity_id,draft_id,draft_revision,text,account_id,action,format,target_id,external_id,source_handle,source_url,media_hash,approval_source,approved_at,expires_at
+    ) VALUES (${sqlString(input.entityType)},${sqlNumber(input.entityId)},${sqlNumber(input.draft.id)},${sqlNumber(revision)},${sqlString(input.text)},${input.accountId === null ? "NULL" : sqlNumber(input.accountId)},
+      ${sqlString(input.action)},${sqlString(input.draft.format)},${sqlString(targetId)},${sqlString(input.draft.externalId)},
+      ${sqlString(input.draft.sourceHandle)},${sqlString(input.draft.sourceUrl)},${sqlString(input.mediaHash || "")},${sqlString(input.source)},
+      ${sqlNumber(input.now)},${sqlNumber(input.expiresAt)});`);
+  return Number(rows<{ id: number }>("SELECT last_insert_rowid() AS id;")[0]?.id);
+}
+
+export function getApprovalSnapshotSource(entityType: "publication_intent" | "automation_job", entityId: number): "human" | "automatic" | null {
+  const visible = entityType === "publication_intent" ? getPublicationIntent(entityId) : getJob(entityId);
+  if (!visible?.approvalSnapshotId) return null;
+  return rows<{ approval_source: "human" | "automatic" }>(`SELECT approval_source FROM publication_approval_snapshots
+    WHERE id=${sqlNumber(visible.approvalSnapshotId)} AND entity_type=${sqlString(entityType)} AND entity_id=${sqlNumber(entityId)} LIMIT 1;`)[0]?.approval_source || null;
+}
+
+export function getPublicationIntentEvents(intentId: number): PublicationIntentEvent[] {
+  if (!getPublicationIntent(intentId)) return [];
+  return rows<PublicationIntentEvent>(`SELECT events.id, events.intent_id AS intentId, events.event, events.status,
+      events.error_class AS errorClass, events.created_at AS createdAt
+    FROM publication_intent_events AS events INNER JOIN publication_intents AS intent ON intent.id=events.intent_id
+    INNER JOIN drafts ON drafts.id=intent.draft_id
+    WHERE events.intent_id=${sqlNumber(intentId)} ${ownerSql("drafts.owner_user_id") ? `AND ${ownerSql("drafts.owner_user_id")}` : ""}
+    ORDER BY events.id;`);
 }
 
 export function getPublicationIntents(input: { status?: PublicationIntentStatus; limit?: number } = {}): PublicationIntent[] {
   return rows<PublicationIntentRow>(`SELECT publication_intents.*, accounts.handle FROM publication_intents
     LEFT JOIN accounts ON accounts.id=publication_intents.account_id
-    ${input.status ? `WHERE publication_intents.status=${sqlString(input.status)}` : ""}
+    INNER JOIN drafts AS intent_draft ON intent_draft.id=publication_intents.draft_id
+    WHERE ${input.status ? `publication_intents.status=${sqlString(input.status)}` : "1=1"}
+    ${ownerSql("intent_draft.owner_user_id") ? `AND ${ownerSql("intent_draft.owner_user_id")}` : ""}
     ORDER BY publication_intents.requested_at ASC, publication_intents.id ASC
     LIMIT ${sqlNumber(Math.max(1, Math.min(500, input.limit || 100)))};`).map(publicationIntent);
+}
+
+export function getPendingPublicationIntents(limit = 100): PublicationIntent[] {
+  return rows<PublicationIntentRow>(`SELECT publication_intents.*, accounts.handle FROM publication_intents
+    LEFT JOIN accounts ON accounts.id=publication_intents.account_id
+    INNER JOIN drafts AS intent_draft ON intent_draft.id=publication_intents.draft_id
+    WHERE publication_intents.status='pending_approval' ${ownerSql("intent_draft.owner_user_id") ? `AND ${ownerSql("intent_draft.owner_user_id")}` : ""}
+    ORDER BY publication_intents.requested_at ASC, publication_intents.id ASC
+    LIMIT ${sqlNumber(Math.max(1, Math.min(500, limit)))};`).map(publicationIntent);
 }
 
 export function getPublicationIntent(id: number): PublicationIntent | null {
   const row = rows<PublicationIntentRow>(`SELECT publication_intents.*, accounts.handle FROM publication_intents
     LEFT JOIN accounts ON accounts.id=publication_intents.account_id
-    WHERE publication_intents.id=${sqlNumber(id)} LIMIT 1;`)[0];
+    INNER JOIN drafts AS intent_draft ON intent_draft.id=publication_intents.draft_id
+    WHERE publication_intents.id=${sqlNumber(id)} ${ownerSql("intent_draft.owner_user_id") ? `AND ${ownerSql("intent_draft.owner_user_id")}` : ""} LIMIT 1;`)[0];
   return row ? publicationIntent(row) : null;
 }
 
@@ -3723,39 +4207,317 @@ export function createPublicationIntent(input: { draftId: number; accountId: num
   const draft = getDraft(input.draftId);
   const account = getAccounts().find((item) => item.id === input.accountId);
   if (!draft || !account) throw new Error("publication intent için draft ve hesap gerekli");
-  const existing = rows<{ id: number }>(`SELECT id FROM publication_intents WHERE idempotency_key=${sqlString(input.idempotencyKey)} LIMIT 1;`)[0];
-  if (existing) return getPublicationIntent(existing.id)!;
+  if (draft.accountId && draft.accountId !== input.accountId) throw new Error("publication intent account does not match draft");
+  const existing = rows<{ id: number; status: PublicationIntentStatus }>(`SELECT publication_intents.id, publication_intents.status FROM publication_intents
+    INNER JOIN drafts ON drafts.id=publication_intents.draft_id
+    WHERE idempotency_key=${sqlString(input.idempotencyKey)} ${ownerSql("drafts.owner_user_id") ? `AND ${ownerSql("drafts.owner_user_id")}` : ""} LIMIT 1;`)[0];
+  if (existing && !["cancelled", "expired"].includes(existing.status)) return getPublicationIntent(existing.id)!;
+  const idempotencyKey = existing ? `${input.idempotencyKey}:retry:${randomUUID()}` : input.idempotencyKey;
   exec(`INSERT INTO publication_intents (
       draft_id, account_id, status, idempotency_key, text, media_path, media_hash, requested_at, updated_at
     ) VALUES (
-      ${sqlNumber(input.draftId)}, ${sqlNumber(input.accountId)}, 'pending_approval', ${sqlString(input.idempotencyKey)},
+      ${sqlNumber(input.draftId)}, ${sqlNumber(input.accountId)}, 'pending_approval', ${sqlString(idempotencyKey)},
       ${sqlString(input.text.slice(0, 280))}, ${sqlString(input.mediaPath || "")}, ${sqlString(input.mediaHash || "")},
       ${sqlNumber(input.now)}, ${sqlNumber(input.now)}
     );`);
-  const intent = rows<{ id: number }>(`SELECT id FROM publication_intents WHERE idempotency_key=${sqlString(input.idempotencyKey)} LIMIT 1;`)[0];
+  const intent = rows<{ id: number }>(`SELECT id FROM publication_intents WHERE idempotency_key=${sqlString(idempotencyKey)} LIMIT 1;`)[0];
   if (!intent) throw new Error("publication intent oluşturulamadı");
+  recordPublicationIntentEvent(intent.id, "created", "pending_approval", "", input.now);
   return getPublicationIntent(intent.id)!;
 }
 
 export function updatePublicationIntent(input: {
-  id: number; status: PublicationIntentStatus; reason?: string; xuseQueueId?: string; receipt?: string; remoteUrl?: string;
-  approvedAt?: number | null; dispatchedAt?: number | null; confirmedAt?: number | null; now: number;
+  id: number; status: PublicationIntentStatus; reason?: string; receipt?: string; remoteUrl?: string;
+  approvedAt?: number | null; approvalExpiresAt?: number | null; approvalSnapshotId?: number | null;
+  approvalSource?: "human" | "automatic"; dispatchedAt?: number | null; confirmedAt?: number | null; leaseToken?: string; now: number;
 }): PublicationIntent | null {
   const current = getPublicationIntent(input.id);
   if (!current) return null;
+  if (input.status === "approved" && current.status === "pending_approval") return createPublicationApproval({ id: input.id, now: input.now, source: input.approvalSource });
+  if (current.leaseToken && (current.leaseToken !== input.leaseToken || current.leaseUntil === null || current.leaseUntil <= input.now)) return null;
   exec(`UPDATE publication_intents SET status=${sqlString(input.status)}, reason=${sqlString(input.reason ?? current.reason)},
-    xuse_queue_id=${sqlString(input.xuseQueueId ?? current.xuseQueueId)}, receipt=${sqlString(input.receipt ?? current.receipt)},
+    receipt=${sqlString(input.receipt ?? current.receipt)},
     remote_url=${sqlString(input.remoteUrl ?? current.remoteUrl)},
     approved_at=${input.approvedAt === undefined ? "approved_at" : input.approvedAt === null ? "NULL" : sqlNumber(input.approvedAt)},
+    approval_expires_at=${input.approvalExpiresAt === undefined ? "approval_expires_at" : input.approvalExpiresAt === null ? "NULL" : sqlNumber(input.approvalExpiresAt)},
+    approval_snapshot_id=${input.approvalSnapshotId === undefined ? "approval_snapshot_id" : input.approvalSnapshotId === null ? "NULL" : sqlNumber(input.approvalSnapshotId)},
     dispatched_at=${input.dispatchedAt === undefined ? "dispatched_at" : input.dispatchedAt === null ? "NULL" : sqlNumber(input.dispatchedAt)},
     confirmed_at=${input.confirmedAt === undefined ? "confirmed_at" : input.confirmedAt === null ? "NULL" : sqlNumber(input.confirmedAt)},
-    updated_at=${sqlNumber(input.now)} WHERE id=${sqlNumber(input.id)};`);
+    updated_at=${sqlNumber(input.now)} WHERE id=${sqlNumber(input.id)} ${currentOwnerId() ? `AND EXISTS (SELECT 1 FROM drafts d WHERE d.id=publication_intents.draft_id AND ${ownerSql("d.owner_user_id")})` : ""};`);
+  if (input.status !== current.status) recordPublicationIntentEvent(input.id, input.status, input.status, "", input.now);
   return getPublicationIntent(input.id);
+}
+
+export function createPublicationApproval(input: { id: number; now: number; source?: "human" | "automatic" }): PublicationIntent | null {
+  command("BEGIN IMMEDIATE;");
+  try {
+    const current = getPublicationIntent(input.id);
+    if (!current || current.status !== "pending_approval") { command("COMMIT;"); return null; }
+    const draft = getDraft(current.draftId);
+    if (!draft) throw new Error("approval draft not found");
+    const expiresAt = approvalExpiry(draft, input.now);
+    const snapshotId = recordApprovalSnapshot({ entityType: "publication_intent", entityId: current.id, draft,
+      accountId: current.accountId, action: "post", text: current.text, mediaHash: current.mediaHash,
+      source: input.source || "human", now: input.now, expiresAt });
+    const updated = criticalRows<{ id: number }>(`UPDATE publication_intents SET status='approved',approved_at=${sqlNumber(input.now)},
+      approval_expires_at=${sqlNumber(expiresAt)},approval_snapshot_id=${sqlNumber(snapshotId)},updated_at=${sqlNumber(input.now)}
+      WHERE id=${sqlNumber(input.id)} AND status='pending_approval'
+      ${currentOwnerId() ? `AND EXISTS (SELECT 1 FROM drafts d WHERE d.id=publication_intents.draft_id AND ${ownerSql("d.owner_user_id")})` : ""} RETURNING id;`);
+    if (!updated.length) throw new Error("publication approval changed concurrently");
+    recordPublicationIntentEvent(input.id, "approved", "approved", "", input.now);
+    command("COMMIT;");
+    return getPublicationIntent(input.id);
+  } catch (error) { command("ROLLBACK;"); throw error; }
+}
+
+export function claimPublicationIntentDispatch(id: number, now: number): PublicationIntent | null {
+  command("BEGIN IMMEDIATE;");
+  try {
+    const current = rows<{ id: number }>(`SELECT id FROM publication_intents
+      WHERE id=${sqlNumber(id)} AND status='approved' ${currentOwnerId() ? `AND EXISTS (SELECT 1 FROM drafts d WHERE d.id=publication_intents.draft_id AND ${ownerSql("d.owner_user_id")})` : ""} LIMIT 1;`)[0];
+    if (!current) {
+      command("COMMIT;");
+      return null;
+    }
+    command(`UPDATE publication_intents SET status='dispatching', dispatched_at=${sqlNumber(now)}, updated_at=${sqlNumber(now)}
+      WHERE id=${sqlNumber(id)} AND status='approved' ${currentOwnerId() ? `AND EXISTS (SELECT 1 FROM drafts d WHERE d.id=publication_intents.draft_id AND ${ownerSql("d.owner_user_id")})` : ""};`);
+    recordPublicationIntentEvent(id, "dispatch_claimed", "dispatching", "", now);
+    command("COMMIT;");
+    return getPublicationIntent(id);
+  } catch (error) {
+    command("ROLLBACK;");
+    throw error;
+  }
+}
+
+export function claimPublicationIntentLease(input: { id: number; now: number; leaseSeconds?: number }): PublicationIntentLease | null {
+  const leaseSeconds = Math.max(10, Math.min(3600, Math.floor(input.leaseSeconds ?? 60)));
+  const ownerClause = ownerSql("d.owner_user_id");
+  command("BEGIN IMMEDIATE;");
+  try {
+    const expired = criticalRows<{ id: number; draft_id: number }>(`UPDATE publication_intents SET status='expired',reason='approval_expired_requires_new_intent',lease_token=NULL,lease_until=NULL,updated_at=${sqlNumber(input.now)}
+      WHERE id=${sqlNumber(input.id)} AND status='approved' AND remote_write_started_at IS NULL
+        AND (approval_expires_at IS NULL OR approval_expires_at<=${sqlNumber(input.now)} OR NOT EXISTS
+          (SELECT 1 FROM publication_approval_snapshots s WHERE s.id=publication_intents.approval_snapshot_id AND s.expires_at>${sqlNumber(input.now)})) RETURNING id,draft_id;`);
+    for (const row of expired) { recordPublicationIntentEvent(row.id, "expired", "expired", "approval_expired", input.now); makeDraftReadyAfterExpiry(row.draft_id,input.now); }
+    const candidate = rows<{ id: number }>(`SELECT intent.id FROM publication_intents AS intent
+      INNER JOIN drafts AS d ON d.id=intent.draft_id
+      WHERE intent.id=${sqlNumber(input.id)} AND intent.status='approved' AND intent.next_attempt_at<=${sqlNumber(input.now)}
+        AND intent.approval_expires_at>${sqlNumber(input.now)} AND EXISTS (SELECT 1 FROM publication_approval_snapshots s JOIN drafts d ON d.id=intent.draft_id
+          WHERE s.id=intent.approval_snapshot_id AND s.entity_type='publication_intent' AND s.entity_id=intent.id AND s.expires_at>${sqlNumber(input.now)}
+            AND s.text=intent.text AND s.text=d.text AND s.account_id IS intent.account_id AND s.action='post' AND s.format=d.format AND s.external_id=d.external_id
+            AND s.source_handle=d.source_handle AND s.source_url=d.source_url AND s.media_hash=intent.media_hash)
+        AND intent.attempts<intent.max_attempts AND (intent.lease_token IS NULL OR intent.lease_until<=${sqlNumber(input.now)})
+        ${ownerClause ? `AND ${ownerClause}` : ""} LIMIT 1;`)[0];
+    if (!candidate) {
+      command("COMMIT;");
+      return null;
+    }
+    const leaseToken = randomUUID();
+    const leaseUntil = input.now + leaseSeconds;
+    command(`UPDATE publication_intents SET status='dispatching', attempts=attempts+1,
+      lease_token=${sqlString(leaseToken)}, lease_until=${sqlNumber(leaseUntil)}, heartbeat_at=${sqlNumber(input.now)},
+      remote_write_started_at=NULL, updated_at=${sqlNumber(input.now)} WHERE id=${sqlNumber(candidate.id)} AND status='approved'
+      AND approval_expires_at>${sqlNumber(input.now)} AND EXISTS (SELECT 1 FROM publication_approval_snapshots s JOIN drafts d ON d.id=publication_intents.draft_id
+        WHERE s.id=publication_intents.approval_snapshot_id AND s.entity_type='publication_intent' AND s.entity_id=publication_intents.id AND s.expires_at>${sqlNumber(input.now)}
+          AND s.text=publication_intents.text AND s.text=d.text AND s.account_id IS publication_intents.account_id AND s.action='post' AND s.format=d.format AND s.external_id=d.external_id
+          AND s.source_handle=d.source_handle AND s.source_url=d.source_url AND s.media_hash=publication_intents.media_hash)
+      AND attempts<max_attempts AND next_attempt_at<=${sqlNumber(input.now)}
+      ${ownerClause ? `AND EXISTS (SELECT 1 FROM drafts d WHERE d.id=publication_intents.draft_id AND ${ownerClause})` : ""};`);
+    recordPublicationIntentEvent(candidate.id, "dispatch_claimed", "dispatching", "", input.now);
+    command("COMMIT;");
+    const intent = getPublicationIntent(candidate.id);
+    return intent ? { intent, leaseToken, leaseUntil } : null;
+  } catch (error) {
+    command("ROLLBACK;");
+    throw error;
+  }
+}
+
+export function renewPublicationIntentLease(input: { id: number; leaseToken: string; now: number; leaseSeconds?: number }): boolean {
+  const leaseSeconds = Math.max(10, Math.min(3600, Math.floor(input.leaseSeconds ?? 60)));
+  const ownerClause = ownerSql("d.owner_user_id");
+  command("BEGIN IMMEDIATE;");
+  try {
+    const updated = criticalRows<{ id: number }>(`UPDATE publication_intents SET lease_until=${sqlNumber(input.now + leaseSeconds)},
+      heartbeat_at=${sqlNumber(input.now)}, updated_at=${sqlNumber(input.now)}
+      WHERE id=${sqlNumber(input.id)} AND status='dispatching' AND lease_token=${sqlString(input.leaseToken)}
+        AND lease_until>${sqlNumber(input.now)}
+        ${ownerClause ? `AND EXISTS (SELECT 1 FROM drafts d WHERE d.id=publication_intents.draft_id AND ${ownerClause})` : ""} RETURNING id;`);
+    if (updated.length) recordPublicationIntentEvent(input.id, "heartbeat", "dispatching", "", input.now);
+    command("COMMIT;");
+    return updated.length > 0;
+  } catch (error) {
+    command("ROLLBACK;");
+    throw error;
+  }
+}
+
+export function markPublicationIntentRequestSent(input: { id: number; leaseToken: string; now: number; accountLeaseToken?: string; authorization?: FinalSendAuthorization }): boolean {
+  const ownerClause = ownerSql("d.owner_user_id");
+  command("BEGIN IMMEDIATE;");
+  try {
+    const expired = criticalRows<{ id: number; draft_id: number }>(`UPDATE publication_intents SET status='expired',reason='approval_expired_requires_new_intent',lease_token=NULL,lease_until=NULL,updated_at=${sqlNumber(input.now)}
+      WHERE id=${sqlNumber(input.id)} AND status='dispatching' AND lease_token=${sqlString(input.leaseToken)}
+        AND approval_expires_at<=${sqlNumber(input.now)} AND remote_write_started_at IS NULL RETURNING id,draft_id;`);
+    for (const row of expired) { recordPublicationIntentEvent(row.id, "expired", "expired", "approval_expired", input.now); makeDraftReadyAfterExpiry(row.draft_id,input.now); }
+    const updated = criticalRows<{ id: number }>(`UPDATE publication_intents SET remote_write_started_at=${sqlNumber(input.now)},
+      dispatched_at=${sqlNumber(input.now)},
+      updated_at=${sqlNumber(input.now)} WHERE id=${sqlNumber(input.id)} AND status='dispatching'
+        AND lease_token=${sqlString(input.leaseToken)} AND lease_until>${sqlNumber(input.now)} AND remote_write_started_at IS NULL
+        AND approval_expires_at>${sqlNumber(input.now)} AND EXISTS (SELECT 1 FROM publication_approval_snapshots s JOIN drafts d ON d.id=publication_intents.draft_id
+        WHERE s.id=publication_intents.approval_snapshot_id AND s.entity_type='publication_intent' AND s.entity_id=publication_intents.id AND s.expires_at>${sqlNumber(input.now)}
+            AND s.text=publication_intents.text AND s.text=d.text AND s.account_id IS publication_intents.account_id AND s.action='post' AND s.format=d.format
+            AND s.external_id=d.external_id AND s.source_handle=d.source_handle AND s.source_url=d.source_url AND s.media_hash=publication_intents.media_hash)
+        AND ${accountDispatchLeaseGuard("publication_intents.account_id", input.accountLeaseToken, input.now)}
+        AND ${finalSendAuthorizationGuard(input.authorization, "publication_intents.account_id", "'post'", "publication_intents.approval_snapshot_id")}
+        ${ownerClause ? `AND EXISTS (SELECT 1 FROM drafts d WHERE d.id=publication_intents.draft_id AND ${ownerClause})` : ""} RETURNING id;`);
+    if (updated.length) recordPublicationIntentEvent(input.id, "request_sent", "dispatching", "", input.now);
+    command("COMMIT;");
+    return updated.length > 0;
+  } catch (error) {
+    command("ROLLBACK;");
+    throw error;
+  }
+}
+
+export function finishPublicationIntentLease(input: {
+  id: number; leaseToken: string; outcome: "accepted" | "retryable_failure" | "permanent_failure" | "unknown_remote_state";
+  accountLeaseToken?: string;
+  now: number; reason?: string; receipt?: string; remoteUrl?: string; errorClass?: string; retryAfterSeconds?: number;
+  remotePostId?: string;
+  baseDelaySeconds?: number; maxDelaySeconds?: number; random?: () => number;
+}): PublicationIntent | null {
+  const ownerClause = ownerSql("d.owner_user_id");
+  command("BEGIN IMMEDIATE;");
+  try {
+    const current = rows<{ attempts: number; max_attempts: number; remote_write_started_at: number | null; account_id: number; approval_expires_at: number | null }>(`SELECT intent.attempts, intent.max_attempts, intent.remote_write_started_at, intent.account_id, intent.approval_expires_at FROM publication_intents AS intent
+      INNER JOIN drafts AS d ON d.id=intent.draft_id
+      WHERE intent.id=${sqlNumber(input.id)} AND intent.status='dispatching' AND intent.lease_token=${sqlString(input.leaseToken)}
+        AND intent.lease_until>${sqlNumber(input.now)} AND ${accountDispatchLeaseGuard("intent.account_id", input.accountLeaseToken, input.now)}
+        ${ownerClause ? `AND ${ownerClause}` : ""} LIMIT 1;`)[0];
+    if (!current) {
+      command("COMMIT;");
+      return null;
+    }
+    if (input.outcome === "accepted" && current.remote_write_started_at === null) {
+      command("COMMIT;");
+      return null;
+    }
+    const errorClass = input.outcome === "accepted" ? "" : normalizedErrorClass(input.errorClass);
+    let status: PublicationIntentStatus;
+    let event: string;
+    let nextAttemptAt = 0;
+    let deadLetteredAt = "NULL";
+    if (input.outcome === "accepted") { status = "pending_reconciliation"; event = "receipt_received"; }
+    else if (input.outcome === "unknown_remote_state") { status = "reconciliation_required"; event = "reconcile_started"; }
+    else if (input.outcome === "permanent_failure" || current.attempts >= current.max_attempts) {
+      status = "dead_letter"; event = "dead_lettered"; deadLetteredAt = sqlNumber(input.now);
+    } else if (current.approval_expires_at === null || current.approval_expires_at <= input.now) {
+      status = "expired"; event = "expired";
+    } else {
+      status = "approved"; event = "retry_scheduled";
+      const delay = Number.isFinite(input.retryAfterSeconds)
+        ? Math.max(0, Math.min(86400, Math.floor(input.retryAfterSeconds!)))
+        : retryDelaySeconds(current.attempts, { baseDelaySeconds: input.baseDelaySeconds, maxDelaySeconds: input.maxDelaySeconds, random: input.random });
+      nextAttemptAt = input.now + delay;
+    }
+    const updated = criticalRows<{ id: number }>(`UPDATE publication_intents SET status=${sqlString(status)}, reason=${sqlString(input.reason || "")},
+      receipt=${sqlString(input.receipt || "")}, remote_url=${sqlString(input.remoteUrl || "")}, remote_post_id=${sqlString(input.remotePostId || "")}, error_class=${sqlString(errorClass)},
+      next_attempt_at=${sqlNumber(nextAttemptAt)}, dead_lettered_at=${deadLetteredAt}, lease_token=NULL, lease_until=NULL,
+      updated_at=${sqlNumber(input.now)} WHERE id=${sqlNumber(input.id)} AND status='dispatching'
+        AND lease_token=${sqlString(input.leaseToken)} AND lease_until>${sqlNumber(input.now)}
+        AND ${accountDispatchLeaseGuard("publication_intents.account_id", input.accountLeaseToken, input.now)}
+        ${ownerClause ? `AND EXISTS (SELECT 1 FROM drafts d WHERE d.id=publication_intents.draft_id AND ${ownerClause})` : ""} RETURNING id;`);
+    if (!updated.length) {
+      command("COMMIT;");
+      return null;
+    }
+    recordPublicationIntentEvent(input.id, event, status, errorClass, input.now);
+    command("COMMIT;");
+    return getPublicationIntent(input.id);
+  } catch (error) {
+    command("ROLLBACK;");
+    throw error;
+  }
+}
+
+/** Mark remote confirmation only after the transport accepted the request and X evidence identifies the post. */
+export function confirmPublicationIntentRemote(input: { id: number; now: number; remotePostId?: string; remoteUrl?: string }): PublicationIntent | null {
+  const ownerClause = ownerSql("d.owner_user_id");
+  command("BEGIN IMMEDIATE;");
+  try {
+    const updated = criticalRows<{ id: number }>(`UPDATE publication_intents SET status='confirmed', confirmed_at=${sqlNumber(input.now)},
+      remote_post_id=${sqlString(input.remotePostId || "")}, remote_url=${sqlString(input.remoteUrl || "")}, updated_at=${sqlNumber(input.now)}
+      WHERE id=${sqlNumber(input.id)} AND status='pending_reconciliation' AND dispatched_at IS NOT NULL
+      ${ownerClause ? `AND EXISTS (SELECT 1 FROM drafts d WHERE d.id=publication_intents.draft_id AND ${ownerClause})` : ""} RETURNING id;`);
+    if (!updated.length) { command("COMMIT;"); return null; }
+    recordPublicationIntentEvent(input.id, "confirmed", "confirmed", "", input.now);
+    command("COMMIT;");
+    return getPublicationIntent(input.id);
+  } catch (error) { command("ROLLBACK;"); throw error; }
+}
+
+export function recoverExpiredPublicationIntents(input: { now: number; baseDelaySeconds?: number; maxDelaySeconds?: number; random?: () => number }): number {
+  const ownerClause = ownerSql("d.owner_user_id");
+  command("BEGIN IMMEDIATE;");
+  try {
+    const expired = rows<{ id: number; draft_id: number; attempts: number; max_attempts: number; remote_write_started_at: number | null; approval_expires_at: number | null }>(`SELECT intent.id,intent.draft_id,intent.attempts,intent.max_attempts,intent.remote_write_started_at,intent.approval_expires_at
+      FROM publication_intents AS intent INNER JOIN drafts AS d ON d.id=intent.draft_id
+      WHERE intent.status='dispatching' AND intent.lease_until IS NOT NULL AND intent.lease_until<=${sqlNumber(input.now)}
+        ${ownerClause ? `AND ${ownerClause}` : ""} ORDER BY intent.lease_until, intent.id;`);
+    for (const intent of expired) {
+      const ambiguous = intent.remote_write_started_at !== null;
+      const dead = !ambiguous && intent.attempts >= intent.max_attempts;
+      const approvalExpired = !ambiguous && (intent.approval_expires_at === null || intent.approval_expires_at <= input.now);
+      const status: PublicationIntentStatus = ambiguous ? "reconciliation_required" : approvalExpired ? "expired" : dead ? "dead_letter" : "approved";
+      const event = ambiguous ? "reconcile_started" : approvalExpired ? "expired" : dead ? "dead_lettered" : "retry_scheduled";
+      const errorClass = ambiguous ? "unknown_remote_state" : approvalExpired ? "approval_expired" : "lease_expired";
+      const nextAttemptAt = status === "approved" ? input.now + retryDelaySeconds(intent.attempts, input) : 0;
+      command(`UPDATE publication_intents SET status=${sqlString(status)}, error_class=${sqlString(errorClass)}, reason=${sqlString(errorClass)},
+        next_attempt_at=${sqlNumber(nextAttemptAt)}, dead_lettered_at=${dead ? sqlNumber(input.now) : "NULL"}, lease_token=NULL,
+        lease_until=NULL, updated_at=${sqlNumber(input.now)} WHERE id=${sqlNumber(intent.id)} AND status='dispatching'
+        AND lease_until<=${sqlNumber(input.now)};`);
+      recordPublicationIntentEvent(intent.id, event, status, errorClass, input.now);
+      if (approvalExpired) makeDraftReadyAfterExpiry(intent.draft_id,input.now);
+    }
+    command("COMMIT;");
+    return expired.length;
+  } catch (error) {
+    command("ROLLBACK;");
+    throw error;
+  }
+}
+
+export function recoverStalePublicationIntent(
+  id: number,
+  cutoff: number,
+  status: PublicationIntentStatus,
+  reason: string,
+  now: number,
+): PublicationIntent | null {
+  command("BEGIN IMMEDIATE;");
+  try {
+    const stale = rows<{ id: number }>(`SELECT id FROM publication_intents
+      WHERE id=${sqlNumber(id)} AND status='dispatching' AND lease_token IS NULL AND updated_at<=${sqlNumber(cutoff)} ${currentOwnerId() ? `AND EXISTS (SELECT 1 FROM drafts d WHERE d.id=publication_intents.draft_id AND ${ownerSql("d.owner_user_id")})` : ""} LIMIT 1;`)[0];
+    if (!stale) {
+      command("COMMIT;");
+      return null;
+    }
+    command(`UPDATE publication_intents SET status=${sqlString(status)}, reason=${sqlString(reason)}, updated_at=${sqlNumber(now)}
+      WHERE id=${sqlNumber(id)} AND status='dispatching' AND lease_token IS NULL AND updated_at<=${sqlNumber(cutoff)} ${currentOwnerId() ? `AND EXISTS (SELECT 1 FROM drafts d WHERE d.id=publication_intents.draft_id AND ${ownerSql("d.owner_user_id")})` : ""};`);
+    recordPublicationIntentEvent(id, status, status, "stale_dispatch", now);
+    command("COMMIT;");
+    return getPublicationIntent(id);
+  } catch (error) {
+    command("ROLLBACK;");
+    throw error;
+  }
 }
 
 export function syncIntentPublication(intentId: number, now: number): void {
   const intent = getPublicationIntent(intentId);
-  if (!intent || intent.status !== "confirmed") return;
+  if (!intent || intent.status !== "confirmed" || intent.dispatchedAt === null) return;
   const draft = getDraft(intent.draftId);
   if (!draft) return;
   const clusterKeyValue = draft.externalId ? getPost(draft.externalId)?.clusterKey || `draft:${draft.id}` : `draft:${draft.id}`;
@@ -3783,11 +4545,12 @@ export function syncIntentPublication(intentId: number, now: number): void {
 
 export function confirmPublicationIntentAttempt(intentId: number, now: number): void {
   const intent = getPublicationIntent(intentId);
-  if (!intent) return;
+  if (!intent || intent.status !== "confirmed" || intent.dispatchedAt === null) return;
   const draft = getDraft(intent.draftId);
   const externalId = draft?.externalId || `intent:${intent.id}`;
   const attempt = rows<{ id: number }>(`SELECT id FROM publish_attempts
     WHERE post_external_id=${sqlString(externalId)} AND account_id=${sqlNumber(intent.accountId)}
+      AND publication_intent_id=${sqlNumber(intent.id)}
       AND status='pending_reconciliation' ORDER BY id DESC LIMIT 1;`)[0];
   if (!attempt) return;
   exec(`UPDATE publish_attempts SET status='confirmed', reason='FxTwitter reconciliation confirmed', updated_at=${sqlNumber(now)}
@@ -3812,15 +4575,18 @@ export function createDraft(input: {
   sourceScore?: number;
   now: number;
 }): DraftRecord {
+  requireValidOptionalAccount(input.accountId);
+  const ownerId = currentOwnerId();
+  if (input.batchId && ownerId !== undefined && !getDraftBatch(input.batchId)) throw new Error("draft batch not found");
   exec(`INSERT INTO drafts (batch_id, origin, prompt, provider, model, variant_mode, source_handle, source_url, source_score,
-      external_id, account_id, format, text, status, gate_reason, created_at, updated_at)
+      external_id, account_id, format, text, status, gate_reason, owner_user_id, created_at, updated_at)
     VALUES (${sqlString(input.batchId || "")}, ${sqlString(input.origin || "manual")},
       ${sqlString(input.prompt || "")}, ${sqlString(input.provider || "")}, ${sqlString(input.model || "")},
       ${sqlString(input.variantMode || "same_text")}, ${sqlString(input.sourceHandle || "")},
       ${sqlString(input.sourceUrl || "")}, ${Number.isFinite(input.sourceScore) ? input.sourceScore : 0},
       ${sqlString(input.externalId)}, ${input.accountId ? sqlNumber(input.accountId) : "NULL"},
       ${sqlString(input.format)}, ${sqlString(input.text)}, ${sqlString(input.status || "draft")},
-      ${sqlString(input.gateReason || "")}, ${sqlNumber(input.now)}, ${sqlNumber(input.now)});`);
+      ${sqlString(input.gateReason || "")}, ${ownerId === undefined ? "NULL" : sqlString(ownerId)}, ${sqlNumber(input.now)}, ${sqlNumber(input.now)});`);
   const result = getDrafts(100).sort((left, right) => right.id - left.id)[0];
   if (!result) throw new Error("draft could not be created");
   return result;
@@ -3839,24 +4605,55 @@ export function updateDraft(input: {
 }): DraftRecord | null {
   const current = getDraft(input.id);
   if (!current) return null;
+  requireValidOptionalAccount(input.accountId);
   const accountSql = input.accountId === undefined ? "account_id" : input.accountId === null ? "NULL" : sqlNumber(input.accountId);
-  exec(`UPDATE drafts SET account_id=${accountSql}, format=${sqlString(input.format ?? current.format)},
-    text=${sqlString(input.text ?? current.text)}, status=${sqlString(input.status ?? current.status)},
-    gate_reason=${sqlString(input.gateReason ?? current.gateReason)},
-    source_handle=${sqlString(input.sourceHandle ?? current.sourceHandle)},
-    source_url=${sqlString(input.sourceUrl ?? current.sourceUrl)}, updated_at=${sqlNumber(input.now)}
-    WHERE id=${sqlNumber(input.id)};`);
+  const contentChanged = (input.accountId !== undefined && input.accountId !== current.accountId)
+    || (input.format !== undefined && input.format !== current.format)
+    || (input.text !== undefined && input.text !== current.text)
+    || (input.sourceHandle !== undefined && input.sourceHandle !== current.sourceHandle)
+    || (input.sourceUrl !== undefined && input.sourceUrl !== current.sourceUrl);
+  command("BEGIN IMMEDIATE;");
+  try {
+    if (contentChanged) {
+      const unresolved = criticalRows<{ id: number }>(`SELECT id FROM automation_jobs WHERE draft_id=${sqlNumber(input.id)}
+        AND remote_write_started_at IS NOT NULL AND status NOT IN ('confirmed','cancelled')
+        UNION ALL SELECT id FROM publication_intents WHERE draft_id=${sqlNumber(input.id)}
+        AND remote_write_started_at IS NOT NULL AND status NOT IN ('confirmed','cancelled') LIMIT 1;`);
+      if (unresolved.length) throw new Error("Remote publication must be reconciled before editing this draft");
+      const invalidatedIntents = criticalRows<{ id: number }>(`UPDATE publication_intents SET status='cancelled',reason='draft_revision_changed',approved_at=NULL,
+        lease_token=NULL,lease_until=NULL,updated_at=${sqlNumber(input.now)}
+        WHERE draft_id=${sqlNumber(input.id)} AND remote_write_started_at IS NULL
+        AND status IN ('pending_approval','approved','blocked','dispatching','dead_letter') RETURNING id;`);
+      const invalidatedJobs = criticalRows<{ id: number }>(`UPDATE automation_jobs SET status='cancelled',reason='draft_revision_changed',lease_token=NULL,lease_until=NULL,
+        updated_at=${sqlNumber(input.now)} WHERE draft_id=${sqlNumber(input.id)} AND remote_write_started_at IS NULL
+        AND status IN ('queued','scheduled','blocked','running','dead_letter') RETURNING id;`);
+      for (const intent of invalidatedIntents) recordPublicationIntentEvent(intent.id, 'cancelled', 'cancelled', 'draft_revision_changed', input.now);
+      for (const job of invalidatedJobs) recordAutomationJobEvent(job.id, 'cancelled', 'cancelled', 'draft_revision_changed', input.now);
+    }
+    command(`UPDATE drafts SET account_id=${accountSql}, format=${sqlString(input.format ?? current.format)},
+      text=${sqlString(input.text ?? current.text)}, status=${sqlString(contentChanged ? "draft" : input.status ?? current.status)},
+      gate_reason=${sqlString(input.gateReason ?? current.gateReason)},
+      source_handle=${sqlString(input.sourceHandle ?? current.sourceHandle)},
+      source_url=${sqlString(input.sourceUrl ?? current.sourceUrl)}, updated_at=${sqlNumber(input.now)}
+      WHERE id=${sqlNumber(input.id)} ${ownerSql("owner_user_id") ? `AND ${ownerSql("owner_user_id")}` : ""};`);
+    command("COMMIT;");
+  } catch (error) { command("ROLLBACK;"); throw error; }
   return getDraft(input.id);
 }
 
 export function deleteDraft(id: number): boolean {
   if (!getDraft(id)) return false;
-  exec(`DELETE FROM automation_jobs WHERE draft_id=${sqlNumber(id)}; DELETE FROM draft_variants WHERE draft_id=${sqlNumber(id)}; DELETE FROM draft_evaluations WHERE draft_id=${sqlNumber(id)}; DELETE FROM drafts WHERE id=${sqlNumber(id)};`);
+  const retained = rows<{ id: number }>(`SELECT id FROM automation_jobs WHERE draft_id=${sqlNumber(id)}
+    UNION ALL SELECT id FROM publication_intents WHERE draft_id=${sqlNumber(id)} LIMIT 1;`);
+  if (retained.length || hasTable("draft_revisions") && rows<{ id: number }>(`SELECT id FROM draft_revisions WHERE draft_id=${sqlNumber(id)} LIMIT 1;`).length) return false;
+  exec(`DELETE FROM automation_jobs WHERE draft_id=${sqlNumber(id)};
+    DELETE FROM draft_variants WHERE draft_id=${sqlNumber(id)};
+    DELETE FROM draft_evaluations WHERE draft_id=${sqlNumber(id)};
+    DELETE FROM drafts WHERE id=${sqlNumber(id)} ${ownerSql("owner_user_id") ? `AND ${ownerSql("owner_user_id")}` : ""};`);
   return !getDraft(id);
 }
 
-export function getJobs(limit = 100): AutomationJob[] {
-  return rows<{
+type AutomationJobRow = {
     id: number;
     draft_id: number;
     account_id: number | null;
@@ -3866,38 +4663,110 @@ export function getJobs(limit = 100): AutomationJob[] {
     status: string;
     receipt: string;
     reason: string;
-    xuse_queue_id: string;
-    xuse_status: string;
-    xuse_checked_at: number;
     remote_url: string;
     reconciliation_status: string;
     attempts: number;
+    max_attempts: number;
+    lease_token: string | null;
+    lease_until: number | null;
+    heartbeat_at: number | null;
+    next_attempt_at: number;
+    error_class: string;
+    dead_lettered_at: number | null;
+    approval_expires_at: number | null;
+    approval_snapshot_id: number | null;
+    remote_write_started_at: number | null;
     created_at: number;
     updated_at: number;
-  }>(`SELECT automation_jobs.id, draft_id, automation_jobs.account_id, accounts.handle,
+};
+
+function automationJob(row: AutomationJobRow): AutomationJob {
+  return {
+    id: row.id,
+    draftId: row.draft_id,
+    accountId: row.account_id,
+    accountHandle: row.handle || "atanmamış",
+    action: row.action,
+    scheduledAt: row.scheduled_at,
+    status: row.status,
+    receipt: row.receipt,
+    reason: row.reason,
+    remoteUrl: row.remote_url || "",
+    reconciliationStatus: row.reconciliation_status || "not_started",
+    attempts: row.attempts,
+    maxAttempts: row.max_attempts,
+    leaseToken: row.lease_token,
+    leaseUntil: row.lease_until,
+    heartbeatAt: row.heartbeat_at,
+    nextAttemptAt: row.next_attempt_at,
+    errorClass: row.error_class,
+    deadLetteredAt: row.dead_lettered_at,
+    approvalExpiresAt: row.approval_expires_at,
+    approvalSnapshotId: row.approval_snapshot_id,
+    remoteWriteStartedAt: row.remote_write_started_at,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+const AUTOMATION_JOB_SELECT = `SELECT automation_jobs.id, draft_id, automation_jobs.account_id, accounts.handle,
       action, scheduled_at, automation_jobs.status, receipt, automation_jobs.reason,
-      xuse_queue_id, xuse_status, xuse_checked_at, remote_url, reconciliation_status,
-      attempts, automation_jobs.created_at, automation_jobs.updated_at
+      remote_url, reconciliation_status,
+      attempts, max_attempts, lease_token, lease_until, heartbeat_at, next_attempt_at, error_class, approval_expires_at, approval_snapshot_id,
+      dead_lettered_at, remote_write_started_at, automation_jobs.created_at, automation_jobs.updated_at
       FROM automation_jobs LEFT JOIN accounts ON accounts.id=automation_jobs.account_id
-      ORDER BY scheduled_at ASC, automation_jobs.id DESC LIMIT ${sqlNumber(limit)};`).map((job) => ({
-    id: job.id,
-    draftId: job.draft_id,
-    accountId: job.account_id,
-    accountHandle: job.handle || "atanmamış",
-    action: job.action,
-    scheduledAt: job.scheduled_at,
-    status: job.status,
-    receipt: job.receipt,
-    reason: job.reason,
-    xuseQueueId: job.xuse_queue_id || "",
-    xuseStatus: job.xuse_status || "",
-    xuseCheckedAt: job.xuse_checked_at || 0,
-    remoteUrl: job.remote_url || "",
-    reconciliationStatus: job.reconciliation_status || "not_started",
-    attempts: job.attempts,
-    createdAt: job.created_at,
-    updatedAt: job.updated_at,
-  }));
+      INNER JOIN drafts AS job_draft ON job_draft.id=automation_jobs.draft_id`;
+
+export function getJob(id: number): AutomationJob | null {
+  const row = rows<AutomationJobRow>(`${AUTOMATION_JOB_SELECT} WHERE automation_jobs.id=${sqlNumber(id)} ${ownerSql("job_draft.owner_user_id") ? `AND ${ownerSql("job_draft.owner_user_id")}` : ""} LIMIT 1;`)[0];
+  return row ? automationJob(row) : null;
+}
+
+export function getStaleRunningJobs(cutoff: number, limit = 100): AutomationJob[] {
+  return rows<AutomationJobRow>(`${AUTOMATION_JOB_SELECT}
+    WHERE automation_jobs.status='running' AND automation_jobs.lease_token IS NULL AND automation_jobs.updated_at<=${sqlNumber(cutoff)} ${ownerSql("job_draft.owner_user_id") ? `AND ${ownerSql("job_draft.owner_user_id")}` : ""}
+    ORDER BY automation_jobs.updated_at ASC, automation_jobs.id ASC LIMIT ${sqlNumber(Math.max(1, Math.min(500, limit)))};`).map(automationJob);
+}
+
+export function getJobs(limit = 100): AutomationJob[] {
+  return rows<AutomationJobRow>(`${AUTOMATION_JOB_SELECT}
+      ${ownerSql("job_draft.owner_user_id") ? `WHERE ${ownerSql("job_draft.owner_user_id")}` : ""}
+      ORDER BY scheduled_at ASC, automation_jobs.id DESC LIMIT ${sqlNumber(limit)};`).map(automationJob);
+}
+
+export function readPublicationPolicyHistory(input: { excludeIntentId?: number; excludeJobId?: number; since: number }): PublicationPolicyHistoryRow[] {
+  if (!Number.isFinite(input.since)) throw new Error("policy history since must be finite");
+  const accountOwner = ownerSql("accounts.owner_user_id");
+  const draftOwner = ownerSql("d.owner_user_id");
+  const intents = rows<PublicationPolicyHistoryRow>(`SELECT 'publication_intent' AS recordType,intent.id AS recordId,intent.account_id AS accountId,
+      intent.status AS status,COALESCE(NULLIF(d.format,''),'post') AS action,COALESCE(intent.text,d.text,'') AS text,
+      COALESCE((SELECT p.cluster_id FROM publications p WHERE p.publication_intent_id=intent.id LIMIT 1),
+        (SELECT co.cluster_id FROM cluster_observations co WHERE co.post_external_id=d.external_id LIMIT 1)) AS clusterId,
+      COALESCE(d.source_handle,'') AS sourceHandle,
+      CASE WHEN COALESCE(d.format,'') IN ('reply','repost','quote') THEN COALESCE(d.external_id,'') ELSE '' END AS targetId,
+      intent.requested_at AS createdAt,intent.updated_at AS updatedAt,intent.remote_write_started_at AS sendStartedAt,
+      intent.confirmed_at AS confirmedAt,CASE WHEN intent.status='confirmed' THEN intent.confirmed_at ELSE NULL END AS publishedAt,
+      CASE WHEN intent.remote_write_started_at IS NOT NULL OR intent.status IN ('dispatching','pending_reconciliation','confirmed','reconciliation_required') THEN 1 ELSE 0 END AS potentialBudgetUsed
+    FROM publication_intents intent JOIN accounts ON accounts.id=intent.account_id JOIN drafts d ON d.id=intent.draft_id
+    WHERE intent.status IN ('dispatching','pending_reconciliation','confirmed','reconciliation_required')
+      AND (intent.requested_at>=${sqlNumber(input.since)} OR intent.updated_at>=${sqlNumber(input.since)} OR intent.remote_write_started_at>=${sqlNumber(input.since)} OR intent.confirmed_at>=${sqlNumber(input.since)})
+      ${input.excludeIntentId ? `AND intent.id<>${sqlNumber(input.excludeIntentId)}` : ""}
+      ${accountOwner ? `AND ${accountOwner}` : ""} ${draftOwner ? `AND ${draftOwner}` : ""};`);
+  const jobs = rows<PublicationPolicyHistoryRow>(`SELECT 'automation_job' AS recordType,job.id AS recordId,job.account_id AS accountId,
+      job.status AS status,job.action AS action,COALESCE(d.text,'') AS text,
+      (SELECT co.cluster_id FROM cluster_observations co WHERE co.post_external_id=d.external_id LIMIT 1) AS clusterId,
+      COALESCE(d.source_handle,'') AS sourceHandle,
+      CASE WHEN job.action IN ('reply','repost','quote') THEN COALESCE(d.external_id,'') ELSE '' END AS targetId,
+      job.created_at AS createdAt,job.updated_at AS updatedAt,job.remote_write_started_at AS sendStartedAt,
+      CASE WHEN job.status='confirmed' THEN job.updated_at ELSE NULL END AS confirmedAt,
+      CASE WHEN job.status='confirmed' THEN job.updated_at ELSE NULL END AS publishedAt,
+      CASE WHEN job.remote_write_started_at IS NOT NULL OR job.status IN ('running','pending_reconciliation','confirmed','reconciliation_required','succeeded','submitted') THEN 1 ELSE 0 END AS potentialBudgetUsed
+    FROM automation_jobs job JOIN accounts ON accounts.id=job.account_id JOIN drafts d ON d.id=job.draft_id
+    WHERE job.action IN ('post','reply','repost','quote') AND job.status IN ('running','pending_reconciliation','confirmed','reconciliation_required','succeeded','submitted')
+      AND (job.created_at>=${sqlNumber(input.since)} OR job.updated_at>=${sqlNumber(input.since)} OR job.remote_write_started_at>=${sqlNumber(input.since)})
+      ${input.excludeJobId ? `AND job.id<>${sqlNumber(input.excludeJobId)}` : ""}
+      ${accountOwner ? `AND ${accountOwner}` : ""} ${draftOwner ? `AND ${draftOwner}` : ""};`);
+  return [...intents, ...jobs].sort((a,b)=>(b.sendStartedAt ?? b.confirmedAt ?? b.updatedAt ?? b.createdAt)-(a.sendStartedAt ?? a.confirmedAt ?? a.updatedAt ?? a.createdAt));
 }
 
 export function createJob(input: {
@@ -3905,8 +4774,14 @@ export function createJob(input: {
   accountId?: number | null;
   action: string;
   scheduledAt: number;
+  maxAttempts?: number;
+  approvalSource?: "human" | "automatic";
   now: number;
 }): AutomationJob {
+  const draft = getDraft(input.draftId);
+  if (!draft) throw new Error("draft not found");
+  requireValidOptionalAccount(input.accountId);
+  if (draft.accountId && input.accountId && draft.accountId !== input.accountId) throw new Error("job account does not match draft");
   const accountSql = input.accountId ? sqlNumber(input.accountId) : "NULL";
   const existing = rows<{ id: number }>(`SELECT id FROM automation_jobs
     WHERE draft_id=${sqlNumber(input.draftId)} AND account_id IS ${input.accountId ? "NOT NULL" : "NULL"}
@@ -3915,15 +4790,296 @@ export function createJob(input: {
       AND status IN ('queued','running','submitted','pending_reconciliation')
     ORDER BY id DESC LIMIT 1;`)[0];
   if (existing) {
-    const current = getJobs(500).find((job) => job.id === existing.id);
+    const current = getJob(existing.id);
     if (current) return current;
   }
-  exec(`INSERT INTO automation_jobs (draft_id, account_id, action, scheduled_at, created_at, updated_at)
+  const maxAttempts = Math.max(1, Math.min(20, Math.floor(input.maxAttempts || 5)));
+  exec(`INSERT INTO automation_jobs (draft_id, account_id, action, scheduled_at, max_attempts, created_at, updated_at)
     VALUES (${sqlNumber(input.draftId)}, ${accountSql},
-      ${sqlString(input.action)}, ${sqlNumber(input.scheduledAt)}, ${sqlNumber(input.now)}, ${sqlNumber(input.now)});`);
-  const result = getJobs(500).sort((left, right) => right.id - left.id)[0];
+      ${sqlString(input.action)}, ${sqlNumber(input.scheduledAt)}, ${sqlNumber(maxAttempts)}, ${sqlNumber(input.now)}, ${sqlNumber(input.now)});`);
+  const id = Number(rows<{ id: number }>("SELECT last_insert_rowid() AS id;")[0]?.id);
+  const expiresAt = approvalExpiry(draft, input.now);
+  const approvalSnapshotId = recordApprovalSnapshot({ entityType: "automation_job", entityId: id, draft,
+    accountId: input.accountId || draft.accountId || null, action: input.action, text: draft.text,
+    source: input.approvalSource || "human", now: input.now, expiresAt });
+  exec(`UPDATE automation_jobs SET approval_expires_at=${sqlNumber(expiresAt)},approval_snapshot_id=${sqlNumber(approvalSnapshotId)} WHERE id=${sqlNumber(id)};`);
+  recordAutomationJobEvent(id, "created", "queued", "", input.now);
+  recordAutomationJobEvent(id, "scheduled", "queued", "", input.now);
+  const result = getJob(id);
   if (!result) throw new Error("job could not be created");
   return result;
+}
+
+function recordAutomationJobEvent(jobId: number, event: string, status: string, errorClass: string, now: number): void {
+  exec(`INSERT INTO automation_job_events (job_id, event, status, error_class, created_at)
+    VALUES (${sqlNumber(jobId)}, ${sqlString(event)}, ${sqlString(status)}, ${sqlString(errorClass)}, ${sqlNumber(now)});`);
+}
+
+function makeDraftReadyAfterExpiry(draftId: number, now: number): void {
+  exec(`UPDATE drafts SET status='ready',updated_at=${sqlNumber(now)} WHERE id=${sqlNumber(draftId)} AND status IN ('queued','pending_approval')
+    AND NOT EXISTS (SELECT 1 FROM automation_jobs WHERE draft_id=${sqlNumber(draftId)} AND status IN ('queued','failed','running','pending_reconciliation'))
+    AND NOT EXISTS (SELECT 1 FROM publication_intents WHERE draft_id=${sqlNumber(draftId)} AND status IN ('pending_approval','approved','dispatching','pending_reconciliation'));`);
+}
+
+export function getAutomationJobEvents(jobId: number): AutomationJobEvent[] {
+  if (!getJob(jobId)) return [];
+  return rows<AutomationJobEvent>(`SELECT events.id, events.job_id AS jobId, events.event, events.status, events.error_class AS errorClass, events.created_at AS createdAt
+    FROM automation_job_events AS events INNER JOIN automation_jobs AS job ON job.id=events.job_id
+    INNER JOIN drafts ON drafts.id=job.draft_id
+    WHERE events.job_id=${sqlNumber(jobId)} ${ownerSql("drafts.owner_user_id") ? `AND ${ownerSql("drafts.owner_user_id")}` : ""}
+    ORDER BY events.id;`);
+}
+
+export function retryDelaySeconds(attempt: number, input: { baseDelaySeconds?: number; maxDelaySeconds?: number; random?: () => number } = {}): number {
+  const base = Math.max(1, Math.min(3600, Math.floor(input.baseDelaySeconds ?? 5)));
+  const max = Math.max(base, Math.min(86400, Math.floor(input.maxDelaySeconds ?? 3600)));
+  const jitter = Math.max(0, Math.min(1, Number((input.random || Math.random)())));
+  const exponential = Math.min(max, base * 2 ** Math.max(0, Math.min(30, Math.floor(attempt) - 1)));
+  return Math.min(max, exponential + Math.floor(jitter * base));
+}
+
+function normalizedErrorClass(value: string | undefined): string {
+  return (value || "unknown").replace(/[^a-z0-9_.-]/giu, "_").slice(0, 80) || "unknown";
+}
+
+export function claimAutomationJobLease(input: { id: number; now: number; leaseSeconds?: number }): AutomationJobLease | null {
+  const leaseSeconds = Math.max(10, Math.min(3600, Math.floor(input.leaseSeconds ?? 60)));
+  const ownerClause = ownerSql("d.owner_user_id");
+  command("BEGIN IMMEDIATE;");
+  try {
+    const expired = criticalRows<{ id: number; draft_id: number }>(`UPDATE automation_jobs SET status='expired',reason='approval_expired_requires_new_intent',lease_token=NULL,lease_until=NULL,updated_at=${sqlNumber(input.now)}
+      WHERE id=${sqlNumber(input.id)} AND status IN ('queued','failed') AND remote_write_started_at IS NULL
+        AND (approval_expires_at IS NULL OR approval_expires_at<=${sqlNumber(input.now)} OR NOT EXISTS
+          (SELECT 1 FROM publication_approval_snapshots s WHERE s.id=automation_jobs.approval_snapshot_id AND s.expires_at>${sqlNumber(input.now)})) RETURNING id,draft_id;`);
+    for (const row of expired) { recordAutomationJobEvent(row.id, "expired", "expired", "approval_expired", input.now); makeDraftReadyAfterExpiry(row.draft_id,input.now); }
+    const candidate = rows<{ id: number }>(`SELECT job.id FROM automation_jobs AS job
+      INNER JOIN drafts AS d ON d.id=job.draft_id
+      WHERE job.id=${sqlNumber(input.id)} AND job.status IN ('queued','failed')
+        AND job.approval_expires_at>${sqlNumber(input.now)} AND EXISTS (SELECT 1 FROM publication_approval_snapshots s
+          WHERE s.id=job.approval_snapshot_id AND s.entity_type='automation_job' AND s.entity_id=job.id AND s.expires_at>${sqlNumber(input.now)}
+            AND s.text=(SELECT text FROM drafts WHERE id=job.draft_id) AND s.account_id IS job.account_id AND s.action=job.action
+            AND s.format=(SELECT format FROM drafts WHERE id=job.draft_id) AND s.external_id=(SELECT external_id FROM drafts WHERE id=job.draft_id)
+            AND s.source_handle=(SELECT source_handle FROM drafts WHERE id=job.draft_id) AND s.source_url=(SELECT source_url FROM drafts WHERE id=job.draft_id))
+        AND job.scheduled_at<=${sqlNumber(input.now)} AND job.next_attempt_at<=${sqlNumber(input.now)}
+        AND job.attempts<job.max_attempts AND (job.lease_token IS NULL OR job.lease_until<=${sqlNumber(input.now)})
+        ${ownerClause ? `AND ${ownerClause}` : ""} LIMIT 1;`)[0];
+    if (!candidate) {
+      command("COMMIT;");
+      return null;
+    }
+    const leaseToken = randomUUID();
+    const leaseUntil = input.now + leaseSeconds;
+    command(`UPDATE automation_jobs SET status='running', attempts=attempts+1, lease_token=${sqlString(leaseToken)},
+      lease_until=${sqlNumber(leaseUntil)}, heartbeat_at=${sqlNumber(input.now)}, remote_write_started_at=NULL,
+      updated_at=${sqlNumber(input.now)} WHERE id=${sqlNumber(candidate.id)} AND status IN ('queued','failed')
+      AND approval_expires_at>${sqlNumber(input.now)} AND EXISTS (SELECT 1 FROM publication_approval_snapshots s JOIN drafts d ON d.id=automation_jobs.draft_id
+        WHERE s.id=automation_jobs.approval_snapshot_id AND s.entity_type='automation_job' AND s.entity_id=automation_jobs.id AND s.expires_at>${sqlNumber(input.now)}
+          AND s.text=d.text AND s.account_id IS automation_jobs.account_id AND s.action=automation_jobs.action AND s.format=d.format
+          AND s.external_id=d.external_id AND s.source_handle=d.source_handle AND s.source_url=d.source_url)
+      AND attempts<max_attempts AND scheduled_at<=${sqlNumber(input.now)} AND next_attempt_at<=${sqlNumber(input.now)}
+      ${ownerClause ? `AND EXISTS (SELECT 1 FROM drafts d WHERE d.id=automation_jobs.draft_id AND ${ownerClause})` : ""};`);
+    recordAutomationJobEvent(candidate.id, "reserved", "running", "", input.now);
+    command("COMMIT;");
+    const job = getJob(candidate.id);
+    return job ? { job, leaseToken, leaseUntil } : null;
+  } catch (error) {
+    command("ROLLBACK;");
+    throw error;
+  }
+}
+
+export function renewAutomationJobLease(input: { id: number; leaseToken: string; now: number; leaseSeconds?: number }): boolean {
+  const leaseSeconds = Math.max(10, Math.min(3600, Math.floor(input.leaseSeconds ?? 60)));
+  const ownerClause = ownerSql("d.owner_user_id");
+  command("BEGIN IMMEDIATE;");
+  try {
+    const renewed = criticalRows<{ id: number }>(`UPDATE automation_jobs SET lease_until=${sqlNumber(input.now + leaseSeconds)}, heartbeat_at=${sqlNumber(input.now)}, updated_at=${sqlNumber(input.now)}
+      WHERE id=${sqlNumber(input.id)} AND status='running' AND lease_token=${sqlString(input.leaseToken)} AND lease_until>${sqlNumber(input.now)}
+      ${ownerClause ? `AND EXISTS (SELECT 1 FROM drafts d WHERE d.id=automation_jobs.draft_id AND ${ownerClause})` : ""} RETURNING id;`);
+    if (renewed.length) recordAutomationJobEvent(input.id, "heartbeat", "running", "", input.now);
+    command("COMMIT;");
+    return renewed.length > 0;
+  } catch (error) {
+    command("ROLLBACK;");
+    throw error;
+  }
+}
+
+export function markAutomationJobRequestSent(input: { id: number; leaseToken: string; now: number; accountLeaseToken?: string; authorization?: FinalSendAuthorization }): boolean {
+  const ownerClause = ownerSql("d.owner_user_id");
+  command("BEGIN IMMEDIATE;");
+  try {
+    const expired = criticalRows<{ id: number; draft_id: number }>(`UPDATE automation_jobs SET status='expired',reason='approval_expired_requires_new_intent',lease_token=NULL,lease_until=NULL,updated_at=${sqlNumber(input.now)}
+      WHERE id=${sqlNumber(input.id)} AND status='running' AND lease_token=${sqlString(input.leaseToken)}
+        AND approval_expires_at<=${sqlNumber(input.now)} AND remote_write_started_at IS NULL RETURNING id,draft_id;`);
+    for (const row of expired) { recordAutomationJobEvent(row.id, "expired", "expired", "approval_expired", input.now); makeDraftReadyAfterExpiry(row.draft_id,input.now); }
+    const marked = criticalRows<{ id: number }>(`UPDATE automation_jobs SET remote_write_started_at=${sqlNumber(input.now)}, updated_at=${sqlNumber(input.now)}
+      WHERE id=${sqlNumber(input.id)} AND status='running' AND lease_token=${sqlString(input.leaseToken)} AND lease_until>${sqlNumber(input.now)} AND remote_write_started_at IS NULL
+      AND approval_expires_at>${sqlNumber(input.now)} AND EXISTS (SELECT 1 FROM publication_approval_snapshots s JOIN drafts d ON d.id=automation_jobs.draft_id
+        WHERE s.id=automation_jobs.approval_snapshot_id AND s.entity_type='automation_job' AND s.entity_id=automation_jobs.id AND s.expires_at>${sqlNumber(input.now)}
+          AND s.text=d.text AND s.account_id IS automation_jobs.account_id AND s.action=automation_jobs.action AND s.format=d.format
+          AND s.external_id=d.external_id AND s.source_handle=d.source_handle AND s.source_url=d.source_url)
+      AND ${accountDispatchLeaseGuard("automation_jobs.account_id", input.accountLeaseToken, input.now)}
+      AND ${finalSendAuthorizationGuard(input.authorization, "automation_jobs.account_id", "automation_jobs.action", "automation_jobs.approval_snapshot_id")}
+      ${ownerClause ? `AND EXISTS (SELECT 1 FROM drafts d WHERE d.id=automation_jobs.draft_id AND ${ownerClause})` : ""} RETURNING id;`);
+    if (marked.length) recordAutomationJobEvent(input.id, "request_sent", "running", "", input.now);
+    command("COMMIT;");
+    return marked.length > 0;
+  } catch (error) {
+    command("ROLLBACK;");
+    throw error;
+  }
+}
+
+export function finishAutomationJobLease(input: {
+  id: number; leaseToken: string; outcome: "accepted" | "success" | "retryable_failure" | "permanent_failure" | "unknown_remote_state";
+  accountLeaseToken?: string;
+  now: number; receipt?: string; remoteUrl?: string; errorClass?: string; reason?: string; retryAfterSeconds?: number; baseDelaySeconds?: number; maxDelaySeconds?: number; random?: () => number;
+}): AutomationJob | null {
+  const ownerClause = ownerSql("d.owner_user_id");
+  command("BEGIN IMMEDIATE;");
+  try {
+    const current = rows<{ attempts: number; max_attempts: number; remote_write_started_at: number | null; account_id: number | null }>(`SELECT job.attempts, job.max_attempts, job.remote_write_started_at, job.account_id
+      FROM automation_jobs AS job INNER JOIN drafts AS d ON d.id=job.draft_id
+      WHERE job.id=${sqlNumber(input.id)} AND job.status='running' AND job.lease_token=${sqlString(input.leaseToken)}
+        AND job.lease_until>${sqlNumber(input.now)} AND ${accountDispatchLeaseGuard("job.account_id", input.accountLeaseToken, input.now)}
+        ${ownerClause ? `AND ${ownerClause}` : ""} LIMIT 1;`)[0];
+    if (!current || input.outcome === "accepted" && current.remote_write_started_at === null) {
+      command("COMMIT;");
+      return null;
+    }
+    const errorClass = input.outcome === "success" || input.outcome === "accepted" ? "" : normalizedErrorClass(input.errorClass);
+    let status: string;
+    let event: string;
+    let nextAttemptAt = 0;
+    let deadLetteredAt = "NULL";
+    let reconciliationStatus = "reconciliation_status";
+    if (input.outcome === "accepted") {
+      status = "pending_reconciliation"; event = "receipt_received"; reconciliationStatus = "'pending'";
+    } else if (input.outcome === "success") {
+      status = "succeeded";
+      event = "completed";
+    } else if (input.outcome === "unknown_remote_state") {
+      status = "reconciliation_required";
+      event = "reconcile_started";
+      reconciliationStatus = "'required'";
+    } else if (input.outcome === "permanent_failure" || current.attempts >= current.max_attempts) {
+      status = "dead_letter";
+      event = "dead_lettered";
+      deadLetteredAt = sqlNumber(input.now);
+    } else {
+      status = "queued";
+      event = "retry_scheduled";
+      const delay = Number.isFinite(input.retryAfterSeconds)
+        ? Math.max(0, Math.min(86400, Math.floor(input.retryAfterSeconds!)))
+        : retryDelaySeconds(current.attempts, { baseDelaySeconds: input.baseDelaySeconds, maxDelaySeconds: input.maxDelaySeconds, random: input.random });
+      nextAttemptAt = input.now + delay;
+    }
+    const finished = criticalRows<{ id: number }>(`UPDATE automation_jobs SET status=${sqlString(status)}, reason=${sqlString(input.reason || "")},
+      receipt=${input.receipt === undefined ? "receipt" : sqlString(input.receipt)}, remote_url=${input.remoteUrl === undefined ? "remote_url" : sqlString(input.remoteUrl)},
+      error_class=${sqlString(errorClass)}, next_attempt_at=${sqlNumber(nextAttemptAt)}, dead_lettered_at=${deadLetteredAt},
+      reconciliation_status=${reconciliationStatus}, lease_token=NULL, lease_until=NULL, updated_at=${sqlNumber(input.now)}
+      WHERE id=${sqlNumber(input.id)} AND status='running' AND lease_token=${sqlString(input.leaseToken)} AND lease_until>${sqlNumber(input.now)}
+      AND ${accountDispatchLeaseGuard("automation_jobs.account_id", input.accountLeaseToken, input.now)}
+      ${ownerClause ? `AND EXISTS (SELECT 1 FROM drafts d WHERE d.id=automation_jobs.draft_id AND ${ownerClause})` : ""} RETURNING id;`);
+    if (!finished.length) {
+      command("COMMIT;");
+      return null;
+    }
+    recordAutomationJobEvent(input.id, event, status, errorClass, input.now);
+    command("COMMIT;");
+    return getJob(input.id);
+  } catch (error) {
+    command("ROLLBACK;");
+    throw error;
+  }
+}
+
+export function markAutomationJobReconciliationRequired(input: { id: number; now: number; reason: string }): AutomationJob | null {
+  const clause = ownerSql("d.owner_user_id");
+  command("BEGIN IMMEDIATE;");
+  try {
+    const changed = criticalRows<{ id: number }>(`UPDATE automation_jobs SET status='reconciliation_required', reconciliation_status='required',
+      reason=${sqlString(input.reason)}, updated_at=${sqlNumber(input.now)}
+      WHERE id=${sqlNumber(input.id)} AND status='pending_reconciliation' AND remote_write_started_at IS NOT NULL
+      ${clause ? `AND EXISTS (SELECT 1 FROM drafts d WHERE d.id=automation_jobs.draft_id AND ${clause})` : ""} RETURNING id;`);
+    if (changed.length) recordAutomationJobEvent(input.id,"reconcile_started","reconciliation_required","",input.now);
+    command("COMMIT;");return changed.length?getJob(input.id):null;
+  } catch (error) {command("ROLLBACK;");throw error;}
+}
+
+/** Called only after authenticated remote evidence has been verified by reconciliation. */
+export function confirmAutomationJobRemote(input: { id: number; now: number; receipt?: string; remoteUrl?: string }): AutomationJob | null {
+  const clause = ownerSql("d.owner_user_id");
+  command("BEGIN IMMEDIATE;");
+  try {
+    const confirmed = criticalRows<{ id: number }>(`UPDATE automation_jobs SET status='confirmed', reconciliation_status='confirmed',
+      receipt=${input.receipt === undefined ? "receipt" : sqlString(input.receipt)}, remote_url=${input.remoteUrl === undefined ? "remote_url" : sqlString(input.remoteUrl)},
+      reason='authenticated remote evidence confirmed', updated_at=${sqlNumber(input.now)}
+      WHERE id=${sqlNumber(input.id)} AND status IN ('pending_reconciliation','reconciliation_required') AND remote_write_started_at IS NOT NULL
+      ${clause ? `AND EXISTS (SELECT 1 FROM drafts d WHERE d.id=automation_jobs.draft_id AND ${clause})` : ""} RETURNING id;`);
+    if (confirmed.length) recordAutomationJobEvent(input.id, "confirmed", "confirmed", "", input.now);
+    command("COMMIT;"); return confirmed.length ? getJob(input.id) : null;
+  } catch (error) { command("ROLLBACK;"); throw error; }
+}
+
+export function recoverExpiredAutomationJobs(input: { now: number; baseDelaySeconds?: number; maxDelaySeconds?: number; random?: () => number }): number {
+  const ownerClause = ownerSql("d.owner_user_id");
+  command("BEGIN IMMEDIATE;");
+  try {
+    const expired = rows<{ id: number; draft_id: number; attempts: number; max_attempts: number; remote_write_started_at: number | null; approval_expires_at: number | null }>(`SELECT job.id,job.draft_id,job.attempts,job.max_attempts,job.remote_write_started_at,job.approval_expires_at
+      FROM automation_jobs AS job INNER JOIN drafts AS d ON d.id=job.draft_id
+      WHERE job.status='running' AND job.lease_until IS NOT NULL AND job.lease_until<=${sqlNumber(input.now)}
+        ${ownerClause ? `AND ${ownerClause}` : ""} ORDER BY job.lease_until, job.id;`);
+    for (const job of expired) {
+      const ambiguous = job.remote_write_started_at !== null;
+      const dead = !ambiguous && job.attempts >= job.max_attempts;
+      const approvalExpired = !ambiguous && (job.approval_expires_at === null || job.approval_expires_at <= input.now);
+      const status = ambiguous ? "reconciliation_required" : approvalExpired ? "expired" : dead ? "dead_letter" : "queued";
+      const event = ambiguous ? "reconcile_started" : approvalExpired ? "expired" : dead ? "dead_lettered" : "retry_scheduled";
+      const errorClass = ambiguous ? "unknown_remote_state" : approvalExpired ? "approval_expired" : "lease_expired";
+      const nextAttemptAt = status === "queued" ? input.now + retryDelaySeconds(job.attempts, input) : 0;
+      command(`UPDATE automation_jobs SET status=${sqlString(status)}, reason=${sqlString(errorClass)}, error_class=${sqlString(errorClass)},
+        reconciliation_status=${ambiguous ? "'required'" : "reconciliation_status"}, next_attempt_at=${sqlNumber(nextAttemptAt)},
+        dead_lettered_at=${dead ? sqlNumber(input.now) : "NULL"}, lease_token=NULL, lease_until=NULL, updated_at=${sqlNumber(input.now)}
+        WHERE id=${sqlNumber(job.id)} AND status='running' AND lease_until<=${sqlNumber(input.now)};`);
+      recordAutomationJobEvent(job.id, event, status, errorClass, input.now);
+      if (approvalExpired) makeDraftReadyAfterExpiry(job.draft_id,input.now);
+    }
+    command("COMMIT;");
+    return expired.length;
+  } catch (error) {
+    command("ROLLBACK;");
+    throw error;
+  }
+}
+
+export function getDeadLetterAutomationJobs(limit = 100): AutomationJob[] {
+  return rows<AutomationJobRow>(`${AUTOMATION_JOB_SELECT}
+    WHERE automation_jobs.status='dead_letter' ${ownerSql("job_draft.owner_user_id") ? `AND ${ownerSql("job_draft.owner_user_id")}` : ""}
+    ORDER BY automation_jobs.dead_lettered_at DESC, automation_jobs.id DESC LIMIT ${sqlNumber(Math.max(1, Math.min(500, limit)))};`).map(automationJob);
+}
+
+export function claimAutomationJob(id: number, now: number): AutomationJob | null {
+  command("BEGIN IMMEDIATE;");
+  try {
+    const eligible = rows<{ id: number }>(`SELECT id FROM automation_jobs
+      WHERE id=${sqlNumber(id)} AND status IN ('queued','failed') AND lease_token IS NULL AND attempts<max_attempts
+        AND scheduled_at<=${sqlNumber(now)} AND next_attempt_at<=${sqlNumber(now)} ${ownerSql("owner_user_id") ? `AND EXISTS (SELECT 1 FROM drafts d WHERE d.id=automation_jobs.draft_id AND ${ownerSql("d.owner_user_id")})` : ""} LIMIT 1;`)[0];
+    if (!eligible) {
+      command("COMMIT;");
+      return null;
+    }
+    command(`UPDATE automation_jobs SET status='running', attempts=attempts+1, updated_at=${sqlNumber(now)}
+      WHERE id=${sqlNumber(id)} AND status IN ('queued','failed') AND lease_token IS NULL AND attempts<max_attempts
+        AND scheduled_at<=${sqlNumber(now)} AND next_attempt_at<=${sqlNumber(now)} ${ownerSql("owner_user_id") ? `AND EXISTS (SELECT 1 FROM drafts d WHERE d.id=automation_jobs.draft_id AND ${ownerSql("d.owner_user_id")})` : ""};`);
+    recordAutomationJobEvent(id, "reserved", "running", "", now);
+    command("COMMIT;");
+    return getJob(id);
+  } catch (error) {
+    command("ROLLBACK;");
+    throw error;
+  }
 }
 
 export function updateJob(input: {
@@ -3931,25 +5087,33 @@ export function updateJob(input: {
   status?: string;
   receipt?: string;
   reason?: string;
-  xuseQueueId?: string;
-  xuseStatus?: string;
-  xuseCheckedAt?: number;
   remoteUrl?: string;
   reconciliationStatus?: string;
   attempts?: number;
   now: number;
 }): AutomationJob | null {
-  const current = getJobs(200).find((job) => job.id === input.id);
+  const current = getJob(input.id);
   if (!current) return null;
+  if (current.leaseToken) return null;
+  if (current.status === "cancelled" && input.status === "queued") {
+    return createJob({ draftId: current.draftId, accountId: current.accountId, action: current.action, scheduledAt: current.scheduledAt, now: input.now });
+  }
   exec(`UPDATE automation_jobs SET status=${sqlString(input.status ?? current.status)},
     receipt=${sqlString(input.receipt ?? current.receipt)}, reason=${sqlString(input.reason ?? current.reason)},
-    xuse_queue_id=${sqlString(input.xuseQueueId ?? current.xuseQueueId)},
-    xuse_status=${sqlString(input.xuseStatus ?? current.xuseStatus)}, xuse_checked_at=${sqlNumber(input.xuseCheckedAt ?? current.xuseCheckedAt)},
     remote_url=${sqlString(input.remoteUrl ?? current.remoteUrl)},
     reconciliation_status=${sqlString(input.reconciliationStatus ?? current.reconciliationStatus)},
     attempts=${sqlNumber(input.attempts ?? current.attempts)}, updated_at=${sqlNumber(input.now)}
-    WHERE id=${sqlNumber(input.id)};`);
-  return getJobs(200).find((job) => job.id === input.id) || null;
+    WHERE id=${sqlNumber(input.id)} ${ownerSql("owner_user_id") ? `AND EXISTS (SELECT 1 FROM drafts d WHERE d.id=automation_jobs.draft_id AND ${ownerSql("d.owner_user_id")})` : ""};`);
+  if (input.status && input.status !== current.status) recordAutomationJobEvent(input.id, input.status, input.status, "", input.now);
+  return getJob(input.id);
+}
+
+export function recoverStaleAutomationJob(input: { id: number; cutoff: number; status: string; reason: string; now: number }): boolean {
+  const recovered = criticalRows<{ id: number }>(`UPDATE automation_jobs SET status=${sqlString(input.status)}, reason=${sqlString(input.reason)},
+    reconciliation_status='required', updated_at=${sqlNumber(input.now)}
+    WHERE id=${sqlNumber(input.id)} AND status='running' AND lease_token IS NULL AND updated_at<=${sqlNumber(input.cutoff)} ${ownerSql("owner_user_id") ? `AND EXISTS (SELECT 1 FROM drafts d WHERE d.id=automation_jobs.draft_id AND ${ownerSql("d.owner_user_id")})` : ""} RETURNING id;`).length > 0;
+  if (recovered) recordAutomationJobEvent(input.id, input.status, input.status, "stale_dispatch", input.now);
+  return recovered;
 }
 
 function parseNumberArray(value: string): number[] {
@@ -3999,12 +5163,13 @@ export function createDraftBatch(input: {
   now: number;
 }): DraftBatch {
   const id = input.id || `batch_${randomUUID()}`;
+  for (const accountId of input.accountIds) requireOwnedAccount(accountId);
   exec(`INSERT INTO draft_batches
-    (id, prompt, format, variant_mode, account_ids_json, provider, model, status, created_at, updated_at)
+    (id, prompt, format, variant_mode, account_ids_json, provider, model, status, owner_user_id, created_at, updated_at)
     VALUES (${sqlString(id)}, ${sqlString(input.prompt)}, ${sqlString(input.format)},
       ${sqlString(input.variantMode)}, ${sqlString(JSON.stringify(input.accountIds))},
       ${sqlString(input.provider)}, ${sqlString(input.model)}, ${sqlString(input.status || "draft")},
-      ${sqlNumber(input.now)}, ${sqlNumber(input.now)});`);
+      ${currentOwnerId() === undefined ? "NULL" : sqlString(currentOwnerId()!)}, ${sqlNumber(input.now)}, ${sqlNumber(input.now)});`);
   const batch = getDraftBatch(id);
   if (!batch) throw new Error("draft batch could not be created");
   return batch;
@@ -4023,12 +5188,13 @@ export function getDraftBatch(id: string): DraftBatch | null {
     created_at: number;
     updated_at: number;
   }>(`SELECT id, prompt, format, variant_mode, account_ids_json, provider, model, status,
-      created_at, updated_at FROM draft_batches WHERE id=${sqlString(id)} LIMIT 1;`)[0];
+      created_at, updated_at FROM draft_batches WHERE id=${sqlString(id)} ${ownerSql("owner_user_id") ? `AND ${ownerSql("owner_user_id")}` : ""} LIMIT 1;`)[0];
   return row ? batchFromRow(row) : null;
 }
 
 export function updateDraftBatch(id: string, status: string, now: number): DraftBatch | null {
-  exec(`UPDATE draft_batches SET status=${sqlString(status)}, updated_at=${sqlNumber(now)} WHERE id=${sqlString(id)};`);
+  if (!getDraftBatch(id)) return null;
+  exec(`UPDATE draft_batches SET status=${sqlString(status)}, updated_at=${sqlNumber(now)} WHERE id=${sqlString(id)} ${ownerSql("owner_user_id") ? `AND ${ownerSql("owner_user_id")}` : ""};`);
   return getDraftBatch(id);
 }
 
@@ -4046,10 +5212,10 @@ export function recordUsageEvent(input: {
   now: number;
 }): UsageEvent {
   exec(`INSERT INTO usage_events
-    (kind, provider, model, units, estimated_usd, metadata_json, created_at)
+    (kind, provider, model, units, estimated_usd, metadata_json, owner_user_id, created_at)
     VALUES (${sqlString(input.kind)}, ${sqlString(input.provider)}, ${sqlString(input.model)},
       ${sqlNumber(input.units || 1)}, ${Number.isFinite(input.estimatedUsd) ? input.estimatedUsd : 0},
-      ${sqlString(JSON.stringify(input.metadata || {}))}, ${sqlNumber(input.now)});`);
+      ${sqlString(JSON.stringify(input.metadata || {}))}, ${currentOwnerId() === undefined ? "NULL" : sqlString(currentOwnerId()!)}, ${sqlNumber(input.now)});`);
   const row = rows<{
     id: number;
     kind: string;
@@ -4083,45 +5249,51 @@ export function getUsageSummary(since = 0): {
 } {
   const total = rows<{ events: number; units: number; estimatedUsd: number }>(`SELECT COUNT(*) as events,
       COALESCE(SUM(units), 0) as units, COALESCE(SUM(estimated_usd), 0) as estimatedUsd
-      FROM usage_events WHERE created_at >= ${sqlNumber(since)};`)[0] || { events: 0, units: 0, estimatedUsd: 0 };
+      FROM usage_events WHERE created_at >= ${sqlNumber(since)} ${ownerSql("owner_user_id") ? `AND ${ownerSql("owner_user_id")}` : ""};`)[0] || { events: 0, units: 0, estimatedUsd: 0 };
   return {
     events: total.events,
     units: total.units,
     estimatedUsd: total.estimatedUsd,
     byProvider: rows<{ provider: string; events: number; units: number; estimatedUsd: number }>(`SELECT provider,
       COUNT(*) as events, COALESCE(SUM(units), 0) as units, COALESCE(SUM(estimated_usd), 0) as estimatedUsd
-      FROM usage_events WHERE created_at >= ${sqlNumber(since)} GROUP BY provider ORDER BY units DESC;`),
+      FROM usage_events WHERE created_at >= ${sqlNumber(since)} ${ownerSql("owner_user_id") ? `AND ${ownerSql("owner_user_id")}` : ""} GROUP BY provider ORDER BY units DESC;`),
     byModel: rows<{ provider: string; model: string; events: number; units: number; estimatedUsd: number }>(`SELECT provider, model,
       COUNT(*) as events, COALESCE(SUM(units), 0) as units, COALESCE(SUM(estimated_usd), 0) as estimatedUsd
-      FROM usage_events WHERE created_at >= ${sqlNumber(since)} GROUP BY provider, model ORDER BY units DESC;`),
+      FROM usage_events WHERE created_at >= ${sqlNumber(since)} ${ownerSql("owner_user_id") ? `AND ${ownerSql("owner_user_id")}` : ""} GROUP BY provider, model ORDER BY units DESC;`),
     byKind: rows<{ kind: string; events: number; units: number; estimatedUsd: number }>(`SELECT kind,
       COUNT(*) as events, COALESCE(SUM(units), 0) as units, COALESCE(SUM(estimated_usd), 0) as estimatedUsd
-      FROM usage_events WHERE created_at >= ${sqlNumber(since)} GROUP BY kind ORDER BY units DESC;`),
+      FROM usage_events WHERE created_at >= ${sqlNumber(since)} ${ownerSql("owner_user_id") ? `AND ${ownerSql("owner_user_id")}` : ""} GROUP BY kind ORDER BY units DESC;`),
   };
 }
 
 export function getSecretCiphertext(name: string): { provider: string; ciphertext: string; updatedAt: number } | null {
+  const scopedName = currentOwnerId() === undefined ? name : `owner:${encodeURIComponent(currentOwnerId()!)}:${name}`;
   const secret = rows<{ provider: string; ciphertext: string; updated_at: number }>(
-    `SELECT provider, ciphertext, updated_at FROM secrets WHERE name=${sqlString(name)} LIMIT 1;`,
+    `SELECT provider, ciphertext, updated_at FROM secrets WHERE name=${sqlString(scopedName)} LIMIT 1;`,
   )[0];
   return secret ? { provider: secret.provider, ciphertext: secret.ciphertext, updatedAt: secret.updated_at } : null;
 }
 
 export function saveSecretCiphertext(name: string, provider: string, ciphertext: string, now: number): void {
+  const scopedName = currentOwnerId() === undefined ? name : `owner:${encodeURIComponent(currentOwnerId()!)}:${name}`;
   exec(`INSERT INTO secrets (name, provider, ciphertext, updated_at)
-    VALUES (${sqlString(name)}, ${sqlString(provider)}, ${sqlString(ciphertext)}, ${sqlNumber(now)})
+    VALUES (${sqlString(scopedName)}, ${sqlString(provider)}, ${sqlString(ciphertext)}, ${sqlNumber(now)})
     ON CONFLICT(name) DO UPDATE SET provider=excluded.provider, ciphertext=excluded.ciphertext, updated_at=excluded.updated_at;`);
 }
 
 export function deleteSecret(name: string): void {
-  exec(`DELETE FROM secrets WHERE name=${sqlString(name)};`);
+  const scopedName = currentOwnerId() === undefined ? name : `owner:${encodeURIComponent(currentOwnerId()!)}:${name}`;
+  exec(`DELETE FROM secrets WHERE name=${sqlString(scopedName)};`);
 }
 
 export function getSecretMetas(mask: (name: string) => string): SecretMeta[] {
-  return rows<{ name: string; provider: string; updated_at: number }>(
-    "SELECT name, provider, updated_at FROM secrets ORDER BY name;",
-  ).map((secret) => ({
-    name: secret.name,
+  const ownerId = currentOwnerId();
+  const prefix = ownerId === undefined ? "" : `owner:${encodeURIComponent(ownerId)}:`;
+  const all = rows<{ name: string; provider: string; updated_at: number }>(
+    `SELECT name, provider, updated_at FROM secrets ${ownerId === undefined ? "" : `WHERE name LIKE ${sqlString(prefix.replaceAll("%", "\\%").replaceAll("_", "\\_") + "%")} ESCAPE '\\'`} ORDER BY name;`,
+  );
+  return all.map((secret) => ({
+    name: prefix ? secret.name.slice(prefix.length) : secret.name,
     provider: secret.provider,
     configured: true,
     masked: mask(secret.name),
@@ -4142,37 +5314,61 @@ export const AUTOMATION_LOCK_TTL_SECONDS = 120;
 export type AutomationLock = { owner: string; pid: number; host: string; at: number };
 
 export function readAutomationLock(now = Math.floor(Date.now() / 1000)): AutomationLock | null {
-  const parsed = parseObject(getSetting(AUTOMATION_LOCK_SETTING, "") || "{}");
-  const owner = String(parsed.owner || "");
-  const at = Number(parsed.at || 0);
-  if (!owner || !Number.isFinite(at) || now - at > AUTOMATION_LOCK_TTL_SECONDS) return null;
-  return { owner, pid: Number(parsed.pid || 0), host: String(parsed.host || ""), at };
+  let parsed: Record<string, unknown>;
+  try {
+    const value: unknown = JSON.parse(getSetting(AUTOMATION_LOCK_SETTING, "") || "{}");
+    if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+    parsed = value as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+  const { owner, pid, host, at } = parsed;
+  if (typeof owner !== "string" || !owner || !Number.isSafeInteger(pid) || Number(pid) < 1
+    || typeof host !== "string" || !host || !Number.isSafeInteger(at) || Number(at) > now
+    || now - Number(at) > AUTOMATION_LOCK_TTL_SECONDS) return null;
+  return { owner, pid: Number(pid), host, at: Number(at) };
 }
 
 export function claimAutomationLock(
   owner: string,
   now = Math.floor(Date.now() / 1000),
   pid = process.pid,
-  host = process.env.HOSTNAME || "",
+  host = process.env.HOSTNAME || hostname(),
 ): { ok: boolean; holder: AutomationLock | null } {
-  const holder = readAutomationLock(now);
-  if (holder && !(holder.owner === owner && holder.pid === pid)) return { ok: false, holder };
-  setSetting(AUTOMATION_LOCK_SETTING, JSON.stringify({ owner, pid, host, at: now }), now);
-  return { ok: true, holder: { owner, pid, host, at: now } };
+  command("BEGIN IMMEDIATE;");
+  try {
+    const holder = readAutomationLock(now);
+    if (holder && !(holder.owner === owner && holder.pid === pid && holder.host === host)) {
+      command("COMMIT;");
+      return { ok: false, holder };
+    }
+    setSetting(AUTOMATION_LOCK_SETTING, JSON.stringify({ owner, pid, host, at: now }), now);
+    command("COMMIT;");
+    return { ok: true, holder: { owner, pid, host, at: now } };
+  } catch (error) {
+    command("ROLLBACK;");
+    throw error;
+  }
 }
 
-export function releaseAutomationLock(owner: string, pid = process.pid, now = Math.floor(Date.now() / 1000)): void {
+export function releaseAutomationLock(owner: string, pid = process.pid, now = Math.floor(Date.now() / 1000), host = process.env.HOSTNAME || hostname()): void {
   const holder = readAutomationLock(now);
-  if (holder && holder.owner === owner && holder.pid === pid) setSetting(AUTOMATION_LOCK_SETTING, "", now);
+  if (holder && holder.owner === owner && holder.pid === pid && holder.host === host) setSetting(AUTOMATION_LOCK_SETTING, "", now);
 }
 
 export function getSetting(name: string, fallback = ""): string {
-  return rows<{ value: string }>(`SELECT value FROM app_settings WHERE name=${sqlString(name)} LIMIT 1;`)[0]?.value || fallback;
+  const ownerId = currentOwnerId();
+  const scoped = ownerId !== undefined && (name.startsWith("ai_") || name.startsWith("jev_") || name === "writing_style_settings");
+  const key = scoped ? `owner:${encodeURIComponent(ownerId!)}:${name}` : name;
+  return rows<{ value: string }>(`SELECT value FROM app_settings WHERE name=${sqlString(key)} LIMIT 1;`)[0]?.value || fallback;
 }
 
 export function setSetting(name: string, value: string, now: number): void {
+  const ownerId = currentOwnerId();
+  const scoped = ownerId !== undefined && (name.startsWith("ai_") || name.startsWith("jev_") || name === "writing_style_settings");
+  const key = scoped ? `owner:${encodeURIComponent(ownerId!)}:${name}` : name;
   exec(`INSERT INTO app_settings (name, value, updated_at)
-    VALUES (${sqlString(name)}, ${sqlString(value)}, ${sqlNumber(now)})
+    VALUES (${sqlString(key)}, ${sqlString(value)}, ${sqlNumber(now)})
     ON CONFLICT(name) DO UPDATE SET value=excluded.value, updated_at=excluded.updated_at;`);
 }
 
@@ -4285,13 +5481,16 @@ export function getAutomationLogs(limit = 100): AutomationLog[] {
 }
 
 export function getAnalytics(input: { accountId?: number; rangeDays?: 7 | 14 } = {}) {
+  requireValidOptionalAccount(input.accountId);
+  const accountIds = input.accountId ? [input.accountId] : getAccounts().map((account) => account.id);
+  const accountIdSql = accountIds.length ? accountIds.map(sqlNumber).join(",") : "-1";
   const result = rows<{ drafts: number; queued: number; confirmed: number; blocked: number; failed: number; feedback: number }>(`SELECT
-    (SELECT COUNT(*) FROM drafts) as drafts,
-    (SELECT COUNT(*) FROM automation_jobs WHERE status IN ('queued','running','submitted','pending_reconciliation')) as queued,
-    (SELECT COUNT(*) FROM automation_jobs WHERE status='confirmed') as confirmed,
-    (SELECT COUNT(*) FROM automation_jobs WHERE status='blocked') as blocked,
-    (SELECT COUNT(*) FROM automation_jobs WHERE status='failed') as failed,
-    (SELECT COUNT(*) FROM feedback_snapshots) as feedback;`)[0];
+    (SELECT COUNT(*) FROM drafts WHERE ${ownerSql("owner_user_id") || "1=1"}) as drafts,
+    (SELECT COUNT(*) FROM automation_jobs j INNER JOIN drafts d ON d.id=j.draft_id WHERE ${ownerSql("d.owner_user_id") || "1=1"} AND j.status IN ('queued','running','submitted','pending_reconciliation')) as queued,
+    (SELECT COUNT(*) FROM automation_jobs j INNER JOIN drafts d ON d.id=j.draft_id WHERE ${ownerSql("d.owner_user_id") || "1=1"} AND j.status='confirmed') as confirmed,
+    (SELECT COUNT(*) FROM automation_jobs j INNER JOIN drafts d ON d.id=j.draft_id WHERE ${ownerSql("d.owner_user_id") || "1=1"} AND j.status='blocked') as blocked,
+    (SELECT COUNT(*) FROM automation_jobs j INNER JOIN drafts d ON d.id=j.draft_id WHERE ${ownerSql("d.owner_user_id") || "1=1"} AND j.status='failed') as failed,
+    (SELECT COUNT(*) FROM feedback_snapshots f WHERE EXISTS (SELECT 1 FROM publish_attempts p WHERE p.post_external_id=f.post_external_id AND p.account_id IN (${accountIdSql}))) as feedback;`)[0];
   const now = new Date();
   const nowSeconds = Math.floor(now.getTime() / 1000);
   const rangeDays = input.rangeDays === 7 ? 7 : 14;
@@ -4304,7 +5503,7 @@ export function getAnalytics(input: { accountId?: number; rangeDays?: 7 | 14 } =
   const accountRows = rows<{ account_id: number; handle: string; confirmed: number; feedback: number; likes: number; replies: number; reposts: number; quotes: number; views: number; poll_votes: number }>(`
     WITH confirmed AS (
       SELECT DISTINCT account_id, post_external_id FROM publish_attempts
-      WHERE status='confirmed' AND account_id IS NOT NULL AND post_external_id<>''
+      WHERE status='confirmed' AND account_id IS NOT NULL AND post_external_id<>'' AND account_id IN (${accountIdSql})
     ), latest_feedback AS (
       SELECT feedback.* FROM feedback_snapshots AS feedback
       INNER JOIN (
@@ -4373,7 +5572,7 @@ export function getAnalytics(input: { accountId?: number; rangeDays?: 7 | 14 } =
     INNER JOIN accounts ON accounts.id=attempt.account_id
     LEFT JOIN observed_posts ON observed_posts.external_id=attempt.post_external_id
     INNER JOIN latest_feedback AS feedback ON feedback.post_external_id=attempt.post_external_id
-    WHERE attempt.status='confirmed' ORDER BY feedback.views DESC, feedback.captured_at DESC LIMIT 100;
+    WHERE attempt.status='confirmed' AND attempt.account_id IN (${accountIdSql}) ORDER BY feedback.views DESC, feedback.captured_at DESC LIMIT 100;
   `);
   const ownMetrics = ownPosts.map((post) => ({ ...post, metrics: metricBreakdown(post), category: scoreEvidenceFor(post.score_reason, 0).categories[0] || "belirtilmemiş" }));
   const baseline = ownMetrics.length ? ownMetrics.reduce((sum, post) => sum + post.metrics.engagementRate, 0) / ownMetrics.length : 0;
@@ -4682,7 +5881,6 @@ export function saveAccountVoiceProfile(accountId: number, voice: Record<string,
     accountKey: account.accountKey,
     handle: account.handle,
     displayName: account.displayName,
-    xuseAccountId: account.xuseAccountId,
     enabled: account.enabled,
     defaultAccount: account.defaultAccount,
     automationMode: account.automationMode,
@@ -4735,6 +5933,7 @@ function nullableNumber(value: number | null | undefined): string {
 }
 
 export function recordDraftVariants(input: { draftId: number; variants: DraftVariantInput[]; now: number }): number {
+  if (!getDraft(input.draftId)) throw new Error("draft not found");
   const statements = input.variants.map((variant) => `INSERT INTO draft_variants (
       draft_id, variant_index, angle, format, text, chosen, evaluator_score, jev_score,
       combined_score, selection_mode, gate_reason, detail_json, created_at)
@@ -4754,6 +5953,7 @@ export function recordDraftVariants(input: { draftId: number; variants: DraftVar
 }
 
 export function getDraftVariants(draftId: number): DraftVariantRecord[] {
+  if (!getDraft(draftId)) return [];
   return rows<{
     id: number; draft_id: number; variant_index: number; angle: string; format: string; text: string;
     chosen: number; evaluator_score: number | null; jev_score: number | null; combined_score: number | null;

@@ -71,7 +71,7 @@ function batchScript(options: {
     for (let index = 0; index < ${options.accounts}; index += 1) {
       const account = saveAccount({
         accountKey: "acc" + index, handle: "acc" + index, displayName: "Hesap " + index,
-        xuseAccountId: "x" + index, enabled: true, defaultAccount: index === 0,
+        enabled: true, defaultAccount: index === 0,
         automationMode: "auto", dailyLimit: 24, capabilities: ["post"],
         styleProfile: { niche: "nis " + index, categories: [category.slug] }, now: NOW,
       });

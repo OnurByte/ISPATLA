@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import { BadgeCheck, Check, FlaskConical, Plus, Save, Trash2, UserRound } from "lucide-react";
-import type { Account, CategoryDefinition, SubscriptionTier } from "@/server/db";
+import { useEffect, useState } from "react";
+import { BadgeCheck, Save, Trash2, UserRound } from "lucide-react";
+import type { Account, CategoryDefinition } from "@/server/db";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -15,38 +15,48 @@ import {
   FieldGroup,
   FieldLabel,
 } from "@/components/ui/field";
-import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
+import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Spinner } from "@/components/ui/spinner";
 import { Switch } from "@/components/ui/switch";
+import { XConnectButton, XConnectionControls, type XConnectionState } from "@/components/x-connection-controls";
 
-type AccountDraft = Omit<Account, "id" | "updatedAt" | "capabilities" | "styleProfile"> & {
+export type AccountPageData = Pick<Account, "id" | "accountKey" | "handle" | "displayName" | "enabled" | "defaultAccount" | "dailyLimit" | "capabilities" | "styleProfile" | "publicVerificationStatus" | "updatedAt">;
+
+type AccountDraft = Pick<AccountPageData, "accountKey" | "handle" | "displayName" | "enabled" | "defaultAccount" | "dailyLimit" | "publicVerificationStatus"> & {
   id?: number;
   capabilities: string[];
   styleProfile: Record<string, unknown>;
 };
+
+function accountDraft(account: AccountPageData): AccountDraft {
+  return {
+    id: account.id,
+    accountKey: account.accountKey,
+    handle: account.handle,
+    displayName: account.displayName,
+    enabled: account.enabled,
+    defaultAccount: account.defaultAccount,
+    dailyLimit: account.dailyLimit,
+    capabilities: [...account.capabilities],
+    styleProfile: { ...account.styleProfile },
+    publicVerificationStatus: account.publicVerificationStatus,
+  };
+}
 
 function blankAccount(): AccountDraft {
   return {
     accountKey: "",
     handle: "",
     displayName: "",
-    xuseAccountId: "",
     enabled: true,
     defaultAccount: false,
-    automationMode: "manual",
     dailyLimit: 24,
     capabilities: ["post"],
     styleProfile: {},
-    subscriptionHistory: [],
-    subscriptionState: { tier: "unknown", observedAt: 0, historyComplete: false },
   };
-}
-
-function tierLabel(tier: SubscriptionTier): string {
-  return ({ unknown: "Bilinmiyor", free: "Free", basic: "Basic", premium: "Premium", premium_plus: "Premium+", organization: "Organization" })[tier];
 }
 
 function verificationLabel(status: Account["publicVerificationStatus"]): string {
@@ -57,18 +67,28 @@ function verificationClass(status: Account["publicVerificationStatus"]): string 
   return status === "blue" ? "text-primary" : status === "organization" ? "text-amber-600" : status === "government" ? "text-indigo-600" : "text-muted-foreground";
 }
 
-function dateTime(timestamp: number): string { return timestamp ? new Intl.DateTimeFormat("tr-TR", { dateStyle: "medium", timeStyle: "short" }).format(new Date(timestamp * 1000)) : "Henüz yenilenmedi"; }
-
 type IdeologyOption = { id: string; name: { en: string; tr: string } };
 
-export function AccountsPage({ initial, ideologies, categories }: { initial: Account[]; ideologies: IdeologyOption[]; categories: CategoryDefinition[] }) {
+export function AccountsPage({ initial, ideologies, categories, connections, policyVersion, copyVersion, connectionResult, connectionAccountId }: {
+  initial: AccountPageData[]; ideologies: IdeologyOption[]; categories: CategoryDefinition[];
+  connections: Record<number, XConnectionState>; policyVersion: string; copyVersion: string;
+  connectionResult?: string; connectionAccountId?: number;
+}) {
   const [accounts, setAccounts] = useState(initial);
-  const [draft, setDraft] = useState<AccountDraft>(initial[0] || blankAccount());
-  const [message, setMessage] = useState("");
+  const initialSelected = initial.find((account) => account.id === connectionAccountId)
+    || (connectionResult === "connected" ? [...initial].sort((left, right) => right.updatedAt - left.updatedAt)[0] : undefined)
+    || initial[0];
+  const [draft, setDraft] = useState<AccountDraft>(initialSelected ? accountDraft(initialSelected) : blankAccount());
+  const [message, setMessage] = useState(connectionResult === "failed" ? "X bağlantısı tamamlanamadı. İzinleri yeniden deneyin."
+    : connectionResult === "connected" && initialSelected ? `@${initialSelected.handle} X hesabı bağlandı. Hesap ayarlarınız korundu.` : "");
   const [pending, setPending] = useState(false);
 
-  function select(account: Account) {
-    setDraft({ ...account });
+  useEffect(() => {
+    if (window.location.search.includes("connection=")) window.history.replaceState({}, "", window.location.pathname);
+  }, []);
+
+  function select(account: AccountPageData) {
+    setDraft(accountDraft(account));
     setMessage("");
   }
 
@@ -77,17 +97,18 @@ export function AccountsPage({ initial, ideologies, categories }: { initial: Acc
   }
 
   async function save() {
+    if (!draft.id) return setMessage("Hesap ayarlarını değiştirmek için önce X hesabını bağlayın.");
     setPending(true);
     setMessage("");
-    const response = await fetch(draft.id ? `/api/accounts/${draft.id}` : "/api/accounts", {
-      method: draft.id ? "PATCH" : "POST",
+    const response = await fetch(`/api/accounts/${draft.id}`, {
+      method: "PATCH",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(draft),
     });
     const body = await response.json().catch(() => ({}));
     setPending(false);
     if (!response.ok) return setMessage(body.error || "Kaydedilemedi");
-    const next = await fetch("/api/accounts", { cache: "no-store" }).then((item) => item.json() as Promise<Account[]>);
+    const next = await fetch("/api/accounts", { cache: "no-store" }).then((item) => item.json() as Promise<AccountPageData[]>);
     setAccounts(next);
     const saved = next.find((item) => item.id === body.id) || next[0];
     if (saved) select(saved);
@@ -95,34 +116,19 @@ export function AccountsPage({ initial, ideologies, categories }: { initial: Acc
   }
 
   async function remove() {
-    if (!draft.id || !window.confirm("Bu hesabı ve bağlı draft/job kayıtlarını silmek istiyor musun?")) return;
+    if (!draft.id || !window.confirm("Bu hesabı ve bağlı kayıtlarını silmek, varsa X bağlantısını kapatmak istiyor musunuz?")) return;
     setPending(true);
     const response = await fetch(`/api/accounts/${draft.id}`, { method: "DELETE" });
+    const body = await response.json().catch(() => ({}));
     setPending(false);
-    if (!response.ok) return setMessage("Hesap silinemedi.");
-    const next = await fetch("/api/accounts", { cache: "no-store" }).then((item) => item.json() as Promise<Account[]>);
+    if (!response.ok) return setMessage(body.error || "Hesap silinemedi.");
+    const next = await fetch("/api/accounts", { cache: "no-store" }).then((item) => item.json() as Promise<AccountPageData[]>);
     setAccounts(next);
-    setDraft(next[0] ? { ...next[0] } : blankAccount());
-    setMessage("Hesap silindi.");
+    setDraft(next[0] ? accountDraft(next[0]) : blankAccount());
+    setMessage(body.disconnected === true && body.providerRevoked === false
+      ? "Hesap silindi ve yerel erişim kapatıldı. X erişimi iptal edilemedi; X ayarlarından İSPATLA erişimini kaldırın."
+      : body.disconnected === true ? "Hesap silindi ve X bağlantısı kapatıldı." : "Hesap silindi.");
   }
-
-  async function testConnection() {
-    setPending(true);
-    const response = await fetch(`/api/accounts/${draft.id || 0}/test`, { method: "POST" });
-    const body = await response.json().catch(() => ({}));
-    setPending(false);
-    setMessage(body.ok ? "x-use bağlantısı hazır." : body.capability?.reason || "x-use bağlantısı hazır değil.");
-  }
-
-  async function xuseHealth() {
-    if (!draft.id) return setMessage("Önce hesabı kaydet.");
-    setPending(true);
-    const response = await fetch(`/api/accounts/${draft.id}/xuse/health`, { method: "POST" });
-    const body = await response.json().catch(() => ({}));
-    setPending(false);
-    setMessage(response.ok ? `x-use health: cookie ${body.health?.cookies?.valid ? "geçerli" : "geçersiz"}, queue pending ${body.health?.queue?.pending || 0}.` : body.error || "x-use health alınamadı.");
-  }
-
 
   return (
     <div className="grid gap-5 xl:grid-cols-[minmax(280px,0.7fr)_minmax(0,1.3fr)]">
@@ -132,22 +138,15 @@ export function AccountsPage({ initial, ideologies, categories }: { initial: Acc
             <CardTitle>Hesap listesi</CardTitle>
             <CardDescription>Yayın ve stil bağlamı burada tutulur.</CardDescription>
           </div>
-          <Button size="icon" variant="outline" onClick={() => setDraft(blankAccount())} aria-label="Yeni hesap">
-            <Plus aria-hidden="true" />
-          </Button>
+          <XConnectButton size="sm" />
         </CardHeader>
         <CardContent className="flex flex-col gap-2">
           {accounts.length === 0 && (
             <Empty className="border border-dashed py-8">
               <EmptyHeader>
-                <EmptyTitle>Henüz hesap yok</EmptyTitle>
-                <EmptyDescription>Sağdaki formdan ilk hesabı ekle.</EmptyDescription>
+                <EmptyTitle>Henüz X hesabı bağlı değil</EmptyTitle>
+                <EmptyDescription>X’e güvenli biçimde bağlayınca hesap ayarları burada açılır.</EmptyDescription>
               </EmptyHeader>
-              <EmptyContent>
-                <Button variant="outline" onClick={() => setDraft(blankAccount())}>
-                  <Plus data-icon="inline-start" aria-hidden="true" /> Yeni hesap
-                </Button>
-              </EmptyContent>
             </Empty>
           )}
           {accounts.map((account) => {
@@ -181,53 +180,23 @@ export function AccountsPage({ initial, ideologies, categories }: { initial: Acc
 
       <Card>
         <CardHeader>
-          <CardTitle>{draft.id ? "Hesap düzenle" : "Yeni hesap"}</CardTitle>
-          <CardDescription>x-use account id yalnızca bağlantı eşlemesidir; cookie/token bu formda tutulmaz.</CardDescription>
+          <CardTitle>Hesap ayarları</CardTitle>
+          <CardDescription>Hesap profili X bağlantısından gelir. Buradaki editoryal tercihleri bağlantıyı yenilerken koruruz.</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-5">
+          {!draft.id ? <Empty className="border border-dashed py-8"><EmptyHeader><EmptyTitle>Hesap ayarları açılmadı</EmptyTitle><EmptyDescription>İlk X hesabını bağladığınızda editoryal ayarlar burada görünür.</EmptyDescription></EmptyHeader></Empty> : (
+          <>
+          <XConnectionControls accountId={draft.id} initial={connections[draft.id] || null} policyVersion={policyVersion} copyVersion={copyVersion} />
+          <Separator />
+          <div className="flex flex-wrap items-center gap-2 text-sm"><Badge variant="secondary">@{draft.handle}</Badge><span className="text-muted-foreground">{draft.displayName}</span></div>
           <FieldGroup>
             <div className="grid gap-5 sm:grid-cols-2">
-              <Field>
-                <FieldLabel htmlFor="account-key">Account key</FieldLabel>
-                <Input id="account-key" value={draft.accountKey} onChange={(event) => setValue("accountKey", event.target.value)} placeholder="haber-merkez" />
-              </Field>
-              <Field>
-                <FieldLabel htmlFor="handle">X handle</FieldLabel>
-                <Input id="handle" value={draft.handle} onChange={(event) => setValue("handle", event.target.value.replace(/^@/, ""))} placeholder="ispatla" />
-              </Field>
-              <Field>
-                <FieldLabel htmlFor="display-name">Görünen ad</FieldLabel>
-                <Input id="display-name" value={draft.displayName} onChange={(event) => setValue("displayName", event.target.value)} placeholder="Ispatla Haber" />
-              </Field>
-              <Field>
-                <FieldLabel htmlFor="xuse-id">x-use account id</FieldLabel>
-                <FieldDescription>Yalnızca x-use hesabıyla eşleşir; secret değildir.</FieldDescription>
-                <Input id="xuse-id" value={draft.xuseAccountId} onChange={(event) => setValue("xuseAccountId", event.target.value)} placeholder="x-use içindeki id" />
-              </Field>
               <Field>
                 <FieldLabel htmlFor="daily-limit">Günlük yayın limiti</FieldLabel>
                 <Input id="daily-limit" type="number" min={1} max={100} value={draft.dailyLimit} onChange={(event) => setValue("dailyLimit", Number(event.target.value))} />
               </Field>
-              <Field>
-                <FieldLabel htmlFor="automation-mode">Otomasyon modu</FieldLabel>
-                <Select value={draft.automationMode} onValueChange={(value) => setValue("automationMode", value as AccountDraft["automationMode"])}>
-                  <SelectTrigger id="automation-mode" className="w-full" aria-label="Otomasyon modu">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="manual">Manuel / onaylı</SelectItem>
-                    <SelectItem value="auto">Otomatik</SelectItem>
-                  </SelectContent>
-                </Select>
-              </Field>
+              <p className="self-end text-sm text-muted-foreground">Otomatik yayın şu anda kapalı. Eylem bazlı izinleri aşağıdan yönetin.</p>
             </div>
-          </FieldGroup>
-
-          <Separator />
-
-          <FieldGroup>
-            <Field><FieldLabel>x-use hesap sağlığı</FieldLabel><FieldDescription>Cookie/config, warm session ve x-use queue derinliği okunur; cookie veya yerel yol gösterilmez.</FieldDescription></Field>
-            <Button type="button" variant="outline" className="w-fit" disabled={pending || !draft.id || !draft.enabled || !draft.xuseAccountId.trim()} onClick={xuseHealth}>{pending ? <Spinner data-icon="inline-start" /> : <FlaskConical data-icon="inline-start" aria-hidden="true" />} Health yenile</Button>
           </FieldGroup>
 
           <Separator />
@@ -250,19 +219,6 @@ export function AccountsPage({ initial, ideologies, categories }: { initial: Acc
           </FieldGroup>
 
           <Separator />
-
-          <FieldGroup>
-            <Field>
-              <FieldLabel>X subscription geçmişi</FieldLabel>
-            <FieldDescription>Kurulu x-use sürümü subscription geçmişi sunmuyor. Mevcut eski kayıtlar yalnız okunur; otomasyon bunlardan tier çıkarsamaz.</FieldDescription>
-            </Field>
-            <div className="flex flex-wrap items-center gap-2 rounded-md border p-3 text-sm">
-              <Badge variant="outline">{tierLabel(draft.subscriptionState.tier)}</Badge>
-              <span className="text-muted-foreground">son x-use gözlemi: {dateTime(draft.subscriptionState.observedAt)}</span>
-              {draft.subscriptionState.historyComplete ? <Badge variant="secondary">X geçmişi tamam</Badge> : null}
-            </div>
-            {draft.subscriptionHistory.length ? <div className="flex flex-col gap-2 text-sm">{draft.subscriptionHistory.map((event) => <div key={event.id} className="flex items-center justify-between gap-3 rounded-md border px-3 py-2"><span>{tierLabel(event.tier)}</span><span className="text-muted-foreground">{dateTime(event.effectiveAt)}</span></div>)}</div> : <p className="text-sm text-muted-foreground">X tarihli subscription geçmişi döndürmedi.</p>}
-          </FieldGroup>
 
           <Field>
             <FieldLabel htmlFor="style-notes">Stil notu</FieldLabel>
@@ -317,22 +273,21 @@ export function AccountsPage({ initial, ideologies, categories }: { initial: Acc
 
           <div className="flex flex-wrap gap-2">
             <Button onClick={save} disabled={pending}>
-              {pending ? <Spinner data-icon="inline-start" /> : <Save data-icon="inline-start" aria-hidden="true" />} Kaydet
+              {pending ? <Spinner data-icon="inline-start" /> : <Save data-icon="inline-start" aria-hidden="true" />} Ayarları kaydet
             </Button>
-            <Button variant="outline" onClick={testConnection} disabled={pending}>
-              {pending ? <Spinner data-icon="inline-start" /> : <FlaskConical data-icon="inline-start" aria-hidden="true" />} x-use test
-            </Button>
-            {draft.id && (
+            {(
               <Button variant="destructive" onClick={remove} disabled={pending}>
                 {pending ? <Spinner data-icon="inline-start" /> : <Trash2 data-icon="inline-start" aria-hidden="true" />} Sil
               </Button>
             )}
-            {draft.id && (
+            {(
               <Badge variant="outline" className="gap-1">
-                <Check aria-hidden="true" /> düzenlenebilir
+                ayarlar bağlı X hesabına ait
               </Badge>
             )}
           </div>
+          </>
+          )}
         </CardContent>
       </Card>
     </div>

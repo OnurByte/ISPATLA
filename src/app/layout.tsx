@@ -5,7 +5,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Ispatla — X intelligence desk",
-  description: "XPatla mantığıyla Market, draft, otomasyon ve x-use yayın kontrolü.",
+  description: "X sinyallerini izle, yayın kararını kanıtla ve sonucu doğrula.",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

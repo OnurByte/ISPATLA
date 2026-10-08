@@ -7,10 +7,9 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
 import { Spinner } from "@/components/ui/spinner";
 
-type State = { paused: boolean; xuse: { available: boolean; bin: string; doctor: string; actions: Record<string, boolean>; config: { settings: string; accounts: string; settingsExists: boolean; accountsExists: boolean }; reason?: string } };
+type State = { paused: boolean };
 function time(value: number) {
   return value ? new Intl.DateTimeFormat("tr-TR", { dateStyle: "short", timeStyle: "short" }).format(value * 1000) : "Henüz çalışmadı";
 }
@@ -25,7 +24,7 @@ const taskNames: Record<AutomationTaskId, { name: string; detail: string }> = {
   monitor_engine: { name: "Adaptive monitor engine", detail: "Hesap, keyword, sorgu ve conversation hedeflerini bütçeli tarar" },
   source_scan: { name: "Otomatik scan", detail: "FxTwitter intake, kaynak skoru, fırsat ve publish gate" },
   source_liveness: { name: "Ölü kaynak / liveness", detail: "Profil 404 ve kimlik uyuşmazlıklarını temizler" },
-  queue_worker: { name: "Due queue worker", detail: "Zamanı gelen x-use işlerini çalıştırır" },
+  queue_worker: { name: "Due queue worker", detail: "Onaylanmış resmi X API işlerini çalıştırır" },
   reconciliation: { name: "FxTwitter reconciliation", detail: "Pending transport sonuçlarını yayın kanıtıyla doğrular" },
 };
 
@@ -89,31 +88,6 @@ export function AutomationSettings({ initial, schedules: initialSchedules, logs:
 
       <Card>
         <CardHeader>
-          <CardTitle>x-use capability</CardTitle>
-          <CardDescription>{state.xuse.bin} · doctor sonucu gerçek runtime’dan okunur.</CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-4">
-          <div className="flex flex-wrap gap-2">
-            <Badge variant={state.xuse.available ? "default" : "destructive"}>{state.xuse.available ? "CLI hazır" : "CLI yok"}</Badge>
-            <Badge variant={state.xuse.doctor === "ok" ? "default" : state.xuse.doctor === "unavailable" ? "outline" : "destructive"}>doctor: {state.xuse.doctor}</Badge>
-            <Badge variant={state.xuse.config.settingsExists ? "secondary" : "destructive"}>settings.json: {state.xuse.config.settingsExists ? "hazır" : "eksik"}</Badge>
-            <Badge variant={state.xuse.config.accountsExists ? "secondary" : "destructive"}>accounts.json: {state.xuse.config.accountsExists ? "hazır" : "eksik"}</Badge>
-          </div>
-          <Separator />
-          <div className="grid gap-2 sm:grid-cols-3">
-            {Object.entries(state.xuse.actions).map(([action, enabled]) => (
-              <div key={action} className="flex items-center justify-between rounded-lg border p-3 text-sm">
-                <span>{action}</span>
-                <Badge variant={enabled ? "secondary" : "outline"}>{enabled ? "detected" : "—"}</Badge>
-              </div>
-            ))}
-          </div>
-          {state.xuse.reason && <Alert variant="destructive"><AlertDescription>{state.xuse.reason}</AlertDescription></Alert>}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
           <CardTitle>Planlı otomatik görevler</CardTitle>
           <CardDescription>Post kayıtları burada değil; cron/scheduler görevlerinin çalışma planı burada görünür.</CardDescription>
         </CardHeader>
@@ -133,7 +107,7 @@ export function AutomationSettings({ initial, schedules: initialSchedules, logs:
       </Card>
 
       <Card>
-        <CardHeader><CardTitle>Automation log</CardTitle><CardDescription>Scan, liveness, queue, reconciliation ve x-use doctor sonuçları; secret değerleri redakte edilir.</CardDescription></CardHeader>
+        <CardHeader><CardTitle>Automation log</CardTitle><CardDescription>Scan, liveness, queue ve reconciliation sonuçları; secret değerleri redakte edilir.</CardDescription></CardHeader>
         <CardContent className="flex flex-col gap-2">
           {logs.length ? logs.map((log) => <div key={log.id} className="rounded-lg border p-3 text-xs"><div className="flex flex-wrap justify-between gap-2"><span className="font-medium">{log.taskId} · {log.status}</span><span className="text-muted-foreground">{time(log.startedAt)}{log.finishedAt ? ` → ${time(log.finishedAt)}` : ""}</span></div><pre className="mt-2 whitespace-pre-wrap break-words text-muted-foreground">{log.message || JSON.stringify(log.details)}</pre></div>) : <div className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">Henüz otomasyon logu yok.</div>}
         </CardContent>

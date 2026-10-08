@@ -1,10 +1,11 @@
+import { withUser } from "@/server/request-auth";
 import { NextResponse } from "next/server";
 import { queueDraftIds } from "@/server/queue-service";
 import { guardMutation, readJsonBody } from "@/server/api-guard";
 
 export const runtime = "nodejs";
 
-export async function POST(request: Request) {
+async function POSTHandler(request: Request) {
   const denied = guardMutation(request);
   if (denied) return denied;
   let body: Record<string, unknown>;
@@ -23,3 +24,5 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "batch kuyruğa alınamadı" }, { status: 422 });
   }
 }
+
+export const POST = withUser(POSTHandler);

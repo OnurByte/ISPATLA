@@ -1,3 +1,4 @@
+import { withUser } from "@/server/request-auth";
 import { NextResponse } from "next/server";
 import { getCategories, saveCategory, type CategoryDefinition } from "@/server/db";
 import { guardMutation, readJsonBody } from "@/server/api-guard";
@@ -36,11 +37,11 @@ function categoryInput(body: Record<string, unknown>, builtIn = false): Omit<Cat
   };
 }
 
-export function GET() {
+function GETHandler() {
   return NextResponse.json(getCategories());
 }
 
-export async function POST(request: Request) {
+async function POSTHandler(request: Request) {
   const denied = guardMutation(request);
   if (denied) return denied;
   try {
@@ -50,3 +51,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "category kaydedilemedi" }, { status: 400 });
   }
 }
+
+export const GET = withUser(GETHandler);
+
+export const POST = withUser(POSTHandler, true);

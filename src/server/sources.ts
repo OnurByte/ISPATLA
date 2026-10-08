@@ -4,6 +4,10 @@ import {
   getSetting,
   getCategories,
   getStoredSources,
+  deleteSource,
+  recordSourceRestorations,
+  resetSourceRegistry,
+  sourceHasLatestEvent,
   saveSourceCategoryConfig,
   setSetting,
   upsertSource,
@@ -96,6 +100,7 @@ function readConfiguredSources(): SourceConfig[] {
 }
 
 export function bootstrapSources(now = Math.floor(Date.now() / 1000)): number {
+  syncConfiguredSourcePool(now);
   if (getSetting("sources_seed_v1", "") === "done") {
     backfillSeedProfiles(now);
     return 0;
@@ -125,6 +130,34 @@ export function bootstrapSources(now = Math.floor(Date.now() / 1000)): number {
   setSetting("sources_seed_v1", "done", now);
   backfillSeedProfiles(now);
   return inserted;
+}
+
+function syncConfiguredSourcePool(now: number): void {
+  const isSynced = getSetting("sources_ai_pool_v3", "") === "done";
+  const configured = readConfiguredSources();
+  if (!configured.length) return;
+  const configuredHandles = new Set(configured.map((source) => source.handle));
+  const categorySeeds = new Set(getCategories().flatMap((category) => category.seedHandles));
+
+  for (const current of getStoredSources()) {
+    const origin = current.profile.origin;
+    const discovered = !configuredHandles.has(current.handle) && (origin === "discovered" || (current.profile.status === "candidate" && !origin));
+    const obsoleteSeed = origin === "seed" && !configuredHandles.has(current.handle) && !categorySeeds.has(current.handle);
+    if (discovered || obsoleteSeed) deleteSource(current.handle);
+  }
+
+  if (isSynced) return;
+
+  const stored = new Map(getStoredSources().map((source) => [source.handle, source]));
+  for (const seed of configured) {
+    const current = stored.get(seed.handle);
+    if (!current) {
+      if (!sourceHasLatestEvent(seed.handle, "deleted")) upsertSource(seed, now);
+    } else if (current.profile.status === "candidate" && current.profile.origin !== "manual") {
+      upsertSource({ ...seed, profile: { ...current.profile, ...seed.profile } }, now);
+    }
+  }
+  setSetting("sources_ai_pool_v3", "done", now);
 }
 
 function bootstrapCategorySeeds(now: number): void {
@@ -178,6 +211,14 @@ export function loadSources(): SourceConfig[] {
     ...source,
     profile: { ...source.profile, ideology: asIdeology(source.profile.ideology), ideologyTags: asIdeologyTags(source.profile.ideologyTags) },
   }));
+}
+
+export function resetSources(now = Math.floor(Date.now() / 1000)): SourceConfig[] {
+  resetSourceRegistry();
+  bootstrapSources(now);
+  const sources = loadSources();
+  recordSourceRestorations(sources.map((source) => source.handle), now);
+  return sources;
 }
 
 export function enabledSources(): SourceConfig[] {

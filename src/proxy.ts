@@ -1,23 +1,14 @@
 import { NextResponse } from "next/server";
-import { adminTokenState } from "@/server/security";
+import { getSessionCookie } from "better-auth/cookies";
 
 /**
- * Protects both server-rendered panel pages and API routes in production.
- * The reverse proxy/session layer must inject this header server-side; it is
- * never placed in the browser bundle.
+ * Fast sign-in redirect only. Pages and API handlers verify the DB session and
+ * bind their queries to its owner; cookie presence does not authorize access.
  */
 export function proxy(request: Request): NextResponse {
-  if (process.env.NODE_ENV !== "production") return NextResponse.next();
-
-  const state = adminTokenState(request);
-  if (state === "missing") {
-    return new NextResponse("ISPATLA_ADMIN_TOKEN must be configured for production access", { status: 503 });
-  }
-  if (state === "invalid") {
-    return new NextResponse("admin authorization required", {
-      status: 401,
-      headers: { "WWW-Authenticate": "Bearer" },
-    });
+  const url = new URL(request.url);
+  if ((url.pathname === "/app" || url.pathname.startsWith("/app/")) && !getSessionCookie(request)) {
+    return NextResponse.redirect(new URL("/login", url));
   }
   return NextResponse.next();
 }

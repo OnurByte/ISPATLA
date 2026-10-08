@@ -1,10 +1,11 @@
+import { withUser } from "@/server/request-auth";
 import { NextResponse } from "next/server";
 import { guardMutation, readJsonBody } from "@/server/api-guard";
 import { approvePublicationIntent, cancelPublicationIntent } from "@/server/publication-service";
 
 export const runtime = "nodejs";
 
-export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
+async function POSTHandler(request: Request, context: { params: Promise<{ id: string }> }) {
   const denied = guardMutation(request);
   if (denied) return denied;
   try {
@@ -18,3 +19,5 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     return NextResponse.json({ error: error instanceof Error ? error.message : "publication intent güncellenemedi" }, { status: 422 });
   }
 }
+
+export const POST = withUser(POSTHandler);

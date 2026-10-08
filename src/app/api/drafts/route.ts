@@ -1,19 +1,23 @@
+import { withUser } from "@/server/request-auth";
 import { NextResponse } from "next/server";
 import { createDraft, getAccountCategoryConfigs, getDraft, getDrafts, getPost, getAccounts, getStoredSources } from "@/server/db";
 import { accountCategories, accountMatchesSource, baseStrategyForCategory, composeDraft, qualityGate, storeDraftVariants } from "@/server/pipeline";
 import { evaluateDraft } from "@/server/draft-evaluator";
 import { guardMutation, readJsonBody } from "@/server/api-guard";
+import { ensureDraftRevisionStore } from "@/server/draft-revisions";
 
 export const runtime = "nodejs";
 
-export function GET() {
+function GETHandler() {
+  ensureDraftRevisionStore();
   return NextResponse.json(getDrafts());
 }
 
-export async function POST(request: Request) {
+async function POSTHandler(request: Request) {
   const denied = guardMutation(request);
   if (denied) return denied;
   try {
+    ensureDraftRevisionStore();
     const body = await readJsonBody(request);
     const externalId = String(body.externalId || "");
     const post = externalId ? getPost(externalId) : null;
@@ -81,3 +85,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "draft oluşturulamadı" }, { status: 400 });
   }
 }
+
+export const GET = withUser(GETHandler);
+
+export const POST = withUser(POSTHandler);

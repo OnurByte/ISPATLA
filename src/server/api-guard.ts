@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { adminTokenState } from "./security";
+import { currentOwnerId } from "./owner-context";
+import { mutationOriginAllowed } from "./request-auth";
 
 let lastMutationAt = 0;
 
@@ -21,7 +23,10 @@ export async function readJsonBody(request: Request): Promise<Record<string, unk
 }
 
 export function guardMutation(request: Request, rateLimited = false): NextResponse | null {
-  const auth = adminTokenState(request);
+  if (currentOwnerId()) {
+    if (!mutationOriginAllowed(request)) return NextResponse.json({ error: "İstek kaynağı doğrulanamadı" }, { status: 403 });
+  }
+  const auth = currentOwnerId() ? "valid" : adminTokenState(request);
   if (auth === "missing") {
     return NextResponse.json(
       { error: "ISPATLA_ADMIN_TOKEN must be configured for production mutations" },

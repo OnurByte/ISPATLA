@@ -1,0 +1,8 @@
+{
+  "columns": {
+    "accounts": ["xuse_account_id"],
+    "automation_jobs": ["xuse_queue_id", "xuse_status", "xuse_checked_at"],
+    "publication_intents": ["xuse_queue_id"]
+  },
+  "intentStatus": "xuse_queued"
+}

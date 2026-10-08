@@ -1,0 +1,114 @@
+"use client"
+
+import Link from "next/link"
+import { useRouter } from "next/navigation"
+import { useState, type FormEvent } from "react"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+
+type AuthFormMode = "login" | "signup" | "forgot" | "reset"
+
+const copy: Record<AuthFormMode, { title: string; description: string; button: string }> = {
+  login: { title: "Giriş yap", description: "İSPATLA hesabına devam et.", button: "Giriş yap" },
+  signup: { title: "Hesap oluştur", description: "İSPATLA hesabını oluştur.", button: "Hesap oluştur" },
+  forgot: { title: "Şifreni sıfırla", description: "Sıfırlama bağlantısını e-posta adresine gönderelim.", button: "Bağlantı gönder" },
+  reset: { title: "Yeni şifre belirle", description: "Hesabın için yeni bir şifre seç.", button: "Şifreyi güncelle" },
+}
+
+function responseError(data: unknown): string {
+  if (data && typeof data === "object" && "message" in data && typeof data.message === "string") return data.message
+  return "İşlem tamamlanamadı. Bilgilerini kontrol edip yeniden dene."
+}
+
+export function AuthForm({ mode, token, privateBeta = false }: { mode: AuthFormMode; token?: string; privateBeta?: boolean }) {
+  const router = useRouter()
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
+  const [message, setMessage] = useState("")
+  const [error, setError] = useState("")
+  const [pending, setPending] = useState(false)
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setError("")
+    setMessage("")
+    setPending(true)
+
+    const endpoint = {
+      login: "/api/auth/sign-in/email",
+      signup: "/api/auth/sign-up/email",
+      forgot: "/api/auth/request-password-reset",
+      reset: "/api/auth/reset-password",
+    }[mode]
+    const body = mode === "forgot"
+      ? { email, redirectTo: `${window.location.origin}/reset-password` }
+      : mode === "reset"
+        ? { token, newPassword: password }
+        : { email, password, ...(mode === "signup" ? { name: email.split("@")[0] } : {}) }
+
+    try {
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify(body),
+      })
+      const data: unknown = await response.json().catch(() => null)
+      if (!response.ok) throw new Error(responseError(data))
+
+      if (mode === "login") {
+        router.replace("/app")
+        router.refresh()
+      } else if (mode === "signup") {
+        setMessage(privateBeta
+          ? "Hesabın oluşturuldu. Private beta’da e-posta doğrulaması kapalı; şimdi giriş yapabilirsin."
+          : "Doğrulama bağlantısını e-posta adresine gönderdik. Gelen kutunu kontrol et.")
+      } else if (mode === "forgot") {
+        setMessage("Bu adres için bir hesap varsa sıfırlama bağlantısı gönderildi.")
+      } else {
+        setMessage("Şifren güncellendi. Giriş yapabilirsin.")
+        setPassword("")
+      }
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "İşlem tamamlanamadı. Yeniden dene.")
+    } finally {
+      setPending(false)
+    }
+  }
+
+  const fields = mode === "login" || mode === "signup" || mode === "forgot"
+  const heading = copy[mode]
+
+  return (
+    <main className="mx-auto flex min-h-[70vh] w-full max-w-md items-center px-4 py-12">
+      <section className="w-full rounded-xl border bg-card p-6 text-card-foreground shadow-sm sm:p-8" aria-labelledby="auth-title">
+        <Link href="/" className="text-sm font-semibold tracking-wide text-muted-foreground">İSPATLA</Link>
+        <h1 id="auth-title" className="mt-6 text-2xl font-semibold">{heading.title}</h1>
+        <p className="mt-2 text-sm text-muted-foreground">{heading.description}</p>
+        <form className="mt-6 space-y-4" onSubmit={submit}>
+          {fields && <div className="space-y-2">
+            <Label htmlFor="email">E-posta</Label>
+            <Input id="email" name="email" type="email" autoComplete="email" required value={email} onChange={(event) => setEmail(event.target.value)} disabled={pending} />
+          </div>}
+          {(mode === "login" || mode === "signup" || mode === "reset") && <div className="space-y-2">
+            <Label htmlFor="password">{mode === "reset" ? "Yeni şifre" : "Şifre"}</Label>
+            <Input id="password" name="password" type="password" autoComplete={mode === "login" ? "current-password" : mode === "signup" ? "new-password" : "new-password"} minLength={12} maxLength={128} required value={password} onChange={(event) => setPassword(event.target.value)} disabled={pending} />
+            {mode !== "login" && <p className="text-xs text-muted-foreground">En az 12 karakter.</p>}
+          </div>}
+          {error && <p className="text-sm text-destructive" role="alert">{error}</p>}
+          {message && <p className="text-sm text-muted-foreground" role="status">{message}</p>}
+          <Button className="w-full" type="submit" disabled={pending || (mode === "reset" && !token)}>
+            {pending ? "Lütfen bekle…" : heading.button}
+          </Button>
+        </form>
+        <nav className="mt-5 flex flex-wrap gap-x-4 gap-y-2 text-sm text-muted-foreground" aria-label="Hesap bağlantıları">
+          {mode !== "login" && <Link className="underline underline-offset-4" href="/login">Giriş yap</Link>}
+          {mode !== "signup" && <Link className="underline underline-offset-4" href="/signup">Hesap oluştur</Link>}
+          {mode !== "forgot" && mode !== "reset" && <Link className="underline underline-offset-4" href="/forgot-password">Şifremi unuttum</Link>}
+          {mode === "reset" && !token && <p className="w-full text-destructive">Sıfırlama bağlantısı geçersiz veya eksik. Yeni bir bağlantı iste.</p>}
+        </nav>
+      </section>
+    </main>
+  )
+}

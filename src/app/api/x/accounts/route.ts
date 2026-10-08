@@ -1,12 +1,26 @@
+import { withUser } from "@/server/request-auth";
+import { currentOwnerId } from "@/server/owner-context";
 import { NextResponse } from "next/server";
-import { guardMutation } from "@/server/api-guard";
-import { getLoggedXUseAccounts } from "@/server/xuse";
+import { getAccounts } from "@/server/db";
+import { getXAccountAuthState } from "@/server/x-oauth";
 
 export const runtime = "nodejs";
 
-export async function POST(request: Request) {
-  const denied = guardMutation(request);
-  if (denied) return denied;
-  try { return NextResponse.json({ accounts: await getLoggedXUseAccounts() }); }
-  catch (error) { return NextResponse.json({ error: error instanceof Error ? error.message : "x-use hesapları alınamadı" }, { status: 424 }); }
+function GETHandler() {
+  const ownerId = currentOwnerId();
+  const accounts = getAccounts().map((account) => {
+    const state = ownerId ? getXAccountAuthState(account.id, ownerId) : null;
+    const scopes = state?.scopes || [];
+    return {
+      id: account.id,
+      handle: account.handle,
+      displayName: account.displayName,
+      connected: state?.connected === true,
+      authState: state?.authState || "disconnected",
+      scopes,
+    };
+  });
+  return NextResponse.json({ accounts }, { headers: { "cache-control": "no-store" } });
 }
+
+export const GET = withUser(GETHandler);

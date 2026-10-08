@@ -1,7 +1,7 @@
 /**
  * Canlı uçtan uca Jev doğrulaması (Faz B3).
  *
- * Ağ yalnız Jev'e çıkar: X/FxTwitter, OpenAI ve x-use hiç çağrılmaz, veriler
+ * Ağ yalnız Jev'e çıkar: X/FxTwitter, diğer sağlayıcılar hiç çağrılmaz, veriler
  * doğrudan db yardımcılarıyla tohumlanır. Anahtar yalnız JEV_API_KEY env'inden
  * okunur, hiçbir yere yazılmaz; taban URL çıktıda maskelenir.
  *
@@ -60,7 +60,6 @@ for (const [index, entry] of ACCOUNTS.entries()) {
     accountKey: entry.handle,
     handle: entry.handle,
     displayName: entry.handle,
-    xuseAccountId: `x-${entry.handle}`,
     enabled: true,
     defaultAccount: index === 0,
     automationMode: "auto",

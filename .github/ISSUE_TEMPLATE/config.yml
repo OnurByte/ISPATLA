@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security vulnerability privately
+    url: https://github.com/OnurByte/Ispatla/security/advisories/new
+    about: Use GitHub private vulnerability reporting when enabled. If unavailable, ask the maintainer for a private channel without posting exploit details publicly.

@@ -1,0 +1,52 @@
+name: Bug report
+description: Report a reproducible problem in İSPATLA.
+title: "[Bug]: "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: >-
+        Please use a local demo or sanitized fixture where possible. Never include
+        credentials, cookies, private drafts, real account data, database files,
+        or unredacted logs. Report local/fixture behavior separately from any
+        provider or remote outcome; say explicitly whether a remote action occurred.
+  - type: textarea
+    id: summary
+    attributes:
+      label: What happened?
+      description: A short, sanitized description of the problem.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Reproduction steps
+      description: Include the demo/local setup and minimal steps, with synthetic data.
+      placeholder: |
+        1. Start the local demo...
+        2. ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected and actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence and boundary
+      description: Separate local/fixture evidence from provider or remote evidence. State whether a remote action occurred. Attach only sanitized excerpts.
+    validations:
+      required: true
+  - type: input
+    id: revision
+    attributes:
+      label: Revision
+      description: Commit SHA or release, if known.
+  - type: input
+    id: environment
+    attributes:
+      label: Local environment
+      description: OS and runtime versions; do not include account identifiers.

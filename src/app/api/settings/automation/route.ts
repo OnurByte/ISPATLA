@@ -1,15 +1,15 @@
+import { withUser } from "@/server/request-auth";
 import { NextResponse } from "next/server";
 import { AUTOMATION_TASK_IDS, getAutomationLogs, getAutomationSchedules, getSetting, saveAutomationSchedule, setSetting } from "@/server/db";
 import { guardMutation, readJsonBody } from "@/server/api-guard";
-import { detectXUse } from "@/server/xuse";
 
 export const runtime = "nodejs";
 
-export function GET() {
-  return NextResponse.json({ paused: getSetting("automation_paused", "0") === "1", xuse: detectXUse(), schedules: getAutomationSchedules(), logs: getAutomationLogs(100) });
+function GETHandler() {
+  return NextResponse.json({ paused: getSetting("automation_paused", "0") === "1", schedules: getAutomationSchedules(), logs: getAutomationLogs(100) });
 }
 
-export async function POST(request: Request) {
+async function POSTHandler(request: Request) {
   const denied = guardMutation(request);
   if (denied) return denied;
   let body: Record<string, unknown>;
@@ -32,3 +32,7 @@ export async function POST(request: Request) {
   setSetting("automation_paused", paused ? "1" : "0", Math.floor(Date.now() / 1000));
   return NextResponse.json({ paused });
 }
+
+export const GET = withUser(GETHandler, true);
+
+export const POST = withUser(POSTHandler, true);

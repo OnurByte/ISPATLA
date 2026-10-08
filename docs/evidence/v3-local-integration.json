@@ -1,0 +1,122 @@
+{
+  "checkpoint": "V3 shadow evaluation and atomic send guard 2026-10-08",
+  "tests": {
+    "passed": 307,
+    "failed": 0,
+    "files": 53,
+    "assertions": 1608,
+    "isolatedChildSuites": "evaluation, event intelligence and earned autonomy child store regressions pass"
+  },
+  "typecheck": "passed",
+  "build": "passed",
+  "lint": {
+    "errors": 0,
+    "warnings": 3,
+    "scope": "existing UI warnings"
+  },
+  "productionHttp": {
+    "runtime": "Node Next production build",
+    "public": 200,
+    "anonymousApp": 307,
+    "signup": 200,
+    "login": 200,
+    "ownerAccounts": 200,
+    "privatePage": 200,
+    "evaluationPage": 200,
+    "hostileOrigin": 403,
+    "revokedSession": 401,
+    "externalProviderWrites": 0,
+    "publicTrustPages": 200,
+    "expiredQueuePage": 200,
+    "freshApprovalCreated": true,
+    "oldApprovalRemainsExpired": true
+  },
+  "demoHttp": {
+    "demoProcess": true,
+    "login": 200,
+    "ownerDrafts": 200,
+    "renderedDraft": 200,
+    "externalWrites": 0
+  },
+  "legacyProductTransportSearchMatches": 0,
+  "fullV3Complete": false,
+  "liveXGrantVerified": false,
+  "liveXWriteVerified": false,
+  "emailDeliveryVerified": false,
+  "remoteDeliveryVerified": false,
+  "sourceSnapshotSetup": {
+    "sourceSnapshotInstall": [
+      {
+        "command": [
+          "install",
+          "--frozen-lockfile"
+        ],
+        "exitCode": 0
+      },
+      {
+        "command": [
+          "scripts/demo.ts",
+          "--seed-only"
+        ],
+        "exitCode": 0
+      }
+    ],
+    "providerCredentialsRequired": false,
+    "untrackedVendorExcluded": true,
+    "realGitClone": false,
+    "temporaryDirectoryRemoved": true,
+    "checkpoint": "previous local foundation checkpoint; dependency manifest unchanged"
+  },
+  "reviewFixes": [
+    "marked unresolved publication intents fence edits",
+    "draft source identity and URL join immutable snapshots",
+    "official reply evidence fetched and identity rebound",
+    "autonomy evidence derived and confirmation hash revalidated",
+    "finite immutable human/automatic approval snapshots",
+    "pre-approval classification only; immutable snapshot source join",
+    "consent, grant identity/version and active autonomy SQL marker guards",
+    "Assist regrant permits human approval after automatic revocation",
+    "source scan reject/skip coverage outside selected pool",
+    "mature official outcomes filter before limit; legacy feedback does not starve collector",
+    "account format recommendations ignore legacy source feedback and use mature official account outcomes",
+    "draft residual prediction stays null until a trained model exists",
+    "calibration and holdout metrics count leakage groups once and exclude conflicting labels",
+    "final Auto send marker rejects an incident recorded after authorization capture",
+    "model-pinned approval evidence is enforced in proposal and final marker"
+  ],
+  "finalFocusedRegression": {
+    "passed": 50,
+    "failed": 0,
+    "files": 6,
+    "assertions": 219,
+    "scope": "after final approval UI error cleanup and shadow/dispatch integration"
+  },
+  "publicBrowser": {
+    "source": "docs/evidence/public-shell.md",
+    "publicRoutesHttp200": [
+      "/",
+      "/docs",
+      "/security",
+      "/privacy",
+      "/terms"
+    ],
+    "narrowHorizontalOverflowObserved": false,
+    "creatorKeyboardFocusObserved": true,
+    "reducedMotionEmulated": false,
+    "temporaryProcessRemoved": true
+  },
+  "parallelAccountLeaseRechecks": {
+    "runs": 5,
+    "failures": 0
+  },
+  "remainingLimits": [
+    "production risk classification remains unknown and cannot earn automatic publishing",
+    "trained out-of-sample residual model and measured baseline superiority remain pending",
+    "historical candidate replay, challenger comparison and policy simulator remain pending",
+    "complete shadow-first manual publish and browser recovery journeys remain pending",
+    "full purpose/risk/cost AI routing and automatic timing scheduler integration remain pending",
+    "one 14-day account outcome snapshot can be censored",
+    "reduced-motion emulation and full accessibility audit remain pending",
+    "real X/email/CI/deployment/release acceptance unverified"
+  ]
+}

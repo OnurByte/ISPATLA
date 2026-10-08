@@ -213,7 +213,7 @@ test("migration 18 keeps every variant with the winner marked, and voice storage
   const output = runIsolated(`
     import { ensureDatabase, createDraft, deleteDraft, getAccountVoiceProfile, getAccounts, getDraftVariants, recordDraftVariants, saveAccount, saveAccountVoiceProfile } from "./src/server/db.ts";
     if (!ensureDatabase()) throw new Error("database did not initialize");
-    const account = saveAccount({ accountKey: "pub", handle: "pub", displayName: "Pub", xuseAccountId: "pub", enabled: true, defaultAccount: true, automationMode: "manual", dailyLimit: 5, capabilities: ["post"], styleProfile: { tone: "sade", niche: "yapay zeka" }, now: 1 });
+    const account = saveAccount({ accountKey: "pub", handle: "pub", displayName: "Pub", enabled: true, defaultAccount: true, automationMode: "manual", dailyLimit: 5, capabilities: ["post"], styleProfile: { tone: "sade", niche: "yapay zeka" }, now: 1 });
     const saved = saveAccountVoiceProfile(account.id, { handle: "pub", voiceContract: "SES" }, 2);
     const draft = createDraft({ externalId: "1", accountId: account.id, format: "post", text: "taslak", now: 3 });
     recordDraftVariants({ draftId: draft.id, variants: [

@@ -1,10 +1,11 @@
+import { withUser } from "@/server/request-auth";
 import { NextResponse } from "next/server";
 import { runAutomationJob } from "@/server/queue-service";
 import { guardMutation } from "@/server/api-guard";
 
 export const runtime = "nodejs";
 
-export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
+async function POSTHandler(request: Request, context: { params: Promise<{ id: string }> }) {
   const denied = guardMutation(request);
   if (denied) return denied;
   const id = Number((await context.params).id);
@@ -16,3 +17,5 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     return NextResponse.json({ error: message }, { status: message.includes("bulunamadı") ? 404 : 422 });
   }
 }
+
+export const POST = withUser(POSTHandler);

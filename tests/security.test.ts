@@ -71,15 +71,13 @@ describe("security boundaries", () => {
     });
   });
 
-  test("protects server-rendered pages and API routes through the Next proxy", () => {
-    withEnv({ NODE_ENV: "production", ISPATLA_ADMIN_TOKEN: undefined }, () => {
-      expect(proxy(new Request("http://localhost/"))).toMatchObject({ status: 503 });
-    });
-
-    withEnv({ NODE_ENV: "production", ISPATLA_ADMIN_TOKEN: "test-secret" }, () => {
-      expect(proxy(new Request("http://localhost/"))).toMatchObject({ status: 401 });
-      expect(proxy(new Request("http://localhost/", { headers: { authorization: "Bearer test-secret" } })).status).toBe(200);
-    });
+  test("keeps public pages reachable and redirects app pages without a session cookie", () => {
+    expect(proxy(new Request("http://localhost/"))).toMatchObject({ status: 200 });
+    expect(proxy(new Request("http://localhost/login"))).toMatchObject({ status: 200 });
+    expect(proxy(new Request("http://localhost/app"))).toMatchObject({ status: 307 });
+    expect(proxy(new Request("http://localhost/app/accounts"))).toMatchObject({ status: 307 });
+    // Cookie presence skips only the fast redirect; request/page auth validates it.
+    expect(proxy(new Request("http://localhost/app", { headers: { cookie: "better-auth.session_token=forged" } }))).toMatchObject({ status: 200 });
   });
 
   test("bounds inbound JSON bodies and rejects non-object payloads", async () => {

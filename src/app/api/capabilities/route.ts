@@ -1,25 +1,33 @@
+import { withUser } from "@/server/request-auth";
+import { currentOwnerId } from "@/server/owner-context";
 import { NextResponse } from "next/server";
-import { detectCodex, getAiSettings, getCompatibleSettings, modelOptions } from "@/server/ai";
-import { detectXUse } from "@/server/xuse";
-import { listSecretMetas, secretOrEnv, vaultReady } from "@/server/vault";
+import { getAccounts } from "@/server/db";
+import { getXAccountAuthState } from "@/server/x-oauth";
 
 export const runtime = "nodejs";
 
-export function GET() {
-  const xuse = detectXUse();
-  const ai = getAiSettings();
-  const codex = detectCodex();
-  const openaiConfigured = Boolean(secretOrEnv("openai_api_key", "OPENAI_API_KEY"));
-  const compatibleConfigured = Boolean(secretOrEnv("compatible_api_key", "AI_COMPATIBLE_API_KEY"));
-  return NextResponse.json({
-    xuse,
-    vault: { ready: vaultReady(), secrets: listSecretMetas() },
-    openai: { configured: openaiConfigured },
-    ai: {
-      settings: ai,
-      configured: ai.provider === "codex" ? codex.authenticated : ai.provider === "compatible" ? Boolean(ai.model && getCompatibleSettings().baseUrl && compatibleConfigured) : openaiConfigured,
-      models: { api: modelOptions("api"), compatible: modelOptions("compatible"), codex: modelOptions("codex") },
-      codex,
-    },
+function GETHandler() {
+  const ownerId = currentOwnerId();
+  const accounts = getAccounts().map((account) => {
+    const state = ownerId ? getXAccountAuthState(account.id, ownerId) : null;
+    const scopes = state?.scopes || [];
+    const write = state?.connected === true && scopes.includes("tweet.write");
+    return {
+      accountId: account.id,
+      handle: account.handle,
+      connected: state?.connected === true,
+      authState: state?.authState || "disconnected",
+      scopes,
+      capabilities: {
+        post: write,
+        repost: write,
+        reply: write,
+        media: state?.connected === true && scopes.includes("media.write"),
+        quote: "unknown",
+      },
+    };
   });
+  return NextResponse.json({ accounts, xEntitlement: "unknown" }, { headers: { "cache-control": "no-store" } });
 }
+
+export const GET = withUser(GETHandler);

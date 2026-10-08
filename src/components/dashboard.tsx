@@ -14,6 +14,11 @@ import { Separator } from "@/components/ui/separator";
 import { Spinner } from "@/components/ui/spinner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
+type DashboardView = Omit<DashboardSummary, "officialPublisherConfigured"> & {
+  officialPublisherConfigured: boolean;
+  officialX: { connectedAccounts: number; postWriteReadyAccounts: number; autoConsentedPostAccounts: number };
+};
+
 function formatAge(timestamp: number): string {
   if (!timestamp) return "—";
   return new Intl.DateTimeFormat("tr-TR", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Istanbul" }).format(timestamp * 1000);
@@ -60,14 +65,14 @@ function MetricCard({ icon: Icon, label, value, detail, href }: { icon: typeof A
   return href ? <Link href={href} aria-label={`${label} listesini aç`}>{card}</Link> : card;
 }
 
-export function Dashboard({ initial }: { initial: DashboardSummary }) {
+export function Dashboard({ initial }: { initial: DashboardView }) {
   const [summary, setSummary] = useState(initial);
   const [isPending, startTransition] = useTransition();
 
   function refresh() {
     startTransition(async () => {
       const response = await fetch("/api/status", { cache: "no-store" });
-      if (response.ok) setSummary((await response.json()) as DashboardSummary);
+      if (response.ok) setSummary((await response.json()) as DashboardView);
     });
   }
 
@@ -96,7 +101,7 @@ export function Dashboard({ initial }: { initial: DashboardSummary }) {
             </div>
             <div className="flex flex-col gap-2">
               <h1 className="text-4xl font-semibold tracking-tight sm:text-5xl">Sinyali yakala. Hiti yap. Yayını kontrol et.</h1>
-              <p className="max-w-2xl text-base leading-7 text-muted-foreground">X için auto-hitmaker: günlerce arka planda çalışan sinyal radarı → hesap dilinde özgün hit → güvenlik kapıları → otomatik yayın ve FxTwitter reconciliation.</p>
+              <p className="max-w-2xl text-base leading-7 text-muted-foreground">X sinyalleri → hesap dilinde özgün içerik → güvenlik kapıları → yayın ve doğrulama.</p>
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -109,10 +114,21 @@ export function Dashboard({ initial }: { initial: DashboardSummary }) {
           </div>
         </header>
 
+        <section className="flex flex-col gap-4 rounded-xl border bg-muted/20 p-5 sm:flex-row sm:items-center sm:justify-between" aria-labelledby="first-step-title">
+          <div className="max-w-3xl">
+            <div className="mb-2 flex items-center gap-2"><Badge variant="secondary">İlk adım · Shadow değerlendirme</Badge></div>
+            <h2 id="first-step-title" className="text-lg font-semibold">Önce sinyali gör, sonra yayın kararını ver.</h2>
+            <p className="mt-1 text-sm leading-6 text-muted-foreground">Fırsatları ve kaynak kanıtını X hesabı bağlamadan inceleyebilirsin. Draft performans puanı yalnız shadow tahminidir; X sonucu veya yayın garantisi değildir. Yayın kuyruğu ayrıca onay ister.</p>
+          </div>
+          <Link href="/app/opportunities" className={buttonVariants({ variant: "outline", className: "shrink-0" })}>
+            Fırsatları incele <ArrowUpRight data-icon="inline-end" aria-hidden="true" />
+          </Link>
+        </section>
+
         <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4" aria-label="Özet metrikler">
           <MetricCard icon={Database} label="Kaynaklar" value={`${summary.sourcesObserved}/${summary.sourcesConfigured}`} detail="Enabled config / state içinde görülen" />
           <MetricCard icon={Activity} label="Gözlenen post" value={summary.postsObserved} detail={`${summary.postsLast24h} son 24 saatte`} />
-          <MetricCard icon={Sparkles} label="Fırsatlar" value={summary.opportunities} detail="Skor ≥ 70, sensitive değil · listeyi aç" href="/opportunities" />
+          <MetricCard icon={Sparkles} label="Fırsatlar" value={summary.opportunities} detail="Skor ≥ 70, sensitive değil · listeyi aç" href="/app/opportunities" />
           <MetricCard icon={Send} label="Reconciliation kuyruğu" value={summary.attemptsPending} detail={`${summary.publishedConfirmed} confirmed · ${summary.publishBlocked} blocked`} />
         </section>
 
@@ -143,14 +159,16 @@ export function Dashboard({ initial }: { initial: DashboardSummary }) {
               <CardDescription>Canlı dış sistemlerin kanıtlanabilir durumu.</CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col gap-4">
-              <div className="flex items-center justify-between gap-4"><span className="flex items-center gap-2 text-sm"><TimerReset className="size-4 text-muted-foreground" aria-hidden="true" /> Otomatik tarama</span><Badge variant={summary.automationEnabled ? "default" : "outline"}>{summary.automationEnabled ? "5 dk açık" : "kapalı"}</Badge></div>
+              <div className="flex flex-wrap items-center justify-between gap-4"><span className="flex items-center gap-2 text-sm"><TimerReset className="size-4 text-muted-foreground" aria-hidden="true" /> Radar</span><Badge variant={summary.automationRuntime.healthy ? "default" : "outline"}>{summary.automationRuntime.healthy ? `${summary.automationRuntime.owner} heartbeat ${summary.automationRuntime.lagSeconds} sn önce` : "çalışmıyor · heartbeat yok"}</Badge></div>
               <Separator />
               <div className="flex items-center justify-between gap-4"><span className="flex items-center gap-2 text-sm"><Bot className="size-4 text-muted-foreground" aria-hidden="true" /> {summary.aiProvider === "codex" ? "Codex" : summary.aiProvider === "compatible" ? "Özel AI endpoint" : "OpenAI Responses"}</span><Badge variant={!summary.aiEnabled ? "secondary" : summary.aiConfigured ? "default" : "destructive"}>{!summary.aiEnabled ? "kapalı" : summary.aiConfigured ? "hazır" : summary.aiProvider === "codex" ? "login yok" : "key / endpoint yok"}</Badge></div>
-              <div className="flex items-center justify-between gap-4"><span className="flex items-center gap-2 text-sm"><Send className="size-4 text-muted-foreground" aria-hidden="true" /> x-use transport</span><Badge variant={summary.xuseAvailable ? "default" : "destructive"}>{summary.xuseAvailable ? "hazır" : "ulaşılamıyor"}</Badge></div>
+              <div className="flex items-center justify-between gap-4"><span className="flex items-center gap-2 text-sm"><Send className="size-4 text-muted-foreground" aria-hidden="true" /> Official X grant</span><Badge variant={summary.officialX.postWriteReadyAccounts ? "default" : "secondary"}>{summary.officialX.postWriteReadyAccounts} write hazır</Badge></div>
+              <div className="flex items-center justify-between gap-4"><span className="flex items-center gap-2 text-sm"><ShieldCheck className="size-4 text-muted-foreground" aria-hidden="true" /> Publisher yapılandırması</span><Badge variant={summary.officialPublisherConfigured ? "default" : "destructive"}>{summary.officialPublisherConfigured ? "sunucu hazır" : "sunucu yapılandırması eksik"}</Badge></div>
+              <div className="flex items-center justify-between gap-4"><span className="flex items-center gap-2 text-sm"><ShieldCheck className="size-4 text-muted-foreground" aria-hidden="true" /> Açık Auto post izni</span><Badge variant={summary.officialX.autoConsentedPostAccounts ? "default" : "secondary"}>{summary.officialX.autoConsentedPostAccounts} hesap · {summary.officialX.connectedAccounts} bağlı</Badge></div>
               <div className="flex items-center justify-between gap-4"><span className="flex items-center gap-2 text-sm"><ShieldCheck className="size-4 text-muted-foreground" aria-hidden="true" /> Yayın politikası</span><Badge variant="secondary">≥70 · 6/gün</Badge></div>
               <Alert>
                 <ShieldCheck aria-hidden="true" />
-                <AlertDescription>x-use sonucu tek başına başarı sayılmaz; exact text, author ve media FxTwitter üzerinden doğrulanmadan kayıt confirmed olmaz.</AlertDescription>
+                <AlertDescription>Otomatik taslak için bağlı X hesabı, tweet.write yetkisi ve güncel açık post izni gerekir. Her gönderim anında bağlantı, izin ve yayın politikası yeniden denetlenir.</AlertDescription>
               </Alert>
             </CardContent>
           </Card>
@@ -190,7 +208,7 @@ export function Dashboard({ initial }: { initial: DashboardSummary }) {
                 </a>
               ))}
               <Separator />
-              <div className="flex flex-col gap-2 text-sm"><span className="flex items-center gap-2 font-medium"><CheckCircle2 className="size-4" aria-hidden="true" /> Ürün döngüsü</span><span className="text-xs leading-5 text-muted-foreground">Style profile, Market fırsatı, generation, quality/uncertainty/rights gate, x-use yayın ve feedback reconciliation.</span></div>
+              <div className="flex flex-col gap-2 text-sm"><span className="flex items-center gap-2 font-medium"><CheckCircle2 className="size-4" aria-hidden="true" /> Ürün döngüsü</span><span className="text-xs leading-5 text-muted-foreground">Style profile, Market fırsatı, generation, quality/uncertainty/rights gate, Official X publication and feedback reconciliation.</span></div>
               {summary.lastRun && <div className="flex items-center justify-between gap-4 text-xs text-muted-foreground"><span>Son run</span><span className="tabular-nums">{summary.lastRun.postsNew} yeni / {summary.lastRun.postsSeen} görüldü</span></div>}
               <a
                 className={buttonVariants({ variant: "link", size: "sm", className: "w-fit px-0" })}
