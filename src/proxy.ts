@@ -11,9 +11,9 @@ import { adminTokenState } from "@/server/security";
  *
  *  1. A session cookie, which is what the login screen issues. This is the path a
  *     browser takes.
- *  2. `Authorization: Bearer <token>`, the original machine credential. A reverse
- *     proxy may still inject it so the token never reaches the browser, and
- *     scripts keep working without a login round-trip.
+ *  2. `Authorization: Bearer` + token — the machine credential for scripts
+ *     and the worker, which have no session. A reverse proxy may still
+ *     inject it so the token never reaches the browser.
  *
  * The reverse-proxy path is optional, not required: the panel now has an identity
  * of its own, so TLS termination plus a login screen is a complete deployment.
