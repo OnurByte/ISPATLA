@@ -1,0 +1,4 @@
+.card { --tilt-x: 0deg; --tilt-y: 0deg; --spot-x: 50%; --spot-y: 50%; position: relative; isolation: isolate; transform: perspective(900px) rotateX(var(--tilt-x)) rotateY(var(--tilt-y)); transform-style: preserve-3d; transition: transform 120ms ease-out; }
+.card::before { content: ""; position: absolute; inset: 0; z-index: -1; border-radius: inherit; pointer-events: none; background: radial-gradient(circle at var(--spot-x) var(--spot-y), rgb(255 255 255 / .14), transparent 55%); }
+.content { transform: translateZ(32px); }
+@media (prefers-reduced-motion: reduce), (hover: none), (pointer: coarse) { .card { transform: none !important; transition: none; } .card::before { background-position: center; background-image: radial-gradient(circle at center, rgb(255 255 255 / .10), transparent 55%); } .content { transform: none; } }

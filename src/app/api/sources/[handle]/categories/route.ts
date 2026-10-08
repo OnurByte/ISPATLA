@@ -1,15 +1,16 @@
+import { withUser } from "@/server/request-auth";
 import { NextResponse } from "next/server";
 import { getSourceCategoryConfigs, saveSourceCategoryConfig } from "@/server/db";
 import { guardMutation, readJsonBody } from "@/server/api-guard";
 
 export const runtime = "nodejs";
 
-export async function GET(_request: Request, context: { params: Promise<{ handle: string }> }) {
+async function GETHandler(_request: Request, context: { params: Promise<{ handle: string }> }) {
   const handle = (await context.params).handle.replace(/^@/, "").toLowerCase();
   return NextResponse.json(getSourceCategoryConfigs(handle));
 }
 
-export async function PUT(request: Request, context: { params: Promise<{ handle: string }> }) {
+async function PUTHandler(request: Request, context: { params: Promise<{ handle: string }> }) {
   const denied = guardMutation(request);
   if (denied) return denied;
   try {
@@ -29,3 +30,7 @@ export async function PUT(request: Request, context: { params: Promise<{ handle:
     return NextResponse.json({ error: error instanceof Error ? error.message : "source category kaydedilemedi" }, { status: 400 });
   }
 }
+
+export const GET = withUser(GETHandler);
+
+export const PUT = withUser(PUTHandler, true);

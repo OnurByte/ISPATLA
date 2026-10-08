@@ -1,3 +1,4 @@
+import { withUser } from "@/server/request-auth";
 import { NextResponse } from "next/server";
 import { guardMutation, readJsonBody } from "@/server/api-guard";
 import { removeSecret, saveSecret } from "@/server/vault";
@@ -7,10 +8,9 @@ export const runtime = "nodejs";
 const KNOWN_KEYS = new Map([
   ["openai_api_key", "OpenAI"],
   ["compatible_api_key", "OpenAI-uyumlu AI"],
-  ["xuse_credential", "x-use"],
 ]);
 
-export async function PUT(request: Request, context: { params: Promise<{ name: string }> }) {
+async function PUTHandler(request: Request, context: { params: Promise<{ name: string }> }) {
   const denied = guardMutation(request);
   if (denied) return denied;
   const name = (await context.params).name;
@@ -32,9 +32,13 @@ export async function PUT(request: Request, context: { params: Promise<{ name: s
   }
 }
 
-export async function DELETE(request: Request, context: { params: Promise<{ name: string }> }) {
+async function DELETEHandler(request: Request, context: { params: Promise<{ name: string }> }) {
   const denied = guardMutation(request);
   if (denied) return denied;
   removeSecret((await context.params).name);
   return NextResponse.json({ ok: true });
 }
+
+export const PUT = withUser(PUTHandler);
+
+export const DELETE = withUser(DELETEHandler);

@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { RefreshCw } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { ExternalLink, RefreshCw } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -9,44 +9,111 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
-import { Textarea } from "@/components/ui/textarea";
 
-type LoggedAccount = { id: number; handle: string; displayName: string; health: { queue?: Record<string, number>; session?: { warm?: boolean } } };
-type Item = { tweetId?: string; url?: string; author?: string; text?: string; likes?: number; reposts?: number; replies?: number; views?: number };
+type ConnectedAccount = { id: number; handle: string; displayName: string; connected: boolean; authState: string; scopes: string[] };
+type TimelineItem = { id: string; text: string; createdAt: string; url: string };
+
+function date(value: string) {
+  const timestamp = Date.parse(value);
+  return Number.isFinite(timestamp) ? new Intl.DateTimeFormat("tr-TR", { dateStyle: "medium", timeStyle: "short" }).format(timestamp) : "Tarih yok";
+}
 
 export function XInspectorPage() {
-  const [accounts, setAccounts] = useState<LoggedAccount[]>([]);
+  const [accounts, setAccounts] = useState<ConnectedAccount[]>([]);
   const [accountId, setAccountId] = useState("");
-  const [items, setItems] = useState<Item[]>([]);
+  const [items, setItems] = useState<TimelineItem[]>([]);
+  const [loadingAccounts, setLoadingAccounts] = useState(true);
+  const [loadingTimeline, setLoadingTimeline] = useState(false);
   const [message, setMessage] = useState("");
-  const [pending, setPending] = useState(false);
-  const [reply, setReply] = useState<Record<string, string>>({});
-  const selected = accounts.find((account) => String(account.id) === accountId);
-  async function loadAccounts() { setPending(true); const response = await fetch("/api/x/accounts", { method: "POST" }); const body = await response.json().catch(() => ({})); const next = response.ok ? body.accounts || [] : []; setAccounts(next); setAccountId((current) => next.some((account: LoggedAccount) => String(account.id) === current) ? current : String(next[0]?.id || "")); setMessage(response.ok ? "" : body.error || "x-use hesapları alınamadı."); setPending(false); }
-  async function loadTimeline(id = accountId) { if (!id) return; setPending(true); const response = await fetch(`/api/x/accounts/${id}/timeline`, { method: "POST" }); const body = await response.json().catch(() => ({})); setItems(response.ok ? body.items || [] : []); setMessage(response.ok ? "" : body.error || "Timeline alınamadı."); setPending(false); }
-  useEffect(() => {
-    let current = true;
-    void fetch("/api/x/accounts", { method: "POST" }).then(async (response) => {
-      const body = await response.json().catch(() => ({}));
-      if (!current) return;
-      const next = response.ok ? body.accounts || [] : [];
-      setAccounts(next);
-      setAccountId((value) => next.some((account: LoggedAccount) => String(account.id) === value) ? value : String(next[0]?.id || ""));
-      setMessage(response.ok ? "" : body.error || "x-use hesapları alınamadı.");
-    }).catch(() => { if (current) setMessage("x-use hesapları alınamadı."); });
-    return () => { current = false; };
+  const selectedIdRef = useRef("");
+
+  const loadTimeline = useCallback(async (id: string) => {
+    const response = await fetch(`/api/x/accounts/${id}/timeline`, { cache: "no-store" }).catch(() => null);
+    const body = response ? await response.json().catch(() => ({})) : {};
+    setItems(response?.ok && Array.isArray(body.items) ? body.items as TimelineItem[] : []);
+    if (!response?.ok) setMessage(body.error || "X timeline alınamadı.");
+    setLoadingTimeline(false);
   }, []);
+
+  const loadAccounts = useCallback(async () => {
+    const response = await fetch("/api/x/accounts", { cache: "no-store" }).catch(() => null);
+    const body = response ? await response.json().catch(() => ({})) : {};
+    const next = response?.ok && Array.isArray(body.accounts) ? body.accounts as ConnectedAccount[] : [];
+    setAccounts(next);
+    const selectedId = next.some((account) => String(account.id) === selectedIdRef.current) ? selectedIdRef.current : String(next.find((account) => account.connected)?.id || "");
+    selectedIdRef.current = selectedId;
+    setAccountId(selectedId);
+    setMessage(response?.ok ? "" : body.error || "X hesapları alınamadı.");
+    setLoadingAccounts(false);
+    if (selectedId && next.some((account) => String(account.id) === selectedId && account.connected)) {
+      setLoadingTimeline(true);
+      await loadTimeline(selectedId);
+    } else {
+      setItems([]);
+      setLoadingTimeline(false);
+    }
+  }, [loadTimeline]);
+
   useEffect(() => {
-    if (!accountId) return;
-    let current = true;
-    void fetch(`/api/x/accounts/${accountId}/timeline`, { method: "POST" }).then(async (response) => {
-      const body = await response.json().catch(() => ({}));
-      if (!current) return;
-      setItems(response.ok ? body.items || [] : []);
-      setMessage(response.ok ? "" : body.error || "Timeline alınamadı.");
-    }).catch(() => { if (current) setMessage("Timeline alınamadı."); });
-    return () => { current = false; };
-  }, [accountId]);
-  async function engage(action: "like" | "retweet" | "reply", item: Item) { const response = await fetch("/api/x/engagements", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ accountId: Number(accountId), action, tweetUrl: item.url, text: reply[item.tweetId || item.url || ""] || "" }) }); const body = await response.json().catch(() => ({})); setMessage(response.ok ? (body.automatic ? "Job auto hesap için planlandı." : "Job planlandı; manual hesapta kuyruktan çalıştır.") : body.error || "Etkileşim planlanamadı."); }
-  return <div className="flex flex-col gap-5"><Card><CardHeader className="gap-3 sm:flex-row sm:items-end sm:justify-between"><div><CardTitle>Bağlı hesapların son postları</CardTitle><CardDescription>Yalnız x-use’ta aktif ve geçerli oturum cookie’si olan hesaplar gösterilir.</CardDescription></div><Button variant="outline" onClick={() => { void loadAccounts(); if (accountId) void loadTimeline(); }} disabled={pending}>{pending ? <Spinner data-icon="inline-start" /> : <RefreshCw data-icon="inline-start" aria-hidden="true" />} Yenile</Button></CardHeader><CardContent>{accounts.length ? <div className="flex flex-wrap items-center gap-3"><Select value={accountId} onValueChange={(value) => setAccountId(value || "")}><SelectTrigger className="w-[240px]"><SelectValue /></SelectTrigger><SelectContent>{accounts.map((account) => <SelectItem key={account.id} value={String(account.id)}>@{account.handle}{account.displayName ? ` · ${account.displayName}` : ""}</SelectItem>)}</SelectContent></Select>{selected && <div className="flex gap-2 text-xs text-muted-foreground"><Badge variant="outline">{selected.health.session?.warm ? "warm session" : "cold session"}</Badge><span>queue pending: {selected.health.queue?.pending || 0}</span></div>}</div> : <Empty className="border border-dashed py-8"><EmptyHeader><EmptyTitle>Geçerli x-use oturumu yok</EmptyTitle><EmptyDescription>Hesabın x-use eşlemesini ve cookie health durumunu Hesaplar ekranından kontrol et.</EmptyDescription></EmptyHeader></Empty>}</CardContent></Card>{items.map((item) => { const key = item.tweetId || item.url || item.text || "item"; return <Card key={key}><CardContent className="flex flex-col gap-3 pt-6"><div className="text-sm text-muted-foreground">{item.author} · {item.likes || 0} beğeni · {item.reposts || 0} repost · {item.replies || 0} yanıt · {item.views || 0} görüntülenme</div><p className="whitespace-pre-wrap">{item.text}</p>{item.url && <a className="text-sm text-primary underline" href={item.url} target="_blank" rel="noreferrer">X’te aç</a>}<div className="flex flex-wrap gap-2"><Button size="sm" variant="outline" onClick={() => engage("like", item)}>Beğen</Button><Button size="sm" variant="outline" onClick={() => engage("retweet", item)}>Repost</Button></div><Textarea value={reply[key] || ""} onChange={(event) => setReply((current) => ({ ...current, [key]: event.target.value }))} placeholder="Reply metni" /><Button size="sm" className="w-fit" onClick={() => engage("reply", item)} disabled={!(reply[key] || "").trim()}>Reply planla</Button></CardContent></Card>; })}{!pending && selected && !items.length && !message && <Empty className="border border-dashed py-10"><EmptyHeader><EmptyTitle>Post bulunamadı</EmptyTitle><EmptyDescription>Bu hesabın profile timeline’ında gösterilecek post yok.</EmptyDescription></EmptyHeader></Empty>}{message && <Alert><AlertDescription>{message}</AlertDescription></Alert>}</div>;
+    let active = true;
+    async function initialize() {
+      const response = await fetch("/api/x/accounts", { cache: "no-store" }).catch(() => null);
+      const body = response ? await response.json().catch(() => ({})) : {};
+      if (!active) return;
+      const next = response?.ok && Array.isArray(body.accounts) ? body.accounts as ConnectedAccount[] : [];
+      setAccounts(next);
+      const selectedId = next.find((account) => account.connected)?.id.toString() || "";
+      selectedIdRef.current = selectedId;
+      setAccountId(selectedId);
+      if (!response?.ok) setMessage(body.error || "X hesapları alınamadı.");
+      setLoadingAccounts(false);
+      if (!selectedId) return;
+      setLoadingTimeline(true);
+      const timelineResponse = await fetch(`/api/x/accounts/${selectedId}/timeline`, { cache: "no-store" }).catch(() => null);
+      const timelineBody = timelineResponse ? await timelineResponse.json().catch(() => ({})) : {};
+      if (!active) return;
+      setItems(timelineResponse?.ok && Array.isArray(timelineBody.items) ? timelineBody.items as TimelineItem[] : []);
+      if (!timelineResponse?.ok) setMessage(timelineBody.error || "X timeline alınamadı.");
+      setLoadingTimeline(false);
+    }
+    void initialize();
+    return () => { active = false; };
+  }, []);
+
+  const connected = accounts.filter((account) => account.connected);
+  const selected = accounts.find((account) => String(account.id) === accountId);
+
+  return <div className="flex flex-col gap-5">
+    <Card>
+      <CardHeader className="gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div className="space-y-1.5"><CardTitle>Bağlı X hesabı timeline’ı</CardTitle><CardDescription>Resmi X API üzerinden yalnızca kendi hesabınızın son postlarını okuyun. Bu ekranda beğeni, repost veya reply işlemi yoktur.</CardDescription></div>
+        <Button variant="outline" onClick={() => { setLoadingAccounts(true); if (accountId) setLoadingTimeline(true); void loadAccounts(); }} disabled={loadingAccounts || loadingTimeline}>
+          {(loadingAccounts || loadingTimeline) ? <Spinner data-icon="inline-start" /> : <RefreshCw data-icon="inline-start" aria-hidden="true" />} Yenile
+        </Button>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {connected.length ? <div className="flex flex-wrap items-center gap-3">
+          <Select value={accountId} onValueChange={(value) => {
+            const nextId = value || "";
+            selectedIdRef.current = nextId;
+            setAccountId(nextId);
+            setItems([]);
+            setMessage("");
+            if (nextId) { setLoadingTimeline(true); void loadTimeline(nextId); }
+          }}>
+            <SelectTrigger className="w-full max-w-sm" aria-label="Bağlı X hesabı"><SelectValue placeholder="Bir hesap seçin" /></SelectTrigger>
+            <SelectContent>{connected.map((account) => <SelectItem key={account.id} value={String(account.id)}>@{account.handle}{account.displayName ? ` · ${account.displayName}` : ""}</SelectItem>)}</SelectContent>
+          </Select>
+          {selected ? <div className="flex flex-wrap gap-1.5" aria-label="X API izin kapsamları">{selected.scopes.map((scope) => <Badge key={scope} variant="outline">{scope}</Badge>)}</div> : null}
+        </div> : loadingAccounts ? <p className="text-sm text-muted-foreground">Bağlı hesaplar yükleniyor…</p> : <Empty className="border border-dashed py-7"><EmptyHeader><EmptyTitle>Bağlı X hesabı yok</EmptyTitle><EmptyDescription>Hesaplar sayfasından X hesabınızı bağlayın; timeline okuma için tweet.read izni gerekir.</EmptyDescription></EmptyHeader></Empty>}
+      </CardContent>
+    </Card>
+
+    {items.map((item) => <Card key={item.id}><CardContent className="flex flex-col gap-3 pt-6">
+      <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground"><span>{date(item.createdAt)}</span><a className="inline-flex items-center gap-1 text-primary underline" href={item.url} target="_blank" rel="noreferrer">X’te aç <ExternalLink aria-hidden="true" className="size-3" /></a></div>
+      <p className="whitespace-pre-wrap text-sm">{item.text}</p>
+    </CardContent></Card>)}
+    {selected?.connected && !items.length && !loadingTimeline && !message ? <Empty className="border border-dashed py-8"><EmptyHeader><EmptyTitle>Timeline boş</EmptyTitle><EmptyDescription>Bu hesap için X’ten okunabilir post bulunamadı.</EmptyDescription></EmptyHeader></Empty> : null}
+    {message ? <Alert variant="destructive"><AlertDescription>{message}</AlertDescription></Alert> : null}
+  </div>;
 }

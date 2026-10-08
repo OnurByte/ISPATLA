@@ -1,12 +1,84 @@
 import { aiConfigured, requestDraftSemanticFeatures, type AiProvider, type DraftSemanticFeatures } from "./ai";
 import {
-  draftPerformanceBaseline,
   recordDraftEvaluation,
   type Account,
   type DraftEvaluation,
 } from "./db";
+import { listEvaluationOutcomes, listEvaluationPredictions } from "./evaluation-store";
 
 export type DraftMediaType = "none" | "photo" | "video" | "media";
+
+function draftOutcomeBaseline(accountId: number, categorySlug: string, format: string) {
+  const empty = { scope: "none" as const, samples: 0, medianViews: null, medianLikes: null, medianReplies: null, medianReposts: null, medianQuotes: null, medianEngagementRate: null };
+  try {
+    const posts = new Map<string, { capturedAt: number; views: number | null; likes: number | null; replies: number | null; reposts: number | null; quotes: number | null }>();
+    for (const prediction of listEvaluationPredictions(String(accountId), undefined, 500)) {
+      if (prediction.category !== categorySlug || prediction.format !== format || prediction.action !== format
+        || prediction.features.decision !== "eligible") continue;
+      for (const outcome of listEvaluationOutcomes(prediction.id)) {
+        const provenance = outcome.provenanceRef.match(new RegExp(`^official_x:${accountId}:(\\d{1,19}):published_at=(\\d{1,12})$`, "u"));
+        if (outcome.source !== "official_x_api" || !provenance) continue;
+        const publishedAt = Number(provenance[2]);
+        if (!Number.isSafeInteger(publishedAt) || publishedAt < prediction.createdAt || outcome.observedAt < publishedAt
+          || outcome.capturedAt < publishedAt + 14 * 86400) continue;
+        const key = provenance[1], previous = posts.get(key);
+        if (!previous || outcome.capturedAt > previous.capturedAt) posts.set(key, { capturedAt: outcome.capturedAt, ...outcome.metrics });
+      }
+    }
+    const samples = [...posts.values()].filter(row => [row.views,row.likes,row.replies,row.reposts,row.quotes].some(value => value !== null));
+    if (!samples.length) return empty;
+    const metric = (key: "views" | "likes" | "replies" | "reposts" | "quotes") => median(samples.map(row => row[key]).filter((value): value is number => value !== null));
+    const rates = samples.flatMap(row => row.views !== null && row.views > 0 && row.likes !== null && row.replies !== null && row.reposts !== null && row.quotes !== null
+      ? [(row.likes + row.replies + row.reposts + row.quotes) / row.views] : []);
+    return { scope: "account_category_format" as const, samples: samples.length, medianViews: metric("views"), medianLikes: metric("likes"),
+      medianReplies: metric("replies"), medianReposts: metric("reposts"), medianQuotes: metric("quotes"), medianEngagementRate: median(rates) };
+  } catch {
+    return empty;
+  }
+}
+
+export function formatHistoryEvidence(accountId: number, categorySlug: string, formats: string[]) {
+  const result: Record<string, { samples: number | null; engagementRate: number | null }> = Object.fromEntries(formats.map((format) => [format, { samples: null, engagementRate: null }]));
+  try {
+    const predictions = listEvaluationPredictions(String(accountId), undefined, 500)
+      .filter((prediction) => prediction.accountId === String(accountId) && prediction.category === categorySlug
+        && prediction.action === prediction.format && prediction.features.decision === "eligible" && formats.includes(prediction.format));
+    const byPublication = new Map<string, { format: string; engagementRate: number; capturedAt: number }>();
+    for (const prediction of predictions) {
+      for (const outcome of listEvaluationOutcomes(prediction.id)) {
+        if (outcome.source !== "official_x_api") continue;
+        const provenance = outcome.provenanceRef.match(new RegExp(`^official_x:${accountId}:(\\d{1,19}):published_at=(\\d{1,12})$`, "u"));
+        if (!provenance) continue;
+        const publishedAt = Number(provenance[2]);
+        if (!Number.isSafeInteger(publishedAt) || publishedAt < prediction.createdAt
+          || outcome.observedAt < publishedAt || outcome.capturedAt < publishedAt + 14 * 86400) continue;
+        const { views, likes, replies, reposts, quotes } = outcome.metrics;
+        if (views === null || views <= 0 || [likes, replies, reposts, quotes].some((value) => value === null)) continue;
+        const engagementRate = (likes! + replies! + reposts! + quotes!) / views;
+        if (!Number.isFinite(engagementRate) || engagementRate < 0) continue;
+        const key = `${provenance[1]}\0${prediction.category}\0${prediction.format}`;
+        const previous = byPublication.get(key);
+        if (!previous || outcome.capturedAt > previous.capturedAt) {
+          byPublication.set(key, { format: prediction.format, engagementRate, capturedAt: outcome.capturedAt });
+        }
+      }
+    }
+    for (const format of formats) {
+      const rates = [...byPublication.values()].filter((sample) => sample.format === format).map((sample) => sample.engagementRate);
+      result[format] = { samples: rates.length, engagementRate: median(rates) };
+    }
+  } catch {
+    // An unreadable evaluation history is unavailable evidence, never a zero-score history.
+  }
+  return result;
+}
+
+function median(values: number[]): number | null {
+  if (!values.length) return null;
+  const sorted = [...values].sort((a, b) => a - b);
+  const middle = Math.floor(sorted.length / 2);
+  return sorted.length % 2 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2;
+}
 
 export type DraftDeterministicFeatures = {
   charCount: number;
@@ -149,11 +221,7 @@ export async function evaluateDraft(input: {
   const now = input.now || Math.floor(Date.now() / 1000);
   const categorySlug = String(input.categorySlug || "").trim().toLocaleLowerCase("tr-TR");
   const features = extractDraftFeatures(input.text, input.mediaType || "none");
-  const baseline = draftPerformanceBaseline({
-    accountId: input.account.id,
-    format: input.format,
-    categorySlug,
-  });
+  const baseline = draftOutcomeBaseline(input.account.id, categorySlug, input.format);
 
   let semantic: DraftSemanticFeatures | null = null;
   let semanticMetadata: Record<string, unknown> = {};
@@ -187,16 +255,14 @@ export async function evaluateDraft(input: {
   }
 
   const scored = scoreDraftFeatures(features, semantic);
-  const mature = baseline.samples >= 5;
-  const predictedResidual = mature ? Number(clamp(0.65 + scored.score * 0.009, 0.55, 1.6).toFixed(3)) : null;
-  const scopeConfidence = baseline.scope === "account_category_format" ? 35 : baseline.scope === "account_format" ? 28 : baseline.scope === "account" ? 20 : 0;
-  const confidence = Math.round(clamp(15 + scopeConfidence + Math.min(25, baseline.samples) + (semantic ? 20 : 0), 0, 95));
+  const predictedResidual = null;
+  const confidence = Math.round(clamp(15 + Math.min(25, baseline.samples) + (semantic ? 20 : 0), 0, 60));
 
   return recordDraftEvaluation({
     draftId: input.draftId,
     accountId: input.account.id,
     categorySlug,
-    mode: mature ? "shadow_calibrated" : "shadow_cold_start",
+    mode: "shadow_cold_start",
     score: scored.score,
     confidence,
     predictedResidual,

@@ -5,12 +5,10 @@ import { join } from "node:path";
 import {
   accountFeedbackScore,
   accountSubscriptionEvidence,
-  accountPublishingReady,
   accountCategoryFeedbackScore,
   candidates,
   claimMonitorRun,
   clusterPosts,
-  confirmPublish,
   createDraft,
   deleteSource,
   ensureDatabase,
@@ -18,9 +16,9 @@ import {
   feedbackDueAttempts,
   finishBudgetRun,
   getCompetitors,
+  getPost,
   getTechnicalSourceWarnings,
   getStoredSources,
-  getPost,
   opportunityScoreForPost,
   opportunityPoolThreshold,
   claimAutomationLock,
@@ -32,10 +30,11 @@ import {
   getAccountCategoryConfigs,
   getCategories,
   getSourceCategoryConfigs,
+  getSourceRights,
+  readPublicationPolicyHistory,
   hasPublishedCluster,
   lastPublishAt,
   markDraft,
-  pendingAttempts,
   recordFeedbackSnapshot,
   recordAccountMetric,
   recordCompetitorError,
@@ -51,7 +50,6 @@ import {
   recordSourceEvent,
   scoreEvidenceFor,
   sourceFeedbackScore,
-  sourceWasDeletedSince,
   upsertCompetitorPost,
   markCompetitorInitialized,
   sourceVersionStamps,
@@ -76,13 +74,10 @@ import { parseVoiceProfile, voiceExemplarBlock, type VoiceProfile } from "./voic
 import {
   bootstrapSources,
   enabledSources,
-  extractDiscoveryEvidence,
-  mergeEvidence,
   nextSourceState,
   sourceDueForScoring,
-  type DiscoveryEvidence,
 } from "./sources";
-import { clusterKey, isNumericalHit, scorePost, selectDiverseCandidates } from "./scoring";
+import { clusterKey, isCurrentOpportunity, isNumericalHit, scorePost, selectDiverseCandidates } from "./scoring";
 import { preferredRelevanceAccount, rankOpportunityBatch } from "./opportunity-batch";
 import { isAllowedAvatarUrl, isAllowedMediaContentType, isAllowedMediaUrl } from "./security";
 import { resolveIdeology } from "./ideologies";
@@ -101,13 +96,20 @@ import {
   type JevCandidate,
   type JevMode,
 } from "./jev";
-import { evaluateDraft, extractDraftFeatures, scoreDraftFeatures } from "./draft-evaluator";
-import { approvePublicationIntent, createIntentForDraft } from "./publication-service";
-
-export { xuseCapability } from "./xuse";
+import { evaluateDraft, extractDraftFeatures, formatHistoryEvidence, scoreDraftFeatures } from "./draft-evaluator";
+import { approvePublicationIntent, createIntentForDraft, reconcilePublicationIntents } from "./publication-service";
+import { currentOwnerId, runAsOwner } from "./owner-context";
+import { getXAccountAuthState } from "./x-oauth-store";
+import { X_CONSENT_COPY_VERSION, X_POLICY_VERSION } from "./x-policy";
+import { FixtureXReader } from "./fixture-x";
+import { attachObservationToEvent, getOrCreateCandidateEvent, upsertXObservation, type XObservation } from "./event-store";
+import { recordShadowDecision } from "./shadow-evaluation";
+import { chooseAccountFit } from "./account-fit";
+import { getAuditedReplyEligibility } from "./policy-store";
+import { listEvaluationOutcomes, listEvaluationPredictions } from "./evaluation-store";
 
 type JsonRecord = Record<string, unknown>;
-const xReader = new FxTwitterReader();
+const xReader = process.env.ISPATLA_DEMO === "1" ? new FixtureXReader() : new FxTwitterReader();
 const PROTECTED_SOURCE_RECOVERY = [{ handle: "elonmusk", name: "Elon Musk" }, { handle: "foxnews", name: "Fox News" }] as const;
 
 function isTechnicalSourceRemoval(reason: string): boolean {
@@ -265,6 +267,10 @@ function eventPosts(post: ObservedPost, now = Math.floor(Date.now() / 1000)): Re
 }
 
 export function observedPost(sourceHandle: string, post: XPost): ObservedPost {
+  const rawPost = { ...post } as XPost & Record<string, unknown>;
+  for (const key of ["likes", "replies", "reposts", "quotes", "views"] as const) {
+    if (post.metrics[key] !== null) rawPost[key] = post.metrics[key];
+  }
   const input = {
     likes: post.metrics.likes || 0,
     replies: post.metrics.replies || 0,
@@ -286,11 +292,57 @@ export function observedPost(sourceHandle: string, post: XPost): ObservedPost {
     text: post.text,
     ...input,
     mediaJson: JSON.stringify(post.media),
-    rawJson: JSON.stringify(post),
+    rawJson: JSON.stringify(rawPost),
     score: score.score,
     scoreReason: score.reason,
     clusterKey: clusterKey(post.text),
   };
+}
+
+/** Persist immutable X provenance and nullable metrics in the parallel event model. */
+export function persistShadowObservation(post: XPost, candidateKey: string, observedAt = Math.floor(Date.now() / 1000)): { observation: XObservation; eventId: number } {
+  const urls = [...new Set(post.text.match(/https?:\/\/[^\s]+/gu) || [])].sort();
+  const immutable = {
+    xPostId: post.id, authorHandle: post.author.handle.toLocaleLowerCase("en-US"), postCreatedAt: post.createdAt,
+    textSnapshot: post.text, urls, media: post.media, readerProvider: process.env.ISPATLA_DEMO === "1" ? "fixture" : "fxtwitter",
+  };
+  const rawHash = createHash("sha256").update(JSON.stringify(immutable)).digest("hex");
+  const observation = upsertXObservation({
+    xPostId: post.id,
+    // FxTwitter currently gives us an observed handle but no stable numeric author id.
+    authorId: `handle:${immutable.authorHandle}`,
+    authorHandle: post.author.handle, observedAt, postCreatedAt: post.createdAt, textSnapshot: post.text,
+    metrics: {
+      capturedAt: post.metrics.capturedAt, likes: post.metrics.likes, replies: post.metrics.replies,
+      reposts: post.metrics.reposts, quotes: post.metrics.quotes, views: post.metrics.views,
+    },
+    referencedPosts: [], urls, media: post.media, language: "", readerProvider: immutable.readerProvider, rawHash,
+  });
+  const event = getOrCreateCandidateEvent({ candidateKey: candidateKey || post.id, title: post.text.slice(0, 200), category: "unclassified", firstSeenAt: observedAt });
+  attachObservationToEvent(event.id, observation.id, observedAt);
+  return { observation, eventId: event.id };
+}
+
+function officialAccountTimeOutcomes(account: Account): { publishedAt: number; views: number | null }[] {
+  const predictions = listEvaluationPredictions(String(account.id), undefined, 500)
+    .filter((prediction) => prediction.accountId === String(account.id) && prediction.action === "post"
+      && prediction.features.decision === "eligible");
+  const byPublication = new Map<string, { publishedAt: number; views: number | null; capturedAt: number }>();
+  for (const prediction of predictions) {
+    for (const outcome of listEvaluationOutcomes(prediction.id)) {
+      if (outcome.source !== "official_x_api") continue;
+      const provenance = outcome.provenanceRef.match(new RegExp(`^official_x:${account.id}:(\\d{1,19}):published_at=(\\d{1,12})$`, "u"));
+      if (!provenance) continue;
+      const publishedAt = Number(provenance[2]);
+      if (!Number.isSafeInteger(publishedAt) || publishedAt < prediction.createdAt || outcome.observedAt < publishedAt
+        || outcome.capturedAt < publishedAt + 14 * 86400) continue;
+      const current = byPublication.get(provenance[1]);
+      if (!current || outcome.capturedAt > current.capturedAt) {
+        byPublication.set(provenance[1], { publishedAt, views: outcome.metrics.views, capturedAt: outcome.capturedAt });
+      }
+    }
+  }
+  return [...byPublication.values()].map(({ publishedAt, views }) => ({ publishedAt, views }));
 }
 
 export function normalisePost(sourceHandle: string, value: unknown): ObservedPost | null {
@@ -1098,7 +1150,26 @@ export function eligiblePublishingAccounts(
   configurations: AccountCategoryConfig[] = [],
   sourceConfigurations: SourceCategoryConfig[] = [],
 ): Account[] {
-  return accounts.filter((account) => account.enabled && (!automatic || account.automationMode === "auto") && accountMatchesSource(account, source) && sourceMatchesCategories(source, categories, sourceConfigurations) && accountMatchesCategories(account, categories, automatic, configurations));
+  return accounts.filter((account) => account.enabled && (!automatic || Boolean(account.ownerUserId) || account.automationMode === "auto") && accountMatchesSource(account, source) && sourceMatchesCategories(source, categories, sourceConfigurations) && accountMatchesCategories(account, categories, automatic, configurations));
+}
+
+/** Run account-bound reads, routes, and writes under its persisted owner identity. */
+export function withPersistedAccountOwner<T>(accountId: number, ownerUserId: string, callback: (account: Account) => T): T {
+  if (!ownerUserId) throw new Error("persisted account owner is required");
+  return runAsOwner(ownerUserId, () => {
+    const account = getAccounts().find((item) => item.id === accountId && item.ownerUserId === ownerUserId);
+    if (!account) throw new Error("account not found for persisted owner");
+    return callback(account);
+  });
+}
+
+export function hasCurrentAutomaticPostConsent(account: Pick<Account, "id" | "ownerUserId" | "enabled">, now: number): boolean {
+  if (!account.enabled || !account.ownerUserId || currentOwnerId() !== account.ownerUserId) return false;
+  const auth = getXAccountAuthState(account.id, account.ownerUserId);
+  const consent = auth?.consents.find((item) => item.action === "post");
+  return Boolean(auth?.connected && auth.scopes.includes("tweet.write") && consent?.mode === "auto"
+    && consent.grantedAt !== null && consent.grantedAt <= now && consent.revokedAt === null
+    && consent.policyVersion === X_POLICY_VERSION && consent.copyVersion === X_CONSENT_COPY_VERSION);
 }
 
 export function selectPublishingAccount(
@@ -1116,7 +1187,7 @@ export function selectPublishingAccount(
     .sort((left, right) => left.load - right.load || right.score - left.score || Number(right.account.defaultAccount) - Number(left.account.defaultAccount))[0]?.account;
 }
 
-async function publishCandidate(post: ObservedPost & Pick<RecentPost, "relevanceJson">): Promise<void> {
+async function publishCandidate(post: ObservedPost & Pick<RecentPost, "relevanceJson">, selectedAccountId: number): Promise<void> {
   const now = Math.floor(Date.now() / 1000);
   // publishing_paused stops publishing only; monitoring, scanning and ranking keep
   // filling the pool. Checked here too so every publishCandidate() caller is covered.
@@ -1125,13 +1196,15 @@ async function publishCandidate(post: ObservedPost & Pick<RecentPost, "relevance
   const source = getStoredSources().find((item) => item.handle === post.sourceHandle);
   const evidence = scoreEvidenceFor(post.scoreReason, post.score);
   const currentScore = opportunityScoreForPost(post, now);
+  const ownerUserId = currentOwnerId();
+  if (!ownerUserId) return;
   const accountConfigurations = getAccountCategoryConfigs();
   const sourceConfigurations = getSourceCategoryConfigs();
   const categories = sourceCategories(source, sourceConfigurations);
   if (!categories.length) return;
   const override = isNumericalHit(evidence.momentum, post.createdTimestamp, evidence.risk, now);
   const availableAccounts = getAccounts().filter((account) => {
-    if (!accountPublishingReady(account.id, now)) return false;
+    if (account.id !== selectedAccountId || account.ownerUserId !== ownerUserId || !hasCurrentAutomaticPostConsent(account, now)) return false;
     const category = accountCategoryConfigFor(account.id, categories, accountConfigurations);
     if (category?.publishThreshold !== null && category?.publishThreshold !== undefined && currentScore < category.publishThreshold) return false;
     if (category && categoryPublishingPaused(getCategories().find((definition) => definition.id === category.categoryId))) return false;
@@ -1191,17 +1264,6 @@ async function publishCandidate(post: ObservedPost & Pick<RecentPost, "relevance
   }
 
   markDraft(post.externalId, draft.text, "ready");
-  if (!account.xuseAccountId) {
-    recordPublishAttempt({
-      externalId: post.externalId,
-      accountId: account?.id,
-      status: "blocked",
-      reason: "x-use account id eksik",
-      receipt: "",
-      now,
-    });
-    return;
-  }
   const storedDraft = createDraft({
     origin: "automatic", externalId: post.externalId, accountId: account.id, format: "post", text: draft.text,
     status: "ready", sourceHandle: post.sourceHandle, sourceUrl: post.statusUrl, sourceScore: post.score,
@@ -1221,7 +1283,7 @@ async function publishCandidate(post: ObservedPost & Pick<RecentPost, "relevance
     now,
   }).catch(() => undefined);
   const intent = createIntentForDraft(storedDraft.id, account.id, now);
-  approvePublicationIntent(intent.id, now);
+  approvePublicationIntent(intent.id, now, { approvalSource: "automatic" });
   markDraft(post.externalId, draft.text, `publication_intent:${intent.id}${subscriptionReason}`);
 }
 
@@ -1239,31 +1301,7 @@ function remoteIdFromReceipt(receipt: string): string | null {
 }
 
 export async function reconcilePending(): Promise<number> {
-  let confirmed = 0;
-  for (const attempt of pendingAttempts()) {
-    const post = getPost(attempt.post_external_id);
-    const remoteId = attempt.remote_url.match(/status\/(\d+)/)?.[1] || remoteIdFromReceipt(attempt.receipt);
-    if (!post || !remoteId) continue;
-    try {
-      const tweet = await xReader.fetchPostMetrics({ externalId: remoteId });
-      const remoteText = tweet.text;
-      const remoteAuthor = tweet.author.handle;
-      const account = attempt.account_id === null ? undefined : getAccounts().find((item) => item.id === attempt.account_id);
-      if (reconciliationMatches(account, remoteAuthor, remoteText, post.draftText)) {
-        confirmPublish(attempt.id, attempt.post_external_id);
-        recordFeedbackSnapshot({
-          ...feedbackFromTweet(tweet, attempt.post_external_id, Math.floor(Date.now() / 1000)),
-          milestone: "confirmed",
-          accountId: attempt.account_id,
-          remotePostId: remoteId,
-        });
-        confirmed += 1;
-      }
-    } catch {
-      // Ambiguous writes remain pending; the next scan may reconcile them.
-    }
-  }
-  return confirmed;
+  return reconcilePublicationIntents();
 }
 
 export function reconciliationMatches(account: Pick<Account, "handle"> | undefined, remoteAuthor: string, remoteText: string, draftText: string): boolean {
@@ -1388,44 +1426,6 @@ async function refreshCompetitorMetrics(now: number, errors: string[]): Promise<
       errors.push(`${due.externalId} competitor feedback: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
-}
-
-function addDiscoveryEvidence(
-  target: Map<string, DiscoveryEvidence>,
-  evidence: DiscoveryEvidence,
-): void {
-  const current = target.get(evidence.handle);
-  target.set(evidence.handle, {
-    handle: evidence.handle,
-    weight: (current?.weight || 0) + evidence.weight,
-    parentHandles: [...new Set([...(current?.parentHandles || []), ...evidence.parentHandles])],
-  });
-}
-
-function storeDiscoveryCandidates(evidence: Map<string, DiscoveryEvidence>, now: number): number {
-  const sources = new Map(getStoredSources().map((source) => [source.handle, source]));
-  let discovered = 0;
-  for (const item of [...evidence.values()].sort((a, b) => b.weight - a.weight).slice(0, 25)) {
-    if (sourceWasDeletedSince(item.handle, now - 7 * 86400)) continue;
-    const current = sources.get(item.handle);
-    if (current?.profile.status === "active" || current?.profile.origin === "manual") continue;
-    const source: SourceConfig = current || {
-      handle: item.handle,
-      name: item.handle,
-      enabled: false,
-      maxPosts: 20,
-      rightsStatus: "unknown",
-      profile: {},
-    };
-    const profile = mergeEvidence(source.profile, item, now);
-    upsertSource({ ...source, enabled: false, profile }, now);
-    sources.set(item.handle, { ...source, enabled: false, profile });
-    if (!current) {
-      recordSourceEvent({ handle: item.handle, event: "discovered", score: 0, reason: "quote/reply/mention graph", model: "", now });
-      discovered += 1;
-    }
-  }
-  return discovered;
 }
 
 export function isDefinitiveMissingSourceError(error: unknown): boolean {
@@ -1948,6 +1948,7 @@ async function refreshPostMetrics(now: number, errors: string[]): Promise<void> 
       const refreshed = observedPost(post.sourceHandle, canonical);
       if (refreshed.externalId !== post.externalId) throw new Error("metric response identity mismatch");
       upsertPost(refreshed, now);
+      persistShadowObservation(canonical, refreshed.clusterKey, now);
     } catch (error) {
       errors.push(`${post.externalId} metrics: ${error instanceof Error ? error.message : String(error)}`);
     }
@@ -1962,8 +1963,8 @@ async function runScanInternal(): Promise<ScanResult> {
   ensureDatabase();
   bootstrapSources(startedAt);
   const sources = enabledSources();
-  const discovery = new Map<string, DiscoveryEvidence>();
   const samplesBySource = new Map<string, XPost[]>();
+  const scanShadowPosts = new Map<string, RecentPost>();
 
   for (const source of sources) {
     try {
@@ -2001,19 +2002,16 @@ async function runScanInternal(): Promise<ScanResult> {
       for (const item of batch.posts) {
         const post = observedPost(source.handle, item);
         postsSeen += 1;
-        if (upsertPost(post, startedAt)) {
-          postsNew += 1;
-          for (const evidence of extractDiscoveryEvidence(source.handle, item)) {
-            addDiscoveryEvidence(discovery, evidence);
-          }
-        }
+        if (upsertPost(post, startedAt)) postsNew += 1;
+        scanShadowPosts.set(post.externalId, { ...post, observedAt: startedAt, draftText: "", draftStatus: "not_started", publishStatus: "not_started" });
+        persistShadowObservation(item, post.clusterKey, startedAt);
       }
     } catch (error) {
       errors.push(`${source.handle}: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
-  const sourcesDiscovered = storeDiscoveryCandidates(discovery, startedAt);
+  const sourcesDiscovered = 0;
   let sourceResults = { scored: 0, promoted: 0, deleted: 0 };
   const postsScored = 0;
   if (aiConfigured()) {
@@ -2021,35 +2019,112 @@ async function runScanInternal(): Promise<ScanResult> {
   }
   await refreshPostMetrics(startedAt, errors);
 
-  const automaticAccounts = getAccounts().filter((account) => account.enabled && account.automationMode === "auto" && Boolean(account.xuseAccountId));
-  // The single Jev call site on the post path: one batch per scan over the whole
-  // candidate pool. It only persists relevance; whether that relevance moves a
-  // decision is decided by jev_mode inside opportunityScoreForPost/publishCandidate.
-  // Ranking is pool maintenance, not publishing, so it runs even while publishing is
-  // paused. Any failure here must leave the publish loop below exactly as it was.
-  if (jevMode() !== "off" && automaticAccounts.length > 0) {
+  const automaticAccounts = getAccounts().filter((account) => account.enabled && Boolean(account.ownerUserId)
+    && withPersistedAccountOwner(account.id, account.ownerUserId!, (owned) => hasCurrentAutomaticPostConsent(owned, startedAt)));
+  const publisherBatch = selectDiverseCandidates(candidates(24, startedAt), 6);
+  const publisherCandidateIds = new Set(publisherBatch.map((post) => post.externalId));
+  // Keep public source discovery global. Account decisions and draft work run under
+  // each persisted owner so evidence and generated text stay scoped.
+  const accountsByOwner = new Map<string, Account[]>();
+  for (const account of getAccounts().filter((item) => Boolean(item.ownerUserId))) {
+    const owner = account.ownerUserId!;
+    const group = accountsByOwner.get(owner) || [];
+    group.push(account);
+    accountsByOwner.set(owner, group);
+  }
+  for (const [owner, ownedAccounts] of accountsByOwner) {
     try {
-      const sourceConfigurations = getSourceCategoryConfigs();
-      await rankOpportunityBatch({
-        posts: candidates(32, startedAt),
-        accounts: automaticAccounts,
-        categories: getCategories(),
-        accountConfigurations: getAccountCategoryConfigs(),
-        sourceDomains: (post) => sourceConfigurations.filter((item) => item.sourceHandle === post.sourceHandle && item.enabled).map((item) => item.categorySlug),
-        localScore: (post) => opportunityScoreForPost(post, startedAt),
-        now: startedAt,
+      await runAsOwner(owner, async () => {
+        const ownerAccounts = getAccounts().filter((account) => account.ownerUserId === owner);
+        const ownerCandidates = candidates(32, startedAt);
+        const candidatePoolIds = new Set(ownerCandidates.map((post) => post.externalId));
+        const shadowPosts = new Map<string, RecentPost>(scanShadowPosts);
+        for (const post of ownerCandidates) shadowPosts.set(post.externalId, post);
+        const sourceConfigurations = getSourceCategoryConfigs();
+        const accountConfigurations = getAccountCategoryConfigs();
+        let publicationHistory: ReturnType<typeof readPublicationPolicyHistory> | null = null;
+        try {
+          if (ensureDatabase()) publicationHistory = readPublicationPolicyHistory({ since: startedAt - 86400 });
+        } catch { publicationHistory = null; }
+        const officialTimeHistory = new Map<number, { publishedAt: number; views: number | null }[] | null>();
+        for (const account of ownerAccounts) {
+          try { officialTimeHistory.set(account.id, officialAccountTimeOutcomes(account)); }
+          catch { officialTimeHistory.set(account.id, null); }
+        }
+        const sourceByHandle = new Map(getStoredSources().map((source) => [source.handle, source]));
+        for (const rawPost of shadowPosts.values()) {
+          const post = getPost(rawPost.externalId) || rawPost;
+          const source = sourceByHandle.get(post.sourceHandle);
+          const categories = sourceCategories(source, sourceConfigurations);
+          const evidence = scoreEvidenceFor(post.scoreReason, post.score);
+          const score = opportunityScoreForPost(post, startedAt);
+          const override = isNumericalHit(evidence.momentum, post.createdTimestamp, evidence.risk, startedAt);
+          let candidateDecision: "eligible" | "rejected" | "skipped" = "eligible";
+          let candidateReason = "candidate_pool_selected";
+          if (!categories.length) { candidateDecision = "rejected"; candidateReason = "source_category_not_configured"; }
+          else if (post.sensitive) { candidateDecision = "skipped"; candidateReason = "sensitive_source_post"; }
+          else if (!isCurrentOpportunity(post.createdTimestamp, startedAt)) { candidateDecision = "skipped"; candidateReason = "stale_or_future_candidate"; }
+          else if (!/^(?:not_started|blocked)$/.test(post.publishStatus)) { candidateDecision = "skipped"; candidateReason = "candidate_already_processed"; }
+          else if (score < opportunityPoolThreshold()) { candidateDecision = "rejected"; candidateReason = "below_opportunity_pool_threshold"; }
+          else if (!candidatePoolIds.has(post.externalId)) { candidateDecision = "skipped"; candidateReason = "candidate_pool_cap"; }
+          else if (!publisherCandidateIds.has(post.externalId)) { candidateDecision = "skipped"; candidateReason = "publisher_batch_cap_or_diversity"; }
+          for (const account of ownerAccounts) {
+            const category = accountCategoryConfigFor(account.id, categories, accountConfigurations);
+            const eligible = eligiblePublishingAccounts([account], source, categories, true, accountConfigurations, sourceConfigurations).length > 0;
+            let decision = candidateDecision;
+            let reason = candidateReason;
+            if (decision === "eligible") {
+              if (!account.enabled) { decision = "skipped"; reason = "account_disabled"; }
+              else if (!eligible) { decision = "rejected"; reason = "account_source_or_category_mismatch"; }
+              else if (!hasCurrentAutomaticPostConsent(account, startedAt)) { decision = "rejected"; reason = "automatic_post_consent_missing"; }
+              else if (!publishingEnabled() || publishingPaused() || !readerPublishingReady(startedAt)) { decision = "skipped"; reason = "publishing_or_reader_gate_closed"; }
+              else if (category?.publishThreshold != null && score < category.publishThreshold) { decision = "rejected"; reason = "account_publish_threshold"; }
+              else if (category && categoryPublishingPaused(getCategories().find((item) => item.id === category.categoryId))) { decision = "rejected"; reason = "category_paused"; }
+              else if (hasPublishedCluster(post.clusterKey, account.id)) { decision = "rejected"; reason = "cluster_already_published_for_account"; }
+              else if (!override && recentPublishCount(startedAt, account.id) >= account.dailyLimit) { decision = "rejected"; reason = "account_daily_limit"; }
+              else if (!override && category?.dailyBudget != null && recentCategoryPublishCount(startedAt, account.id, category.categorySlug) >= category.dailyBudget) { decision = "rejected"; reason = "category_daily_budget"; }
+              else if (!override && startedAt - lastPublishAt(account.id) < 45 * 60) { decision = "rejected"; reason = "account_cadence"; }
+            }
+            const fitCategory = category?.categorySlug || categories[0] || "unclassified";
+            const formatEvidence = formatHistoryEvidence(account.id, fitCategory, ["post", "repost", "reply"]);
+            const replySummoned = /^\d{1,19}$/u.test(post.externalId)
+              && Boolean(getAuditedReplyEligibility({ accountId: account.id, targetId: post.externalId, now: startedAt }));
+            const budgetAvailable = override || (recentPublishCount(startedAt, account.id) < account.dailyLimit
+              && (category?.dailyBudget == null || recentCategoryPublishCount(startedAt, account.id, fitCategory) < category.dailyBudget));
+            const sourceFatigue = publicationHistory === null ? null : publicationHistory.filter((row) => row.accountId === account.id
+              && row.status === "confirmed" && row.publishedAt !== null && row.publishedAt >= startedAt - 86400
+              && row.sourceHandle.toLocaleLowerCase("en-US") === post.sourceHandle.toLocaleLowerCase("en-US")).length;
+            const fit = chooseAccountFit({
+              account, category: fitCategory, categoryConfig: category,
+              topicFatigue: recentCategoryPublishCount(startedAt, account.id, fitCategory), sourceFatigue,
+              budgetAvailable, formatEvidence, capabilities: account.capabilities,
+              sourceRights: getSourceRights(post.sourceHandle), replySummoned,
+              duplicate: hasPublishedCluster(post.clusterKey, account.id), now: startedAt,
+              officialTimeOutcomes: officialTimeHistory.get(account.id) ?? null,
+            });
+            recordShadowDecision({ post, account, score, category: fitCategory, decision, reason, createdAt: startedAt, accountFit: fit });
+          }
+        }
+        const scopedAccounts = ownerAccounts.filter((account) => account.enabled && hasCurrentAutomaticPostConsent(account, startedAt));
+        if (jevMode() === "off" || scopedAccounts.length === 0) return;
+        await rankOpportunityBatch({
+          posts: ownerCandidates, accounts: scopedAccounts, categories: getCategories(),
+          accountConfigurations,
+          sourceDomains: (post) => sourceConfigurations.filter((item) => item.sourceHandle === post.sourceHandle && item.enabled).map((item) => item.categorySlug),
+          localScore: (post) => opportunityScoreForPost(post, startedAt), now: startedAt,
+        });
       });
-    } catch (error) {
-      errors.push(`jev_batch: ${error instanceof Error ? error.message : String(error)}`);
-    }
+    } catch (error) { errors.push(`jev_batch:${ownedAccounts.map((account) => account.id).join(",")}: ${error instanceof Error ? error.message : String(error)}`); }
   }
   if (publishingEnabled() && readerPublishingReady(startedAt) && automaticAccounts.length > 0) {
-    // ponytail: one source and one event cluster per automatic batch; upgrade to a learned portfolio selector only with measured feedback.
-    for (const post of selectDiverseCandidates(candidates(24), 6)) {
-      try {
-        await publishCandidate(post);
-      } catch (error) {
-        errors.push(`${post.externalId}: ${error instanceof Error ? error.message : String(error)}`);
+    // One source/event batch, evaluated independently inside each explicitly consented account owner.
+    for (const post of publisherBatch) {
+      for (const account of automaticAccounts) {
+        try {
+          await withPersistedAccountOwner(account.id, account.ownerUserId!, () => publishCandidate(post, account.id));
+        } catch (error) {
+          errors.push(`${post.externalId}/account:${account.id}: ${error instanceof Error ? error.message : String(error)}`);
+        }
       }
     }
   }
@@ -2103,7 +2178,7 @@ export function publishingPaused(): boolean {
 }
 
 export function publishingEnabled(): boolean {
-  return automationEnabled() && !publishingPaused();
+  return process.env.ISPATLA_DEMO !== "1" && automationEnabled() && !publishingPaused();
 }
 
 export function startScheduler(): void {
@@ -2120,7 +2195,13 @@ export function startScheduler(): void {
   marker.__ispatlaScheduler = true;
   void scanOnce();
   const interval = setInterval(() => {
-    claimAutomationLock("web");
+    const heartbeat = claimAutomationLock("web");
+    if (!heartbeat.ok) {
+      clearInterval(interval);
+      marker.__ispatlaScheduler = false;
+      console.warn(`[ispatla] in-process scheduler stopped: automation_lock transferred to ${heartbeat.holder?.owner} pid=${heartbeat.holder?.pid}`);
+      return;
+    }
     void scanOnce();
   }, 60 * 1000);
   interval.unref?.();

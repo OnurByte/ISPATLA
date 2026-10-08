@@ -1,0 +1,7 @@
+# Earned autonomy model pin
+
+Autonomy evidence is grouped by the latest persisted `model_key` and `selector_version` for the account, action, and category. Human-approved publications count only when their immutable eligible, low-risk prediction matches both values and predates the approval. The selected pair is persisted on the suggestion and accepted scope and included in the evidence hash.
+
+Confirmation re-derives the active pair and exact evidence from owner-scoped rows. A model or selector change invalidates a pending proposal. Dispatch requires the current candidate's persisted decision and the current account/action/category model pair to match the accepted pin; the final SQL authorization marker checks the accepted hash and both persisted pin values, then checks for incident labels, demotion audits, and blocked/reauth publication history inside the same write transaction. A regression inserts a policy incident after authorization capture and confirms that the marker refuses to set the once-only request flag. Historical suggestions and scopes with null pins remain readable but cannot authorize automatic dispatch.
+
+The migration adds nullable columns without backfilling model identity. Existing historical data has no trustworthy identity, so it remains unbound and fails closed. Counts and risk classifications are derived from persisted rows; callers cannot supply evidence counts or turn an `unknown` risk row into `low`.

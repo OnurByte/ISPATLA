@@ -37,9 +37,9 @@ test("persists global and account editorial instructions with bounded input", ()
     if (!ensureDatabase()) throw new Error("database did not initialize");
     const initial = getWritingStyleSettings();
     const settings = saveWritingStyleSettings({ exampleStyle: { ...initial.exampleStyle, editorialInstruction: "Global hitmaker sesi" }, skills: initial.skills }, 1);
-    const account = saveAccount({ accountKey: "publisher", handle: "publisher", displayName: "Publisher", xuseAccountId: "publisher", enabled: true, defaultAccount: true, automationMode: "auto", dailyLimit: 24, capabilities: ["post"], styleProfile: { editorialInstruction: "Hesap sesi" }, now: 2 });
+    const account = saveAccount({ accountKey: "publisher", handle: "publisher", displayName: "Publisher", enabled: true, defaultAccount: true, automationMode: "auto", dailyLimit: 24, capabilities: ["post"], styleProfile: { editorialInstruction: "Hesap sesi" }, now: 2 });
     let invalid = "";
-    try { saveAccount({ accountKey: "invalid", handle: "invalid", displayName: "Invalid", xuseAccountId: "", enabled: true, defaultAccount: false, automationMode: "manual", dailyLimit: 24, capabilities: [], styleProfile: { editorialInstruction: "x".repeat(6001) }, now: 3 }); } catch (error) { invalid = error instanceof Error ? error.message : String(error); }
+    try { saveAccount({ accountKey: "invalid", handle: "invalid", displayName: "Invalid", enabled: true, defaultAccount: false, automationMode: "manual", dailyLimit: 24, capabilities: [], styleProfile: { editorialInstruction: "x".repeat(6001) }, now: 3 }); } catch (error) { invalid = error instanceof Error ? error.message : String(error); }
     console.log(JSON.stringify({ defaultInstruction: initial.exampleStyle.editorialInstruction, globalInstruction: settings.exampleStyle.editorialInstruction, accountInstruction: account.styleProfile.editorialInstruction, invalid }));
   `);
   const result = JSON.parse(output);
@@ -188,7 +188,7 @@ test("stores manual publisher tier history without inferring a tier from the pub
   const output = runIsolatedDatabase(`
     import { accountSubscriptionEvidence, ensureDatabase, getAccounts, saveAccount } from "./src/server/db.ts";
     if (!ensureDatabase()) throw new Error("database did not initialize");
-    const account = saveAccount({ accountKey: "publisher", handle: "publisher", displayName: "Publisher", xuseAccountId: "publisher", enabled: true, defaultAccount: true, automationMode: "auto", dailyLimit: 24, capabilities: ["post"], styleProfile: {}, subscriptionHistory: [{ tier: "free", effectiveAt: 100 }, { tier: "premium", effectiveAt: 200 }], now: 300 });
+    const account = saveAccount({ accountKey: "publisher", handle: "publisher", displayName: "Publisher", enabled: true, defaultAccount: true, automationMode: "auto", dailyLimit: 24, capabilities: ["post"], styleProfile: {}, subscriptionHistory: [{ tier: "free", effectiveAt: 100 }, { tier: "premium", effectiveAt: 200 }], now: 300 });
     let duplicate = "";
     try { saveAccount({ ...account, subscriptionHistory: [{ tier: "free", effectiveAt: 100 }, { tier: "premium", effectiveAt: 100 }], now: 300 }); } catch (error) { duplicate = error instanceof Error ? error.message : String(error); }
     console.log(JSON.stringify({ history: getAccounts()[0]?.subscriptionHistory.map((event) => [event.tier, event.effectiveAt]), evidence: accountSubscriptionEvidence(account.id, 300), duplicate }));
@@ -199,11 +199,11 @@ test("stores manual publisher tier history without inferring a tier from the pub
   expect(result.duplicate).toBe("subscription başlangıç tarihi tekrarlanamaz");
 });
 
-test("keeps x-use observations separate from unverified subscription start dates", () => {
+test("keeps provider observations separate from unverified subscription start dates", () => {
   const output = runIsolatedDatabase(`
     import { accountSubscriptionEvidence, ensureDatabase, getAccounts, recordAccountSubscriptionSync, saveAccount } from "./src/server/db.ts";
     if (!ensureDatabase()) throw new Error("database did not initialize");
-    const account = saveAccount({ accountKey: "publisher", handle: "publisher", displayName: "Publisher", xuseAccountId: "publisher", enabled: true, defaultAccount: true, automationMode: "auto", dailyLimit: 24, capabilities: ["post"], styleProfile: {}, now: 300 });
+    const account = saveAccount({ accountKey: "publisher", handle: "publisher", displayName: "Publisher", enabled: true, defaultAccount: true, automationMode: "auto", dailyLimit: 24, capabilities: ["post"], styleProfile: {}, now: 300 });
     recordAccountSubscriptionSync({ accountId: account.id, tier: "premium", observedAt: 300 });
     recordAccountSubscriptionSync({ accountId: account.id, tier: "premium", observedAt: 400, history: [{ tier: "free", effectiveAt: 100 }, { tier: "premium", effectiveAt: 200 }] });
     recordAccountSubscriptionSync({ accountId: account.id, tier: "premium", observedAt: 500 });
@@ -225,7 +225,7 @@ test("unlocks the subscription tie-break only after matched before-and-after evi
     if (!ensureDatabase()) throw new Error("database did not initialize");
     const start = 1_700_000_000;
     const switchedAt = start + 35 * 86400;
-    const account = saveAccount({ accountKey: "publisher", handle: "publisher", displayName: "Publisher", xuseAccountId: "publisher", enabled: true, defaultAccount: true, automationMode: "auto", dailyLimit: 24, capabilities: ["post"], styleProfile: {}, subscriptionHistory: [{ tier: "free", effectiveAt: start }, { tier: "premium", effectiveAt: switchedAt }], now: switchedAt + 35 * 86400 });
+    const account = saveAccount({ accountKey: "publisher", handle: "publisher", displayName: "Publisher", enabled: true, defaultAccount: true, automationMode: "auto", dailyLimit: 24, capabilities: ["post"], styleProfile: {}, subscriptionHistory: [{ tier: "free", effectiveAt: start }, { tier: "premium", effectiveAt: switchedAt }], now: switchedAt + 35 * 86400 });
     for (const period of ["before", "after"]) for (let index = 0; index < 30; index++) {
       const capturedAt = (period === "before" ? start : switchedAt) + index * 86400;
       const externalId = period + index;
@@ -268,7 +268,7 @@ test("fresh databases omit chat tables and persist monitor plus publication inte
     import { Database } from "bun:sqlite";
     import { claimMonitorRun, createDraft, createPublicationIntent, ensureDatabase, finishBudgetRun, getMonitorBudgetUsage, getPublicationIntent, saveAccount, upsertMonitorTarget } from "./src/server/db.ts";
     if (!ensureDatabase()) throw new Error("database did not initialize");
-    const account = saveAccount({ accountKey: "main", handle: "main", displayName: "Main", xuseAccountId: "main", enabled: true, defaultAccount: true, automationMode: "manual", dailyLimit: 24, capabilities: [], styleProfile: {}, now: 1 });
+    const account = saveAccount({ accountKey: "main", handle: "main", displayName: "Main", enabled: true, defaultAccount: true, automationMode: "manual", dailyLimit: 24, capabilities: [], styleProfile: {}, now: 1 });
     const draft = createDraft({ externalId: "", accountId: account.id, format: "post", text: "test", now: 2 });
     const intent = createPublicationIntent({ draftId: draft.id, accountId: account.id, text: "test", idempotencyKey: "test-key", now: 3 });
     const target = upsertMonitorTarget({ kind: "keyword", key: "test", query: "test", now: 4 });
@@ -511,7 +511,7 @@ test("creates cluster account opportunities before any publication attempt", () 
     import { Database } from "bun:sqlite";
     import { ensureDatabase, getCategories, recordAccountOpportunities, saveAccount, upsertPost } from "./src/server/db.ts";
     if (!ensureDatabase()) throw new Error("database did not initialize");
-    const account = saveAccount({ accountKey: "one", handle: "one", displayName: "One", xuseAccountId: "one", enabled: true, defaultAccount: true, automationMode: "auto", dailyLimit: 24, capabilities: [], now: 1 });
+    const account = saveAccount({ accountKey: "one", handle: "one", displayName: "One", enabled: true, defaultAccount: true, automationMode: "auto", dailyLimit: 24, capabilities: [], now: 1 });
     upsertPost({ externalId: "1", sourceHandle: "source", authorHandle: "source", statusUrl: "https://x.com/source/status/1", text: "test", createdTimestamp: 1, likes: 0, replies: 0, reposts: 0, quotes: 0, views: 0, mediaCount: 0, mediaJson: "[]", rawJson: "{}", score: 1, scoreReason: "heuristic:{}", sensitive: false, clusterKey: "shared" }, 1);
     recordAccountOpportunities({ clusterKey: "shared", accountIds: [account.id], categorySlugs: ["news"], score: 73, confidence: 80, now: 2 });
     const db = new Database(process.env.ISPATLA_DB, { strict: true });
@@ -525,7 +525,7 @@ test("does not create account opportunities for unmatched categories", () => {
     import { Database } from "bun:sqlite";
     import { ensureDatabase, recordAccountOpportunities, saveAccount, upsertPost } from "./src/server/db.ts";
     if (!ensureDatabase()) throw new Error("database did not initialize");
-    const account = saveAccount({ accountKey: "one", handle: "one", displayName: "One", xuseAccountId: "one", enabled: true, defaultAccount: true, automationMode: "auto", dailyLimit: 24, capabilities: [], styleProfile: { categories: ["news"] }, now: 1 });
+    const account = saveAccount({ accountKey: "one", handle: "one", displayName: "One", enabled: true, defaultAccount: true, automationMode: "auto", dailyLimit: 24, capabilities: [], styleProfile: { categories: ["news"] }, now: 1 });
     upsertPost({ externalId: "1", sourceHandle: "source", authorHandle: "source", statusUrl: "https://x.com/source/status/1", text: "test", createdTimestamp: 1, likes: 0, replies: 0, reposts: 0, quotes: 0, views: 0, mediaCount: 0, mediaJson: "[]", rawJson: "{}", score: 1, scoreReason: "heuristic:{}", sensitive: false, clusterKey: "shared" }, 1);
     recordAccountOpportunities({ clusterKey: "shared", accountIds: [account.id], categorySlugs: ["meme"], score: 73, confidence: 80, accountProfiles: [], now: 2 });
     const db = new Database(process.env.ISPATLA_DB, { strict: true });
@@ -564,11 +564,10 @@ test("does not run due automation jobs while the global pause is active", () => 
 test("records one account-specific publication per cluster opportunity", () => {
   const output = runIsolatedDatabase(`
     import { Database } from "bun:sqlite";
-    import { confirmPublish, ensureDatabase, recordPublishAttempt, saveAccount, upsertPost } from "./src/server/db.ts";
+    import { claimPublicationIntentDispatch, confirmPublish, createDraft, createPublicationIntent, ensureDatabase, recordPublishAttempt, saveAccount, updatePublicationIntent, upsertPost } from "./src/server/db.ts";
     if (!ensureDatabase()) throw new Error("database did not initialize");
     const account = saveAccount({
-      accountKey: "publisher", handle: "publisher", displayName: "Publisher", xuseAccountId: "publisher",
-      enabled: true, defaultAccount: true, automationMode: "manual", dailyLimit: 24, capabilities: ["post"], now: 1
+      accountKey: "publisher", handle: "publisher", displayName: "Publisher", enabled: true, defaultAccount: true, automationMode: "manual", dailyLimit: 24, capabilities: ["post"], now: 1
     });
     const post = {
       externalId: "456", sourceHandle: "source", authorHandle: "source",
@@ -577,7 +576,12 @@ test("records one account-specific publication per cluster opportunity", () => {
       mediaJson: "[]", rawJson: "{}", score: 1, scoreReason: "heuristic:{}", sensitive: false, clusterKey: "same-cluster"
     };
     upsertPost(post, 100);
-    recordPublishAttempt({ externalId: "456", accountId: account.id, status: "pending_reconciliation", reason: "queued", receipt: "", remoteUrl: "https://x.com/publisher/status/999", now: 101 });
+    const draft = createDraft({ externalId: "456", accountId: account.id, format: "post", text: "draft", now: 100 });
+    const intent = createPublicationIntent({ draftId: draft.id, accountId: account.id, idempotencyKey: "publication-456", text: draft.text, now: 100 });
+    updatePublicationIntent({ id: intent.id, status: "approved", approvedAt: 100, now: 100 });
+    claimPublicationIntentDispatch(intent.id, 101);
+    updatePublicationIntent({ id: intent.id, status: "pending_reconciliation", now: 101 });
+    recordPublishAttempt({ externalId: "456", accountId: account.id, publicationIntentId: intent.id, status: "pending_reconciliation", reason: "queued", receipt: "", remoteUrl: "https://x.com/publisher/status/999", now: 101 });
     const db = new Database(process.env.ISPATLA_DB, { strict: true });
     confirmPublish(db.query("SELECT id FROM publish_attempts").get().id, "456");
     console.log(JSON.stringify({
@@ -595,7 +599,7 @@ test("publication deduplication is scoped to the selected account", () => {
   const output = runIsolatedDatabase(`
     import { ensureDatabase, hasPublishedCluster, recordPublishAttempt, saveAccount, upsertPost } from "./src/server/db.ts";
     if (!ensureDatabase()) throw new Error("database did not initialize");
-    const base = { displayName: "Publisher", xuseAccountId: "publisher", enabled: true, defaultAccount: false, automationMode: "auto", dailyLimit: 24, capabilities: ["post"], now: 1 };
+    const base = { displayName: "Publisher", enabled: true, defaultAccount: false, automationMode: "auto", dailyLimit: 24, capabilities: ["post"], now: 1 };
     const one = saveAccount({ ...base, accountKey: "one", handle: "one" });
     const two = saveAccount({ ...base, accountKey: "two", handle: "two" });
     upsertPost({ externalId: "dedupe", sourceHandle: "source", authorHandle: "source", statusUrl: "https://x.com/source/status/1", text: "test", createdTimestamp: 1, likes: 1, replies: 0, reposts: 0, quotes: 0, views: 1, mediaCount: 0, mediaJson: "[]", rawJson: "{}", score: 1, scoreReason: "heuristic:{}", sensitive: false, clusterKey: "shared" }, 1);
@@ -609,8 +613,8 @@ test("pauses only an account with a recent repeated publishing failure", () => {
   const output = runIsolatedDatabase(`
     import { accountPublishingReady, ensureDatabase, recordPublishAttempt, saveAccount, upsertPost } from "./src/server/db.ts";
     if (!ensureDatabase()) throw new Error("database did not initialize");
-    const first = saveAccount({ accountKey: "one", handle: "one", displayName: "One", xuseAccountId: "one", enabled: true, defaultAccount: true, automationMode: "auto", dailyLimit: 24, capabilities: [], now: 1 });
-    const second = saveAccount({ accountKey: "two", handle: "two", displayName: "Two", xuseAccountId: "two", enabled: true, defaultAccount: false, automationMode: "auto", dailyLimit: 24, capabilities: [], now: 1 });
+    const first = saveAccount({ accountKey: "one", handle: "one", displayName: "One", enabled: true, defaultAccount: true, automationMode: "auto", dailyLimit: 24, capabilities: [], now: 1 });
+    const second = saveAccount({ accountKey: "two", handle: "two", displayName: "Two", enabled: true, defaultAccount: false, automationMode: "auto", dailyLimit: 24, capabilities: [], now: 1 });
     const base = { sourceHandle: "source", authorHandle: "source", statusUrl: "https://x.com/source/status/1", text: "test", createdTimestamp: 1, likes: 0, replies: 0, reposts: 0, quotes: 0, views: 0, mediaCount: 0, mediaJson: "[]", rawJson: "{}", score: 1, scoreReason: "heuristic:{}", sensitive: false, clusterKey: "shared" };
     for (let id = 1; id <= 3; id++) { upsertPost({ ...base, externalId: String(id) }, id); recordPublishAttempt({ externalId: String(id), accountId: first.id, status: "blocked", reason: "publisher failed", receipt: "", now: 10 + id }); }
     console.log(JSON.stringify([accountPublishingReady(first.id, 100), accountPublishingReady(second.id, 100)]));
@@ -621,16 +625,19 @@ test("pauses only an account with a recent repeated publishing failure", () => {
 test("stores feedback against the confirmed account publication", () => {
   const output = runIsolatedDatabase(`
     import { Database } from "bun:sqlite";
-    import { confirmPublish, createDraft, createJob, ensureDatabase, recordFeedbackSnapshot, recordPublishAttempt, saveAccount, upsertPost } from "./src/server/db.ts";
+    import { claimPublicationIntentDispatch, confirmPublish, createDraft, createJob, createPublicationIntent, ensureDatabase, recordFeedbackSnapshot, recordPublishAttempt, saveAccount, updatePublicationIntent, upsertPost } from "./src/server/db.ts";
     if (!ensureDatabase()) throw new Error("database did not initialize");
     const account = saveAccount({
-      accountKey: "publisher", handle: "publisher", displayName: "Publisher", xuseAccountId: "publisher",
-      enabled: true, defaultAccount: true, automationMode: "manual", dailyLimit: 24, capabilities: ["post"], now: 1
+      accountKey: "publisher", handle: "publisher", displayName: "Publisher", enabled: true, defaultAccount: true, automationMode: "manual", dailyLimit: 24, capabilities: ["post"], now: 1
     });
     upsertPost({ externalId: "789", sourceHandle: "source", authorHandle: "source", statusUrl: "https://x.com/source/status/789", text: "test post", createdTimestamp: 1, likes: 1, replies: 0, reposts: 0, quotes: 0, views: 1, mediaCount: 0, mediaJson: "[]", rawJson: "{}", score: 1, scoreReason: "heuristic:{}", sensitive: false, clusterKey: "feedback-cluster" }, 100);
     const draft = createDraft({ externalId: "789", accountId: account.id, format: "post", text: "draft", status: "queued", now: 100 });
+    const intent = createPublicationIntent({ draftId: draft.id, accountId: account.id, idempotencyKey: "publication-789", text: draft.text, now: 100 });
+    updatePublicationIntent({ id: intent.id, status: "approved", approvedAt: 100, now: 100 });
+    claimPublicationIntentDispatch(intent.id, 101);
+    updatePublicationIntent({ id: intent.id, status: "pending_reconciliation", now: 101 });
     createJob({ draftId: draft.id, accountId: account.id, action: "post", scheduledAt: 100, now: 100 });
-    recordPublishAttempt({ externalId: "789", accountId: account.id, status: "pending_reconciliation", reason: "queued", receipt: "", remoteUrl: "https://x.com/publisher/status/998", now: 101 });
+    recordPublishAttempt({ externalId: "789", accountId: account.id, publicationIntentId: intent.id, status: "pending_reconciliation", reason: "queued", receipt: "", remoteUrl: "https://x.com/publisher/status/998", now: 101 });
     const db = new Database(process.env.ISPATLA_DB, { strict: true });
     confirmPublish(db.query("SELECT id FROM publish_attempts").get().id, "789");
     recordFeedbackSnapshot({ externalId: "789", accountId: account.id, remotePostId: "998", likes: 12, replies: 3, reposts: 4, quotes: 5, views: 600, milestone: "confirmed", now: 200 });
@@ -676,7 +683,7 @@ test("uses a single enabled primary category per account", () => {
   const output = runIsolatedDatabase(`
     import { ensureDatabase, getAccountCategoryConfigs, getCategories, saveAccount, saveAccountCategoryConfig } from "./src/server/db.ts";
     if (!ensureDatabase()) throw new Error("database did not initialize");
-    const account = saveAccount({ accountKey: "publisher", handle: "publisher", displayName: "Publisher", xuseAccountId: "publisher", enabled: true, defaultAccount: true, automationMode: "auto", dailyLimit: 24, capabilities: ["post"], now: 1 });
+    const account = saveAccount({ accountKey: "publisher", handle: "publisher", displayName: "Publisher", enabled: true, defaultAccount: true, automationMode: "auto", dailyLimit: 24, capabilities: ["post"], now: 1 });
     const categories = getCategories();
     const news = categories.find((item) => item.slug === "news");
     const meme = categories.find((item) => item.slug === "meme");
@@ -697,7 +704,7 @@ test("rejects account categories outside the canonical catalog", () => {
     if (!ensureDatabase()) throw new Error("database did not initialize");
     let error = "";
     try {
-      saveAccount({ accountKey: "invalid", handle: "invalid", displayName: "Invalid", xuseAccountId: "", enabled: true, defaultAccount: false, automationMode: "manual", dailyLimit: 24, capabilities: ["post"], styleProfile: { categories: ["not-a-category"] }, now: 1 });
+      saveAccount({ accountKey: "invalid", handle: "invalid", displayName: "Invalid", enabled: true, defaultAccount: false, automationMode: "manual", dailyLimit: 24, capabilities: ["post"], styleProfile: { categories: ["not-a-category"] }, now: 1 });
     } catch (caught) { error = caught instanceof Error ? caught.message : String(caught); }
     console.log(JSON.stringify(error));
   `);
@@ -708,7 +715,7 @@ test("counts account category budgets independently", () => {
   const output = runIsolatedDatabase(`
     import { ensureDatabase, recentCategoryPublishCount, recordPublishAttempt, saveAccount, upsertPost } from "./src/server/db.ts";
     if (!ensureDatabase()) throw new Error("database did not initialize");
-    const account = saveAccount({ accountKey: "one", handle: "one", displayName: "One", xuseAccountId: "one", enabled: true, defaultAccount: true, automationMode: "auto", dailyLimit: 24, capabilities: [], now: 1 });
+    const account = saveAccount({ accountKey: "one", handle: "one", displayName: "One", enabled: true, defaultAccount: true, automationMode: "auto", dailyLimit: 24, capabilities: [], now: 1 });
     const base = { sourceHandle: "source", authorHandle: "source", statusUrl: "https://x.com/source/status/1", text: "test", createdTimestamp: 1, likes: 0, replies: 0, reposts: 0, quotes: 0, views: 0, mediaCount: 0, mediaJson: "[]", rawJson: "{}", score: 80, sensitive: false, clusterKey: "c" };
     upsertPost({ ...base, externalId: "n", scoreReason: 'hybrid:{"categories":["news"]}' }, 100);
     upsertPost({ ...base, externalId: "m", scoreReason: 'hybrid:{"categories":["meme"]}', clusterKey: "d" }, 100);
@@ -741,7 +748,7 @@ test("migrates recognized legacy account category tags without inventing custom 
   const output = runIsolatedDatabase(`
     import { Database } from "bun:sqlite";
     const legacy = new Database(process.env.ISPATLA_DB, { strict: true });
-    legacy.run("CREATE TABLE accounts (id INTEGER PRIMARY KEY, account_key TEXT NOT NULL UNIQUE, handle TEXT NOT NULL UNIQUE, display_name TEXT NOT NULL DEFAULT '', xuse_account_id TEXT NOT NULL DEFAULT '', enabled INTEGER NOT NULL DEFAULT 1, default_account INTEGER NOT NULL DEFAULT 0, automation_mode TEXT NOT NULL DEFAULT 'manual', daily_limit INTEGER NOT NULL DEFAULT 24, capabilities_json TEXT NOT NULL DEFAULT '[]', style_profile_json TEXT NOT NULL DEFAULT '{}', updated_at INTEGER NOT NULL); INSERT INTO accounts (id, account_key, handle, style_profile_json, updated_at) VALUES (7, 'legacy', 'legacy', '{\\\"categories\\\":[\\\"haber\\\",\\\"magazin\\\",\\\"uydurma\\\"]}', 1);");
+    legacy.run("CREATE TABLE accounts (id INTEGER PRIMARY KEY, account_key TEXT NOT NULL UNIQUE, handle TEXT NOT NULL UNIQUE, display_name TEXT NOT NULL DEFAULT '', enabled INTEGER NOT NULL DEFAULT 1, default_account INTEGER NOT NULL DEFAULT 0, automation_mode TEXT NOT NULL DEFAULT 'manual', daily_limit INTEGER NOT NULL DEFAULT 24, capabilities_json TEXT NOT NULL DEFAULT '[]', style_profile_json TEXT NOT NULL DEFAULT '{}', updated_at INTEGER NOT NULL); INSERT INTO accounts (id, account_key, handle, style_profile_json, updated_at) VALUES (7, 'legacy', 'legacy', '{\\\"categories\\\":[\\\"haber\\\",\\\"magazin\\\",\\\"uydurma\\\"]}', 1);");
     const { ensureDatabase, getAccountCategoryConfigs, getCategories } = await import("./src/server/db.ts");
     if (!ensureDatabase()) throw new Error("database did not initialize");
     console.log(JSON.stringify({ configs: getAccountCategoryConfigs(7), custom: getCategories().filter((category) => !category.builtIn).length }));
@@ -760,7 +767,7 @@ test("persists shadow draft evaluations with migration 15", () => {
     import { Database } from "bun:sqlite";
     import { createDraft, ensureDatabase, getDraft, recordDraftEvaluation, saveAccount } from "./src/server/db.ts";
     if (!ensureDatabase()) throw new Error("database did not initialize");
-    const account = saveAccount({ accountKey: "publisher", handle: "publisher", displayName: "Publisher", xuseAccountId: "", enabled: true, defaultAccount: true, automationMode: "manual", dailyLimit: 24, capabilities: ["post"], styleProfile: {}, now: 1 });
+    const account = saveAccount({ accountKey: "publisher", handle: "publisher", displayName: "Publisher", enabled: true, defaultAccount: true, automationMode: "manual", dailyLimit: 24, capabilities: ["post"], styleProfile: {}, now: 1 });
     const draft = createDraft({ externalId: "", accountId: account.id, format: "post", text: "Bu taslak 2026 yılında somut bir veri anlatıyor.", status: "ready", now: 2 });
     recordDraftEvaluation({
       draftId: draft.id,

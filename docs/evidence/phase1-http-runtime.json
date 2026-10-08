@@ -1,0 +1,17 @@
+{
+  "date": "2026-10-08",
+  "runtime": "Node Next production build",
+  "database": "disposable SQLite",
+  "authConfiguration": "explicit private beta; HTTPS canonical origin; local HTTP transport",
+  "publicLanding": 200,
+  "anonymousApp": 307,
+  "signup": 200,
+  "login": 200,
+  "ownerAccountsApi": 200,
+  "privateAccountsPage": 200,
+  "hostileMutationOrigin": 403,
+  "revokedSession": 401,
+  "externalProviderWrites": 0,
+  "processAndDatabaseCleaned": true,
+  "limits": ["No live HTTPS browser cookie proof", "No email delivery proof", "No X OAuth grant or publishing proof"]
+}

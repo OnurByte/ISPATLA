@@ -1,3 +1,4 @@
+import { withUser } from "@/server/request-auth";
 import { NextResponse } from "next/server";
 import { guardMutation, readJsonBody } from "@/server/api-guard";
 import { setSetting } from "@/server/db";
@@ -30,11 +31,11 @@ function payload() {
   };
 }
 
-export function GET() {
+function GETHandler() {
   return NextResponse.json(payload());
 }
 
-export async function PUT(request: Request) {
+async function PUTHandler(request: Request) {
   const denied = guardMutation(request);
   if (denied) return denied;
   let body: Record<string, unknown>;
@@ -87,3 +88,7 @@ export async function PUT(request: Request) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Jev ayarı kaydedilemedi" }, { status: 400 });
   }
 }
+
+export const GET = withUser(GETHandler);
+
+export const PUT = withUser(PUTHandler);

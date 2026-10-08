@@ -1,3 +1,4 @@
+import { withUser } from "@/server/request-auth";
 import { NextResponse } from "next/server";
 import { deleteSource, getStoredSources, recordSourceEvent, upsertSource } from "@/server/db";
 import { guardMutation, readJsonBody } from "@/server/api-guard";
@@ -6,7 +7,7 @@ import { resolveIdeology } from "@/server/ideologies";
 
 export const runtime = "nodejs";
 
-export async function PATCH(request: Request, context: { params: Promise<{ handle: string }> }) {
+async function PATCHHandler(request: Request, context: { params: Promise<{ handle: string }> }) {
   const denied = guardMutation(request);
   if (denied) return denied;
   const handle = (await context.params).handle.replace(/^@/, "").toLowerCase();
@@ -40,7 +41,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ handl
   return NextResponse.json(source);
 }
 
-export async function DELETE(request: Request, context: { params: Promise<{ handle: string }> }) {
+async function DELETEHandler(request: Request, context: { params: Promise<{ handle: string }> }) {
   const denied = guardMutation(request);
   if (denied) return denied;
   const handle = (await context.params).handle.replace(/^@/, "").toLowerCase();
@@ -58,3 +59,7 @@ export async function DELETE(request: Request, context: { params: Promise<{ hand
   deleteSource(handle);
   return NextResponse.json({ ok: true });
 }
+
+export const PATCH = withUser(PATCHHandler, true);
+
+export const DELETE = withUser(DELETEHandler, true);

@@ -14,7 +14,7 @@ import { loadWorkerEnv } from "./worker-env";
 
 const env = loadWorkerEnv();
 
-const { claimAutomationLock, opportunityCount, opportunityPoolThreshold, releaseAutomationLock } = await import("../src/server/db");
+const { claimAutomationLock, ensureDatabase, opportunityCount, opportunityPoolThreshold, releaseAutomationLock } = await import("../src/server/db");
 const { runScheduledAutomationTasks } = await import("../src/server/automation-scheduler");
 const { publishingPaused } = await import("../src/server/pipeline");
 
@@ -30,6 +30,10 @@ function log(line: string): void {
 
 log(`env=${env.found ? env.path : "yok"} loaded=${env.applied.length} kept=${env.skipped.length} tick=${tickMs}ms`);
 
+if (!ensureDatabase()) {
+  log("veritabanı başlatılamadı");
+  process.exit(2);
+}
 const lock = claimAutomationLock("worker");
 if (!lock.ok && !ignoreLock) {
   log(`başlatılamadı: automation_lock sahibi owner=${lock.holder?.owner} pid=${lock.holder?.pid} host=${lock.holder?.host}`);
@@ -38,13 +42,30 @@ if (!lock.ok && !ignoreLock) {
 }
 if (!lock.ok) log(`uyarı: automation_lock owner=${lock.holder?.owner} pid=${lock.holder?.pid} yok sayıldı`);
 
+const heartbeat = setInterval(() => {
+  try {
+    if (!claimAutomationLock("worker").ok) {
+      log("automation_lock kaybedildi; worker duruyor");
+      stopped = true;
+    }
+  } catch {
+    log("automation_lock yenilenemedi; worker duruyor");
+    stopped = true;
+  }
+}, tickMs);
+heartbeat.unref();
+
 process.once("SIGINT", () => { stopped = true; });
 process.once("SIGTERM", () => { stopped = true; });
 
 while (!stopped && (!maxTicks || ticks < maxTicks)) {
   const startedAt = Date.now();
   try {
-    claimAutomationLock("worker");
+    const tickLock = claimAutomationLock("worker");
+    if (!tickLock.ok) {
+      log("automation_lock kaybedildi; worker duruyor");
+      break;
+    }
     const result = await runScheduledAutomationTasks();
     const tasks = result.tasks
       .map((task) => `${task.id}=${task.status}(${Object.entries(task.counts).map(([key, value]) => `${key}:${value}`).join(",") || "-"};${task.durationMs}ms)`)
@@ -58,5 +79,6 @@ while (!stopped && (!maxTicks || ticks < maxTicks)) {
   if (!stopped && (!maxTicks || ticks < maxTicks)) await new Promise((resolve) => setTimeout(resolve, waitMs));
 }
 
+clearInterval(heartbeat);
 releaseAutomationLock("worker");
 log(`durdu ticks=${ticks}`);

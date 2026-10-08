@@ -1,22 +1,24 @@
+import { withUser } from "@/server/request-auth";
 import { NextResponse } from "next/server";
 import { getDeletedSources, getTechnicalSourceWarnings, recordSourceEvent, upsertSource } from "@/server/db";
-import { asIdeology, asIdeologyTags, asNiche, asTone, asTopics, loadSources } from "@/server/sources";
+import { asIdeology, asIdeologyTags, asNiche, asTone, asTopics, loadSources, resetSources } from "@/server/sources";
 import { guardMutation, readJsonBody } from "@/server/api-guard";
 import { checkSourceLiveness, recoverTechnicalSources } from "@/server/pipeline";
 import { resolveIdeology } from "@/server/ideologies";
 
 export const runtime = "nodejs";
 
-export function GET(request: Request) {
+function GETHandler(request: Request) {
   const view = new URL(request.url).searchParams.get("view");
   return NextResponse.json(view === "deleted" ? getDeletedSources() : view === "warnings" ? getTechnicalSourceWarnings() : loadSources());
 }
 
-export async function POST(request: Request) {
+async function POSTHandler(request: Request) {
   const denied = guardMutation(request);
   if (denied) return denied;
   try {
     const body = await readJsonBody(request);
+    if (body.action === "reset") return NextResponse.json({ sources: resetSources() });
     if (body.action === "check_liveness") return NextResponse.json(await checkSourceLiveness(Math.floor(Date.now() / 1000), body.onlyUnknown === true));
     if (body.action === "recover_technical") return NextResponse.json(await recoverTechnicalSources(Math.floor(Date.now() / 1000)));
     const handle = String(body.handle || "").replace(/^@/, "").toLowerCase();
@@ -54,3 +56,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "kaynak kaydedilemedi" }, { status: 400 });
   }
 }
+
+export const GET = withUser(GETHandler);
+
+export const POST = withUser(POSTHandler, true);

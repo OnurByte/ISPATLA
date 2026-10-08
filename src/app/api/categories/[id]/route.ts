@@ -1,3 +1,4 @@
+import { withUser } from "@/server/request-auth";
 import { NextResponse } from "next/server";
 import { deleteCategory, getCategories, saveCategory, type CategoryDefinition } from "@/server/db";
 import { guardMutation, readJsonBody } from "@/server/api-guard";
@@ -12,7 +13,7 @@ function object(value: unknown, fallback: Record<string, unknown>): Record<strin
   return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : fallback;
 }
 
-export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
+async function PATCHHandler(request: Request, context: { params: Promise<{ id: string }> }) {
   const denied = guardMutation(request);
   if (denied) return denied;
   const id = Number((await context.params).id);
@@ -48,7 +49,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   }
 }
 
-export async function DELETE(request: Request, context: { params: Promise<{ id: string }> }) {
+async function DELETEHandler(request: Request, context: { params: Promise<{ id: string }> }) {
   const denied = guardMutation(request);
   if (denied) return denied;
   const id = Number((await context.params).id);
@@ -59,3 +60,7 @@ export async function DELETE(request: Request, context: { params: Promise<{ id: 
     return NextResponse.json({ error: error instanceof Error ? error.message : "category silinemedi" }, { status: 400 });
   }
 }
+
+export const PATCH = withUser(PATCHHandler, true);
+
+export const DELETE = withUser(DELETEHandler, true);

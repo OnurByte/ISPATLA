@@ -1,0 +1,29 @@
+name: Feature request
+description: Suggest a focused improvement to İSPATLA.
+title: "[Feature]: "
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: >-
+        Keep the request focused on a user need. Do not include credentials,
+        private drafts, real account data, or provider payloads.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem should this solve?
+      description: Describe the situation and who is affected.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What would you like to happen?
+      description: A small example or workflow is helpful.
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Evidence and constraints
+      description: If based on local/fixture or provider behavior, identify which and keep evidence sanitized. Note any privacy, authorization, or safety constraints.

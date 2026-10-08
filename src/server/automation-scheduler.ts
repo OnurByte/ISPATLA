@@ -6,10 +6,10 @@ import {
   type AutomationTaskStatus,
 } from "./db";
 import { checkSourceLiveness, publishingEnabled, reconcilePending, refreshConfirmedFeedback, scanOnce } from "./pipeline";
-import { runDueAutomationJobs } from "./queue-service";
-import { detectXUse } from "./xuse";
+import { reconcileAutomationJobs, runDueAutomationJobs } from "./queue-service";
 import { reconcilePublicationIntents, runApprovedPublicationIntents } from "./publication-service";
 import { runDueMonitors } from "./monitoring";
+import { collectDueShadowOutcomes } from "./shadow-evaluation";
 
 function due(task: { enabled: boolean; nextRunAt: number }, now: number): boolean {
   return task.enabled && task.nextRunAt <= now;
@@ -79,20 +79,19 @@ export async function runScheduledAutomationTasks(now = Math.floor(Date.now() / 
         status = result.unreachable > 0 ? "partial" : "success";
         details = result;
       } else if (task.id === "queue_worker") {
-        const capability = detectXUse();
         // publishing_paused / automation_paused stop dispatching; the pool keeps filling.
         const publishing = publishingEnabled();
         const result = publishing ? await runDueAutomationJobs(startedAt) : [];
         const intents = publishing ? await runApprovedPublicationIntents() : [];
-        status = result.some((job) => !job.ok) || intents.some((intent) => !intent.ok) || capability.doctor === "failed" ? "partial" : "success";
-        message = capability.reason || message;
-        details = { jobs: result, intents, attempted: result.length + intents.length, publishing, doctor: capability.doctor, config: capability.config };
+        status = result.some((job) => !job.ok) || intents.some((intent) => !intent.ok) ? "partial" : "success";
+        details = { jobs: result, intents, attempted: result.length + intents.length, publishing };
       } else {
-        const confirmed = await reconcilePending() + await reconcilePublicationIntents();
+        const confirmed = await reconcilePending() + await reconcilePublicationIntents() + await reconcileAutomationJobs(20, { now: () => startedAt });
         const errors: string[] = [];
         await refreshConfirmedFeedback(startedAt, errors);
-        status = errors.length ? "partial" : "success";
-        details = { confirmed, errors };
+        const shadowOutcomes = await collectDueShadowOutcomes(startedAt);
+        status = errors.length || shadowOutcomes.failed > 0 ? "partial" : "success";
+        details = { confirmed, errors, shadowOutcomes };
       }
     } catch (error) {
       status = "failed";

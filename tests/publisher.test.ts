@@ -1,18 +1,17 @@
-import { expect, test } from "bun:test";
-import { XUsePublisher, publish } from "@/server/publisher";
-
-const account = { id: 1, accountKey: "main", handle: "main", displayName: "Main", xuseAccountId: "main", enabled: true, defaultAccount: true, automationMode: "auto" as const, dailyLimit: 24, capabilities: [], styleProfile: {}, subscriptionHistory: [], subscriptionState: { tier: "unknown" as const, observedAt: 0, historyComplete: false }, updatedAt: 1 };
-
-test("uses only x-use for publication transport", async () => {
-  const previous = process.env.XUSE_BIN;
-  process.env.XUSE_BIN = "/definitely-not-an-x-use-binary";
-  try {
-    const publisher = new XUsePublisher();
-    expect(publisher.health(account)).toMatchObject({ ok: false });
-    expect(publisher.capabilities(account)).toEqual({ post: false, media: false, reconciliation: "required" });
-    await expect(publish({ account, text: "hello" })).resolves.toMatchObject({ ok: false, transport: "xuse" });
-  } finally {
-    if (previous === undefined) delete process.env.XUSE_BIN;
-    else process.env.XUSE_BIN = previous;
-  }
+import {expect,test} from 'bun:test';
+import {OfficialXPublisher,publish} from '@/server/publisher';
+import {OfficialXClient} from '@/server/official-x';
+const account={id:1,accountKey:'main',handle:'main',displayName:'Main',enabled:true,defaultAccount:true,automationMode:'manual' as const,dailyLimit:24,capabilities:[],styleProfile:{},subscriptionHistory:[],subscriptionState:{tier:'unknown' as const,observedAt:0,historyComplete:false},updatedAt:1};
+test('official publisher requires explicit credentials and capability evidence',async()=>{
+ const calls:Array<{url:string;authorization:string|null;body:unknown}>=[];
+ const client=new OfficialXClient(async(input,init)=>{
+   calls.push({url:String(input),authorization:new Headers(init?.headers).get('authorization'),body:JSON.parse(String(init?.body))});
+   return Response.json({data:{id:'123',text:'hello'}});
+ });
+ const publisher=new OfficialXPublisher(client);
+ expect(publisher.health(account).ok).toBe(false);
+ expect(publisher.capabilities()).toEqual({post:false,repost:false,reply:false,media:false,quote:'unknown'});
+ expect(publisher.capabilities(['tweet.write','tweet.read','media.write'])).toEqual({post:true,repost:true,reply:true,media:true,quote:'unknown'});
+ await expect(publish({account,credentials:{accessToken:'fixture-only',xUserId:'42'},text:'hello'},publisher)).resolves.toEqual({id:'123',text:'hello',ok:true,transport:'official_x'});
+ expect(calls).toEqual([{url:'https://api.x.com/2/tweets',authorization:'Bearer fixture-only',body:{text:'hello'}}]);
 });

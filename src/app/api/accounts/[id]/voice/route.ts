@@ -1,3 +1,4 @@
+import { withUser } from "@/server/request-auth";
 import { NextResponse } from "next/server";
 import { guardMutation, readJsonBody } from "@/server/api-guard";
 import { getAccounts, getAccountVoiceProfile, saveAccountVoiceProfile } from "@/server/db";
@@ -5,7 +6,7 @@ import { buildVoiceProfile, fetchVoiceProfile, voiceProfileSummary } from "@/ser
 
 export const runtime = "nodejs";
 
-export async function GET(_request: Request, context: { params: Promise<{ id: string }> }) {
+async function GETHandler(_request: Request, context: { params: Promise<{ id: string }> }) {
   const { id } = await context.params;
   const account = getAccounts().find((item) => item.id === Number(id));
   if (!account) return NextResponse.json({ error: "account bulunamadı" }, { status: 404 });
@@ -17,7 +18,7 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
  * it additively under styleProfile.voice. `posts` may be supplied instead of a
  * live read; that path is how tests and offline replays work.
  */
-export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
+async function POSTHandler(request: Request, context: { params: Promise<{ id: string }> }) {
   const denied = guardMutation(request);
   if (denied) return denied;
   const { id } = await context.params;
@@ -37,3 +38,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     return NextResponse.json({ error: error instanceof Error ? error.message : "voice profili oluşturulamadı" }, { status: 424 });
   }
 }
+
+export const GET = withUser(GETHandler);
+
+export const POST = withUser(POSTHandler);

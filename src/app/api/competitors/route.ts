@@ -1,14 +1,15 @@
+import { withUser } from "@/server/request-auth";
 import { NextResponse } from "next/server";
 import { getCompetitors, saveCompetitor } from "@/server/db";
 import { guardMutation, readJsonBody } from "@/server/api-guard";
 
 export const runtime = "nodejs";
 
-export function GET() {
+function GETHandler() {
   return NextResponse.json(getCompetitors());
 }
 
-export async function POST(request: Request) {
+async function POSTHandler(request: Request) {
   const denied = guardMutation(request);
   if (denied) return denied;
   try {
@@ -26,3 +27,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "rakip kaydedilemedi" }, { status: 400 });
   }
 }
+
+export const GET = withUser(GETHandler);
+
+export const POST = withUser(POSTHandler, true);

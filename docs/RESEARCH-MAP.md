@@ -1,3 +1,5 @@
+> Historical pre-V3 record. Runtime/provider references below describe the earlier baseline; see V3_IMPLEMENTATION_STATUS.md and ARCHITECTURE.md for the current implementation.
+
 # Araştırma → uygulama eşlemesi
 
 Ispatla iki araştırma belgesini değişmeden korur:

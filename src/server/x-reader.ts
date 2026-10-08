@@ -46,7 +46,7 @@ export type XTimelineBatch = { posts: XPost[]; cursor: string; receivedAt: numbe
 export type XSearchResult = XTimelineBatch & { query: string };
 
 export type XReaderHealth = {
-  transport: "fxtwitter";
+  transport: "fxtwitter" | "fixture";
   checkedAt: number;
   ok: boolean;
   latencyMs: number;
@@ -151,12 +151,21 @@ export function normalizeFxPost(value: unknown, fallbackHandle = "", capturedAt 
   if (!/^\d+$/.test(id) || !postText) return null;
   const author = profile(tweet.author);
   const poll = record(tweet.poll);
+  const nestedMetrics = record(tweet.metrics);
+  const metricValue = (key: string, ...aliases: string[]): number | null => {
+    const names = [key, ...aliases];
+    const nested = names.find((name) => name in nestedMetrics);
+    if (nested) return metric(nestedMetrics[nested]);
+    const topLevel = names.find((name) => name in tweet);
+    if (topLevel) return metric(tweet[topLevel]);
+    return null;
+  };
   const metrics: XMetricSnapshot = {
-    likes: metric(tweet.likes),
-    replies: metric(tweet.replies),
-    reposts: metric(tweet.reposts ?? tweet.retweets),
-    quotes: metric(tweet.quotes),
-    views: metric(tweet.views),
+    likes: metricValue("likes"),
+    replies: metricValue("replies"),
+    reposts: metricValue("reposts", "retweets"),
+    quotes: metricValue("quotes"),
+    views: metricValue("views"),
     pollVotes: metric(poll.total_votes ?? poll.totalVotes),
     capturedAt,
     quality: "ok",

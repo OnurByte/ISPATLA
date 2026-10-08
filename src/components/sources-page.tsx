@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { BadgeCheck, Pin, Plus, Radar, RotateCcw, ScanSearch, Save, Trash2, UserRoundCheck } from "lucide-react";
+import { BadgeCheck, Pin, Plus, RotateCcw, RotateCw, ScanSearch, Save, Trash2, UserRoundCheck } from "lucide-react";
 import type { DeletedSource, SourceConfig } from "@/server/db";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
@@ -81,6 +81,7 @@ export function SourcesPage({ initial, initialDeleted, initialWarnings, ideologi
   const [pending, setPending] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [resetOpen, setResetOpen] = useState(false);
 
   async function reload() {
     const next = await fetch("/api/sources", { cache: "no-store" }).then((response) => response.json() as Promise<SourceConfig[]>);
@@ -119,14 +120,14 @@ export function SourcesPage({ initial, initialDeleted, initialWarnings, ideologi
     setMessage("Kaynak silindi; yedi gün yeniden keşfedilmeyecek.");
   }
 
-  async function discover() {
+  async function scanSources() {
     setScanning(true);
     const response = await fetch("/api/scan", { method: "POST" });
     const body = await response.json().catch(() => ({}));
     setScanning(false);
-    if (!response.ok) return setMessage(body.error || "Keşif taraması çalışmadı.");
+    if (!response.ok) return setMessage(body.error || "Kaynak taraması çalışmadı.");
     await reload();
-    setMessage(`${body.sourcesDiscovered || 0} aday bulundu, ${body.sourcesPromoted || 0} kaynak aktifleştirildi, ${body.sourcesDeleted || 0} kaynak silindi.`);
+    setMessage(`${body.postsNew || 0} yeni post bulundu; ${body.sourcesScored || 0} AI kaynak skoru güncellendi.`);
   }
 
   async function checkLiveness() {
@@ -149,6 +150,24 @@ export function SourcesPage({ initial, initialDeleted, initialWarnings, ideologi
     setMessage(`${body.recovered || 0} kaynak geri alındı; ${body.unresolved || 0} kayıt yeniden doğrulama bekliyor.`);
   }
 
+  async function resetSources() {
+    setPending(true);
+    try {
+      const response = await fetch("/api/sources", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "reset" }) });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) return setMessage(body.error || "Kaynak havuzu sıfırlanamadı.");
+      const next = await reload();
+      const first = next.find((source) => source.profile.status !== "candidate") || next[0];
+      setDraft(first ? draftFrom(first) : blankSource());
+      setMessage("Kaynak havuzu varsayılanlara döndürüldü.");
+      setResetOpen(false);
+    } catch {
+      setMessage("Kaynak havuzu sıfırlanamadı. Bağlantıyı kontrol edip yeniden deneyin.");
+    } finally {
+      setPending(false);
+    }
+  }
+
   const active = sources.filter((source) => source.profile.status !== "candidate");
   const candidates = sources.filter((source) => source.profile.status === "candidate");
   const ideologyOptions = ["all", "belirsiz", ...ideologies.map((ideology) => ideology.id)];
@@ -161,9 +180,9 @@ export function SourcesPage({ initial, initialDeleted, initialWarnings, ideologi
         <Empty className="border border-dashed py-8">
           <EmptyHeader>
             <EmptyTitle>Bu bölüm boş</EmptyTitle>
-            <EmptyDescription>Keşif taraması yeni hesapları quote, reply ve mention grafiğinden bulur.</EmptyDescription>
-          </EmptyHeader>
-          <EmptyContent><Button variant="outline" onClick={discover} disabled={scanning}><Radar data-icon="inline-start" aria-hidden="true" /> Keşfi çalıştır</Button></EmptyContent>
+          <EmptyDescription>Kaynak havuzuna yalnız başlangıçtaki AI hesapları ve elle eklediklerin girer.</EmptyDescription>
+        </EmptyHeader>
+          <EmptyContent><Button variant="outline" onClick={() => setDraft(blankSource())}><Plus data-icon="inline-start" aria-hidden="true" /> X hesabı ekle</Button></EmptyContent>
         </Empty>
       );
     }
@@ -226,7 +245,8 @@ export function SourcesPage({ initial, initialDeleted, initialWarnings, ideologi
             <CardDescription>{active.length} aktif · {candidates.length} keşif adayı · Kimlik/transport hatası uyarıdır, eleme değildir.</CardDescription>
           </div>
           <div className="flex gap-2">
-            <Button size="icon" variant="outline" onClick={discover} disabled={scanning} aria-label="Yeni kaynakları keşfet" title="Yeni kaynakları keşfet">
+            <Button size="icon" variant="outline" onClick={() => setResetOpen(true)} disabled={pending || scanning} aria-label="Kaynak havuzunu varsayılana döndür" title="Kaynak havuzunu varsayılana döndür"><RotateCw aria-hidden="true" /></Button>
+            <Button size="icon" variant="outline" onClick={scanSources} disabled={scanning} aria-label="Kaynak postlarını tara" title="Kaynak postlarını tara">
               {scanning ? <Spinner /> : <ScanSearch aria-hidden="true" />}
             </Button>
             <Button size="icon" variant="outline" onClick={checkLiveness} disabled={scanning} aria-label="Kaynak hesaplarının canlılığını kontrol et" title="Kaynak canlılığını kontrol et">{scanning ? <Spinner /> : <UserRoundCheck aria-hidden="true" />}</Button>
@@ -361,6 +381,19 @@ export function SourcesPage({ initial, initialDeleted, initialWarnings, ideologi
           <AlertDialogFooter>
             <AlertDialogCancel>Vazgeç</AlertDialogCancel>
             <AlertDialogAction variant="destructive" onClick={remove}>Kaynağı sil</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={resetOpen} onOpenChange={setResetOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Kaynak havuzu varsayılana döndürülsün mü?</AlertDialogTitle>
+            <AlertDialogDescription>Manuel ve keşfedilmiş kaynaklar ile kaynak-niş eşlemeleri kaldırılır; config/sources.json ve kategori varsayılanları yeniden yüklenir. Toplanan postlar ve kaynak geçmişi korunur.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Vazgeç</AlertDialogCancel>
+            <AlertDialogAction variant="destructive" onClick={resetSources} disabled={pending}>Varsayılana döndür</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

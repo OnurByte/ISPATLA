@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { useState } from "react";
 import {
   BarChart3,
   Bot,
@@ -15,8 +16,10 @@ import {
   Sparkles,
   Users,
   Search,
+  LogOut,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ModeToggle } from "@/components/mode-toggle";
 import {
@@ -39,28 +42,57 @@ import {
 type NavItem = { href: string; label: string; icon: LucideIcon };
 
 const primaryNav: NavItem[] = [
-  { href: "/", label: "Kontrol merkezi", icon: Gauge },
-  { href: "/opportunities", label: "Fırsatlar", icon: Sparkles },
-  { href: "/drafts", label: "Draft stüdyosu", icon: FileKey2 },
-  { href: "/queue", label: "Yayın kuyruğu", icon: Inbox },
+  { href: "/app", label: "Kontrol merkezi", icon: Gauge },
+  { href: "/app/opportunities", label: "Fırsatlar", icon: Sparkles },
+  { href: "/app/drafts", label: "Draft stüdyosu", icon: FileKey2 },
+  { href: "/app/queue", label: "Yayın kuyruğu", icon: Inbox },
 ];
 
 const operationsNav: NavItem[] = [
-  { href: "/accounts", label: "Hesaplar", icon: Users },
-  { href: "/x", label: "X İnceleme", icon: Search },
-  { href: "/sources", label: "Kaynaklar", icon: ListFilter },
-  { href: "/categories", label: "Kategoriler", icon: Tags },
-  { href: "/analytics", label: "Analytics", icon: BarChart3 },
+  { href: "/app/accounts", label: "Hesaplar", icon: Users },
+  { href: "/app/developer/x", label: "X timeline", icon: Search },
+  { href: "/app/sources", label: "Kaynaklar", icon: ListFilter },
+  { href: "/app/categories", label: "Kategoriler", icon: Tags },
+  { href: "/app/analytics", label: "Analytics", icon: BarChart3 },
+  { href: "/app/evaluation", label: "Karar değerlendirmesi", icon: ListFilter },
 ];
 
 const settingsNav: NavItem[] = [
-  { href: "/settings/keys", label: "Key yönetimi", icon: KeyRound },
-  { href: "/settings/automation", label: "Otomasyon", icon: Bot },
-  { href: "/settings/style", label: "Stil profili", icon: Settings2 },
+  { href: "/app/settings/keys", label: "Key yönetimi", icon: KeyRound },
+  { href: "/app/settings/automation", label: "Otomasyon", icon: Bot },
+  { href: "/app/settings/style", label: "Stil profili", icon: Settings2 },
 ];
 
 function isActive(pathname: string, href: string) {
-  return href === "/" ? pathname === "/" : pathname.startsWith(href);
+  return href === "/app" ? pathname === href : pathname === href || pathname.startsWith(`${href}/`);
+}
+
+function SignOutButton() {
+  const router = useRouter();
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState("");
+
+  async function signOut() {
+    setPending(true);
+    setError("");
+    try {
+      const response = await fetch("/api/auth/sign-out", { method: "POST", credentials: "same-origin" });
+      if (!response.ok) throw new Error("Oturum kapatılamadı. Yeniden dene.");
+      router.replace("/");
+      router.refresh();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Oturum kapatılamadı. Yeniden dene.");
+    } finally {
+      setPending(false);
+    }
+  }
+
+  return <div className="space-y-1">
+    <Button type="button" variant="ghost" className="w-full justify-start" onClick={() => void signOut()} disabled={pending}>
+      <LogOut data-icon="inline-start" aria-hidden="true" />{pending ? "Çıkış yapılıyor…" : "Çıkış yap"}
+    </Button>
+    {error && <p className="px-2 text-xs text-destructive" role="alert">{error}</p>}
+  </div>;
 }
 
 function NavGroup({ title, items, pathname }: { title: string; items: NavItem[]; pathname: string }) {
@@ -100,7 +132,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </Avatar>
             <div className="flex min-w-0 flex-1 flex-col gap-0.5">
               <span className="font-semibold tracking-tight">Ispatla</span>
-              <span className="truncate text-xs text-sidebar-foreground/60">X intelligence desk</span>
+              <span className="truncate text-xs text-sidebar-foreground/60">Araştırma ve yayın masası</span>
             </div>
             <ModeToggle />
           </div>
@@ -114,8 +146,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <SidebarFooter className="gap-3 p-3">
           <SidebarSeparator />
           <NavGroup title="Ayarlar" items={settingsNav} pathname={pathname} />
+          <SignOutButton />
           <p className="px-2 pb-1 text-xs leading-5 text-sidebar-foreground/50">
-            Kaynak → fırsat → draft → x-use → reconciliation
+            Kaynak → fırsat → draft → resmi X API → doğrulama
           </p>
         </SidebarFooter>
       </Sidebar>

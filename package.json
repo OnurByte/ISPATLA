@@ -13,11 +13,13 @@
     "automation:worker": "bun scripts/automation-worker.ts",
     "mcp": "bun scripts/ispatla-mcp.ts",
     "ideologies:update": "bun scripts/fetch-ideologies.ts",
-    "ideologies:validate": "bun test tests/ideologies.test.ts"
+    "ideologies:validate": "bun test tests/ideologies.test.ts",
+    "demo": "bun scripts/demo.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",
     "@modelcontextprotocol/server": "2.0.0",
+    "better-auth": "1.7.7",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide-react": "^1.33.0",

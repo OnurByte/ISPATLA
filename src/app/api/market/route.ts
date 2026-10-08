@@ -1,3 +1,4 @@
+import { withUser } from "@/server/request-auth";
 import { NextResponse } from "next/server";
 import { getMarketInbox, MARKET_VIEWS, type MarketView } from "@/server/db";
 
@@ -8,7 +9,7 @@ function boundedInteger(value: string | null, fallback: number, max: number): nu
   return Number.isInteger(parsed) && parsed >= 0 ? Math.min(max, parsed) : fallback;
 }
 
-export function GET(request: Request) {
+function GETHandler(request: Request) {
   const search = new URL(request.url).searchParams;
   const candidate = search.get("view");
   const view = MARKET_VIEWS.includes(candidate as MarketView) ? candidate as MarketView : "opportunities";
@@ -18,3 +19,5 @@ export function GET(request: Request) {
     offset: boundedInteger(search.get("offset"), 0, 10_000),
   }));
 }
+
+export const GET = withUser(GETHandler);

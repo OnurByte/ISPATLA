@@ -146,7 +146,7 @@ export async function runMonitorTarget(target: MonitorTarget, now = Math.floor(D
         upsertMonitorTarget({ kind: "conversation", key: post.externalId, conversationId: post.externalId, lifecycle: "active", tier: "hot", intervalSeconds: 15, priority: 1.1, now });
       }
     }
-    const aggregate = { ...target, results: target.results + posts.length, uniqueResults: target.uniqueResults + uniqueResults, hits: target.hits + hits, duplicates: target.duplicates + duplicates, burstUntil: uniqueResults ? now + 600 : target.burstUntil };
+    const aggregate = { ...target, results: target.results + posts.length, uniqueResults: target.uniqueResults + uniqueResults, hits: target.hits + hits, duplicates: target.duplicates + duplicates, burstUntil: hits ? now + 600 : target.burstUntil };
     const cadence = cadenceFor(aggregate, now);
     finishMonitorRun({ runId, targetId: target.id, status: "success", returned: posts.length, uniqueResults, hits, duplicates, leadTimeTotal, tier: cadence.tier, intervalSeconds: cadence.intervalSeconds, burstUntil: aggregate.burstUntil, now });
     const lifecycle = nextLifecycle(target, cadence.tier, uniqueResults, hits, now);

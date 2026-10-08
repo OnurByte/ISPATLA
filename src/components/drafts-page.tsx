@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Inbox, Plus, Save, Send, Sparkles, Trash2 } from "lucide-react";
 import type { Account, DraftRecord } from "@/server/db";
@@ -30,6 +30,8 @@ type DraftForm = {
   evaluation: DraftRecord["evaluation"];
 };
 
+type DraftRevision = { id: number; draftId: number; revision: number; accountId: number | null; format: string; text: string; createdAt: number };
+
 function asForm(draft?: DraftRecord): DraftForm {
   return draft
     ? { ...draft }
@@ -57,7 +59,7 @@ function AccountPicker({ accounts, selected, onChange }: { accounts: Account[]; 
     return (
       <Empty className="min-h-28 border border-dashed p-4">
         <EmptyHeader><EmptyTitle>Aktif hesap yok</EmptyTitle><EmptyDescription>Batch üretmek için önce bir yayın hesabı eşle.</EmptyDescription></EmptyHeader>
-        <EmptyContent><Link href="/accounts" className={buttonVariants({ variant: "outline", size: "sm" })}>Hesap ekle</Link></EmptyContent>
+        <EmptyContent><Link href="/app/accounts" className={buttonVariants({ variant: "outline", size: "sm" })}>Hesap ekle</Link></EmptyContent>
       </Empty>
     );
   }
@@ -98,6 +100,22 @@ export function DraftsPage({ initial, accounts, selectedDraftId }: { initial: Dr
   const [manualText, setManualText] = useState("");
   const [composeMode, setComposeMode] = useState<"generate" | "manual">("generate");
   const [batchDraftIds, setBatchDraftIds] = useState<number[]>([]);
+  const [revisions, setRevisions] = useState<DraftRevision[]>([]);
+
+  async function loadRevisions(id?: number) {
+    if (!id) return setRevisions([]);
+    const response = await fetch(`/api/drafts/${id}/revisions`, { cache: "no-store" });
+    setRevisions(response.ok ? await response.json() as DraftRevision[] : []);
+  }
+
+  useEffect(() => {
+    if (!form.id) return;
+    let active = true;
+    fetch(`/api/drafts/${form.id}/revisions`, { cache: "no-store" })
+      .then((response) => response.ok ? response.json() as Promise<DraftRevision[]> : [])
+      .then((items) => { if (active) setRevisions(items); });
+    return () => { active = false; };
+  }, [form.id]);
 
   async function reload() {
     setDrafts(await fetch("/api/drafts", { cache: "no-store" }).then((response) => response.json() as Promise<DraftRecord[]>));
@@ -119,6 +137,7 @@ export function DraftsPage({ initial, accounts, selectedDraftId }: { initial: Dr
     if (!response.ok) return setMessage(body.error || "Draft kaydedilemedi.");
     await reload();
     setForm(asForm(body));
+    await loadRevisions(body.id);
     setMessage("Draft kaydedildi.");
   }
 
@@ -192,7 +211,7 @@ export function DraftsPage({ initial, accounts, selectedDraftId }: { initial: Dr
     });
     const body = await response.json().catch(() => ({}));
     setPending(false);
-    setMessage(response.ok ? "Yayın kuyruğuna alındı; çalıştırma ayrı onay adımıdır." : body.error || "Kuyruğa alınamadı.");
+    setMessage(response.ok ? "Yeni yayın onayı oluşturuldu; önceki süresi dolmuş onay yenilenmedi." : body.error || "Onay oluşturulamadı.");
     if (response.ok) await reload();
   }
 
@@ -297,7 +316,7 @@ export function DraftsPage({ initial, accounts, selectedDraftId }: { initial: Dr
             {drafts.map((draft) => {
               const selected = form.id === draft.id;
               return (
-                <Button key={draft.id} type="button" variant={selected ? "secondary" : "ghost"} className="h-auto min-h-28 flex-col items-stretch gap-2 border border-transparent p-3 text-left" data-selected={selected} onClick={() => setForm(asForm(draft))}>
+                <Button key={draft.id} type="button" variant={selected ? "secondary" : "ghost"} className="h-auto min-h-28 flex-col items-stretch gap-2 border border-transparent p-3 text-left" data-selected={selected} onClick={() => { if (form.id !== draft.id) setRevisions([]); setForm(asForm(draft)); }}>
                   <span className="flex items-center justify-between gap-2"><span className="flex items-center gap-1.5"><Badge variant="outline">{draft.format}</Badge>{draft.evaluation ? <Badge variant="secondary">draft {draft.evaluation.score}</Badge> : null}</span><Badge variant={draft.status === "ready" ? "default" : draft.status === "blocked" ? "destructive" : "secondary"}>{draft.status}</Badge></span>
                   <span className="line-clamp-3 text-sm font-normal">{draft.text}</span>
                   <span className="text-xs font-normal text-muted-foreground">@{draft.accountHandle} · {draft.origin || "manual"}{draft.batchId ? ` · ${draft.batchId.slice(0, 12)}` : ""}</span>
@@ -321,16 +340,23 @@ export function DraftsPage({ initial, accounts, selectedDraftId }: { initial: Dr
             <Field><FieldLabel htmlFor="draft-text">İçerik</FieldLabel><Textarea id="draft-text" className="min-h-52" value={form.text} onChange={(event) => update("text", event.target.value)} placeholder="Özgün taslak metni..." /><FieldDescription className="text-right">{form.text.length}/280 karakter</FieldDescription></Field>
             {form.sourceUrl && <a href={form.sourceUrl} target="_blank" rel="noreferrer" className="text-sm text-primary underline-offset-4 hover:underline">Kaynak postunu aç</a>}
             {form.gateReason && <Alert variant={form.status === "blocked" ? "destructive" : "default"}><AlertDescription>Gate: {form.gateReason}</AlertDescription></Alert>}
+            {form.id ? <section aria-label="Draft sürüm geçmişi" className="rounded-lg border p-4">
+              <div className="mb-3 flex items-center justify-between gap-3"><h3 className="text-sm font-medium">Sürüm geçmişi</h3><Badge variant="outline">{revisions.length} sürüm</Badge></div>
+              {revisions.length ? <ol className="flex flex-col gap-3">{revisions.map((revision) => <li key={revision.id} className="rounded-md bg-muted/30 p-3">
+                <div className="flex flex-wrap items-center justify-between gap-2"><div className="flex items-center gap-2"><Badge variant={revision.revision === revisions[0]?.revision ? "secondary" : "outline"}>v{revision.revision}{revision.revision === revisions[0]?.revision ? " · güncel" : ""}</Badge><span className="text-xs text-muted-foreground">{revision.format}{revision.accountId ? ` · hesap #${revision.accountId}` : " · hesapsız"}</span></div><time className="text-xs text-muted-foreground" dateTime={new Date(revision.createdAt * 1000).toISOString()}>{new Intl.DateTimeFormat("tr-TR", { dateStyle: "medium", timeStyle: "short" }).format(revision.createdAt * 1000)}</time></div>
+                <p className="mt-2 whitespace-pre-wrap text-sm">{revision.text}</p>
+              </li>)}</ol> : <p className="text-sm text-muted-foreground">Henüz sürüm kaydı yok.</p>}
+            </section> : null}
             {form.evaluation ? (
               <div className="rounded-lg border p-4">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
                     <div className="text-sm font-medium">Draft performance evaluator</div>
-                    <div className="mt-1 text-xs text-muted-foreground">Shadow mode; X'in iç ranking skoru veya erişim garantisi değildir.</div>
+                    <div className="mt-1 text-xs text-muted-foreground">Shadow mode; X’in iç ranking skoru veya erişim garantisi değildir.</div>
                   </div>
                   <div className="flex gap-2">
                     <Badge>{form.evaluation.score}/100</Badge>
-                    <Badge variant="outline">güven %{form.evaluation.confidence}</Badge>
+                    <Badge variant="outline">ham güven {form.evaluation.confidence}/100 · kalibre edilmedi</Badge>
                   </div>
                 </div>
                 <div className="mt-4 grid gap-3 sm:grid-cols-3">

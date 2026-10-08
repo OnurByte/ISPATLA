@@ -1,15 +1,18 @@
+import { withUser } from "@/server/request-auth";
 import { NextResponse } from "next/server";
 import { deleteDraft, getAccountCategoryConfigs, getAccounts, getDraft, getPost, updateDraft } from "@/server/db";
 import { accountCategories } from "@/server/pipeline";
 import { evaluateDraft } from "@/server/draft-evaluator";
 import { guardMutation, readJsonBody } from "@/server/api-guard";
+import { ensureDraftRevisionStore } from "@/server/draft-revisions";
 
 export const runtime = "nodejs";
 
-export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
+async function PATCHHandler(request: Request, context: { params: Promise<{ id: string }> }) {
   const denied = guardMutation(request);
   if (denied) return denied;
   const id = Number((await context.params).id);
+  ensureDraftRevisionStore();
   if (!getDraft(id)) return NextResponse.json({ error: "draft bulunamadı" }, { status: 404 });
   let body: Record<string, unknown>;
   try {
@@ -50,10 +53,14 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   return NextResponse.json(getDraft(id) || draft);
 }
 
-export async function DELETE(request: Request, context: { params: Promise<{ id: string }> }) {
+async function DELETEHandler(request: Request, context: { params: Promise<{ id: string }> }) {
   const denied = guardMutation(request);
   if (denied) return denied;
   const id = Number((await context.params).id);
   if (!deleteDraft(id)) return NextResponse.json({ error: "draft bulunamadı" }, { status: 404 });
   return NextResponse.json({ ok: true });
 }
+
+export const PATCH = withUser(PATCHHandler);
+
+export const DELETE = withUser(DELETEHandler);

@@ -1,3 +1,4 @@
+import { withUser } from "@/server/request-auth";
 import { NextResponse } from "next/server";
 import { getWritingStyleSettings, saveWritingStyleSettings } from "@/server/db";
 import { resolveIdeology } from "@/server/ideologies";
@@ -5,11 +6,11 @@ import { guardMutation, readJsonBody } from "@/server/api-guard";
 
 export const runtime = "nodejs";
 
-export function GET() {
+function GETHandler() {
   return NextResponse.json(getWritingStyleSettings());
 }
 
-export async function PATCH(request: Request) {
+async function PATCHHandler(request: Request) {
   const denied = guardMutation(request);
   if (denied) return denied;
   try {
@@ -25,3 +26,7 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "stil ayarları kaydedilemedi" }, { status: 400 });
   }
 }
+
+export const GET = withUser(GETHandler);
+
+export const PATCH = withUser(PATCHHandler);

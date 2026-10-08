@@ -1,3 +1,4 @@
+import { currentOwnerId } from "./owner-context";
 import { createCipheriv, createDecipheriv, randomBytes, scryptSync } from "node:crypto";
 import { deleteSecret, getSecretCiphertext, getSecretMetas, saveSecretCiphertext } from "./db";
 
@@ -53,10 +54,12 @@ export function readSecret(name: string): string | null {
 }
 
 export function secretOrEnv(name: string, environmentName: string): string | null {
+  const owner = currentOwnerId();
+  const sharedEnvironment = !owner || owner === process.env.ISPATLA_OPERATOR_USER_ID ? process.env[environmentName] || null : null;
   try {
-    return readSecret(name) || process.env[environmentName] || null;
+    return readSecret(name) || sharedEnvironment;
   } catch {
-    return process.env[environmentName] || null;
+    return sharedEnvironment;
   }
 }
 

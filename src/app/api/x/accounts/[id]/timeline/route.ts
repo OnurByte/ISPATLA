@@ -1,19 +1,28 @@
+import { withUser } from "@/server/request-auth";
 import { NextResponse } from "next/server";
-import { guardMutation } from "@/server/api-guard";
 import { getAccounts } from "@/server/db";
-import { getXUseAccountHealth, getXUseTimeline } from "@/server/xuse";
+import { OfficialXClient } from "@/server/official-x";
+import { withOfficialAccount } from "@/server/publisher";
 
 export const runtime = "nodejs";
 
-export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
-  const denied = guardMutation(request);
-  if (denied) return denied;
-  const { id } = await context.params;
-  const account = getAccounts().find((item) => item.id === Number(id) && item.enabled && item.xuseAccountId);
-  if (!account) return NextResponse.json({ error: "eşlenmiş aktif hesap bulunamadı" }, { status: 404 });
+async function GETHandler(_request: Request, context: { params: Promise<{ id: string }> }) {
+  const id = Number((await context.params).id);
+  const account = getAccounts().find((item) => item.id === id && item.enabled);
+  if (!account) return NextResponse.json({ error: "aktif yayın hesabı bulunamadı" }, { status: 404 });
   try {
-    const health = await getXUseAccountHealth(account.xuseAccountId);
-    if (health.cookies.configured !== true || health.cookies.valid !== true) return NextResponse.json({ error: "x-use oturum cookie'si geçerli değil" }, { status: 422 });
-    return NextResponse.json(await getXUseTimeline(account));
-  } catch (error) { return NextResponse.json({ error: error instanceof Error ? error.message : "timeline alınamadı" }, { status: 424 }); }
+    const posts = await withOfficialAccount(account, (credential) => new OfficialXClient().getOwnTimeline(credential, 20));
+    const items = posts.flatMap((post) => {
+      const postId = typeof post.id === "string" && /^\d{1,19}$/.test(post.id) ? post.id : "";
+      const text = typeof post.text === "string" ? post.text.slice(0, 10_000) : "";
+      const createdAt = typeof post.created_at === "string" ? post.created_at : "";
+      if (!postId || !text) return [];
+      return [{ id: postId, text, createdAt, url: `https://x.com/${encodeURIComponent(account.handle)}/status/${postId}` }];
+    });
+    return NextResponse.json({ items }, { headers: { "cache-control": "no-store" } });
+  } catch {
+    return NextResponse.json({ error: "X timeline alınamadı. Bağlantıyı veya okuma kapsamlarını doğrulayın." }, { status: 422 });
+  }
 }
+
+export const GET = withUser(GETHandler);
