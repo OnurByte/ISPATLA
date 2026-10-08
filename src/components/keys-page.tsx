@@ -23,6 +23,10 @@ type AiPanel = {
   compatible: { baseUrl: string; name: string };
   models: Record<AiProvider, readonly string[]>;
   codex: { available: boolean; authenticated: boolean; bin: string; version: string; reason?: string };
+  codexAllowed: boolean;
+  compatibleCapabilityVerified: boolean;
+  budget: { dailyBudgetUsd: number; monthlyBudgetUsd: number; dailyCommittedUsd: number; monthlyCommittedUsd: number; pendingReservations: number };
+  usage: { estimatedUsd: number; reportedUsd: number; unknownCostEvents: number; inputTokens: number; outputTokens: number };
 };
 
 export function KeysPage({ initialKeys, initialVaultReady, initialAi }: { initialKeys: KeyMeta[]; initialVaultReady: boolean; initialAi: AiPanel }) {
@@ -35,6 +39,9 @@ export function KeysPage({ initialKeys, initialVaultReady, initialAi }: { initia
   const [compatibleName, setCompatibleName] = useState(initialAi.compatible.name);
   const [values, setValues] = useState<Record<string, string>>({});
   const [message, setMessage] = useState("");
+  const [connectionMessage, setConnectionMessage] = useState("");
+  const [dailyBudgetUsd, setDailyBudgetUsd] = useState(String(initialAi.budget.dailyBudgetUsd));
+  const [monthlyBudgetUsd, setMonthlyBudgetUsd] = useState(String(initialAi.budget.monthlyBudgetUsd));
   const [pending, setPending] = useState("");
 
   async function load() {
@@ -50,6 +57,10 @@ export function KeysPage({ initialKeys, initialVaultReady, initialAi }: { initia
     setAi(body);
     setAiProvider(body.settings.provider);
     setAiModel(body.settings.model);
+    setCompatibleBaseUrl(body.compatible.baseUrl);
+    setCompatibleName(body.compatible.name);
+    setDailyBudgetUsd(String(body.budget.dailyBudgetUsd));
+    setMonthlyBudgetUsd(String(body.budget.monthlyBudgetUsd));
   }
 
   async function save(key: KeyMeta) {
@@ -75,16 +86,44 @@ export function KeysPage({ initialKeys, initialVaultReady, initialAi }: { initia
   }
 
   async function saveAi() {
+    setConnectionMessage("");
     setPending("ai");
     const response = await fetch("/api/settings/ai", {
       method: "PUT",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ provider: aiProvider, model: aiModel, compatibleBaseUrl, compatibleName }),
+      body: JSON.stringify({ provider: aiProvider, model: aiModel, compatibleBaseUrl, compatibleName, dailyBudgetUsd: Number(dailyBudgetUsd), monthlyBudgetUsd: Number(monthlyBudgetUsd) }),
     });
     const body = await response.json().catch(() => ({}));
     setPending("");
     setMessage(response.ok ? `${aiProvider === "codex" ? "Codex" : aiProvider === "compatible" ? "Özel sağlayıcı" : "OpenAI API"} çalıştırıcısı kaydedildi.` : body.error || "AI ayarı kaydedilemedi.");
     if (response.ok) await loadAi();
+  }
+
+  async function testConnection() {
+    setPending("connection-test");
+    setConnectionMessage("");
+    try {
+      const response = await fetch("/api/settings/ai/test", { method: "POST" });
+      const body = await response.json().catch(() => ({}));
+      if (response.ok && body.ok === true) {
+        setConnectionMessage(`Bağlantı doğrulandı: ${body.provider}:${body.model}.`);
+        await loadAi();
+      } else if (body.error === "unsupported_model_or_task") {
+        setConnectionMessage("Bu model yapılandırılmış JSON yanıt görevini desteklemiyor.");
+      } else if (body.error === "provider_unavailable") {
+        setConnectionMessage("Seçili sağlayıcı bu hesapta kullanılamıyor.");
+      } else if (body.error === "unknown_cost_under_budget") {
+        setConnectionMessage("Bu sağlayıcı isteğin maliyetini bildirmiyor; etkin USD sınırını güvenli biçimde uygulayamıyorum. Sınırı kapat veya maliyeti bildiren bir sağlayıcı seç.");
+      } else if (body.error === "budget_limit") {
+        setConnectionMessage("Günlük veya aylık AI bütçe sınırı bu isteğe izin vermiyor.");
+      } else {
+        setConnectionMessage("Bağlantı testi başarısız. Kaydedilmiş sağlayıcı ayarlarını ve anahtarı kontrol et.");
+      }
+    } catch {
+      setConnectionMessage("Bağlantı testi başarısız. Kaydedilmiş sağlayıcı ayarlarını ve anahtarı kontrol et.");
+    } finally {
+      setPending("");
+    }
   }
 
   async function setAiEnabled(enabled: boolean) {
@@ -101,7 +140,12 @@ export function KeysPage({ initialKeys, initialVaultReady, initialAi }: { initia
   }
 
   const aiModels = ai.models[aiProvider] || [];
-  const aiReady = aiProvider === "codex" ? ai.codex.authenticated : aiProvider === "compatible" ? Boolean(ai.compatibleConfigured && compatibleBaseUrl && aiModel) : ai.apiConfigured;
+  const compatibleCredentialsReady = Boolean(ai.compatibleConfigured && compatibleBaseUrl && aiModel);
+  const aiReady = aiProvider === "codex" ? ai.codexAllowed && ai.codex.authenticated : aiProvider === "compatible" ? Boolean(compatibleCredentialsReady && ai.compatibleCapabilityVerified) : ai.apiConfigured;
+  const selectedSettingsAreSaved = ai.settings.provider === aiProvider
+    && ai.settings.model === aiModel
+    && (aiProvider !== "compatible" || (ai.compatible.baseUrl === compatibleBaseUrl && ai.compatible.name === compatibleName));
+  const canTestConnection = selectedSettingsAreSaved && (aiProvider === "compatible" ? compatibleCredentialsReady : aiReady) && pending === "";
 
   return (
     <div className="flex flex-col gap-5">
@@ -119,7 +163,7 @@ export function KeysPage({ initialKeys, initialVaultReady, initialAi }: { initia
             <BrainCircuit aria-hidden="true" />
             <div>
               <CardTitle>AI çalıştırıcısı</CardTitle>
-              <CardDescription>OpenAI, OpenAI-uyumlu endpointler veya yerel Codex hesabını seç. Her çalıştırıcıda kendi model kimliğini girebilir ya da önerilen modeli seçebilirsin.</CardDescription>
+          <CardDescription>OpenAI, doğrulaması gereken OpenAI-uyumlu endpointler veya izinli operatör bağlamında yerel Codex çalıştırıcısını seç.</CardDescription>
             </div>
           </div>
           <Badge variant={!ai.enabled ? "secondary" : aiReady ? "default" : "destructive"}>{!ai.enabled ? "kapalı" : aiReady ? "hazır" : aiProvider === "codex" ? "login yok" : "key yok"}</Badge>
@@ -137,10 +181,10 @@ export function KeysPage({ initialKeys, initialVaultReady, initialAi }: { initia
                 <SelectContent><SelectGroup>
                   <SelectItem value="api">OpenAI API · Responses</SelectItem>
                   <SelectItem value="compatible">OpenAI-uyumlu API · özel</SelectItem>
-                  <SelectItem value="codex">Codex · yerel CLI</SelectItem>
+                  <SelectItem value="codex" disabled={!ai.codexAllowed}>Codex · {ai.codexAllowed ? "yerel CLI" : "kullanılamıyor"}</SelectItem>
                 </SelectGroup></SelectContent>
               </Select>
-              <FieldDescription>{aiProvider === "codex" ? `${ai.codex.bin}${ai.codex.version ? ` · ${ai.codex.version}` : ""}` : aiProvider === "compatible" ? "Chat Completions + JSON Schema destekleyen HTTPS endpoint kullanılır." : "OPENAI_API_KEY kasadan okunur; cevaplar store=false ile istenir."}</FieldDescription>
+              <FieldDescription>{aiProvider === "codex" ? (ai.codexAllowed ? `${ai.codex.bin}${ai.codex.version ? ` · ${ai.codex.version}` : ""}` : "Üretim hesabında paylaşılan Codex CLI kullanılamaz.") : aiProvider === "compatible" ? "Chat Completions + JSON Schema destekleyen HTTPS endpoint kullanılır." : "OPENAI_API_KEY kasadan okunur; cevaplar store=false ile istenir."}</FieldDescription>
             </Field>
             {aiProvider === "compatible" && <>
               <Field>
@@ -167,12 +211,36 @@ export function KeysPage({ initialKeys, initialVaultReady, initialAi }: { initia
             </FieldContent>
             <Switch id="ai-enabled" checked={ai.enabled} onCheckedChange={(value) => void setAiEnabled(value)} disabled={pending !== ""} />
           </Field>
+          <section className="grid gap-4 rounded-lg border p-4 sm:grid-cols-2" aria-label="AI kullanım eşikleri">
+            <Field>
+              <FieldLabel htmlFor="ai-daily-budget">Günlük tahmini kullanım eşiği (USD)</FieldLabel>
+              <Input id="ai-daily-budget" type="number" min="0" max="1000000" step="any" value={dailyBudgetUsd} onChange={(event) => setDailyBudgetUsd(event.target.value)} />
+              <FieldDescription>0 değeri sınırsız demektir. Günlük dönem UTC gece yarısında yenilenir; bu eşik gerçek fatura sınırı değildir.</FieldDescription>
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="ai-monthly-budget">Aylık tahmini kullanım eşiği (USD)</FieldLabel>
+              <Input id="ai-monthly-budget" type="number" min="0" max="1000000" step="any" value={monthlyBudgetUsd} onChange={(event) => setMonthlyBudgetUsd(event.target.value)} />
+              <FieldDescription>0 değeri sınırsız demektir. Aylık dönem UTC ay başında yenilenir; bu eşik gerçek fatura sınırı değildir.</FieldDescription>
+            </Field>
+            <p className="text-sm text-muted-foreground sm:col-span-2">
+              Rezerve edilen tahmini kullanım: günlük ${ai.budget.dailyCommittedUsd.toFixed(4)} / {ai.budget.dailyBudgetUsd ? `$${ai.budget.dailyBudgetUsd.toFixed(2)}` : "sınırsız"}; aylık ${ai.budget.monthlyCommittedUsd.toFixed(4)} / {ai.budget.monthlyBudgetUsd ? `$${ai.budget.monthlyBudgetUsd.toFixed(2)}` : "sınırsız"}. Açık veya belirsiz istek: {ai.budget.pendingReservations}. API/Codex rezervasyonları sabit çağrı tahminidir, gerçek sağlayıcı faturası değildir. Anahtar uyumlu özel sağlayıcının maliyeti sağlayıcı bildirmedikçe bilinmiyor; eşik etkinse bu tür istekler güvenli biçimde durdurulur.
+            </p>
+            <p className="text-sm text-muted-foreground sm:col-span-2">
+              Bu ay: sağlayıcı raporu ${ai.usage.reportedUsd.toFixed(4)}, uygulama tahmini ${ai.usage.estimatedUsd.toFixed(4)}, maliyeti bilinmeyen {ai.usage.unknownCostEvents} çağrı; {ai.usage.inputTokens} giriş ve {ai.usage.outputTokens} çıkış tokenı. Tahmin gerçek fatura değildir.
+            </p>
+          </section>
           <div className="flex flex-wrap gap-2">
-            <Button onClick={saveAi} disabled={!aiModel || pending !== ""}>
+            <Button onClick={saveAi} disabled={!aiModel || pending !== "" || (aiProvider === "codex" && !ai.codexAllowed)}>
               {pending === "ai" ? <Spinner data-icon="inline-start" /> : <Save data-icon="inline-start" aria-hidden="true" />} AI ayarını kaydet
             </Button>
+            <Button variant="outline" onClick={() => void testConnection()} disabled={!canTestConnection}>
+              {pending === "connection-test" ? <Spinner data-icon="inline-start" /> : <BrainCircuit data-icon="inline-start" aria-hidden="true" />} Bağlantıyı test et
+            </Button>
           </div>
-          {ai.enabled && !aiReady && <Alert variant="destructive"><AlertDescription>{aiProvider === "codex" ? (ai.codex.reason || "Codex login status doğrulanamadı.") : aiProvider === "compatible" ? "HTTPS endpoint, model ve OpenAI-uyumlu AI API anahtarı gerekli." : "OpenAI key edit alanından bir API anahtarı kaydet."}</AlertDescription></Alert>}
+          <p className="text-sm text-muted-foreground">Test, kaydedilmiş sağlayıcı ve anahtarla tek bir küçük yapılandırılmış yanıt isteği gönderir; sağlayıcı ücret yansıtabilir.</p>
+          {!selectedSettingsAreSaved && <p className="text-sm text-muted-foreground">Bağlantıyı test etmeden önce seçili sağlayıcı, model ve endpoint ayarlarını kaydet.</p>}
+          {connectionMessage && <Alert variant={connectionMessage.startsWith("Bağlantı doğrulandı:") ? "default" : "destructive"}><AlertDescription>{connectionMessage}</AlertDescription></Alert>}
+          {ai.enabled && !aiReady && <Alert variant="destructive"><AlertDescription>{aiProvider === "codex" ? (ai.codexAllowed ? ai.codex.reason || "Codex login status doğrulanamadı." : "Paylaşılan Codex oturumu üretim kullanıcı hesaplarında kullanılamaz. Kendi API anahtarını bağla.") : aiProvider === "compatible" ? compatibleCredentialsReady ? "Özel sağlayıcı modeli kullanmadan önce bağlantı testini başarıyla tamamla." : "HTTPS endpoint, model ve OpenAI-uyumlu AI API anahtarı gerekli." : "OpenAI key edit alanından bir API anahtarı kaydet."}</AlertDescription></Alert>}
         </CardContent>
       </Card>
 

@@ -26,6 +26,7 @@ const taskNames: Record<AutomationTaskId, { name: string; detail: string }> = {
   source_liveness: { name: "Ölü kaynak / liveness", detail: "Profil 404 ve kimlik uyuşmazlıklarını temizler" },
   queue_worker: { name: "Due queue worker", detail: "Onaylanmış resmi X API işlerini çalıştırır" },
   reconciliation: { name: "FxTwitter reconciliation", detail: "Pending transport sonuçlarını yayın kanıtıyla doğrular" },
+  account_inference: { name: "Hesap konu önerileri", detail: "Bağlı X hesaplarının kendi profil ve gönderilerinden konu önerisi hazırlar" },
 };
 
 export function AutomationSettings({ initial, schedules: initialSchedules, logs: initialLogs }: { initial: State; schedules: AutomationTaskSchedule[]; logs: AutomationLog[] }) {

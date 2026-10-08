@@ -57,7 +57,7 @@ test("persists editable automation schedules and redacts automation log secrets"
     console.log(JSON.stringify({ ids: defaults.map((item) => item.id), allDated: defaults.every((item) => item.nextRunAt > 0), saved, log: getAutomationLogs(1)[0] }));
   `);
   const result = JSON.parse(output);
-  expect(result.ids).toEqual(["monitor_engine", "source_scan", "source_liveness", "queue_worker", "reconciliation"]);
+  expect(result.ids).toEqual(["monitor_engine", "source_scan", "source_liveness", "queue_worker", "reconciliation", "account_inference"]);
   expect(result.allDated).toBe(true);
   expect(result.saved).toMatchObject({ id: "source_scan", enabled: false, intervalSeconds: 600, nextRunAt: 5000 });
   expect(JSON.stringify(result.log)).not.toContain("secret");

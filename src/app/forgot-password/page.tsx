@@ -1,5 +1,7 @@
 import { AuthForm } from "@/components/auth-form"
+import { PublicHeader, requestPublicLocale } from "@/components/public-header"
 
-export default function ForgotPasswordPage() {
-  return <AuthForm mode="forgot" />
+export default async function ForgotPasswordPage() {
+  const locale = await requestPublicLocale()
+  return <><PublicHeader locale={locale} current="forgot" /><AuthForm locale={locale} mode="forgot" /></>
 }

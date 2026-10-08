@@ -69,7 +69,7 @@ export async function runAutomationJob(id:number,now=Math.floor(Date.now()/1000)
   if(job.action==='reply'&&targetId&&state?.connected&&mode!=='observe') {
     try{await verifyOfficialReplyEligibility(account,targetId,clock(),client);}catch{if(mode==='auto')demoteForAutomaticFailure({draftId:draft.id,accountId:account.id,action:job.action as 'post'|'repost'|'reply'},'auth uncertainty',clock());return {ok:false,job:getJob(id),reason:'Official reply evidence could not be read; no publication attempted'};}
   }
-  const evidence={...policyControls(),action:job.action,automatic:mode==='auto',mode,accountId:account.id,now,text:draft.text,
+  const evidence={...policyControls(),action:job.action,automatic:mode==='auto',mode,accountId:account.id,now:clock(),text:draft.text,
    grantConnected:Boolean(state?.connected),capabilities:state?.scopes.includes('tweet.write')?['post','repost','reply']:[],
    humanApproved:getApprovalSnapshotSource('automation_job',job.id)==='human',consent:consent||undefined,targetId,
    sourceText:post?.text,clusterId:post?.clusterKey,sourceHandle:post?.sourceHandle,sensitive:post?.sensitive,

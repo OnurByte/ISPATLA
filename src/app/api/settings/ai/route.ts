@@ -1,25 +1,33 @@
 import { withUser } from "@/server/request-auth";
 import { NextResponse } from "next/server";
-import { detectCodex, getAiSettings, getCompatibleSettings, isAiEnabled, modelOptions, setAiEnabled, setAiSettings, setCompatibleSettings } from "@/server/ai";
+import { aiModelCapabilities, canUseCodexProvider, codexCapabilityForCurrentContext, getAiSettings, getCompatibleSettings, isAiEnabled, modelOptions, setAiEnabled, setAiSettings, setCompatibleSettings } from "@/server/ai";
+import { getAiBudgetStatus, getUsageSummary, setSetting } from "@/server/db";
 import { guardMutation, readJsonBody } from "@/server/api-guard";
 import { secretOrEnv } from "@/server/vault";
 
 export const runtime = "nodejs";
 
 function payload() {
+  const date = new Date();
+  const monthStart = Math.floor(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1) / 1000);
   const settings = getAiSettings();
-  const codex = detectCodex();
+  const codexAllowed = canUseCodexProvider();
+  const codex = codexCapabilityForCurrentContext();
   const apiConfigured = Boolean(secretOrEnv("openai_api_key", "OPENAI_API_KEY"));
   const compatibleConfigured = Boolean(secretOrEnv("compatible_api_key", "AI_COMPATIBLE_API_KEY"));
   return {
     settings,
     enabled: isAiEnabled(),
-    configured: settings.provider === "codex" ? codex.authenticated : settings.provider === "compatible" ? Boolean(settings.model && getCompatibleSettings().baseUrl && compatibleConfigured) : apiConfigured,
+    configured: settings.provider === "codex" ? codex.authenticated : settings.provider === "compatible" ? Boolean(settings.model && getCompatibleSettings().baseUrl && compatibleConfigured && aiModelCapabilities("compatible", settings.model)) : apiConfigured,
     apiConfigured,
     compatibleConfigured,
+    compatibleCapabilityVerified: settings.provider === "compatible" && Boolean(aiModelCapabilities("compatible", settings.model)),
     compatible: getCompatibleSettings(),
-    models: { api: modelOptions("api"), compatible: modelOptions("compatible"), codex: modelOptions("codex") },
+    models: { api: modelOptions("api"), compatible: modelOptions("compatible"), codex: codexAllowed ? modelOptions("codex") : [] },
     codex,
+    codexAllowed,
+    budget: getAiBudgetStatus(),
+    usage: getUsageSummary(monthStart),
   };
 }
 
@@ -39,7 +47,11 @@ async function PUTHandler(request: Request) {
   try {
     const current = getAiSettings();
     if ("provider" in body || "model" in body) {
-      setAiSettings(String(body.provider ?? current.provider), String(body.model ?? current.model));
+      const provider = String(body.provider ?? current.provider);
+      if (provider === "codex" && !canUseCodexProvider()) {
+        return NextResponse.json({ error: "Codex CLI is unavailable in this production context." }, { status: 403 });
+      }
+      setAiSettings(provider, String(body.model ?? current.model));
     }
     if ("enabled" in body) {
       if (typeof body.enabled !== "boolean") throw new Error("AI enabled değeri boolean olmalı");
@@ -48,6 +60,12 @@ async function PUTHandler(request: Request) {
     if ("compatibleBaseUrl" in body || "compatibleName" in body) {
       const currentCompatible = getCompatibleSettings();
       setCompatibleSettings(String(body.compatibleBaseUrl ?? currentCompatible.baseUrl), String(body.compatibleName ?? currentCompatible.name));
+    }
+    for (const [field, setting] of [["dailyBudgetUsd", "ai_daily_budget_usd"], ["monthlyBudgetUsd", "ai_monthly_budget_usd"]] as const) {
+      if (!(field in body)) continue;
+      const value = typeof body[field] === "number" ? body[field] : Number(body[field]);
+      if (!Number.isFinite(value) || value < 0 || value > 1_000_000) throw new Error("Bütçe 0 ile 1.000.000 USD arasında olmalı; 0 sınırsızdır.");
+      setSetting(setting, String(value), Math.floor(Date.now() / 1000));
     }
     return NextResponse.json(payload());
   } catch (error) {

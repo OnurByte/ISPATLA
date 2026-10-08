@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { BadgeCheck, Save, Trash2, UserRound } from "lucide-react";
+import Link from "next/link";
+import { ArrowDown, ArrowUp, BadgeCheck, RefreshCw, Save, Trash2, UserRound } from "lucide-react";
 import type { Account, CategoryDefinition } from "@/server/db";
+import type { InferenceResult } from "@/server/account-inference";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -82,14 +84,118 @@ export function AccountsPage({ initial, ideologies, categories, connections, pol
   const [message, setMessage] = useState(connectionResult === "failed" ? "X bağlantısı tamamlanamadı. İzinleri yeniden deneyin."
     : connectionResult === "connected" && initialSelected ? `@${initialSelected.handle} X hesabı bağlandı. Hesap ayarlarınız korundu.` : "");
   const [pending, setPending] = useState(false);
+  const [inference, setInference] = useState<InferenceResult | null>(null);
+  const [selectedSuggestions, setSelectedSuggestions] = useState<number[]>([]);
+  const [categoryWeights, setCategoryWeights] = useState<Record<number, number>>({});
+  const [manualCategoryId, setManualCategoryId] = useState("");
+  const [inferenceMessage, setInferenceMessage] = useState(connectionResult === "connected" ? "Hesap konu önerileri arka planda hazırlanıyor." : "");
+  const [inferencePending, setInferencePending] = useState(false);
+  const [inferenceAccepted, setInferenceAccepted] = useState(false);
 
   useEffect(() => {
     if (window.location.search.includes("connection=")) window.history.replaceState({}, "", window.location.pathname);
   }, []);
 
+  useEffect(() => {
+    const accountId = initialSelected?.id;
+    if (connectionResult !== "connected" || !accountId || draft.id !== accountId) return;
+    let cancelled = false;
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+    let attempts = 0;
+    const maxAttempts = 24;
+    const deadline = Date.now() + 120_000;
+    const poll = async () => {
+      attempts += 1;
+      try {
+        const response = await fetch(`/api/accounts/${accountId}/categories/inference`, {
+          cache: "no-store", signal: AbortSignal.timeout(Math.min(10_000, Math.max(1, deadline - Date.now()))),
+        });
+        const body = await response.json().catch(() => null) as { result?: InferenceResult } | null;
+        if (cancelled) return;
+        if (response.ok && body?.result) {
+          setInference(body.result);
+          setSelectedSuggestions(body.result.suggestions.map((item) => item.categoryId));
+          setCategoryWeights(Object.fromEntries(body.result.suggestions.map((item) => [item.categoryId, 1])));
+          setInferenceMessage("Hesap konu önerileri arka planda hazırlandı.");
+          return;
+        }
+      } catch { /* A later bounded poll can recover from a transient request failure. */ }
+      if (cancelled) return;
+      if (attempts >= maxAttempts || Date.now() >= deadline) {
+        setInferenceMessage("Konu analizi arka planda sürüyor. Önerileri daha sonra hesap ayarlarından yenileyebilirsin.");
+        return;
+      }
+      timeout = setTimeout(() => void poll(), Math.min(5_000, deadline - Date.now()));
+    };
+    void poll();
+    return () => { cancelled = true; if (timeout) clearTimeout(timeout); };
+  }, [connectionResult, initialSelected?.id, draft.id]);
+
+  useEffect(() => {
+    if (!draft.id || (connectionResult === "connected" && draft.id === initialSelected?.id)) return;
+    void loadInference(draft.id);
+  }, [draft.id, connectionResult, initialSelected?.id]);
+
+  async function loadInference(accountId: number, run = false, regenerate = false) {
+    setInferencePending(true); setInferenceMessage("");
+    try {
+      if (run) {
+        const response = await fetch(`/api/accounts/${accountId}/categories/inference`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ regenerate }) });
+        const body = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(body.error || "Hesap analizi yapılamadı.");
+        setInference(body as InferenceResult);
+        setSelectedSuggestions((body as InferenceResult).suggestions.map((item) => item.categoryId));
+        setCategoryWeights(Object.fromEntries((body as InferenceResult).suggestions.map((item) => [item.categoryId, 1])));
+      } else {
+        const response = await fetch(`/api/accounts/${accountId}/categories/inference`, { cache: "no-store" });
+        const body = await response.json().catch(() => null) as { result?: InferenceResult } | null;
+        setInference(body?.result || null);
+        setSelectedSuggestions(body?.result?.suggestions.map((item) => item.categoryId) || []);
+        setCategoryWeights(Object.fromEntries((body?.result?.suggestions || []).map((item) => [item.categoryId, 1])));
+      }
+    } catch (error) { setInferenceMessage(error instanceof Error ? error.message : "Hesap analizi yapılamadı."); }
+    finally { setInferencePending(false); }
+  }
+
+  async function acceptSuggestions() {
+    if (!draft.id || !inference) return;
+    setInferencePending(true); setInferenceMessage("");
+    try {
+      const response = await fetch(`/api/accounts/${draft.id}/categories`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ categoryIds: selectedSuggestions, weights: categoryWeights }) });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body.error || "Konular kaydedilemedi.");
+      setInference(null);
+      setInferenceAccepted(true);
+      const next = await fetch("/api/accounts", { cache: "no-store" }).then((item) => item.json() as Promise<AccountPageData[]>);
+      setAccounts(next);
+      const saved = next.find((item) => item.id === draft.id);
+      if (saved) setDraft(accountDraft(saved));
+      setInferenceMessage("Konular ve başlangıç tercihleri kaydedildi. Yayın izinlerin değişmedi.");
+    } catch (error) { setInferenceMessage(error instanceof Error ? error.message : "Konular kaydedilemedi."); }
+    finally { setInferencePending(false); }
+  }
+
+  function moveSuggestion(index: number, direction: -1 | 1) {
+    const next = [...selectedSuggestions];
+    const target = index + direction;
+    if (target < 0 || target >= next.length) return;
+    [next[index], next[target]] = [next[target], next[index]];
+    setSelectedSuggestions(next);
+  }
+
+  const categoryById = new Map(categories.map((category) => [category.id, category]));
+  const suggestedIds = inference?.suggestions.map((item) => item.categoryId) || [];
+  const orderedCategoryIds = [...selectedSuggestions, ...suggestedIds.filter((id) => !selectedSuggestions.includes(id))];
+  const availableManualCategories = categories.filter((category) => category.enabled && !selectedSuggestions.includes(category.id));
+
   function select(account: AccountPageData) {
     setDraft(accountDraft(account));
+    setInference(null);
+    setSelectedSuggestions([]);
+    setInferenceAccepted(false);
+    setInferenceMessage("");
     setMessage("");
+    if (account.id === draft.id) void loadInference(account.id);
   }
 
   function setValue<K extends keyof AccountDraft>(key: K, value: AccountDraft[K]) {
@@ -188,6 +294,29 @@ export function AccountsPage({ initial, ideologies, categories, connections, pol
           <>
           <XConnectionControls accountId={draft.id} initial={connections[draft.id] || null} policyVersion={policyVersion} copyVersion={copyVersion} />
           <Separator />
+          {inference || inferenceMessage ? <Card>
+            <CardHeader><CardTitle>Senin için hazırladığımız konular</CardTitle><CardDescription>Öneriler hesap adından, kendi herkese açık gönderilerinden ve varsa yazdığın nişten çıkarılır. X bağlantısı yayın izni vermez.</CardDescription></CardHeader>
+            <CardContent className="flex flex-col gap-3">
+              {inference?.status === "insufficient_evidence" ? <p className="text-sm text-muted-foreground">Yeterli konu sinyali bulamadık. Hesap nişini aşağıdaki alana kendin yazabilirsin.</p> : null}
+              {inference?.status === "ready" && inference.suggestions.length === 0 ? <p className="text-sm text-muted-foreground">Bekleyen öneri kalmadı. İstersen hesabını yeniden analiz edebilirsin.</p> : null}
+              {orderedCategoryIds.map((categoryId) => {
+                const suggestion = inference?.suggestions.find((item) => item.categoryId === categoryId);
+                const category = categoryById.get(categoryId);
+                if (!category) return null;
+                const selectedIndex = selectedSuggestions.indexOf(categoryId);
+                return <div key={categoryId} className="flex flex-wrap items-center gap-3 rounded-md border p-3">
+                  <input aria-label={`${category.name} önerisini seç`} type="checkbox" checked={selectedIndex >= 0} onChange={(event) => setSelectedSuggestions((current) => event.target.checked ? [...current, categoryId] : current.filter((id) => id !== categoryId))} />
+                  <div className="min-w-0 flex-1"><p className="font-medium">{category.name}</p><p className="text-xs text-muted-foreground">{suggestion ? `Eşleşen ifadeler: ${suggestion.evidence.join(", ")} · Eşleşme gücü %${Math.round(suggestion.confidence * 100)}` : "Senin eklediğin konu"}</p></div>
+                  {selectedIndex >= 0 ? <><label className="flex items-center gap-2 text-xs">Ağırlık <input type="range" min="0" max="10" step="0.5" value={categoryWeights[categoryId] ?? 1} onChange={(event) => setCategoryWeights((current) => ({ ...current, [categoryId]: Number(event.target.value) }))} aria-label={`${category.name} ağırlığı`} /></label><Button type="button" size="icon" variant="ghost" aria-label={`${category.name} yukarı taşı`} disabled={selectedIndex === 0} onClick={() => moveSuggestion(selectedIndex, -1)}><ArrowUp aria-hidden="true" /></Button><Button type="button" size="icon" variant="ghost" aria-label={`${category.name} aşağı taşı`} disabled={selectedIndex === selectedSuggestions.length - 1} onClick={() => moveSuggestion(selectedIndex, 1)}><ArrowDown aria-hidden="true" /></Button></> : null}
+                </div>;
+              })}
+              {availableManualCategories.length ? <div className="flex gap-2"><select value={manualCategoryId} onChange={(event) => setManualCategoryId(event.target.value)} aria-label="Başka konu ekle" className="min-w-0 flex-1 rounded-md border bg-transparent px-3 py-2 text-sm"><option value="">Başka konu ekle</option>{availableManualCategories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select><Button type="button" variant="outline" disabled={!manualCategoryId} onClick={() => { const id = Number(manualCategoryId); setSelectedSuggestions((current) => [...current, id]); setCategoryWeights((current) => ({ ...current, [id]: 1 })); setManualCategoryId(""); }}>Ekle</Button></div> : null}
+              {inference?.contentLanguage && inference.contentLanguage !== "unknown" ? <p className="text-sm text-muted-foreground">İçerik dili önerisi: {inference.contentLanguage}</p> : null}
+              {draft.id && <div className="flex flex-wrap gap-2">{inference && (inference.suggestions.length > 0 || selectedSuggestions.length > 0) ? <Button type="button" onClick={acceptSuggestions} disabled={inferencePending}><Save data-icon="inline-start" aria-hidden="true" /> Konularımı kullan</Button> : null}<Button type="button" variant="outline" onClick={() => void loadInference(draft.id!, true, true)} disabled={inferencePending}><RefreshCw data-icon="inline-start" aria-hidden="true" /> Yeniden öner</Button></div>}
+              {inferenceMessage ? <p role="status" className="text-sm text-muted-foreground">{inferenceMessage}</p> : null}
+              {inferenceAccepted ? <Link className="text-sm font-medium text-primary underline-offset-4 hover:underline" href="/app/opportunities">İlk fırsatını gör</Link> : null}
+            </CardContent>
+          </Card> : null}
           <div className="flex flex-wrap items-center gap-2 text-sm"><Badge variant="secondary">@{draft.handle}</Badge><span className="text-muted-foreground">{draft.displayName}</span></div>
           <FieldGroup>
             <div className="grid gap-5 sm:grid-cols-2">

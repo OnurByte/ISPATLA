@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowUpRight, BrainCircuit, FilePenLine, RefreshCw, Sparkles } from "lucide-react";
@@ -10,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
+import { BrandMark } from "@/components/brand-logo";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
@@ -64,7 +66,7 @@ function OpportunityCard({ item, accountId, pending, onGenerate }: { item: Marke
   const photo = safePhoto(item.mediaJson);
   const canGenerate = item.decision === "opportunity";
   return <Card size="sm" className="transition-colors hover:border-primary/40">
-    {photo ? <img src={photo} alt="Kaynak gönderi görseli" className="max-h-72 w-full object-cover" loading="lazy" /> : null}
+    {photo ? <Image src={photo} alt="Kaynak gönderi görseli" width={800} height={500} unoptimized className="max-h-72 w-full object-cover" loading="lazy" /> : null}
     <CardHeader className="gap-2">
       <div className="flex min-w-0 flex-col gap-1">
         <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
@@ -142,7 +144,7 @@ export function MarketPage({ initial, accounts }: { initial: MarketInbox; accoun
 
   const matchingAccounts = accounts.filter((account) => account.enabled && `${account.handle} ${account.displayName}`.toLocaleLowerCase("tr-TR").includes(accountSearch.toLocaleLowerCase("tr-TR")));
   const [emptyTitle, emptyDescription] = emptyState(view);
-  const list = (items: MarketItem[]) => items.length ? <div className="grid gap-3">{items.map((item) => <OpportunityCard key={item.externalId} item={item} accountId={accountId} pending={pendingAction} onGenerate={generate} />)}</div> : <Empty className="border border-dashed py-12"><EmptyHeader><EmptyTitle>{emptyTitle}</EmptyTitle><EmptyDescription>{emptyDescription}</EmptyDescription></EmptyHeader></Empty>;
+  const list = (items: MarketItem[]) => items.length ? <div className="grid gap-3">{items.map((item) => <OpportunityCard key={item.externalId} item={item} accountId={accountId} pending={pendingAction} onGenerate={generate} />)}</div> : <Empty className="border border-dashed py-12"><BrandMark size={64} className="mx-auto" /><EmptyHeader><EmptyTitle>{emptyTitle}</EmptyTitle><EmptyDescription>{emptyDescription}</EmptyDescription></EmptyHeader></Empty>;
 
   return <div className="flex flex-col gap-5">
     <Alert><BrainCircuit aria-hidden="true" /><AlertDescription>Fırsat, son 24 saatte oluşturulmuş; sensitive olmayan; işlenmemiş ve karar skoru ≥ 70 olan kaynak postudur. Hız ve takipçi oranı FxTwitter&apos;dan gelen gözlenen sayaçlardır; skor X&apos;in iç sıralaması veya erişim garantisi değildir.</AlertDescription></Alert>

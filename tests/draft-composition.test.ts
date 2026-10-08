@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   DRAFT_JEV_WEIGHT,
+  contentLocaleInstruction,
   draftAngles,
   draftCategoryFacet,
   formatRuleFor,
@@ -45,6 +46,14 @@ test("news keeps its factual lede while the other strategies lead with an angle"
   expect(writingContractFor("finance").angles[0].id).toBe("number_first");
   expect(writingContractFor("sports").strategy).toBe("sports");
   expect(writingContractFor("bilinmeyen").strategy).toBe("generic");
+});
+
+test("account content locale is applied only for supported locale codes", () => {
+  expect(contentLocaleInstruction("ja")).toContain("日本語");
+  expect(contentLocaleInstruction(["bad", "pt-BR", "en"])).toContain("Português (Brasil)");
+  expect(contentLocaleInstruction("pt-BR")).toContain("Português (Brasil)");
+  expect(contentLocaleInstruction("not-a-locale")).toBe("");
+  expect(contentLocaleInstruction(undefined)).toBe("");
 });
 
 test("every non-news contract bans the newsroom slop the account complained about", () => {
@@ -93,7 +102,7 @@ test("the category facet carries the mission and the bans, bounded", () => {
 test("the manual draft prompt carries the source post as delimited data", () => {
   const output = runIsolated(`
     import { ensureDatabase } from "./src/server/db.ts";
-    import { setAiSettings, setCompatibleSettings } from "./src/server/ai.ts";
+    import { setAiSettings, setCompatibleSettings, testAiConnection } from "./src/server/ai.ts";
     import { generateManualDraft } from "./src/server/pipeline.ts";
     if (!ensureDatabase()) throw new Error("database did not initialize");
     setCompatibleSettings("https://ai-gateway.example/v1", "Test");
@@ -102,10 +111,15 @@ test("the manual draft prompt carries the source post as delimited data", () => 
     let evidence = "";
     globalThis.fetch = (async (url, init) => {
       const body = JSON.parse(String(init.body));
+      const schemaName = body.response_format?.json_schema?.name;
+      if (schemaName === "ispatla_connection_test") {
+        return new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({ ok: true }) } }] }), { status: 200, headers: { "content-type": "application/json" } });
+      }
       instructions = body.messages[0].content;
       evidence = body.messages[1].content;
       return new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({ text: "Asıl mesele modelin 12 saniyelik gecikmesi." }) } }] }), { status: 200, headers: { "content-type": "application/json" } });
     });
+    await testAiConnection();
     const result = await generateManualDraft({
       prompt: "bu kaynağa göre bir post yaz",
       format: "post",
@@ -139,7 +153,7 @@ test("the manual draft prompt carries the source post as delimited data", () => 
 test("composeDraft fans out to three angled variants and marks exactly one winner", () => {
   const output = runIsolated(`
     import { ensureDatabase } from "./src/server/db.ts";
-    import { setAiSettings, setCompatibleSettings } from "./src/server/ai.ts";
+    import { setAiSettings, setCompatibleSettings, testAiConnection } from "./src/server/ai.ts";
     import { composeDraft } from "./src/server/pipeline.ts";
     if (!ensureDatabase()) throw new Error("database did not initialize");
     setCompatibleSettings("https://ai-gateway.example/v1", "Test");
@@ -148,7 +162,11 @@ test("composeDraft fans out to three angled variants and marks exactly one winne
     let call = 0;
     globalThis.fetch = (async (url, init) => {
       if (String(url).endsWith("/models")) return new Response(JSON.stringify({ data: [] }), { status: 200, headers: { "content-type": "application/json" } });
-      seen.push(JSON.parse(String(init.body)).messages[0].content);
+      const body = JSON.parse(String(init.body));
+      if (body.response_format?.json_schema?.name === "ispatla_connection_test") {
+        return new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({ ok: true }) } }] }), { status: 200, headers: { "content-type": "application/json" } });
+      }
+      seen.push(body.messages[0].content);
       call += 1;
       const texts = [
         "Kisa taslak ama yeterince uzun olmasi icin biraz daha metin var burada.",
@@ -157,6 +175,7 @@ test("composeDraft fans out to three angled variants and marks exactly one winne
       ];
       return new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({ text: texts[call - 1] || texts[0] }) } }] }), { status: 200, headers: { "content-type": "application/json" } });
     });
+    await testAiConnection();
     const result = await composeDraft({ prompt: "teknoloji postu", format: "post", baseStrategy: "technology", categorySlug: "technology" });
     if ("reason" in result) throw new Error(result.reason);
     console.log(JSON.stringify({

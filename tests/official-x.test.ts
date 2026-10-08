@@ -21,6 +21,15 @@ describe("Official X write client", () => {
     expect(seen.every(({ init }) => new Headers(init.headers).get("authorization") === "Bearer test-access-token")).toBe(true);
   });
 
+  test("reads only the authenticated account profile fields needed for personalization", async () => {
+    let seen = "";
+    const client = new OfficialXClient(async (input) => { seen = String(input); return ok({ id: credentials.xUserId, description: "Linux and open source" }); });
+    expect(await client.getOwnProfile(credentials)).toEqual({ id: credentials.xUserId, description: "Linux and open source" });
+    const url = new URL(seen);
+    expect(url.pathname).toBe("/2/users/me");
+    expect(url.searchParams.get("user.fields")).toBe("description,name,username,public_metrics");
+  });
+
   test("blocks unsummoned/manual replies and unverified quote capability before network access", async () => {
     let calls = 0;
     const client = new OfficialXClient(async () => { calls++; return ok({ id: "1", text: "x" }); });

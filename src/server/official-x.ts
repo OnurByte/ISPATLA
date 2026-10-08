@@ -224,6 +224,11 @@ export class OfficialXClient {
     return Array.isArray(result.data) ? result.data.filter((post): post is Record<string, unknown> => Boolean(post) && typeof post === "object") : [];
   }
 
+  async getOwnProfile(credentials: OfficialXCredentials): Promise<Record<string, unknown>> {
+    const result = await this.json(credentials, "/users/me?user.fields=description,name,username,public_metrics");
+    return result.data && typeof result.data === "object" ? result.data as Record<string, unknown> : {};
+  }
+
   /** Read bounded pages of the official reposted_by endpoint; only a returned user ID is positive evidence. */
   async getRepostedBy(credentials: OfficialXCredentials, postId: string, maxPages = 3): Promise<OfficialXRepostLookup> {
     const id = endpointId(postId, "post ID");

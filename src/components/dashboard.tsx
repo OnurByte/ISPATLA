@@ -3,7 +3,8 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { Activity, ArrowUpRight, Bot, CheckCircle2, CircleAlert, Database, ExternalLink, FileText, RefreshCw, Send, ShieldCheck, Sparkles, TimerReset } from "lucide-react";
-import type { DashboardSummary, RecentPost } from "@/server/db";
+import type { RecentPost } from "@/server/db";
+import type { DashboardView } from "@/server/dashboard";
 import { ActivityChart } from "@/components/activity-chart";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -13,11 +14,6 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/u
 import { Separator } from "@/components/ui/separator";
 import { Spinner } from "@/components/ui/spinner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-
-type DashboardView = Omit<DashboardSummary, "officialPublisherConfigured"> & {
-  officialPublisherConfigured: boolean;
-  officialX: { connectedAccounts: number; postWriteReadyAccounts: number; autoConsentedPostAccounts: number };
-};
 
 function formatAge(timestamp: number): string {
   if (!timestamp) return "—";
@@ -97,11 +93,11 @@ export function Dashboard({ initial }: { initial: DashboardView }) {
           <div className="flex max-w-3xl flex-col gap-4">
             <div className="flex items-center gap-3 text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
               <span className="inline-flex size-2 rounded-full bg-primary" />
-              Ispatla / signal room
+              İspatla / Senin masan
             </div>
             <div className="flex flex-col gap-2">
-              <h1 className="text-4xl font-semibold tracking-tight sm:text-5xl">Sinyali yakala. Hiti yap. Yayını kontrol et.</h1>
-              <p className="max-w-2xl text-base leading-7 text-muted-foreground">X sinyalleri → hesap dilinde özgün içerik → güvenlik kapıları → yayın ve doğrulama.</p>
+              <h1 className="text-4xl font-semibold tracking-tight sm:text-5xl">Bir sonraki gönderin burada başlar.</h1>
+              <p className="max-w-2xl text-base leading-7 text-muted-foreground">Konularına uygun fırsatları incele, taslağını kendi üslubunla düzenle ve yayın sonuçlarından öğren.</p>
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -116,16 +112,28 @@ export function Dashboard({ initial }: { initial: DashboardView }) {
 
         <section className="flex flex-col gap-4 rounded-xl border bg-muted/20 p-5 sm:flex-row sm:items-center sm:justify-between" aria-labelledby="first-step-title">
           <div className="max-w-3xl">
-            <div className="mb-2 flex items-center gap-2"><Badge variant="secondary">İlk adım · Shadow değerlendirme</Badge></div>
-            <h2 id="first-step-title" className="text-lg font-semibold">Önce sinyali gör, sonra yayın kararını ver.</h2>
-            <p className="mt-1 text-sm leading-6 text-muted-foreground">Fırsatları ve kaynak kanıtını X hesabı bağlamadan inceleyebilirsin. Draft performans puanı yalnız shadow tahminidir; X sonucu veya yayın garantisi değildir. Yayın kuyruğu ayrıca onay ister.</p>
+            <div className="mb-2 flex items-center gap-2"><Badge variant="secondary">{summary.officialX.connectedAccounts ? "Sıradaki adım" : "Hoş geldin"}</Badge></div>
+            <h2 id="first-step-title" className="text-lg font-semibold">{!summary.officialX.connectedAccounts ? "Hesabını bağla, konularını birlikte bulalım." : !summary.aiConfigured ? "Taslak hazırlamak için kendi AI sağlayıcını bağla." : "İlk fırsatını seç ve taslağını hazırla."}</h2>
+            <p className="mt-1 text-sm leading-6 text-muted-foreground">{!summary.officialX.connectedAccounts ? "İzin verdiğin profil ve gönderilerinden konu önerileri hazırlanır. Tercihlerini sen onaylarsın; hesap bağlantısı otomatik yayın izni vermez." : !summary.aiConfigured ? "AI anahtarın yalnızca senin isteklerinde kullanılır. Sağlayıcı hazır olduğunda gerçek bir kaynak üzerinden taslak oluşturabilirsin." : "Kaynak bağlantısı ve hesap uyumunu incele. Tahmini performans puanı yayın sonucu değildir; yayınlamak için ayrıca onay vermen gerekir."}</p>
           </div>
-          <Link href="/app/opportunities" className={buttonVariants({ variant: "outline", className: "shrink-0" })}>
-            Fırsatları incele <ArrowUpRight data-icon="inline-end" aria-hidden="true" />
+          <Link href={!summary.officialX.connectedAccounts ? "/app/accounts" : !summary.aiConfigured ? "/app/settings/keys" : "/app/opportunities"} className={buttonVariants({ variant: "outline", className: "shrink-0" })}>
+            {!summary.officialX.connectedAccounts ? "Hesabımı bağla" : !summary.aiConfigured ? "AI ayarlarını aç" : "Fırsatları incele"} <ArrowUpRight data-icon="inline-end" aria-hidden="true" />
           </Link>
         </section>
 
-        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4" aria-label="Özet metrikler">
+        <section className="grid gap-4 sm:grid-cols-2" aria-label="İçeriklerin ve bağlantıların">
+          <MetricCard icon={Sparkles} label="Senin için fırsatlar" value={summary.opportunities} detail="Kaynak ve uygunluk kanıtını incele" href="/app/opportunities" />
+          <MetricCard icon={Send} label="Yayın sonuçların" value={summary.publishedConfirmed} detail="Yayın makbuzu doğrulandı; performans metrikleri ayrıca gözlenir" href="/app/analytics" />
+          <MetricCard icon={Bot} label="AI sağlayıcın" value={!summary.aiEnabled ? "Kapalı" : summary.aiConfigured ? "Yapılandırıldı" : "Bağlantı gerekli"} detail="Kendi anahtarını yönet ve bağlantıyı test et" href="/app/settings/keys" />
+          <MetricCard icon={ShieldCheck} label="Bağlı X hesapların" value={summary.officialX.connectedAccounts} detail="Bağlantı, konular ve izinlerini yönet" href="/app/accounts" />
+        </section>
+        <Card><CardHeader><CardTitle>Taslakların</CardTitle><CardDescription>Son üç taslağın. Düzenlemek ve yayına hazırlamak için taslak masanı aç.</CardDescription></CardHeader><CardContent className="space-y-4">
+          {summary.recentDrafts.length ? <ul className="divide-y">{summary.recentDrafts.map((draft) => <li key={draft.id} className="py-3"><Link href="/app/drafts" className="line-clamp-2 text-sm leading-6 hover:underline">{draft.text}</Link></li>)}</ul> : <p className="text-sm text-muted-foreground">Henüz taslağın yok. Bir fırsat seçebilir veya kendi fikrinden başlayabilirsin.</p>}
+          <Link href="/app/drafts" className={buttonVariants({ variant: "outline" })}>Taslak masamı aç <ArrowUpRight data-icon="inline-end" aria-hidden="true" /></Link>
+        </CardContent></Card>
+        <Card><CardHeader><CardTitle>Hesabının gelişimi</CardTitle><CardDescription>Hesap bazında ölçümleri ve zaman içindeki değişimi incele. Kaynak gönderilerin hareketi, kendi hesabının büyümesi olarak gösterilmez.</CardDescription></CardHeader><CardContent><Link href="/app/analytics" className={buttonVariants({ variant: "outline" })}>Hesap analizini aç <ArrowUpRight data-icon="inline-end" aria-hidden="true" /></Link></CardContent></Card>
+        <details className="rounded-xl border p-5"><summary className="cursor-pointer font-medium">Gelişmiş analiz ve çalışma durumu</summary><div className="mt-6 flex flex-col gap-6">
+        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4" aria-label="Teknik metrikler">
           <MetricCard icon={Database} label="Kaynaklar" value={`${summary.sourcesObserved}/${summary.sourcesConfigured}`} detail="Enabled config / state içinde görülen" />
           <MetricCard icon={Activity} label="Gözlenen post" value={summary.postsObserved} detail={`${summary.postsLast24h} son 24 saatte`} />
           <MetricCard icon={Sparkles} label="Fırsatlar" value={summary.opportunities} detail="Skor ≥ 70, sensitive değil · listeyi aç" href="/app/opportunities" />
@@ -221,6 +229,7 @@ export function Dashboard({ initial }: { initial: DashboardView }) {
             </CardContent>
           </Card>
         </section>
+        </div></details>
       </div>
     </div>
   );

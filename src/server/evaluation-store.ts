@@ -77,6 +77,9 @@ export function ensureEvaluationStore(): true {
   for (const [table,column] of [["autonomy_suggestions","model_key"],["autonomy_suggestions","selector_version"],["scoped_autonomy","model_key"],["scoped_autonomy","selector_version"]] as const) {
     if (!rows<{name:string}>(`PRAGMA table_info(${table});`).some(row=>row.name===column)) exec(`ALTER TABLE ${table} ADD COLUMN ${column} TEXT;`);
   }
+  for (const [column,type] of [["followers_count","INTEGER"],["followers_observed_at","INTEGER"],["followers_x_user_id","TEXT"],["followers_provenance_ref","TEXT"]] as const) {
+    if (!rows<{name:string}>("PRAGMA table_info(evaluation_outcome_revisions);").some(row=>row.name===column)) exec(`ALTER TABLE evaluation_outcome_revisions ADD COLUMN ${column} ${type};`);
+  }
   ready = true;
   return true;
 }
@@ -141,33 +144,35 @@ export function listDueUnresolvedPredictions(now: number, limit = 100, filter:{a
   return rows<Record<string,unknown>>(`SELECT p.* FROM evaluation_predictions p WHERE ${where.join(" AND ")} ORDER BY p.resolve_by,p.id LIMIT ${limit};`).map(mapPrediction);
 }
 
-export type DuePublicationOutcome = { prediction: EvaluationPrediction; accountId: number; remoteReceipt: string; remoteUrl: string };
+export type DuePublicationOutcome = { prediction: EvaluationPrediction; accountId: number; remoteReceipt: string; remoteUrl: string; observationWindow:"day"|"resolved" };
 /** Owner-scoped confirmed publications ready for official metric capture. Filter before LIMIT so old rejected/unmatched predictions cannot starve eligible rows. */
 export function listDuePublicationOutcomes(now: number, limit = 100): DuePublicationOutcome[] {
   ensureEvaluationStore(); const owner = requireEvaluationOwner();
   if (!Number.isInteger(limit) || limit < 1 || limit > 500) throw new Error("limit must be between 1 and 500");
-  const matches = rows<Record<string, unknown>>(`SELECT p.*, i.account_id AS intent_account_id, i.receipt AS remote_receipt, i.remote_url AS remote_url
+  const matches = rows<Record<string, unknown>>(`SELECT p.*, i.account_id AS intent_account_id, i.receipt AS remote_receipt, i.remote_url AS remote_url, CASE WHEN i.confirmed_at+108000>=${num(now)} THEN 'day' ELSE 'resolved' END AS observation_window
     FROM evaluation_predictions p
     JOIN drafts d ON d.owner_user_id=p.owner_user_id
     JOIN publication_intents i ON i.draft_id=d.id AND i.account_id=CAST(p.account_id AS INTEGER)
-      AND i.status='confirmed' AND i.confirmed_at IS NOT NULL AND i.confirmed_at+1209600<=${num(now)}
+      AND i.status='confirmed' AND i.confirmed_at IS NOT NULL AND i.confirmed_at+86400<=${num(now)}
       AND p.created_at<=i.requested_at
     JOIN publication_approval_snapshots s ON s.id=i.approval_snapshot_id AND s.entity_type='publication_intent'
       AND s.entity_id=i.id AND s.draft_id=d.id AND s.account_id=i.account_id
       AND s.external_id=json_extract(p.features_json,'$.sourceCandidateId')
       AND s.text=i.text AND s.action='post' AND s.approved_at>=p.created_at AND s.expires_at>=COALESCE(i.dispatched_at,i.confirmed_at)
     JOIN accounts a ON a.id=i.account_id AND a.owner_user_id=p.owner_user_id
-    WHERE p.owner_user_id=${quote(owner)} AND p.resolve_by<=${num(now)} AND json_extract(p.features_json,'$.decision')='eligible'
+    WHERE p.owner_user_id=${quote(owner)} AND json_extract(p.features_json,'$.decision')='eligible'
       AND NOT EXISTS(SELECT 1 FROM evaluation_labels l WHERE l.owner_user_id=p.owner_user_id AND l.prediction_id=p.id)
-      AND NOT EXISTS(SELECT 1 FROM evaluation_outcome_revisions o WHERE o.owner_user_id=p.owner_user_id AND o.prediction_id=p.id)
+      AND ((i.confirmed_at+108000>=${num(now)} AND NOT EXISTS(SELECT 1 FROM evaluation_outcome_revisions o WHERE o.owner_user_id=p.owner_user_id AND o.prediction_id=p.id))
+        OR (i.confirmed_at+1209600<=${num(now)} AND p.resolve_by<=${num(now)} AND NOT EXISTS(SELECT 1 FROM evaluation_outcome_revisions o WHERE o.owner_user_id=p.owner_user_id AND o.prediction_id=p.id AND o.observed_at>=i.confirmed_at+1209600)))
       AND NOT EXISTS(SELECT 1 FROM evaluation_predictions newer WHERE newer.owner_user_id=p.owner_user_id
         AND newer.account_id=p.account_id AND json_extract(newer.features_json,'$.sourceCandidateId')=json_extract(p.features_json,'$.sourceCandidateId')
         AND json_extract(newer.features_json,'$.decision')='eligible' AND newer.created_at>p.created_at AND newer.created_at<=i.requested_at)
-    ORDER BY i.confirmed_at,p.resolve_by,p.id LIMIT ${limit};`);
-  return matches.map((row) => ({ prediction: mapPrediction(row), accountId: Number(row.intent_account_id), remoteReceipt: String(row.remote_receipt || ""), remoteUrl: String(row.remote_url || "") }));
+    ORDER BY CASE WHEN i.confirmed_at+108000>=${num(now)} THEN 0 ELSE 1 END,i.confirmed_at,p.resolve_by,p.id LIMIT ${limit};`);
+  return matches.map((row) => ({ prediction: mapPrediction(row), accountId: Number(row.intent_account_id), remoteReceipt: String(row.remote_receipt || ""), remoteUrl: String(row.remote_url || ""), observationWindow:row.observation_window as "day"|"resolved" }));
 }
 
-export type XOutcomeInput = { predictionId: string; capturedAt: number; observedAt: number; metrics: { views:number|null;likes:number|null;replies:number|null;reposts:number|null;quotes:number|null }; censored?: string[]; source:"official_x_api"|"human_review"; provenanceRef:string };
+export type OfficialFollowerEvidence = { count:number; observedAt:number; xUserId:string; provenanceRef:string };
+export type XOutcomeInput = { predictionId: string; capturedAt: number; observedAt: number; metrics: { views:number|null;likes:number|null;replies:number|null;reposts:number|null;quotes:number|null }; censored?: string[]; followersEvidence?:OfficialFollowerEvidence|null; source:"official_x_api"|"human_review"; provenanceRef:string };
 export function appendObservedOutcome(input: XOutcomeInput): number {
   ensureEvaluationStore(); const owner=requireEvaluationOwner(); const prediction=getEvaluationPrediction(input.predictionId);
   if (!prediction) throw new Error("prediction not found for owner");
@@ -175,16 +180,21 @@ export function appendObservedOutcome(input: XOutcomeInput): number {
   const allowed=new Set(["views","likes","replies","reposts","quotes"]); if ((input.censored||[]).some(x=>!allowed.has(x))) throw new Error("unknown censored metric");
   for(const [key,value] of Object.entries(input.metrics)) if(value!==null&&(!Number.isFinite(value)||value<0)) throw new Error(`invalid ${key} outcome`);
   if(input.observedAt<prediction.createdAt || input.capturedAt<input.observedAt) throw new Error("outcome chronology is invalid");
+  const followers=input.followersEvidence;
   return tx(() => {
+  if (followers) {
+    const account=rows<{x_user_id:string|null}>(`SELECT x_user_id FROM x_oauth_accounts WHERE account_id=${quote(prediction.accountId)} AND owner_user_id=${quote(owner)};`)[0];
+    if(input.source!=="official_x_api" || !Number.isSafeInteger(followers.count) || followers.count<0 || followers.observedAt!==input.observedAt || !/^\d+$/.test(followers.xUserId) || account?.x_user_id!==followers.xUserId || followers.provenanceRef!==`official_x_user:${prediction.accountId}:${followers.xUserId}`) throw new Error("invalid official follower evidence");
+  }
   const previous=rows<{captured_at:number;observed_at:number}>(`SELECT captured_at,observed_at FROM evaluation_outcome_revisions WHERE owner_user_id=${quote(owner)} AND prediction_id=${quote(input.predictionId)} ORDER BY captured_at DESC,id DESC LIMIT 1;`)[0];
   if(previous&&(input.capturedAt<=previous.captured_at||input.observedAt<previous.observed_at)) throw new Error("outcome revisions must append in observed and captured time order");
-  exec(`INSERT INTO evaluation_outcome_revisions(owner_user_id,prediction_id,captured_at,observed_at,views,likes,replies,reposts,quotes,censored_json,source,provenance_ref) VALUES (${quote(owner)},${quote(input.predictionId)},${num(input.capturedAt)},${num(input.observedAt)},${input.metrics.views===null?"NULL":num(input.metrics.views)},${input.metrics.likes===null?"NULL":num(input.metrics.likes)},${input.metrics.replies===null?"NULL":num(input.metrics.replies)},${input.metrics.reposts===null?"NULL":num(input.metrics.reposts)},${input.metrics.quotes===null?"NULL":num(input.metrics.quotes)},${obj(input.censored||[])},${quote(input.source)},${quote(input.provenanceRef)});`);
+  exec(`INSERT INTO evaluation_outcome_revisions(owner_user_id,prediction_id,captured_at,observed_at,views,likes,replies,reposts,quotes,censored_json,source,provenance_ref,followers_count,followers_observed_at,followers_x_user_id,followers_provenance_ref) VALUES (${quote(owner)},${quote(input.predictionId)},${num(input.capturedAt)},${num(input.observedAt)},${input.metrics.views===null?"NULL":num(input.metrics.views)},${input.metrics.likes===null?"NULL":num(input.metrics.likes)},${input.metrics.replies===null?"NULL":num(input.metrics.replies)},${input.metrics.reposts===null?"NULL":num(input.metrics.reposts)},${input.metrics.quotes===null?"NULL":num(input.metrics.quotes)},${obj(input.censored||[])},${quote(input.source)},${quote(input.provenanceRef)},${followers?num(followers.count):"NULL"},${followers?num(followers.observedAt):"NULL"},${followers?quote(followers.xUserId):"NULL"},${followers?quote(followers.provenanceRef):"NULL"});`);
   return Number(rows<{id:number}>("SELECT last_insert_rowid() AS id;")[0].id);
   });
 }
-export function listEvaluationOutcomes(predictionId:string):Array<{capturedAt:number;observedAt:number;metrics:{views:number|null;likes:number|null;replies:number|null;reposts:number|null;quotes:number|null};censored:string[];source:string;provenanceRef:string}> {
+export function listEvaluationOutcomes(predictionId:string):Array<{capturedAt:number;observedAt:number;metrics:{views:number|null;likes:number|null;replies:number|null;reposts:number|null;quotes:number|null};censored:string[];source:string;provenanceRef:string;followersEvidence:OfficialFollowerEvidence|null}> {
   ensureEvaluationStore();const owner=requireEvaluationOwner();if(!getEvaluationPrediction(predictionId))throw new Error("prediction not found for owner");
-  return rows<Record<string,unknown>>(`SELECT * FROM evaluation_outcome_revisions WHERE owner_user_id=${quote(owner)} AND prediction_id=${quote(predictionId)} ORDER BY captured_at,id;`).map(row=>({capturedAt:Number(row.captured_at),observedAt:Number(row.observed_at),metrics:{views:row.views==null?null:Number(row.views),likes:row.likes==null?null:Number(row.likes),replies:row.replies==null?null:Number(row.replies),reposts:row.reposts==null?null:Number(row.reposts),quotes:row.quotes==null?null:Number(row.quotes)},censored:JSON.parse(String(row.censored_json)),source:String(row.source),provenanceRef:String(row.provenance_ref)}));
+  return rows<Record<string,unknown>>(`SELECT * FROM evaluation_outcome_revisions WHERE owner_user_id=${quote(owner)} AND prediction_id=${quote(predictionId)} ORDER BY captured_at,id;`).map(row=>({capturedAt:Number(row.captured_at),observedAt:Number(row.observed_at),metrics:{views:row.views==null?null:Number(row.views),likes:row.likes==null?null:Number(row.likes),replies:row.replies==null?null:Number(row.replies),reposts:row.reposts==null?null:Number(row.reposts),quotes:row.quotes==null?null:Number(row.quotes)},censored:JSON.parse(String(row.censored_json)),source:String(row.source),provenanceRef:String(row.provenance_ref),followersEvidence:row.followers_count==null?null:{count:Number(row.followers_count),observedAt:Number(row.followers_observed_at),xUserId:String(row.followers_x_user_id),provenanceRef:String(row.followers_provenance_ref)}}));
 }
 export type OutcomeLabel = "hit"|"miss"|"late_hit"|"wrong_account"|"wrong_format"|"policy_block"|"publisher_failure"|"cannibalization";
 export function adjudicateEvaluationPrediction(input:{predictionId:string;label:OutcomeLabel;reviewerRef:string;labeledAt:number}): void {

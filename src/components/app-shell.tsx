@@ -17,11 +17,18 @@ import {
   Users,
   Search,
   LogOut,
+  ShieldCheck,
+  UserRound,
+  Palette,
+  Trophy,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ModeToggle } from "@/components/mode-toggle";
+import { BrandLogo } from "@/components/brand-logo";
+import { LocaleSwitcher } from "@/i18n/locale-switcher";
+import { DEFAULT_LOCALE, localeFromPath, localizePath, stripLocalePrefix, type Locale } from "@/i18n/config";
+import { getDictionary } from "@/i18n/dictionaries";
 import {
   Sidebar,
   SidebarContent,
@@ -41,33 +48,12 @@ import {
 
 type NavItem = { href: string; label: string; icon: LucideIcon };
 
-const primaryNav: NavItem[] = [
-  { href: "/app", label: "Kontrol merkezi", icon: Gauge },
-  { href: "/app/opportunities", label: "Fırsatlar", icon: Sparkles },
-  { href: "/app/drafts", label: "Draft stüdyosu", icon: FileKey2 },
-  { href: "/app/queue", label: "Yayın kuyruğu", icon: Inbox },
-];
-
-const operationsNav: NavItem[] = [
-  { href: "/app/accounts", label: "Hesaplar", icon: Users },
-  { href: "/app/developer/x", label: "X timeline", icon: Search },
-  { href: "/app/sources", label: "Kaynaklar", icon: ListFilter },
-  { href: "/app/categories", label: "Kategoriler", icon: Tags },
-  { href: "/app/analytics", label: "Analytics", icon: BarChart3 },
-  { href: "/app/evaluation", label: "Karar değerlendirmesi", icon: ListFilter },
-];
-
-const settingsNav: NavItem[] = [
-  { href: "/app/settings/keys", label: "Key yönetimi", icon: KeyRound },
-  { href: "/app/settings/automation", label: "Otomasyon", icon: Bot },
-  { href: "/app/settings/style", label: "Stil profili", icon: Settings2 },
-];
-
 function isActive(pathname: string, href: string) {
   return href === "/app" ? pathname === href : pathname === href || pathname.startsWith(`${href}/`);
 }
 
-function SignOutButton() {
+function SignOutButton({ locale }: { locale: Locale }) {
+  const dict = getDictionary(locale);
   const router = useRouter();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
@@ -77,11 +63,11 @@ function SignOutButton() {
     setError("");
     try {
       const response = await fetch("/api/auth/sign-out", { method: "POST", credentials: "same-origin" });
-      if (!response.ok) throw new Error("Oturum kapatılamadı. Yeniden dene.");
-      router.replace("/");
+      if (!response.ok) throw new Error(dict.nav.signOutError);
+      router.replace(localizePath(locale, "/"));
       router.refresh();
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Oturum kapatılamadı. Yeniden dene.");
+      setError(caught instanceof Error ? caught.message : dict.nav.signOutError);
     } finally {
       setPending(false);
     }
@@ -89,7 +75,7 @@ function SignOutButton() {
 
   return <div className="space-y-1">
     <Button type="button" variant="ghost" className="w-full justify-start" onClick={() => void signOut()} disabled={pending}>
-      <LogOut data-icon="inline-start" aria-hidden="true" />{pending ? "Çıkış yapılıyor…" : "Çıkış yap"}
+      <LogOut data-icon="inline-start" aria-hidden="true" />{pending ? dict.nav.signOutPending : dict.nav.signOut}
     </Button>
     {error && <p className="px-2 text-xs text-destructive" role="alert">{error}</p>}
   </div>;
@@ -104,7 +90,7 @@ function NavGroup({ title, items, pathname }: { title: string; items: NavItem[];
           {items.map(({ href, label, icon: Icon }) => (
             <SidebarMenuItem key={href}>
               <SidebarMenuButton
-                isActive={isActive(pathname, href)}
+                isActive={isActive(stripLocalePrefix(pathname), stripLocalePrefix(href))}
                 tooltip={label}
                 render={<Link href={href} />}
               >
@@ -121,32 +107,57 @@ function NavGroup({ title, items, pathname }: { title: string; items: NavItem[];
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const locale = localeFromPath(pathname) ?? DEFAULT_LOCALE;
+  const dict = getDictionary(locale);
+  const routePathname = stripLocalePrefix(pathname);
+  const primaryNav: NavItem[] = [
+    { href: "/app", label: dict.nav.dashboard, icon: Gauge },
+    { href: "/app/opportunities", label: dict.nav.opportunities, icon: Sparkles },
+    { href: "/app/drafts", label: dict.nav.drafts, icon: FileKey2 },
+    { href: "/app/queue", label: dict.nav.queue, icon: Inbox },
+    { href: "/leaderboard", label: dict.nav.leaderboard, icon: Trophy },
+  ];
+  const operationsNav: NavItem[] = [
+    { href: "/app/accounts", label: dict.nav.accounts, icon: Users },
+    { href: "/app/developer/x", label: dict.nav.timeline, icon: Search },
+    { href: "/app/sources", label: dict.nav.sources, icon: ListFilter },
+    { href: "/app/categories", label: dict.nav.categories, icon: Tags },
+    { href: "/app/analytics", label: dict.nav.analytics, icon: BarChart3 },
+    { href: "/app/evaluation", label: dict.nav.evaluation, icon: ListFilter },
+  ];
+  const settingsNav: NavItem[] = [
+    { href: "/app/settings/keys", label: dict.nav.keys, icon: KeyRound },
+    { href: "/app/settings/automation", label: dict.nav.automation, icon: Bot },
+    { href: "/app/settings/style", label: dict.nav.style, icon: Settings2 },
+    { href: "/app/settings/profile", label: dict.nav.profile, icon: UserRound },
+    { href: "/app/settings/security", label: dict.nav.security, icon: ShieldCheck },
+    { href: "/app/settings/appearance", label: dict.nav.appearance, icon: Palette },
+  ];
+  const localized = (items: NavItem[]) => items.map((item) => ({ ...item, href: localizePath(locale, item.href) }));
 
   return (
     <SidebarProvider>
       <Sidebar collapsible="offcanvas">
         <SidebarHeader className="gap-3 p-4">
-          <div className="flex items-center gap-3">
-            <Avatar size="lg">
-              <AvatarFallback>İ</AvatarFallback>
-            </Avatar>
+          <div dir="ltr" className="flex items-center gap-3">
             <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-              <span className="font-semibold tracking-tight">Ispatla</span>
-              <span className="truncate text-xs text-sidebar-foreground/60">Araştırma ve yayın masası</span>
+              <BrandLogo />
+              <span dir="auto" className="truncate text-xs text-sidebar-foreground/60">{dict.nav.shellDescription}</span>
             </div>
             <ModeToggle />
           </div>
+          <LocaleSwitcher locale={locale} className="px-1" />
         </SidebarHeader>
 
         <SidebarContent>
-          <NavGroup title="Üretim" items={primaryNav} pathname={pathname} />
-          <NavGroup title="Operasyon" items={operationsNav} pathname={pathname} />
+          <NavGroup title={dict.nav.primary} items={localized(primaryNav)} pathname={routePathname} />
+          <NavGroup title={dict.nav.operations} items={localized(operationsNav)} pathname={routePathname} />
         </SidebarContent>
 
         <SidebarFooter className="gap-3 p-3">
           <SidebarSeparator />
-          <NavGroup title="Ayarlar" items={settingsNav} pathname={pathname} />
-          <SignOutButton />
+          <NavGroup title={dict.nav.settings} items={localized(settingsNav)} pathname={routePathname} />
+          <SignOutButton locale={locale} />
           <p className="px-2 pb-1 text-xs leading-5 text-sidebar-foreground/50">
             Kaynak → fırsat → draft → resmi X API → doğrulama
           </p>
@@ -155,8 +166,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
       <SidebarInset>
         <header className="sticky top-0 z-20 flex h-12 items-center gap-2 border-b bg-background/90 px-4 backdrop-blur md:hidden">
-          <SidebarTrigger aria-label="Menüyü aç" />
-          <span className="text-sm font-medium">Ispatla</span>
+          <SidebarTrigger aria-label={dict.nav.menuOpen} />
+          <BrandLogo />
         </header>
         {children}
       </SidebarInset>

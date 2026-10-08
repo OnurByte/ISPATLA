@@ -2,17 +2,38 @@
 
 import * as React from "react";
 
-type Theme = "light" | "dark" | "system";
-type ThemeContextValue = { theme: Theme; setTheme: (theme: Theme) => void };
-const ThemeContext = React.createContext<ThemeContextValue>({ theme: "system", setTheme: () => undefined });
+export type Theme = "light" | "dark" | "system";
+export type MotionPreference = "system" | "reduce";
+type ThemeContextValue = { theme: Theme; setTheme: (theme: Theme) => void; motion: MotionPreference; setMotion: (motion: MotionPreference) => void; storageAvailable: boolean };
+const ThemeContext = React.createContext<ThemeContextValue>({ theme: "system", setTheme: () => undefined, motion: "system", setMotion: () => undefined, storageAvailable: true });
+
+export function readAppearancePreferences(storage: Pick<Storage, "getItem">) {
+  try {
+    const theme = storage.getItem("theme");
+    const motion = storage.getItem("ispatla-motion");
+    return { theme: theme === "light" || theme === "dark" ? theme : "system", motion: motion === "reduce" ? "reduce" : "system", storageAvailable: true } as const;
+  } catch {
+    return { theme: "system", motion: "system", storageAvailable: false } as const;
+  }
+}
+
+export function persistAppearancePreference(storage: Pick<Storage, "setItem">, key: "theme" | "ispatla-motion", value: Theme | MotionPreference): boolean {
+  try { storage.setItem(key, value); return true; } catch { return false; }
+}
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setThemeState] = React.useState<Theme>("system");
+  const [motion, setMotionState] = React.useState<MotionPreference>("system");
+  const [storageAvailable, setStorageAvailable] = React.useState(true);
 
   React.useEffect(() => {
-    const stored = window.localStorage.getItem("theme");
+    let stored: ReturnType<typeof readAppearancePreferences>;
+    try { stored = readAppearancePreferences(window.localStorage); }
+    catch { stored = { theme: "system", motion: "system", storageAvailable: false }; }
     // eslint-disable-next-line react-hooks/set-state-in-effect -- hydrate the persisted client preference once.
-    if (stored === "light" || stored === "dark" || stored === "system") setThemeState(stored);
+    setThemeState(stored.theme);
+    setMotionState(stored.motion);
+    setStorageAvailable(stored.storageAvailable);
   }, []);
 
   React.useEffect(() => {
@@ -27,12 +48,26 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     return () => media.removeEventListener("change", apply);
   }, [theme]);
 
-  function setTheme(next: Theme) {
-    setThemeState(next);
-    window.localStorage.setItem("theme", next);
+  React.useEffect(() => {
+    document.documentElement.dataset.motion = motion;
+  }, [motion]);
+
+  function persist(key: "theme" | "ispatla-motion", value: Theme | MotionPreference) {
+    try { setStorageAvailable(persistAppearancePreference(window.localStorage, key, value)); }
+    catch { setStorageAvailable(false); }
   }
 
-  return <ThemeContext.Provider value={{ theme, setTheme }}>{children}</ThemeContext.Provider>;
+  function setTheme(next: Theme) {
+    setThemeState(next);
+    persist("theme", next);
+  }
+
+  function setMotion(next: MotionPreference) {
+    setMotionState(next);
+    persist("ispatla-motion", next);
+  }
+
+  return <ThemeContext.Provider value={{ theme, setTheme, motion, setMotion, storageAvailable }}>{children}</ThemeContext.Provider>;
 }
 
 export function useTheme(): ThemeContextValue {

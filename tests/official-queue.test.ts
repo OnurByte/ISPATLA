@@ -271,7 +271,7 @@ test("a complete repost lookup without the authenticated user becomes manual unk
   expect(result.reason).toContain("did not confirm this account");
 });
 
-test("official author mention creates audited eligibility before a queued reply can write",()=>{
+test("official author mention creates audited eligibility even when verification follows the scheduled clock",()=>{
  const result=JSON.parse(runIsolated(`${setup}
   const item=makeJob("post");
   const version=getXAccountAuthState(item.account.id,item.owner).consents.find(row=>row.action==="reply").version;
@@ -280,6 +280,7 @@ test("official author mention creates audited eligibility before a queued reply 
   const job=runAsOwner(item.owner,()=>createJob({draftId:draft.id,accountId:item.account.id,action:"reply",scheduledAt:now,now}));
   let reads=0,sends=0;
   const client={getPost:async(credentials,id)=>{reads++;return {id,author_id:"888881",entities:{mentions:[{id:credentials.xUserId}]}};},reply:async(credentials,input)=>{sends++;if(input.summonedBy!=="author_mention")throw Error("bad eligibility");return {id:"81234991",text:input.text};}} as unknown as OfficialXClient;
+  Date.now=()=> (now+2)*1000;
   const outcome=await runAsOwner(item.owner,()=>runAutomationJob(job.id,now,client));
   console.log(JSON.stringify({reads,sends,status:outcome.job.status}));
  `));
