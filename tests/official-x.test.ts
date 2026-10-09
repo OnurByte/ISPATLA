@@ -21,6 +21,34 @@ describe("Official X write client", () => {
     expect(seen.every(({ init }) => new Headers(init.headers).get("authorization") === "Bearer test-access-token")).toBe(true);
   });
 
+  test("reads only the authenticated account profile fields needed for personalization", async () => {
+    let seen = "";
+    const client = new OfficialXClient(async (input) => { seen = String(input); return ok({ id: credentials.xUserId, description: "Linux and open source" }); });
+    expect(await client.getOwnProfile(credentials)).toEqual({ id: credentials.xUserId, description: "Linux and open source" });
+    const url = new URL(seen);
+    expect(url.pathname).toBe("/2/users/me");
+    expect(url.searchParams.get("user.fields")).toBe("description,name,username,profile_image_url,public_metrics");
+  });
+
+  test("scans only the connected account timeline with bounded, capped post text", async () => {
+    let seen = "";
+    let authorization = "";
+    const client = new OfficialXClient(async (input, init = {}) => {
+      seen = String(input);
+      authorization = new Headers(init.headers).get("authorization") ?? "";
+      return ok([{ text: "Linux" }, { text: "x".repeat(4_500) }, { text: 42 }, {}]);
+    });
+    const posts = await client.getOwnTimeline(credentials, 10_000);
+    const url = new URL(seen);
+    expect(url.pathname).toBe("/2/users/12345/tweets");
+    expect(url.searchParams.get("max_results")).toBe("100");
+    expect(url.searchParams.get("tweet.fields")).toBe("created_at");
+    expect(authorization).toBe("Bearer test-access-token");
+    expect(posts).toHaveLength(2);
+    expect(posts[0]).toBe("Linux");
+    expect(posts[1]).toHaveLength(4_000);
+  });
+
   test("blocks unsummoned/manual replies and unverified quote capability before network access", async () => {
     let calls = 0;
     const client = new OfficialXClient(async () => { calls++; return ok({ id: "1", text: "x" }); });
@@ -92,20 +120,14 @@ describe("Official X write client", () => {
     expect(calls).toBe(1);
   });
 
-  test("classifies read 5xx as retryable and supports post/timeline reconciliation reads", async () => {
+  test("classifies read 5xx as retryable and supports exact post receipt reads", async () => {
     const actions: string[] = [];
     let client = new OfficialXClient(async (input) => { actions.push(String(input)); return new Response("{}", { status: 503 }); });
     await expect(client.getPost(credentials, "42")).rejects.toMatchObject({ code: "known_retryable", safeToRetry: true, remoteStateKnown: true });
-    client = new OfficialXClient(async (input) => {
-      actions.push(String(input));
-      if (String(input).includes("/tweets?")) return new Response(JSON.stringify({ data: [{ id: "2" }] }));
-      return ok({ id: "42", text: "confirmed" });
-    });
+    client = new OfficialXClient(async (input) => { actions.push(String(input)); return ok({ id: "42", text: "confirmed" }); });
     expect(await client.getPost(credentials, "42")).toMatchObject({ id: "42", text: "confirmed" });
-    expect(await client.getOwnTimeline(credentials, 500)).toEqual([{ id: "2" }]);
-    expect(actions.at(-2)).toContain("/2/tweets/42?");
-    expect(actions.at(-1)).toContain("max_results=100");
-    expect(actions.at(-1)).toContain("author_id,created_at");
+    expect(actions).toHaveLength(2);
+    expect(actions.at(-1)).toContain("/2/tweets/42?");
   });
 
   test("looks up authenticated user among bounded repost pages and leaves partial absence incomplete", async () => {

@@ -13,6 +13,7 @@ import {
   finishPublicationIntentLease,
   finishBudgetRun,
   getAccounts,
+  isOwnerEnabled,
   getApprovalSnapshotSource,
   getAccountCategoryConfigs,
   getDraft,
@@ -107,6 +108,7 @@ export async function dispatchPublicationIntent(id: number, options: DispatchPub
   const persistedAccount = getAccounts().find((item) => item.id === unscopedIntent.accountId);
   const ownerUserId = persistedAccount?.ownerUserId;
   if (!ownerUserId || (callerOwner && callerOwner !== ownerUserId)) throw new Error("publication intent owner context mismatch");
+  if (!isOwnerEnabled(ownerUserId)) throw new Error("publication intent owner is disabled");
   return runAsOwner(ownerUserId, () => dispatchPublicationIntentAsOwner(id, ownerUserId, options));
 }
 
@@ -114,6 +116,7 @@ async function dispatchPublicationIntentAsOwner(id: number, ownerUserId: string,
   const now = options.now || (() => Math.floor(Date.now() / 1000));
   const intent = getPublicationIntent(id);
   if (!intent) throw new Error("publication intent bulunamadı");
+  if (!isOwnerEnabled(ownerUserId)) throw new Error("publication intent owner is disabled");
   if (!(await import("./pipeline")).publishingEnabled()) throw new Error("publishing is paused");
   if (intent.status !== "approved") throw new Error(`publication intent ${intent.status} durumunda gönderilemez`);
   const draft = getDraft(intent.draftId);
@@ -137,7 +140,7 @@ async function dispatchPublicationIntentAsOwner(id: number, ownerUserId: string,
   }
   if (!authState?.connected || !consent || mode === "observe" || (mode === "auto" && consent.revokedAt !== null)) {
     if (mode === "auto") demoteAutomaticSafely({ draftId: draft.id, accountId: account.id, action: "post", reason: "auth_uncertainty", now: now() });
-    return updatePublicationIntent({ id, status: "blocked", reason: "current X connection and Assist/Auto post consent are required", now: now() })!;
+    return updatePublicationIntent({ id, status: "blocked", reason: "current 𝕏 connection and Assist/Auto post consent are required", now: now() })!;
   }
 
   const currentMediaHash = sourcePost && getSourceRights(sourcePost.sourceHandle) === "cleared" ? sha256(sourcePost.mediaJson) : "";
@@ -254,6 +257,7 @@ async function dispatchPublicationIntentAsOwner(id: number, ownerUserId: string,
             errorClass: "autonomy_unavailable", reason: "confirmed earned autonomy is required", now: now() }) || getPublicationIntent(id)!;
         }
       }
+      if (!isOwnerEnabled(ownerUserId)) throw new Error("publication intent owner is disabled");
       if (!renewPublicationIntentLease({ ...leaseInput, now: now(), leaseSeconds: 120 })) throw new Error("publication lease expired before send");
       if (!markPublicationIntentRequestSent({ ...leaseInput, accountLeaseToken: accountLease.leaseToken, now: now(), authorization: {
         ownerUserId, mode: latestConsent.mode as "assist" | "auto", consentVersion: latestConsent.version,
@@ -265,7 +269,7 @@ async function dispatchPublicationIntentAsOwner(id: number, ownerUserId: string,
 
       const result = await client.publishPost({ account, credentials: { accessToken: credential.accessToken, xUserId: credential.xUserId }, text: intent.text, mediaPath: mediaPath || undefined });
         const finishedAt = now();
-        const updated = finishPublicationIntentLease({ ...leaseInput, accountLeaseToken: accountLease.leaseToken, outcome: "accepted", reason: "official X accepted the post; reconciliation pending",
+        const updated = finishPublicationIntentLease({ ...leaseInput, accountLeaseToken: accountLease.leaseToken, outcome: "accepted", reason: "official 𝕏 accepted the post; reconciliation pending",
           receipt: JSON.stringify({ id: result.id, text: result.text }), remotePostId: result.id, remoteUrl: `https://x.com/${account.handle}/status/${result.id}`, now: finishedAt });
         if (!updated) throw new Error("publication lease expired after remote acceptance; reconcile before retry");
         updateDraft({ id: draft.id, status: "pending_reconciliation", now: finishedAt });
@@ -279,18 +283,18 @@ async function dispatchPublicationIntentAsOwner(id: number, ownerUserId: string,
         if (error instanceof OfficialXError && error.code === "rate_limited") {
           const seconds = retryAfterSeconds(error.retryAfter, error.rateLimitReset, finishedAt);
           return finishPublicationIntentLease({ ...leaseInput, accountLeaseToken: accountLease.leaseToken, outcome: "retryable_failure", errorClass: "rate_limited", retryAfterSeconds: seconds,
-            reason: "X rate limited before accepting the post", now: finishedAt }) || getPublicationIntent(id)!;
+            reason: "𝕏 rate limited before accepting the post", now: finishedAt }) || getPublicationIntent(id)!;
         }
         if (error instanceof OfficialXError && error.code === "reauth") {
           try { markXAccountReauthorizationRequired(account.id, ownerUserId); } catch { /* Intent still remains fenced if auth-state persistence fails. */ }
           if (mode === "auto") demoteAutomaticSafely({ draftId: draft.id, accountId: account.id, action: "post", reason: "auth_uncertainty", now: finishedAt });
           return finishPublicationIntentLease({ ...leaseInput, accountLeaseToken: accountLease.leaseToken, outcome: "permanent_failure", errorClass: "reauth",
-            reason: "X reauthorization required; no blind retry", now: finishedAt }) || getPublicationIntent(id)!;
+            reason: "𝕏 reauthorization required; no blind retry", now: finishedAt }) || getPublicationIntent(id)!;
         }
         if (mode === "auto" && error instanceof OfficialXError && error.code === "unknown_remote_state") demoteAutomaticSafely({ draftId: draft.id, accountId: account.id, action: "post", reason: "duplicate_risk", now: finishedAt });
         if (error instanceof OfficialXError && ["capability", "remote_validation", "invalid_media", "policy_blocked"].includes(error.code)) {
           return finishPublicationIntentLease({ ...leaseInput, accountLeaseToken: accountLease.leaseToken, outcome: "permanent_failure", errorClass: error.code,
-            reason: error.code === "reauth" ? "X reauthorization required; no blind retry" : error.message, now: finishedAt }) || getPublicationIntent(id)!;
+            reason: error.code === "reauth" ? "𝕏 reauthorization required; no blind retry" : error.message, now: finishedAt }) || getPublicationIntent(id)!;
         }
         return finishPublicationIntentLease({ ...leaseInput, accountLeaseToken: accountLease.leaseToken, outcome: "unknown_remote_state", errorClass: "unknown_remote_state",
           reason: "remote write result is ambiguous; reconcile before retry", now: finishedAt }) || getPublicationIntent(id)!;
@@ -383,16 +387,14 @@ export async function reconcilePublicationIntents(limit = 20, options: { client?
     }
     const now = options.now?.() ?? Math.floor(Date.now() / 1000);
     const account = getAccounts().find((item) => item.id === intent.accountId);
-    if (!account?.ownerUserId) continue;
+    if (!account?.ownerUserId || !isOwnerEnabled(account.ownerUserId)) continue;
     const runId = claimMonitorRun({ targetId: null, dayKey: istanbulDayKey(now), bucket: "reconciliation", now });
     if (!runId) break;
     try {
       const matched = await runAsOwner(account.ownerUserId, async () => withOfficialAccount(account, async (credential) => {
         if (!credential.scopes.includes("tweet.read")) throw new Error("tweet.read scope is required for reconciliation");
         const client = options.client || new OfficialXClient();
-        const post = await client.getPost({ accessToken: credential.accessToken, xUserId: credential.xUserId }, id)
-          || (await client.getOwnTimeline({ accessToken: credential.accessToken, xUserId: credential.xUserId }, 100)).find((item) => item.id === id)
-          || null;
+        const post = await client.getPost({ accessToken: credential.accessToken, xUserId: credential.xUserId }, id);
         if (!post || post.id !== id || post.author_id !== credential.xUserId || post.text !== intent.text) return false;
         const url = `https://x.com/${account.handle}/status/${id}`;
         const confirmedIntent = confirmPublicationIntentRemote({ id: intent.id, remotePostId: id, remoteUrl: url, now });
@@ -404,6 +406,7 @@ export async function reconcilePublicationIntents(limit = 20, options: { client?
       }));
       finishBudgetRun(runId, "success", now);
       if (matched) confirmed += 1;
+      else updatePublicationIntent({ id: intent.id, status: "reconciliation_required", reason: "exact receipt lookup did not confirm this account; manual reconciliation required", now });
     } catch (error) {
       finishBudgetRun(runId, "failed", Math.floor(Date.now() / 1000), error instanceof Error ? error.message : String(error));
       // Ambiguous remote state stays pending; never blind-retry a write.

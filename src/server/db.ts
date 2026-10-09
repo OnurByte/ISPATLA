@@ -1,6 +1,6 @@
 import legacyTransportSchema from "../../docs/migrations/legacy-transport-schema.json";
 import { createHash, randomUUID } from "node:crypto";
-import { currentOwnerId } from "./owner-context";
+import { currentOwnerId, runAsOwner } from "./owner-context";
 import { mkdirSync } from "node:fs";
 import { hostname } from "node:os";
 import { dirname, join } from "node:path";
@@ -180,7 +180,7 @@ export type DashboardSummary = {
   openaiConfigured: boolean;
   aiEnabled: boolean;
   aiConfigured: boolean;
-  aiProvider: "api" | "compatible" | "codex";
+  aiProvider: "api" | "compatible" | "codex" | "anthropic" | "chatgpt";
   officialPublisherConfigured: boolean;
   recentPosts: RecentPost[];
   activity: ActivityPoint[];
@@ -194,7 +194,7 @@ export type DashboardSummary = {
   } | null;
 };
 
-export const AUTOMATION_TASK_IDS = ["monitor_engine", "source_scan", "source_liveness", "queue_worker", "reconciliation"] as const;
+export const AUTOMATION_TASK_IDS = ["monitor_engine", "source_scan", "source_liveness", "queue_worker", "reconciliation", "account_inference"] as const;
 export type AutomationTaskId = (typeof AUTOMATION_TASK_IDS)[number];
 export type AutomationTaskStatus = "never" | "running" | "success" | "partial" | "failed" | "skipped";
 export type AutomationTaskSchedule = { id: AutomationTaskId; enabled: boolean; intervalSeconds: number; nextRunAt: number; lastRunAt: number; lastStatus: AutomationTaskStatus; updatedAt: number };
@@ -248,6 +248,8 @@ export type CategoryDefinition = {
   aiContext: string;
   createdAt: number;
   updatedAt: number;
+  ownerUserId?: string | null;
+  accountId?: number | null;
 };
 
 export function canonicalCategorySlugs(value: unknown): string[] | null {
@@ -270,9 +272,19 @@ export type AccountCategoryConfig = {
   dailyBudget: number | null;
   styleOverride: Record<string, unknown>;
   aiRouteOverride: Record<string, unknown>;
+  source?: "manual" | "inferred" | "imported";
+  userModifiedAt?: number | null;
 };
 
+export type AccountCategoryInferenceResult = {
+  status: "ready" | "insufficient_evidence";
+  contentLanguage: string;
+  suggestions: Array<{ categoryId: number; slug: string; name: string; confidence: number; evidence: string[] }>;
+};
+export type AccountCategoryInferenceJob = { id: number; accountId: number; status: string; version: number; updatedAt: number; result: AccountCategoryInferenceResult | null };
+
 export type SourceCategoryConfig = {
+  accountId?: number;
   sourceHandle: string;
   categoryId: number;
   categorySlug: string;
@@ -639,7 +651,7 @@ export type SecretMeta = {
   updatedAt: number;
 };
 
-const DATABASE_PATH =
+let DATABASE_PATH =
   process.env.ISPATLA_DB || join(/* turbopackIgnore: true */ process.cwd(), "state", "ispatla.sqlite3");
 
 const LEGACY_CATEGORY_SLUGS: Record<string, string> = {
@@ -1748,14 +1760,165 @@ function applyMigrations(): void {
       command("COMMIT;");
     } catch (error) { command("ROLLBACK;"); throw error; }
   }
-
+  if (!applied.has(26)) {
+    command("BEGIN IMMEDIATE;");
+    try {
+      addColumn("account_categories", "source", "TEXT NOT NULL DEFAULT 'manual'");
+      addColumn("account_categories", "user_modified_at", "INTEGER");
+      command(`CREATE TABLE IF NOT EXISTS account_category_inference_jobs (
+        id INTEGER PRIMARY KEY, owner_user_id TEXT NOT NULL, account_id INTEGER NOT NULL, version INTEGER NOT NULL,
+        status TEXT NOT NULL CHECK(status IN ('running','ready','insufficient_evidence','failed')),
+        result_json TEXT, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL,
+        UNIQUE(owner_user_id,account_id,version), FOREIGN KEY(account_id) REFERENCES accounts(id) ON DELETE CASCADE
+      );
+      CREATE TABLE IF NOT EXISTS account_category_inferences (
+        id INTEGER PRIMARY KEY, job_id INTEGER NOT NULL, owner_user_id TEXT NOT NULL, account_id INTEGER NOT NULL,
+        category_id INTEGER NOT NULL, confidence REAL NOT NULL, evidence_json TEXT NOT NULL,
+        model_id TEXT NOT NULL DEFAULT 'deterministic-keyword-v1', prompt_version TEXT NOT NULL DEFAULT 'none',
+        inference_version INTEGER NOT NULL, suggested_at INTEGER NOT NULL, accepted_at INTEGER, rejected_at INTEGER,
+        UNIQUE(job_id,category_id), FOREIGN KEY(job_id) REFERENCES account_category_inference_jobs(id) ON DELETE CASCADE,
+        FOREIGN KEY(account_id) REFERENCES accounts(id) ON DELETE CASCADE, FOREIGN KEY(category_id) REFERENCES categories(id)
+      );
+      CREATE INDEX IF NOT EXISTS account_category_inferences_owner_idx ON account_category_inferences(owner_user_id,account_id,job_id);
+      INSERT INTO schema_migrations(version,applied_at) VALUES(26,unixepoch());`);
+      command("COMMIT;");
+    } catch (error) { command("ROLLBACK;"); throw error; }
+  }
+  // P4 public identity is deliberately separate from connected X accounts, drafts and analytics.
+  if (!applied.has(27)) {
+    command("BEGIN IMMEDIATE;");
+    try {
+      command(`CREATE TABLE IF NOT EXISTS user_profiles (
+        owner_user_id TEXT PRIMARY KEY,
+        username TEXT NOT NULL UNIQUE,
+        display_name TEXT NOT NULL DEFAULT '',
+        bio TEXT NOT NULL DEFAULT '',
+        visibility TEXT NOT NULL DEFAULT 'private' CHECK(visibility IN ('private','public')),
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS user_profiles_public_username_idx ON user_profiles(username,visibility);
+      INSERT INTO schema_migrations(version,applied_at) VALUES(27,unixepoch());`);
+      command("COMMIT;");
+    } catch (error) { command("ROLLBACK;"); throw error; }
+  }
+  if (!applied.has(28)) {
+    command("BEGIN IMMEDIATE;");
+    try {
+      command(`CREATE TABLE IF NOT EXISTS hit_shares (
+        id INTEGER PRIMARY KEY,
+        public_id TEXT NOT NULL UNIQUE,
+        owner_user_id TEXT NOT NULL,
+        account_id INTEGER NOT NULL,
+        prediction_id TEXT NOT NULL,
+        remote_post_id TEXT NOT NULL,
+        created_at INTEGER NOT NULL,
+        revoked_at INTEGER,
+        FOREIGN KEY(account_id) REFERENCES accounts(id) ON DELETE CASCADE
+      );
+      CREATE INDEX IF NOT EXISTS hit_shares_owner_idx ON hit_shares(owner_user_id,created_at DESC);
+      CREATE UNIQUE INDEX IF NOT EXISTS hit_shares_active_post_idx ON hit_shares(owner_user_id,remote_post_id) WHERE revoked_at IS NULL;
+      INSERT INTO schema_migrations(version,applied_at) VALUES(28,unixepoch());`);
+      command("COMMIT;");
+    } catch (error) { command("ROLLBACK;"); throw error; }
+  }
+  if (!applied.has(31)) {
+    command("BEGIN IMMEDIATE;");
+    try {
+      addColumn("hit_shares", "leaderboard_opt_in", "INTEGER NOT NULL DEFAULT 0 CHECK(leaderboard_opt_in IN (0,1))");
+      command(`CREATE TABLE IF NOT EXISTS hit_evidence_exclusions (
+        owner_user_id TEXT NOT NULL, account_id INTEGER NOT NULL, remote_post_id TEXT NOT NULL,
+        reason TEXT NOT NULL, flagged_at INTEGER NOT NULL,
+        PRIMARY KEY(owner_user_id,account_id,remote_post_id),
+        FOREIGN KEY(account_id) REFERENCES accounts(id) ON DELETE CASCADE
+      );
+      INSERT INTO schema_migrations(version,applied_at) VALUES(31,unixepoch());`);
+      command("COMMIT;");
+    } catch (error) { command("ROLLBACK;"); throw error; }
+  }
+  if (!applied.has(30)) {
+    command("BEGIN IMMEDIATE;");
+    try {
+      addColumn("usage_events", "owner_user_id", "TEXT");
+      addColumn("usage_events", "estimated_cost_usd", "REAL");
+      addColumn("usage_events", "reported_cost_usd", "REAL");
+      addColumn("usage_events", "cost_basis", "TEXT NOT NULL DEFAULT 'unknown'");
+      addColumn("usage_events", "input_tokens", "INTEGER");
+      addColumn("usage_events", "output_tokens", "INTEGER");
+      addColumn("usage_events", "reservation_id", "TEXT");
+      command(`UPDATE usage_events SET estimated_cost_usd=estimated_usd,cost_basis='estimated' WHERE provider<>'compatible' AND cost_basis='unknown';
+        UPDATE usage_events SET cost_basis='unknown',estimated_cost_usd=NULL WHERE provider='compatible' AND cost_basis='unknown';
+        CREATE TABLE IF NOT EXISTS ai_budget_reservations (
+          id TEXT PRIMARY KEY, owner_user_id TEXT, task TEXT NOT NULL, provider TEXT NOT NULL, model TEXT NOT NULL,
+          reserved_usd REAL, status TEXT NOT NULL CHECK(status IN ('pending','settled','released','ambiguous')),
+          created_at INTEGER NOT NULL, settled_at INTEGER
+        );
+        CREATE INDEX IF NOT EXISTS ai_budget_reservations_owner_status_idx ON ai_budget_reservations(owner_user_id,status,created_at);
+        CREATE INDEX IF NOT EXISTS usage_events_owner_idx ON usage_events(owner_user_id,created_at DESC);
+        INSERT INTO schema_migrations(version,applied_at) VALUES(30,unixepoch());`);
+      command("COMMIT;");
+    } catch (error) { command("ROLLBACK;"); throw error; }
+  }
+  if (!applied.has(32)) {
+    command("BEGIN IMMEDIATE;");
+    try {
+      addColumn("user_profiles", "x_handle", "TEXT");
+      addColumn("user_profiles", "avatar_url", "TEXT");
+      addColumn("user_profiles", "onboarding_completed", "INTEGER NOT NULL DEFAULT 1");
+      // Existing visibility choices remain authoritative; new profiles choose during onboarding.
+      command(`CREATE UNIQUE INDEX IF NOT EXISTS user_profiles_x_handle_ci_idx ON user_profiles(lower(x_handle)) WHERE x_handle IS NOT NULL;
+        CREATE TABLE IF NOT EXISTS user_profile_x_identity (
+          owner_user_id TEXT PRIMARY KEY,
+          x_user_id TEXT NOT NULL UNIQUE,
+          FOREIGN KEY(owner_user_id) REFERENCES user_profiles(owner_user_id) ON DELETE CASCADE
+        );
+        INSERT INTO schema_migrations(version,applied_at) VALUES(32,unixepoch());`);
+      command("COMMIT;");
+    } catch (error) { command("ROLLBACK;"); throw error; }
+  }
+  if (!applied.has(33)) {
+    command("BEGIN IMMEDIATE;");
+    try {
+      command(`CREATE TABLE IF NOT EXISTS account_sources (
+        account_id INTEGER NOT NULL, source_handle TEXT NOT NULL, enabled INTEGER NOT NULL DEFAULT 1,
+        max_posts INTEGER NOT NULL DEFAULT 20, rights_status TEXT NOT NULL DEFAULT 'unknown', name_override TEXT NOT NULL DEFAULT '',
+        niche TEXT NOT NULL DEFAULT '', topics_json TEXT NOT NULL DEFAULT '[]', tone TEXT NOT NULL DEFAULT '', pinned INTEGER NOT NULL DEFAULT 0,
+        PRIMARY KEY(account_id, source_handle), FOREIGN KEY(account_id) REFERENCES accounts(id) ON DELETE CASCADE,
+        FOREIGN KEY(source_handle) REFERENCES sources(handle) ON DELETE CASCADE
+      );
+      CREATE TABLE IF NOT EXISTS account_source_categories (
+        account_id INTEGER NOT NULL, source_handle TEXT NOT NULL, category_id INTEGER NOT NULL,
+        monitoring_tier TEXT NOT NULL DEFAULT 'C', discovery_weight REAL NOT NULL DEFAULT 1,
+        category_reputation REAL, enabled INTEGER NOT NULL DEFAULT 1, last_evidence_at INTEGER NOT NULL DEFAULT 0,
+        PRIMARY KEY(account_id, source_handle, category_id),
+        FOREIGN KEY(account_id, source_handle) REFERENCES account_sources(account_id, source_handle) ON DELETE CASCADE,
+        FOREIGN KEY(category_id) REFERENCES categories(id) ON DELETE CASCADE
+      );
+      CREATE INDEX IF NOT EXISTS account_source_categories_lookup_idx ON account_source_categories(account_id, source_handle, enabled);
+      INSERT INTO schema_migrations(version,applied_at) VALUES(33,unixepoch());`);
+      command("COMMIT;");
+    } catch (error) { command("ROLLBACK;"); throw error; }
+  }
+  if (!applied.has(34)) {
+    command("BEGIN IMMEDIATE;");
+    try {
+      addColumn("categories", "owner_user_id", "TEXT");
+      addColumn("categories", "account_id", "INTEGER");
+      command(`CREATE INDEX IF NOT EXISTS categories_owner_account_idx ON categories(owner_user_id,account_id);
+        CREATE TRIGGER IF NOT EXISTS delete_account_scoped_categories AFTER DELETE ON accounts
+        BEGIN DELETE FROM categories WHERE account_id=OLD.id AND owner_user_id=OLD.owner_user_id; END;
+        INSERT INTO schema_migrations(version,applied_at) VALUES(34,unixepoch());`);
+      command("COMMIT;");
+    } catch (error) { command("ROLLBACK;"); throw error; }
+  }
 }
 
-export function ensureDatabase(): boolean {
-  if (initialized) return true;
+export function ensureDatabase(path?: string): boolean {
+  if (initialized) return !path || path === DATABASE_PATH;
   if (initializationError) return false;
 
   try {
+    if (path) DATABASE_PATH = path;
     mkdirSync(dirname(/* turbopackIgnore: true */ DATABASE_PATH), { recursive: true });
     database = new DatabaseSync(DATABASE_PATH);
     command("PRAGMA foreign_keys=ON;");
@@ -2407,7 +2570,8 @@ export function recordRun(run: {
 }
 
 export function candidates(limit = 12, now = Math.floor(Date.now() / 1000)): RecentPost[] {
-  const configuredSources = new Set(getSourceCategoryConfigs().filter((item) => item.enabled).map((item) => item.sourceHandle));
+  const configured = currentOwnerId() ? getAccountSourceCategoryConfigs() : getSourceCategoryConfigs();
+  const configuredSources = new Set(configured.filter((item) => item.enabled).map((item) => item.sourceHandle));
   const threshold = opportunityPoolThreshold();
   return selectPosts(`${opportunityWhere(now)} AND score_reason LIKE 'deterministic:%' AND publish_status IN ('not_started','blocked')`, "created_timestamp DESC")
     .filter((post) => configuredSources.has(post.sourceHandle))
@@ -2966,10 +3130,13 @@ function categoryRows(): CategoryDefinition[] {
     verification_mode: string; description: string; positive_examples_json: string; negative_examples_json: string; keywords_json: string;
     excluded_keywords_json: string; seed_handles_json: string; default_formats_json: string; source_policy_json: string;
     risk_policy_json: string; scoring_policy_json: string; publishing_policy_json: string; ai_context: string; created_at: number; updated_at: number;
+    owner_user_id: string | null; account_id: number | null;
   }>(`SELECT id, slug, name, enabled, built_in, base_strategy, cluster_strategy, verification_mode, description,
       positive_examples_json, negative_examples_json, keywords_json, excluded_keywords_json, seed_handles_json, default_formats_json,
-      source_policy_json, risk_policy_json, scoring_policy_json, publishing_policy_json, ai_context, created_at, updated_at
-      FROM categories ORDER BY built_in DESC, slug;`).map((category) => ({
+      source_policy_json, risk_policy_json, scoring_policy_json, publishing_policy_json, ai_context, created_at, updated_at, owner_user_id, account_id
+      FROM categories
+      WHERE owner_user_id IS NULL OR owner_user_id=${sqlString(currentOwnerId() || "__no_owner__")}
+      ORDER BY built_in DESC, name COLLATE NOCASE;`).map((category) => ({
     id: category.id,
     slug: category.slug,
     name: category.name,
@@ -2992,11 +3159,21 @@ function categoryRows(): CategoryDefinition[] {
     aiContext: category.ai_context,
     createdAt: category.created_at,
     updatedAt: category.updated_at,
+    ownerUserId: category.owner_user_id,
+    accountId: category.account_id,
   }));
 }
 
 export function getCategories(): CategoryDefinition[] {
   return categoryRows();
+}
+
+export function getCategoriesForAccount(accountId: number): CategoryDefinition[] {
+  requireOwnedAccount(accountId);
+  const owner = currentOwnerId();
+  if (!owner) throw new Error("authenticated owner context required");
+  return categoryRows().filter((category) => !category.ownerUserId || category.ownerUserId === owner)
+    .filter((category) => category.accountId === null || category.accountId === undefined || category.accountId === accountId);
 }
 
 export function deleteCategory(id: number): boolean {
@@ -3007,6 +3184,7 @@ export function deleteCategory(id: number): boolean {
   try {
     exec(`DELETE FROM account_categories WHERE category_id=${sqlNumber(id)};`);
     exec(`DELETE FROM source_categories WHERE category_id=${sqlNumber(id)};`);
+    exec(`DELETE FROM account_category_inferences WHERE category_id=${sqlNumber(id)};`);
     exec(`DELETE FROM category_competitors WHERE category_id=${sqlNumber(id)};`);
     exec(`DELETE FROM categories WHERE id=${sqlNumber(id)};`);
     exec("COMMIT;");
@@ -3025,8 +3203,10 @@ export function getAccountCategoryConfigs(accountId?: number): AccountCategoryCo
   return rows<{
     account_id: number; category_id: number; slug: string; name: string; enabled: number; is_primary: number; weight: number; priority: number;
     publish_threshold: number | null; daily_budget: number | null; style_override_json: string; ai_route_override_json: string;
+    source: "manual" | "inferred" | "imported"; user_modified_at: number | null;
   }>(`SELECT mapping.account_id, mapping.category_id, categories.slug, categories.name, mapping.enabled, mapping.is_primary,
-      mapping.weight, mapping.priority, mapping.publish_threshold, mapping.daily_budget, mapping.style_override_json, mapping.ai_route_override_json
+      mapping.weight, mapping.priority, mapping.publish_threshold, mapping.daily_budget, mapping.style_override_json, mapping.ai_route_override_json,
+      mapping.source, mapping.user_modified_at
       FROM account_categories AS mapping INNER JOIN categories ON categories.id=mapping.category_id
       INNER JOIN accounts ON accounts.id=mapping.account_id ${where}
       ORDER BY mapping.account_id, mapping.is_primary DESC, mapping.priority DESC, categories.slug;`).map((item) => ({
@@ -3042,13 +3222,16 @@ export function getAccountCategoryConfigs(accountId?: number): AccountCategoryCo
     dailyBudget: item.daily_budget,
     styleOverride: parseObject(item.style_override_json),
     aiRouteOverride: parseObject(item.ai_route_override_json),
+    source: item.source,
+    userModifiedAt: item.user_modified_at,
   }));
 }
 
 export function saveAccountCategoryConfig(input: Omit<AccountCategoryConfig, "categorySlug" | "categoryName">): AccountCategoryConfig {
   requireOwnedAccount(input.accountId);
   if (!getAccounts().some((account) => account.id === input.accountId)) throw new Error("account bulunamadı");
-  if (!getCategories().some((category) => category.id === input.categoryId)) throw new Error("category bulunamadı");
+  const category = getCategories().find((item) => item.id === input.categoryId);
+  if (!category || (category.accountId != null && category.accountId !== input.accountId)) throw new Error("category bulunamadı");
   if (input.primary && !input.enabled) throw new Error("primary category etkin olmalı");
   if (!Number.isFinite(input.weight) || input.weight < 0 || input.weight > 10) throw new Error("category weight geçersiz");
   if (!Number.isInteger(input.priority) || input.priority < 0 || input.priority > 100) throw new Error("category priority geçersiz");
@@ -3058,15 +3241,16 @@ export function saveAccountCategoryConfig(input: Omit<AccountCategoryConfig, "ca
   try {
     if (input.primary) exec(`UPDATE account_categories SET is_primary=0 WHERE account_id=${sqlNumber(input.accountId)};`);
     exec(`INSERT INTO account_categories (
-      account_id, category_id, enabled, is_primary, weight, priority, publish_threshold, daily_budget, style_override_json, ai_route_override_json
+      account_id, category_id, enabled, is_primary, weight, priority, publish_threshold, daily_budget, style_override_json, ai_route_override_json, source, user_modified_at
     ) VALUES (
       ${sqlNumber(input.accountId)}, ${sqlNumber(input.categoryId)}, ${sqlBool(input.enabled)}, ${sqlBool(input.primary)},
       ${input.weight}, ${sqlNumber(input.priority)}, ${input.publishThreshold === null ? "NULL" : input.publishThreshold},
-      ${input.dailyBudget === null ? "NULL" : sqlNumber(input.dailyBudget)}, ${sqlString(JSON.stringify(input.styleOverride))}, ${sqlString(JSON.stringify(input.aiRouteOverride))}
+      ${input.dailyBudget === null ? "NULL" : sqlNumber(input.dailyBudget)}, ${sqlString(JSON.stringify(input.styleOverride))}, ${sqlString(JSON.stringify(input.aiRouteOverride))}, 'manual', unixepoch()
     ) ON CONFLICT(account_id, category_id) DO UPDATE SET
       enabled=excluded.enabled, is_primary=excluded.is_primary, weight=excluded.weight, priority=excluded.priority,
       publish_threshold=excluded.publish_threshold, daily_budget=excluded.daily_budget,
-      style_override_json=excluded.style_override_json, ai_route_override_json=excluded.ai_route_override_json;`);
+      style_override_json=excluded.style_override_json, ai_route_override_json=excluded.ai_route_override_json,
+      source='manual', user_modified_at=unixepoch();`);
     exec("COMMIT;");
   } catch (error) {
     exec("ROLLBACK;");
@@ -3075,6 +3259,127 @@ export function saveAccountCategoryConfig(input: Omit<AccountCategoryConfig, "ca
   const result = getAccountCategoryConfigs(input.accountId).find((item) => item.categoryId === input.categoryId);
   if (!result) throw new Error("account category kaydedilemedi");
   return result;
+}
+
+export function getOwnAccountInference(accountId: number): { status: string; result: AccountCategoryInferenceResult; jobId: number; updatedAt: number } | null {
+  requireOwnedAccount(accountId);
+  const owner = currentOwnerId();
+  if (!owner) throw new Error("authenticated owner context required");
+  const job = rows<{ id: number; status: string; result_json: string | null; updated_at: number }>(`SELECT id,status,result_json,updated_at FROM account_category_inference_jobs
+    WHERE owner_user_id=${sqlString(owner)} AND account_id=${sqlNumber(accountId)} ORDER BY version DESC LIMIT 1;`)[0];
+  if (!job?.result_json) return null;
+  const result = JSON.parse(job.result_json) as AccountCategoryInferenceResult;
+  const pending = rows<{ category_id: number; confidence: number; evidence_json: string }>(`SELECT category_id,confidence,evidence_json FROM account_category_inferences
+    WHERE job_id=${sqlNumber(job.id)} AND owner_user_id=${sqlString(owner)} AND account_id=${sqlNumber(accountId)} AND accepted_at IS NULL AND rejected_at IS NULL;`);
+  result.suggestions = result.suggestions.filter((suggestion) => pending.some((item) => item.category_id === suggestion.categoryId))
+    .map((suggestion) => {
+      const item = pending.find((candidate) => candidate.category_id === suggestion.categoryId)!;
+      return { ...suggestion, confidence: item.confidence, evidence: JSON.parse(item.evidence_json) as string[] };
+    });
+  return { status: job.status, result, jobId: job.id, updatedAt: job.updated_at };
+}
+
+export function saveAccountInferenceJob(input: { accountId: number; status: "running" | "failed"; now: number; regenerate?: boolean; jobId?: number }): AccountCategoryInferenceJob & { claimed: boolean } {
+  requireOwnedAccount(input.accountId);
+  const owner = currentOwnerId();
+  if (!owner) throw new Error("authenticated owner context required");
+  if (!Number.isSafeInteger(input.now) || input.now < 0) throw new Error("inference timestamp is invalid");
+  if (input.jobId) {
+    exec(`UPDATE account_category_inference_jobs SET status=${sqlString(input.status)},updated_at=${sqlNumber(input.now)} WHERE id=${sqlNumber(input.jobId)} AND owner_user_id=${sqlString(owner)} AND account_id=${sqlNumber(input.accountId)};`);
+    const row = rows<{ id: number; status: string; version: number; updated_at: number; result_json: string | null }>(`SELECT id,status,version,updated_at,result_json FROM account_category_inference_jobs WHERE id=${sqlNumber(input.jobId)} AND owner_user_id=${sqlString(owner)} AND account_id=${sqlNumber(input.accountId)};`)[0];
+    if (!row) throw new Error("inference job not found");
+    return { id: row.id, accountId: input.accountId, status: row.status, version: row.version, updatedAt: row.updated_at,
+      result: row.result_json ? JSON.parse(row.result_json) as AccountCategoryInferenceResult : null, claimed: true };
+  }
+  exec("BEGIN IMMEDIATE;");
+  try {
+    const latest = rows<{ id: number; status: string; version: number; updated_at: number; result_json: string | null }>(`SELECT id,status,version,updated_at,result_json FROM account_category_inference_jobs
+      WHERE owner_user_id=${sqlString(owner)} AND account_id=${sqlNumber(input.accountId)} ORDER BY version DESC LIMIT 1;`)[0];
+    if (!input.regenerate && latest && ["ready", "insufficient_evidence"].includes(latest.status)) {
+      exec("COMMIT;");
+      return { id: latest.id, accountId: input.accountId, status: latest.status, version: latest.version, updatedAt: latest.updated_at,
+        result: latest.result_json ? JSON.parse(latest.result_json) as AccountCategoryInferenceResult : null, claimed: false };
+    }
+    if (!input.regenerate && latest?.status === "running" && latest.updated_at > input.now - 300) {
+      exec("COMMIT;");
+      return { id: latest.id, accountId: input.accountId, status: latest.status, version: latest.version, updatedAt: latest.updated_at,
+        result: latest.result_json ? JSON.parse(latest.result_json) as AccountCategoryInferenceResult : null, claimed: false };
+    }
+    const version = (latest?.version || 0) + 1;
+    command(`INSERT INTO account_category_inference_jobs(owner_user_id,account_id,version,status,result_json,created_at,updated_at)
+      VALUES(${sqlString(owner)},${sqlNumber(input.accountId)},${sqlNumber(version)},'running',NULL,${sqlNumber(input.now)},${sqlNumber(input.now)});`);
+    const id = Number(rows<{ id: number }>("SELECT last_insert_rowid() id;")[0]?.id);
+    exec("COMMIT;");
+    return { id, accountId: input.accountId, status: "running", version, updatedAt: input.now, result: null, claimed: true };
+  } catch (error) { exec("ROLLBACK;"); throw error; }
+}
+
+export function saveAccountInferenceSuggestions(input: { accountId: number; jobId: number; result: AccountCategoryInferenceResult; now: number }): void {
+  requireOwnedAccount(input.accountId);
+  const owner = currentOwnerId();
+  if (!owner) throw new Error("authenticated owner context required");
+  exec("BEGIN IMMEDIATE;");
+  try {
+    const job = rows<{ version: number; status: string }>(`SELECT version,status FROM account_category_inference_jobs WHERE id=${sqlNumber(input.jobId)} AND owner_user_id=${sqlString(owner)} AND account_id=${sqlNumber(input.accountId)};`)[0];
+    if (!job || job.status !== "running") throw new Error("inference job is not claimable");
+    for (const suggestion of input.result.suggestions) {
+      if (!getCategoriesForAccount(input.accountId).some((category) => category.id === suggestion.categoryId && category.slug === suggestion.slug)) throw new Error("suggested category is unavailable");
+      exec(`INSERT OR IGNORE INTO account_category_inferences(job_id,owner_user_id,account_id,category_id,confidence,evidence_json,inference_version,suggested_at)
+        VALUES(${sqlNumber(input.jobId)},${sqlString(owner)},${sqlNumber(input.accountId)},${sqlNumber(suggestion.categoryId)},${sqlNumber(suggestion.confidence)},${sqlString(JSON.stringify(suggestion.evidence))},${sqlNumber(job.version)},${sqlNumber(input.now)});`);
+    }
+    exec(`UPDATE account_category_inference_jobs SET status=${sqlString(input.result.status)},result_json=${sqlString(JSON.stringify(input.result))},updated_at=${sqlNumber(input.now)}
+      WHERE id=${sqlNumber(input.jobId)} AND owner_user_id=${sqlString(owner)} AND account_id=${sqlNumber(input.accountId)};`);
+    exec("COMMIT;");
+  } catch (error) { exec("ROLLBACK;"); throw error; }
+}
+
+export function acceptAccountCategoryInference(input: { accountId: number; categoryIds: number[]; weights?: Record<string, number>; now: number }): AccountCategoryConfig[] {
+  requireOwnedAccount(input.accountId);
+  const owner = currentOwnerId();
+  if (!owner) throw new Error("authenticated owner context required");
+  const selected = [...new Set(input.categoryIds)].slice(0, 12);
+  for (const [id, weight] of Object.entries(input.weights || {})) if (selected.includes(Number(id)) && (!Number.isFinite(weight) || weight < 0 || weight > 10)) throw new Error("category weight is invalid");
+  const latest = rows<{ id: number; content_language: string }>(`SELECT id,json_extract(result_json,'$.contentLanguage') content_language FROM account_category_inference_jobs
+    WHERE owner_user_id=${sqlString(owner)} AND account_id=${sqlNumber(input.accountId)} AND status IN ('ready','insufficient_evidence') ORDER BY version DESC LIMIT 1;`)[0];
+  if (!latest) throw new Error("no category suggestions are ready");
+  const valid = rows<{ category_id: number }>(`SELECT category_id FROM account_category_inferences WHERE job_id=${sqlNumber(latest.id)} AND owner_user_id=${sqlString(owner)} AND account_id=${sqlNumber(input.accountId)} AND rejected_at IS NULL;`).map((row) => row.category_id);
+  const catalog = new Set(getCategoriesForAccount(input.accountId).filter((category) => category.enabled).map((category) => category.id));
+  if (!selected.every((id) => catalog.has(id))) throw new Error("selected category is unavailable");
+  exec("BEGIN IMMEDIATE;");
+  try {
+    const primary = rows<{ category_id: number; source: string; user_modified_at: number | null }>(`SELECT category_id,source,user_modified_at FROM account_categories WHERE account_id=${sqlNumber(input.accountId)} AND is_primary=1 LIMIT 1;`)[0];
+    const preservePrimary = Boolean(primary && (primary.source !== "inferred" || primary.user_modified_at !== null));
+    if (!preservePrimary) exec(`UPDATE account_categories SET is_primary=0 WHERE account_id=${sqlNumber(input.accountId)} AND source='inferred' AND user_modified_at IS NULL;`);
+    let primaryAssigned = preservePrimary;
+    for (let index = 0; index < selected.length; index += 1) {
+      const categoryId = selected[index];
+      const existing = rows<{ source: string; user_modified_at: number | null }>(`SELECT source,user_modified_at FROM account_categories WHERE account_id=${sqlNumber(input.accountId)} AND category_id=${sqlNumber(categoryId)};`)[0];
+      const inferred = valid.includes(categoryId);
+      const weight = Number(input.weights?.[String(categoryId)] ?? 1);
+      const makePrimary = !primaryAssigned && (!existing || (existing.source === "inferred" && existing.user_modified_at === null));
+      if (!existing) exec(`INSERT INTO account_categories(account_id,category_id,enabled,is_primary,weight,priority,source,user_modified_at)
+        VALUES(${sqlNumber(input.accountId)},${sqlNumber(categoryId)},1,${sqlBool(makePrimary)},${weight},${sqlNumber(selected.length-index)},${sqlString(inferred ? "inferred" : "manual")},${inferred ? "NULL" : sqlNumber(input.now)});`);
+      else if (existing.source === "inferred" && existing.user_modified_at === null) exec(`UPDATE account_categories SET is_primary=${sqlBool(makePrimary || (preservePrimary && primary?.category_id === categoryId))},priority=${sqlNumber(selected.length-index)},weight=${weight} WHERE account_id=${sqlNumber(input.accountId)} AND category_id=${sqlNumber(categoryId)} AND source='inferred' AND user_modified_at IS NULL;`);
+      if (makePrimary) primaryAssigned = true;
+      exec(`UPDATE account_category_inferences SET accepted_at=${sqlNumber(input.now)} WHERE job_id=${sqlNumber(latest.id)} AND category_id=${sqlNumber(categoryId)} AND owner_user_id=${sqlString(owner)} AND accepted_at IS NULL;`);
+    }
+    const rejected = valid.filter((id) => !selected.includes(id));
+    for (const id of rejected) exec(`UPDATE account_category_inferences SET rejected_at=${sqlNumber(input.now)} WHERE job_id=${sqlNumber(latest.id)} AND category_id=${sqlNumber(id)} AND owner_user_id=${sqlString(owner)} AND rejected_at IS NULL;`);
+    const account = getAccounts().find((item) => item.id === input.accountId);
+    if (account) {
+      const styleProfile = { ...account.styleProfile };
+      if (!styleProfile.contentLocale && latest.content_language !== "unknown") styleProfile.contentLocale = latest.content_language;
+      const selectedCategories = getCategories().filter((category) => selected.includes(category.id));
+      if (!Array.isArray(styleProfile.categories)) styleProfile.categories = selectedCategories.map((category) => category.slug);
+      else styleProfile.categories = [...new Set([...styleProfile.categories.map(String), ...selectedCategories.map((category) => category.slug)])].slice(0, 12);
+      if (!Array.isArray(styleProfile.preferredFormats)) styleProfile.preferredFormats = [...new Set(selectedCategories.flatMap((category) => category.defaultFormats))].slice(0, 4);
+      saveAccount({ id: account.id, accountKey: account.accountKey, handle: account.handle, displayName: account.displayName,
+        enabled: account.enabled, defaultAccount: account.defaultAccount, automationMode: account.automationMode,
+        dailyLimit: account.dailyLimit, capabilities: account.capabilities, styleProfile, skipCategorySync: true, now: input.now });
+    }
+    exec("COMMIT;");
+  } catch (error) { exec("ROLLBACK;"); throw error; }
+  return getAccountCategoryConfigs(input.accountId);
 }
 
 export function getSourceCategoryConfigs(sourceHandle?: string): SourceCategoryConfig[] {
@@ -3098,9 +3403,125 @@ export function getSourceCategoryConfigs(sourceHandle?: string): SourceCategoryC
   }));
 }
 
+export function getAccountSources(accountId: number): SourceConfig[] {
+  requireValidOptionalAccount(accountId);
+  if (!getAccounts().some((account) => account.id === accountId)) throw new Error("account not found");
+  return rows<{ handle: string; canonical_name: string; canonical_enabled: number; canonical_max_posts: number; canonical_rights_status: string; profile_json: string; enabled: number; max_posts: number; rights_status: string; name_override: string; niche: string; topics_json: string; tone: string; pinned: number }>(`
+    SELECT source.handle, source.name AS canonical_name, source.enabled AS canonical_enabled, source.max_posts AS canonical_max_posts,
+      source.rights_status AS canonical_rights_status, source.profile_json, selected.enabled, selected.max_posts, selected.rights_status,
+      selected.name_override, selected.niche, selected.topics_json, selected.tone, selected.pinned
+    FROM account_sources selected JOIN sources source ON source.handle=selected.source_handle
+    WHERE selected.account_id=${sqlNumber(accountId)} ORDER BY selected.name_override COLLATE NOCASE, source.handle;
+  `).map((row) => {
+    const profile = parseObject(row.profile_json) as SourceProfile;
+    let topics: string[] = [];
+    try { const parsed: unknown = JSON.parse(row.topics_json); if (Array.isArray(parsed)) topics = parsed.filter((value): value is string => typeof value === "string"); } catch { topics = []; }
+    return {
+      handle: row.handle,
+      name: row.name_override || row.canonical_name,
+      enabled: Boolean(row.enabled),
+      maxPosts: row.max_posts,
+      rightsStatus: row.rights_status === "cleared" || row.rights_status === "prohibited" ? row.rights_status : "unknown",
+      profile: { ...profile, niche: row.niche || undefined, topics: topics.length ? topics : undefined, tone: row.tone || undefined, pinned: Boolean(row.pinned) },
+    };
+  });
+}
+
+export function addAccountSource(accountId: number, sourceHandle: string): SourceConfig {
+  requireValidOptionalAccount(accountId);
+  const sourceHandleNormalized = sourceHandle.replace(/^@/, "").toLocaleLowerCase("en-US");
+  if (!getStoredSources().some((source) => source.handle === sourceHandleNormalized)) throw new Error("source not found");
+  exec(`INSERT OR IGNORE INTO account_sources(account_id,source_handle,enabled,max_posts,rights_status)
+    SELECT ${sqlNumber(accountId)},handle,enabled,max_posts,rights_status FROM sources WHERE handle=${sqlString(sourceHandleNormalized)};`);
+  const selected = getAccountSources(accountId).find((source) => source.handle === sourceHandleNormalized);
+  if (!selected) throw new Error("source selection failed");
+  return selected;
+}
+
+export function isAccountSourceSelected(accountId: number, sourceHandle: string): boolean {
+  requireValidOptionalAccount(accountId);
+  return criticalRows<{ count: number }>(`SELECT COUNT(*) AS count FROM account_sources WHERE account_id=${sqlNumber(accountId)} AND source_handle=${sqlString(sourceHandle.replace(/^@/, "").toLocaleLowerCase("en-US"))};`)[0]?.count > 0;
+}
+
+export function updateAccountSource(input: { accountId: number; sourceHandle: string; name?: string; enabled?: boolean; maxPosts?: number; rightsStatus?: SourceConfig["rightsStatus"]; niche?: string; topics?: string[]; tone?: string; pinned?: boolean }): SourceConfig {
+  requireValidOptionalAccount(input.accountId);
+  const handle = input.sourceHandle.replace(/^@/, "").toLocaleLowerCase("en-US");
+  if (!isAccountSourceSelected(input.accountId, handle)) throw new Error("source not selected for account");
+  if (input.maxPosts !== undefined && (!Number.isInteger(input.maxPosts) || input.maxPosts < 1 || input.maxPosts > 50)) throw new Error("max posts invalid");
+  if (input.name !== undefined && (!input.name.trim() || input.name.length > 120)) throw new Error("source name invalid");
+  if (input.rightsStatus !== undefined && !["cleared", "unknown", "prohibited"].includes(input.rightsStatus)) throw new Error("source rights invalid");
+  const topics = input.topics?.map((value) => value.trim()).filter(Boolean).slice(0, 30);
+  exec(`UPDATE account_sources SET
+    name_override=${input.name === undefined ? "name_override" : sqlString(input.name.trim())},
+    enabled=${input.enabled === undefined ? "enabled" : sqlBool(input.enabled)},
+    max_posts=${input.maxPosts === undefined ? "max_posts" : sqlNumber(input.maxPosts)},
+    rights_status=${input.rightsStatus === undefined ? "rights_status" : sqlString(input.rightsStatus)},
+    niche=${input.niche === undefined ? "niche" : sqlString(input.niche.trim().slice(0, 120))},
+    topics_json=${topics === undefined ? "topics_json" : sqlString(JSON.stringify(topics))},
+    tone=${input.tone === undefined ? "tone" : sqlString(input.tone.trim().slice(0, 120))},
+    pinned=${input.pinned === undefined ? "pinned" : sqlBool(input.pinned)}
+    WHERE account_id=${sqlNumber(input.accountId)} AND source_handle=${sqlString(handle)};`);
+  const source = getAccountSources(input.accountId).find((item) => item.handle === handle);
+  if (!source) throw new Error("account source update failed");
+  return source;
+}
+
+export function removeAccountSource(accountId: number, sourceHandle: string): void {
+  requireValidOptionalAccount(accountId);
+  const handle = sourceHandle.replace(/^@/, "").toLocaleLowerCase("en-US");
+  exec(`DELETE FROM account_sources WHERE account_id=${sqlNumber(accountId)} AND source_handle=${sqlString(handle)};`);
+}
+
+export function clearAccountSources(accountId: number): void {
+  requireValidOptionalAccount(accountId);
+  exec(`DELETE FROM account_sources WHERE account_id=${sqlNumber(accountId)};`);
+}
+
+export function getAccountSourceCategoryConfigs(accountId?: number): SourceCategoryConfig[] {
+  if (accountId !== undefined) requireValidOptionalAccount(accountId);
+  const ownerAccounts = currentOwnerId() === undefined ? null : getAccounts().map((account) => account.id);
+  if (accountId !== undefined && !getAccounts().some((account) => account.id === accountId)) throw new Error("account not found");
+  const selectedIds = accountId !== undefined ? [accountId] : ownerAccounts;
+  if (selectedIds && selectedIds.length === 0) return [];
+  const where = selectedIds ? `WHERE mapping.account_id IN (${selectedIds.map(sqlNumber).join(",")})` : "";
+  return rows<{ account_id: number; source_handle: string; category_id: number; slug: string; name: string; monitoring_tier: string; discovery_weight: number; category_reputation: number | null; enabled: number; last_evidence_at: number }>(`
+    SELECT mapping.account_id,mapping.source_handle,mapping.category_id,categories.slug,categories.name,mapping.monitoring_tier,
+      mapping.discovery_weight,mapping.category_reputation,mapping.enabled,mapping.last_evidence_at
+    FROM account_source_categories mapping JOIN categories ON categories.id=mapping.category_id ${where}
+    ORDER BY mapping.enabled DESC,mapping.monitoring_tier ASC,categories.slug ASC;
+  `).map((row) => ({ accountId: row.account_id, sourceHandle: row.source_handle, categoryId: row.category_id, categorySlug: row.slug, categoryName: row.name,
+    monitoringTier: row.monitoring_tier === "A" || row.monitoring_tier === "B" ? row.monitoring_tier : "C", discoveryWeight: row.discovery_weight,
+    categoryReputation: row.category_reputation, enabled: Boolean(row.enabled), lastEvidenceAt: row.last_evidence_at }));
+}
+
+export function saveAccountSourceCategoryConfig(input: Omit<SourceCategoryConfig, "categorySlug" | "categoryName"> & { accountId: number }): SourceCategoryConfig {
+  requireValidOptionalAccount(input.accountId);
+  if (!getAccountSources(input.accountId).some((source) => source.handle === input.sourceHandle)) throw new Error("source not selected for account");
+  if (!getAccountCategoryConfigs(input.accountId).some((category) => category.categoryId === input.categoryId && category.enabled)) throw new Error("category not enabled for account");
+  if (!getCategories().some((category) => category.id === input.categoryId)) throw new Error("category not found");
+  if (!["A", "B", "C"].includes(input.monitoringTier)) throw new Error("monitoring tier invalid");
+  if (!Number.isFinite(input.discoveryWeight) || input.discoveryWeight < 0 || input.discoveryWeight > 10) throw new Error("discovery weight invalid");
+  if (input.categoryReputation !== null && (!Number.isFinite(input.categoryReputation) || input.categoryReputation < 0 || input.categoryReputation > 100)) throw new Error("category reputation invalid");
+  if (!Number.isInteger(input.lastEvidenceAt) || input.lastEvidenceAt < 0) throw new Error("last evidence invalid");
+  exec(`INSERT INTO account_source_categories(account_id,source_handle,category_id,monitoring_tier,discovery_weight,category_reputation,enabled,last_evidence_at)
+    VALUES(${sqlNumber(input.accountId)},${sqlString(input.sourceHandle)},${sqlNumber(input.categoryId)},${sqlString(input.monitoringTier)},${sqlNumber(input.discoveryWeight)},
+      ${input.categoryReputation === null ? "NULL" : sqlNumber(input.categoryReputation)},${sqlBool(input.enabled)},${sqlNumber(input.lastEvidenceAt)})
+    ON CONFLICT(account_id,source_handle,category_id) DO UPDATE SET monitoring_tier=excluded.monitoring_tier,discovery_weight=excluded.discovery_weight,
+      category_reputation=excluded.category_reputation,enabled=excluded.enabled,last_evidence_at=excluded.last_evidence_at;`);
+  const result = getAccountSourceCategoryConfigs(input.accountId).find((item) => item.sourceHandle === input.sourceHandle && item.categoryId === input.categoryId);
+  if (!result) throw new Error("account source category update failed");
+  return result;
+}
+
+export function deleteAccountSourceCategoryConfig(accountId: number, sourceHandle: string, categoryId: number): void {
+  requireValidOptionalAccount(accountId);
+  exec(`DELETE FROM account_source_categories WHERE account_id=${sqlNumber(accountId)} AND source_handle=${sqlString(sourceHandle.replace(/^@/, "").toLocaleLowerCase("en-US"))} AND category_id=${sqlNumber(categoryId)};`);
+}
+
 export function saveSourceCategoryConfig(input: Omit<SourceCategoryConfig, "categorySlug" | "categoryName">): SourceCategoryConfig {
   if (!getStoredSources().some((source) => source.handle === input.sourceHandle)) throw new Error("kaynak bulunamadı");
-  if (!getCategories().some((category) => category.id === input.categoryId)) throw new Error("category bulunamadı");
+  const category = getCategories().find((item) => item.id === input.categoryId);
+  if (!category || category.ownerUserId || category.accountId != null) throw new Error("hesaba özel kategoriler ortak kaynaklara eklenemez");
   if (!["A", "B", "C"].includes(input.monitoringTier)) throw new Error("monitoring tier geçersiz");
   if (!Number.isFinite(input.discoveryWeight) || input.discoveryWeight < 0 || input.discoveryWeight > 10) throw new Error("discovery weight geçersiz");
   if (input.categoryReputation !== null && (!Number.isFinite(input.categoryReputation) || input.categoryReputation < 0 || input.categoryReputation > 100)) throw new Error("category reputation geçersiz");
@@ -3140,6 +3561,14 @@ export function saveCategory(input: Omit<CategoryDefinition, "id" | "createdAt" 
   if (!input.builtIn && positiveExamples.length + negativeExamples.length + keywords.length + seedHandles.length === 0) throw new Error("custom category için en az bir tanımlayıcı sinyal gerekli");
   if (input.verificationMode === "none" && (input.baseStrategy === "news" || input.baseStrategy === "politics" || input.baseStrategy === "finance")) throw new Error("factual category doğrulamasız çalışamaz");
   const id = input.id && Number.isInteger(input.id) ? input.id : 0;
+  const ownerId = input.builtIn ? null : (input.ownerUserId ?? currentOwnerId() ?? null);
+  const accountId = input.accountId ?? null;
+  if (!input.builtIn && !ownerId) throw new Error("authenticated owner context required");
+  if (accountId !== null && (!Number.isSafeInteger(accountId) || !getAccounts().some((account) => account.id === accountId && account.ownerUserId === ownerId))) throw new Error("category account owner mismatch");
+  if (id) {
+    const existing = categoryRows().find((category) => category.id === id);
+    if (!existing || (existing.ownerUserId && existing.ownerUserId !== ownerId) || (existing.accountId != null && existing.accountId !== accountId)) throw new Error("category owner mismatch");
+  }
   const fields = `slug=${sqlString(slug)}, name=${sqlString(name)}, enabled=${sqlBool(input.enabled)}, built_in=${sqlBool(input.builtIn)},
     base_strategy=${sqlString(input.baseStrategy)}, cluster_strategy=${sqlString(input.clusterStrategy)}, verification_mode=${sqlString(input.verificationMode)},
     description=${sqlString(description)}, positive_examples_json=${sqlString(JSON.stringify(positiveExamples))}, negative_examples_json=${sqlString(JSON.stringify(negativeExamples))},
@@ -3152,18 +3581,65 @@ export function saveCategory(input: Omit<CategoryDefinition, "id" | "createdAt" 
     slug, name, enabled, built_in, base_strategy, cluster_strategy, verification_mode, description,
     positive_examples_json, negative_examples_json, keywords_json, excluded_keywords_json, seed_handles_json,
     default_formats_json, source_policy_json, risk_policy_json, scoring_policy_json, publishing_policy_json,
-    ai_context, created_at, updated_at
+    ai_context, created_at, updated_at, owner_user_id, account_id
   ) VALUES (
     ${sqlString(slug)}, ${sqlString(name)}, ${sqlBool(input.enabled)}, ${sqlBool(input.builtIn)},
     ${sqlString(input.baseStrategy)}, ${sqlString(input.clusterStrategy)}, ${sqlString(input.verificationMode)}, ${sqlString(description)},
     ${sqlString(JSON.stringify(positiveExamples))}, ${sqlString(JSON.stringify(negativeExamples))}, ${sqlString(JSON.stringify(keywords))},
     ${sqlString(JSON.stringify(excludedKeywords))}, ${sqlString(JSON.stringify(seedHandles))}, ${sqlString(JSON.stringify(defaultFormats.length ? defaultFormats : ["post"]))},
     ${sqlString(JSON.stringify(input.sourcePolicy))}, ${sqlString(JSON.stringify(input.riskPolicy))}, ${sqlString(JSON.stringify(input.scoringPolicy))},
-    ${sqlString(JSON.stringify(input.publishingPolicy))}, ${sqlString(input.aiContext.slice(0, 8_000))}, ${sqlNumber(input.now)}, ${sqlNumber(input.now)}
+    ${sqlString(JSON.stringify(input.publishingPolicy))}, ${sqlString(input.aiContext.slice(0, 8_000))}, ${sqlNumber(input.now)}, ${sqlNumber(input.now)},
+    ${ownerId === null ? "NULL" : sqlString(ownerId)}, ${accountId === null ? "NULL" : sqlNumber(accountId)}
   );`);
   const category = categoryRows().find((item) => id ? item.id === id : item.slug === slug);
   if (!category) throw new Error("category kaydedilemedi");
   return category;
+}
+
+/** Create or update a custom category owned by one of the caller's X accounts. */
+export function saveAccountCategory(input: Omit<CategoryDefinition, "id" | "createdAt" | "updatedAt" | "ownerUserId" | "accountId"> & { id?: number; accountId: number; now: number }): CategoryDefinition {
+  requireOwnedAccount(input.accountId);
+  const ownerUserId = currentOwnerId();
+  if (!ownerUserId) throw new Error("authenticated owner context required");
+  if (input.builtIn) throw new Error("built-in categories are read-only");
+  if (input.id) {
+    const existing = categoryRows().find((category) => category.id === input.id);
+    if (!existing || existing.builtIn || existing.ownerUserId !== ownerUserId || existing.accountId !== input.accountId) throw new Error("category owner/account mismatch");
+  }
+  const prefix = `account-${input.accountId}-`;
+  const slug = input.slug.startsWith(prefix) ? input.slug : `${prefix}${input.slug}`;
+  const category = saveCategory({ ...input, slug, builtIn: false, ownerUserId, accountId: input.accountId });
+  const existingConfig = getAccountCategoryConfigs(input.accountId).find((config) => config.categoryId === category.id);
+  const enabled = category.enabled;
+  const makePrimary = enabled && (!existingConfig || !getAccountCategoryConfigs(input.accountId).some((config) => config.enabled && config.primary));
+  saveAccountCategoryConfig({ accountId: input.accountId, categoryId: category.id, enabled, primary: existingConfig?.primary && enabled || makePrimary,
+    weight: existingConfig?.weight ?? 1, priority: existingConfig?.priority ?? 1, publishThreshold: existingConfig?.publishThreshold ?? null,
+    dailyBudget: existingConfig?.dailyBudget ?? null, styleOverride: existingConfig?.styleOverride ?? {}, aiRouteOverride: existingConfig?.aiRouteOverride ?? {} });
+  return category;
+}
+
+export function deleteAccountCategory(id: number): boolean {
+  const ownerUserId = currentOwnerId();
+  const category = categoryRows().find((item) => item.id === id);
+  if (!ownerUserId || !category || category.builtIn || category.ownerUserId !== ownerUserId || category.accountId == null) return false;
+  requireOwnedAccount(category.accountId);
+  return deleteCategory(id);
+}
+
+export function saveGeneratedAccountCategory(input: { accountId: number; name: string; slug: string; description: string; keywords: string[]; examples: string[]; now: number }): CategoryDefinition {
+  requireOwnedAccount(input.accountId);
+  const ownerId = currentOwnerId();
+  if (!ownerId) throw new Error("authenticated owner context required");
+  const slug = `account-${input.accountId}-${input.slug}`.slice(0, 80).replace(/-+$/u, "");
+  const existing = getCategoriesForAccount(input.accountId).find((category) => category.ownerUserId === ownerId && category.accountId === input.accountId && category.slug === slug);
+  if (existing) return existing;
+  return saveCategory({
+    slug, name: input.name, enabled: true, builtIn: false, ownerUserId: ownerId, accountId: input.accountId,
+    baseStrategy: "generic", clusterStrategy: "topic", verificationMode: "moderate",
+    description: input.description, positiveExamples: input.examples.slice(0, 5), negativeExamples: [],
+    keywords: input.keywords.slice(0, 8), excludedKeywords: [], seedHandles: [], defaultFormats: ["post"],
+    sourcePolicy: {}, riskPolicy: {}, scoringPolicy: {}, publishingPolicy: {}, aiContext: input.description, now: input.now,
+  });
 }
 
 export function getStoredSources(): SourceConfig[] {
@@ -3499,6 +3975,7 @@ export function saveAccount(input: {
   dailyLimit: number;
   capabilities: string[];
   styleProfile?: Record<string, unknown>;
+  skipCategorySync?: boolean;
   subscriptionHistory?: unknown;
   now: number;
 }): Account {
@@ -3509,10 +3986,17 @@ export function saveAccount(input: {
     if (instruction) styleProfile.editorialInstruction = instruction;
     else delete styleProfile.editorialInstruction;
   }
+  let categorySelectionChanged = input.id === undefined && "categories" in styleProfile;
   if ("categories" in styleProfile) {
     const categories = canonicalCategorySlugs(styleProfile.categories);
     if (!categories) throw new Error("account kategorileri katalogdan seçilmeli");
+    if (input.id && !categories.every((slug) => getCategoriesForAccount(input.id!).some((category) => category.slug === slug))) throw new Error("account kategorisi başka bir hesaba bağlı");
     styleProfile.categories = categories;
+    if (input.id !== undefined) {
+      const previous = getAccounts().find((account) => account.id === input.id);
+      const previousCategories = Array.isArray(previous?.styleProfile.categories) ? previous.styleProfile.categories.map(String) : [];
+      categorySelectionChanged = JSON.stringify(previousCategories) !== JSON.stringify(categories);
+    }
   }
   if (input.defaultAccount) {
     exec(`UPDATE accounts SET default_account=0 ${ownerSql("owner_user_id") ? `WHERE ${ownerSql("owner_user_id")}` : ""};`);
@@ -3539,20 +4023,135 @@ export function saveAccount(input: {
   }
   const savedId = id > 0 ? id : Number(rows<{ id: number }>("SELECT last_insert_rowid() AS id;")[0]?.id);
   if (!savedId) throw new Error("account could not be saved");
+  if (categorySelectionChanged && !input.skipCategorySync) syncManualAccountCategorySelection(savedId, styleProfile.categories as string[], input.now);
   if (input.subscriptionHistory !== undefined) replaceSubscriptionHistory(savedId, input.subscriptionHistory, input.now);
   const result = getAccounts().find((account) => account.id === savedId);
   if (!result) throw new Error("account could not be saved");
   return result;
 }
 
+function syncManualAccountCategorySelection(accountId: number, slugs: string[], now: number): void {
+  const categoryIds = new Map(getCategories().map((category) => [category.slug, category.id]));
+  const selected = slugs.map((slug) => categoryIds.get(slug)).filter((id): id is number => Number.isSafeInteger(id));
+  const mappings = rows<{ category_id: number }>(`SELECT category_id FROM account_categories WHERE account_id=${sqlNumber(accountId)};`);
+  const selectedSet = new Set(selected);
+  exec("BEGIN IMMEDIATE;");
+  try {
+    exec(`UPDATE account_categories SET is_primary=0 WHERE account_id=${sqlNumber(accountId)};`);
+    for (const mapping of mappings) if (!selectedSet.has(mapping.category_id)) exec(`UPDATE account_categories SET enabled=0,source='manual',user_modified_at=${sqlNumber(now)} WHERE account_id=${sqlNumber(accountId)} AND category_id=${sqlNumber(mapping.category_id)};`);
+    for (let index = 0; index < selected.length; index += 1) {
+      const categoryId = selected[index];
+      const existing = mappings.some((mapping) => mapping.category_id === categoryId);
+      if (existing) exec(`UPDATE account_categories SET enabled=1,is_primary=${sqlBool(index===0)},priority=${sqlNumber(selected.length-index)},source='manual',user_modified_at=${sqlNumber(now)} WHERE account_id=${sqlNumber(accountId)} AND category_id=${sqlNumber(categoryId)};`);
+      else exec(`INSERT INTO account_categories(account_id,category_id,enabled,is_primary,weight,priority,source,user_modified_at)
+        VALUES(${sqlNumber(accountId)},${sqlNumber(categoryId)},1,${sqlBool(index===0)},1,${sqlNumber(selected.length-index)},'manual',${sqlNumber(now)});`);
+    }
+    exec("COMMIT;");
+  } catch (error) { exec("ROLLBACK;"); throw error; }
+}
+
 export function deleteAccount(id: number): void {
   requireOwnedAccount(id);
+  exec(`DELETE FROM account_category_inferences WHERE account_id=${sqlNumber(id)};
+    DELETE FROM account_category_inference_jobs WHERE account_id=${sqlNumber(id)};
+    DELETE FROM account_categories WHERE account_id=${sqlNumber(id)};`);
   exec(`DELETE FROM automation_jobs WHERE account_id=${sqlNumber(id)};`);
   exec(`DELETE FROM drafts WHERE account_id=${sqlNumber(id)};`);
   exec(`DELETE FROM account_metric_snapshots WHERE account_id=${sqlNumber(id)};`);
   exec(`DELETE FROM account_subscription_events WHERE account_id=${sqlNumber(id)};`);
   exec(`DELETE FROM account_subscription_state WHERE account_id=${sqlNumber(id)};`);
   exec(`DELETE FROM accounts WHERE id=${sqlNumber(id)};`);
+}
+
+/** Deletes every row owned by a user and all FK descendants in one transaction. */
+export function deleteOwnerData(ownerUserId: string): void {
+  if (!ownerUserId.trim()) throw new Error("account owner is required");
+  if (!ensureDatabase()) throw new Error(initializationError || "database unavailable");
+  type ForeignKey = { id: number; seq: number; table: string; from: string; to: string };
+  const quote = (value: string) => `"${value.replaceAll('"', '""')}"`;
+  const tables = rows<{ name: string }>("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name;").map((row) => row.name);
+  const columns = new Map<string, Set<string>>();
+  const primary = new Map<string, string[]>();
+  const foreignKeys = new Map<string, ForeignKey[]>();
+  for (const table of tables) {
+    const info = rows<{ name: string; pk: number }>(`PRAGMA table_info(${quote(table)});`);
+    columns.set(table, new Set(info.map((item) => item.name)));
+    primary.set(table, info.filter((item) => item.pk).sort((a, b) => a.pk - b.pk).map((item) => item.name));
+    foreignKeys.set(table, rows<ForeignKey>(`PRAGMA foreign_key_list(${quote(table)});`));
+  }
+  exec("BEGIN IMMEDIATE;");
+  try {
+    const selected = new Map<string, Set<number>>();
+    for (const table of tables) {
+      if (!columns.get(table)?.has("owner_user_id")) continue;
+      try {
+        selected.set(table, new Set(rows<{ __rowid: number }>(`SELECT rowid AS __rowid FROM ${quote(table)} WHERE owner_user_id=${sqlString(ownerUserId)};`).map((row) => row.__rowid)));
+      } catch { /* WITHOUT ROWID tables are expanded through their parent rows below. */ }
+    }
+    let changed = true;
+    while (changed) {
+      changed = false;
+      for (const child of tables) {
+        const groups = new Map<number, ForeignKey[]>();
+        for (const key of foreignKeys.get(child) || []) groups.set(key.id, [...(groups.get(key.id) || []), key]);
+        for (const parts of groups.values()) {
+          const parent = parts[0].table;
+          const parentRows = selected.get(parent);
+          if (!parentRows?.size) continue;
+          const parentKeys = primary.get(parent) || [];
+          const parentValues = new Map<string, Set<string>>();
+          for (const part of parts) {
+            const target = part.to || parentKeys[part.seq];
+            if (!target) continue;
+            const values = rows<{ value: unknown }>(`SELECT ${quote(target)} AS value FROM ${quote(parent)} WHERE rowid IN (${[...parentRows].map(sqlNumber).join(",")});`)
+              .map((row) => row.value).filter((value) => value !== null && value !== undefined).map((value) => typeof value === "number" ? String(value) : String(value));
+            parentValues.set(part.from, new Set(values));
+          }
+          if (!parentValues.size) continue;
+          const predicates = [...parentValues].filter(([column, values]) => columns.get(child)?.has(column) && values.size)
+            .map(([column, values]) => `${quote(column)} IN (${[...values].map((value) => sqlString(value)).join(",")})`);
+          if (predicates.length !== parts.length) continue;
+          try {
+            const ids = rows<{ __rowid: number }>(`SELECT rowid AS __rowid FROM ${quote(child)} WHERE ${predicates.join(" AND ")};`).map((row) => row.__rowid);
+            const target = selected.get(child) || new Set<number>();
+            for (const id of ids) if (!target.has(id)) { target.add(id); changed = true; }
+            selected.set(child, target);
+          } catch { /* WITHOUT ROWID descendants are removed by SQLite FK cascades. */ }
+        }
+      }
+    }
+
+    const order: string[] = [];
+    const visited = new Set<string>();
+    const visit = (table: string) => {
+      if (visited.has(table)) return;
+      visited.add(table);
+      for (const child of tables) if ((foreignKeys.get(child) || []).some((key) => key.table === table)) visit(child);
+      order.push(table);
+    };
+    for (const table of tables) visit(table);
+    for (const table of order) {
+      const ids = [...(selected.get(table) || [])];
+      for (let offset = 0; offset < ids.length; offset += 400) {
+        exec(`DELETE FROM ${quote(table)} WHERE rowid IN (${ids.slice(offset, offset + 400).map(sqlNumber).join(",")});`);
+      }
+    }
+    const scopedPrefix = `owner:${encodeURIComponent(ownerUserId)}:`;
+    for (const table of ["secrets", "app_settings"] as const) {
+      if (hasTable(table)) exec(`DELETE FROM ${quote(table)} WHERE substr(name,1,${sqlNumber(scopedPrefix.length)})=${sqlString(scopedPrefix)};`);
+    }
+    exec("COMMIT;");
+  } catch (error) {
+    exec("ROLLBACK;");
+    throw error;
+  }
+}
+
+/** Disabled users are denied from worker execution too; a missing auth table fails closed. */
+export function isOwnerEnabled(ownerUserId: string): boolean {
+  if (!ownerUserId.trim() || !ensureDatabase() || !hasTable("auth_user_status")) return false;
+  const status = rows<{ status: string }>(`SELECT status FROM auth_user_status WHERE owner_user_id=${sqlString(ownerUserId)} LIMIT 1;`)[0]?.status;
+  return status !== "disabled";
 }
 
 function competitorsFromRows(items: Array<{
@@ -5208,14 +5807,22 @@ export function recordUsageEvent(input: {
   model: string;
   units?: number;
   estimatedUsd?: number;
+  reportedUsd?: number;
+  costBasis?: "reported" | "estimated" | "unknown";
+  inputTokens?: number;
+  outputTokens?: number;
+  reservationId?: string;
   metadata?: Record<string, unknown>;
   now: number;
 }): UsageEvent {
   exec(`INSERT INTO usage_events
-    (kind, provider, model, units, estimated_usd, metadata_json, owner_user_id, created_at)
+    (kind, provider, model, units, estimated_usd, metadata_json, owner_user_id, created_at,
+      estimated_cost_usd, reported_cost_usd, cost_basis, input_tokens, output_tokens, reservation_id)
     VALUES (${sqlString(input.kind)}, ${sqlString(input.provider)}, ${sqlString(input.model)},
       ${sqlNumber(input.units || 1)}, ${Number.isFinite(input.estimatedUsd) ? input.estimatedUsd : 0},
-      ${sqlString(JSON.stringify(input.metadata || {}))}, ${currentOwnerId() === undefined ? "NULL" : sqlString(currentOwnerId()!)}, ${sqlNumber(input.now)});`);
+      ${sqlString(JSON.stringify(input.metadata || {}))}, ${currentOwnerId() === undefined ? "NULL" : sqlString(currentOwnerId()!)}, ${sqlNumber(input.now)},
+      ${sqlReal(input.estimatedUsd)}, ${sqlReal(input.reportedUsd)}, ${sqlString(input.costBasis || (input.reportedUsd != null ? "reported" : input.estimatedUsd != null ? "estimated" : "unknown"))},
+      ${input.inputTokens == null ? "NULL" : sqlNumber(input.inputTokens)}, ${input.outputTokens == null ? "NULL" : sqlNumber(input.outputTokens)}, ${input.reservationId ? sqlString(input.reservationId) : "NULL"});`);
   const row = rows<{
     id: number;
     kind: string;
@@ -5243,26 +5850,152 @@ export function getUsageSummary(since = 0): {
   events: number;
   units: number;
   estimatedUsd: number;
-  byProvider: Array<{ provider: string; events: number; units: number; estimatedUsd: number }>;
-  byModel: Array<{ provider: string; model: string; events: number; units: number; estimatedUsd: number }>;
-  byKind: Array<{ kind: string; events: number; units: number; estimatedUsd: number }>;
+  reportedUsd: number;
+  unknownCostEvents: number;
+  inputTokens: number;
+  outputTokens: number;
+  byProvider: Array<{ provider: string; events: number; units: number; estimatedUsd: number; reportedUsd: number; unknownCostEvents: number }>;
+  byModel: Array<{ provider: string; model: string; events: number; units: number; estimatedUsd: number; reportedUsd: number; unknownCostEvents: number }>;
+  byKind: Array<{ kind: string; events: number; units: number; estimatedUsd: number; reportedUsd: number; unknownCostEvents: number }>;
 } {
-  const total = rows<{ events: number; units: number; estimatedUsd: number }>(`SELECT COUNT(*) as events,
-      COALESCE(SUM(units), 0) as units, COALESCE(SUM(estimated_usd), 0) as estimatedUsd
+  const total = rows<{ events: number; units: number; estimatedUsd: number; reportedUsd: number; unknownCostEvents: number; inputTokens: number; outputTokens: number }>(`SELECT COUNT(*) as events,
+      COALESCE(SUM(units), 0) as units, COALESCE(SUM(estimated_cost_usd), 0) as estimatedUsd,
+      COALESCE(SUM(reported_cost_usd), 0) as reportedUsd,
+      COALESCE(SUM(CASE WHEN cost_basis='unknown' THEN 1 ELSE 0 END),0) as unknownCostEvents,
+      COALESCE(SUM(input_tokens),0) as inputTokens, COALESCE(SUM(output_tokens),0) as outputTokens
       FROM usage_events WHERE created_at >= ${sqlNumber(since)} ${ownerSql("owner_user_id") ? `AND ${ownerSql("owner_user_id")}` : ""};`)[0] || { events: 0, units: 0, estimatedUsd: 0 };
   return {
     events: total.events,
     units: total.units,
     estimatedUsd: total.estimatedUsd,
-    byProvider: rows<{ provider: string; events: number; units: number; estimatedUsd: number }>(`SELECT provider,
-      COUNT(*) as events, COALESCE(SUM(units), 0) as units, COALESCE(SUM(estimated_usd), 0) as estimatedUsd
+    reportedUsd: total.reportedUsd,
+    unknownCostEvents: total.unknownCostEvents,
+    inputTokens: total.inputTokens,
+    outputTokens: total.outputTokens,
+    byProvider: rows<{ provider: string; events: number; units: number; estimatedUsd: number; reportedUsd: number; unknownCostEvents: number }>(`SELECT provider,
+      COUNT(*) as events, COALESCE(SUM(units), 0) as units, COALESCE(SUM(estimated_cost_usd), 0) as estimatedUsd,
+      COALESCE(SUM(reported_cost_usd),0) as reportedUsd, COALESCE(SUM(CASE WHEN cost_basis='unknown' THEN 1 ELSE 0 END),0) as unknownCostEvents
       FROM usage_events WHERE created_at >= ${sqlNumber(since)} ${ownerSql("owner_user_id") ? `AND ${ownerSql("owner_user_id")}` : ""} GROUP BY provider ORDER BY units DESC;`),
-    byModel: rows<{ provider: string; model: string; events: number; units: number; estimatedUsd: number }>(`SELECT provider, model,
-      COUNT(*) as events, COALESCE(SUM(units), 0) as units, COALESCE(SUM(estimated_usd), 0) as estimatedUsd
+    byModel: rows<{ provider: string; model: string; events: number; units: number; estimatedUsd: number; reportedUsd: number; unknownCostEvents: number }>(`SELECT provider, model,
+      COUNT(*) as events, COALESCE(SUM(units), 0) as units, COALESCE(SUM(estimated_cost_usd), 0) as estimatedUsd,
+      COALESCE(SUM(reported_cost_usd),0) as reportedUsd, COALESCE(SUM(CASE WHEN cost_basis='unknown' THEN 1 ELSE 0 END),0) as unknownCostEvents
       FROM usage_events WHERE created_at >= ${sqlNumber(since)} ${ownerSql("owner_user_id") ? `AND ${ownerSql("owner_user_id")}` : ""} GROUP BY provider, model ORDER BY units DESC;`),
-    byKind: rows<{ kind: string; events: number; units: number; estimatedUsd: number }>(`SELECT kind,
-      COUNT(*) as events, COALESCE(SUM(units), 0) as units, COALESCE(SUM(estimated_usd), 0) as estimatedUsd
+    byKind: rows<{ kind: string; events: number; units: number; estimatedUsd: number; reportedUsd: number; unknownCostEvents: number }>(`SELECT kind,
+      COUNT(*) as events, COALESCE(SUM(units), 0) as units, COALESCE(SUM(estimated_cost_usd), 0) as estimatedUsd,
+      COALESCE(SUM(reported_cost_usd),0) as reportedUsd, COALESCE(SUM(CASE WHEN cost_basis='unknown' THEN 1 ELSE 0 END),0) as unknownCostEvents
       FROM usage_events WHERE created_at >= ${sqlNumber(since)} ${ownerSql("owner_user_id") ? `AND ${ownerSql("owner_user_id")}` : ""} GROUP BY kind ORDER BY units DESC;`),
+  };
+}
+
+export type AiBudgetReservation = { id: string; allowed: boolean; reason?: "budget_exceeded" | "unknown_cost" };
+
+function aiBudgetOwnerFilter(): string {
+  const ownerId = currentOwnerId();
+  return ownerId === undefined ? "owner_user_id IS NULL" : `owner_user_id=${sqlString(ownerId)}`;
+}
+
+function readAiBudget(name: string): number {
+  const value = Number(getSetting(name, "0"));
+  if (!Number.isFinite(value) || value < 0 || value > 1_000_000) throw new Error("AI budget configuration is invalid");
+  return value;
+}
+
+export function reserveAiBudget(input: { id: string; task: string; provider: string; model: string; reservedUsd: number | null; now: number }): AiBudgetReservation {
+  if (!input.id || !Number.isFinite(input.now) || input.now < 0) throw new Error("AI budget reservation is invalid");
+  if (input.reservedUsd !== null && (!Number.isFinite(input.reservedUsd) || input.reservedUsd < 0)) throw new Error("AI budget estimate is invalid");
+  const ownerId = currentOwnerId();
+  const ownerValue = ownerId === undefined ? "NULL" : sqlString(ownerId);
+  const ownerFilter = aiBudgetOwnerFilter();
+  const dailyBudget = readAiBudget("ai_daily_budget_usd");
+  const monthlyBudget = readAiBudget("ai_monthly_budget_usd");
+  const day = new Date(input.now * 1000);
+  const dayStart = Math.floor(Date.UTC(day.getUTCFullYear(), day.getUTCMonth(), day.getUTCDate()) / 1000);
+  const monthStart = Math.floor(Date.UTC(day.getUTCFullYear(), day.getUTCMonth(), 1) / 1000);
+  const hasBudget = (Number.isFinite(dailyBudget) && dailyBudget > 0) || (Number.isFinite(monthlyBudget) && monthlyBudget > 0);
+  command("BEGIN IMMEDIATE;");
+  try {
+    const existing = rows<{ id: string; status: string }>(`SELECT id,status FROM ai_budget_reservations WHERE id=${sqlString(input.id)} AND ${ownerFilter} LIMIT 1;`)[0];
+    if (existing) {
+      command("COMMIT;");
+      return { id: existing.id, allowed: existing.status === "pending" || existing.status === "ambiguous" };
+    }
+    if (hasBudget && input.reservedUsd === null) {
+      command("COMMIT;");
+      return { id: input.id, allowed: false, reason: "unknown_cost" };
+    }
+    const reservationAmount = input.reservedUsd ?? 0;
+    const spendSince = (since: number) => rows<{ amount: number }>(`SELECT
+        COALESCE((SELECT SUM(COALESCE(reported_cost_usd,estimated_cost_usd,0)) FROM usage_events WHERE ${ownerFilter} AND created_at>=${sqlNumber(since)}),0)
+        + COALESCE((SELECT SUM(reserved_usd) FROM ai_budget_reservations WHERE ${ownerFilter} AND created_at>=${sqlNumber(since)} AND status IN ('pending','ambiguous')),0) as amount;`)[0]?.amount || 0;
+    if ((Number.isFinite(dailyBudget) && dailyBudget > 0 && spendSince(dayStart) + reservationAmount > dailyBudget)
+      || (Number.isFinite(monthlyBudget) && monthlyBudget > 0 && spendSince(monthStart) + reservationAmount > monthlyBudget)) {
+      command("COMMIT;");
+      return { id: input.id, allowed: false, reason: "budget_exceeded" };
+    }
+    command(`INSERT INTO ai_budget_reservations(id,owner_user_id,task,provider,model,reserved_usd,status,created_at)
+      VALUES(${sqlString(input.id)},${ownerValue},${sqlString(input.task)},${sqlString(input.provider)},${sqlString(input.model)},${sqlReal(input.reservedUsd)},'pending',${sqlNumber(input.now)});`);
+    command("COMMIT;");
+    return { id: input.id, allowed: true };
+  } catch (error) {
+    command("ROLLBACK;");
+    throw error;
+  }
+}
+
+export function settleAiBudgetReservation(id: string, input: {
+  outcome: "success" | "known_failure" | "ambiguous";
+  now: number;
+  kind?: string;
+  units?: number;
+  estimatedUsd?: number | null;
+  reportedUsd?: number | null;
+  inputTokens?: number | null;
+  outputTokens?: number | null;
+  metadata?: Record<string, unknown>;
+}): void {
+  const ownerFilter = aiBudgetOwnerFilter();
+  const status = input.outcome === "success" ? "settled" : input.outcome === "known_failure" ? "released" : "ambiguous";
+  command("BEGIN IMMEDIATE;");
+  try {
+    const reservation = rows<{ id: string; task: string; provider: string; model: string; status: string; created_at: number }>(`SELECT id,task,provider,model,status,created_at FROM ai_budget_reservations WHERE id=${sqlString(id)} AND ${ownerFilter} LIMIT 1;`)[0];
+    if (!reservation || reservation.status !== "pending") { command("COMMIT;"); return; }
+    command(`UPDATE ai_budget_reservations SET status=${sqlString(status)},settled_at=${sqlNumber(input.now)} WHERE id=${sqlString(id)} AND ${ownerFilter} AND status='pending';`);
+    if (input.outcome === "success") {
+      recordUsageEvent({
+        kind: input.kind || reservation.task,
+        provider: reservation.provider,
+        model: reservation.model,
+        units: input.units,
+        estimatedUsd: input.estimatedUsd ?? undefined,
+        reportedUsd: input.reportedUsd ?? undefined,
+        costBasis: input.reportedUsd != null ? "reported" : input.estimatedUsd != null ? "estimated" : "unknown",
+        inputTokens: input.inputTokens ?? undefined,
+        outputTokens: input.outputTokens ?? undefined,
+        reservationId: id,
+        metadata: input.metadata,
+        now: reservation.created_at,
+      });
+    }
+    command("COMMIT;");
+  } catch (error) { command("ROLLBACK;"); throw error; }
+}
+
+export function getAiBudgetStatus(now = Math.floor(Date.now() / 1000)): {
+  dailyBudgetUsd: number; monthlyBudgetUsd: number; dailyCommittedUsd: number; monthlyCommittedUsd: number; pendingReservations: number;
+} {
+  const ownerFilter = aiBudgetOwnerFilter();
+  const date = new Date(now * 1000);
+  const dayStart = Math.floor(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()) / 1000);
+  const monthStart = Math.floor(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1) / 1000);
+  const committed = (since: number) => rows<{ amount: number }>(`SELECT
+      COALESCE((SELECT SUM(COALESCE(reported_cost_usd,estimated_cost_usd,0)) FROM usage_events WHERE ${ownerFilter} AND created_at>=${sqlNumber(since)}),0)
+      + COALESCE((SELECT SUM(reserved_usd) FROM ai_budget_reservations WHERE ${ownerFilter} AND created_at>=${sqlNumber(since)} AND status IN ('pending','ambiguous')),0) as amount;`)[0]?.amount || 0;
+  return {
+    dailyBudgetUsd: readAiBudget("ai_daily_budget_usd"),
+    monthlyBudgetUsd: readAiBudget("ai_monthly_budget_usd"),
+    dailyCommittedUsd: committed(dayStart),
+    monthlyCommittedUsd: committed(monthStart),
+    pendingReservations: rows<{ count: number }>(`SELECT COUNT(*) as count FROM ai_budget_reservations WHERE ${ownerFilter} AND status IN ('pending','ambiguous');`)[0]?.count || 0,
   };
 }
 
@@ -5429,6 +6162,7 @@ const AUTOMATION_DEFAULTS: Array<{ id: AutomationTaskId; intervalSeconds: number
   { id: "source_liveness", intervalSeconds: 86400 },
   { id: "queue_worker", intervalSeconds: 300 },
   { id: "reconciliation", intervalSeconds: 300 },
+  { id: "account_inference", intervalSeconds: 300 },
 ];
 
 function validAutomationTask(value: unknown): value is AutomationTaskSchedule {
@@ -5974,4 +6708,328 @@ export function getDraftVariants(draftId: number): DraftVariantRecord[] {
     detail: parseObject(row.detail_json),
     createdAt: row.created_at,
   }));
+}
+
+export type OwnUserProfile = { username: string; displayName: string; bio: string; visibility: "private" | "public"; createdAt: number; updatedAt: number; xHandle: string | null; avatarUrl: string | null; onboardingCompleted: boolean; profilePath: string };
+export type PublicUserProfile = { username: string; displayName: string; bio: string; xHandle: string | null; avatarUrl: string | null; profilePath: string };
+
+type UserProfileRow = { username: string; display_name: string; bio: string; visibility: "private" | "public"; created_at: number; updated_at: number; x_handle: string | null; avatar_url: string | null; onboarding_completed: number };
+
+const RESERVED_PUBLIC_PROFILE_PATHS = new Set(["api", "app", "u", "h", "compare", "docs", "forgot-password", "leaderboard", "login", "market", "no-viral-guarantee", "open-source", "privacy", "research", "reset-password", "security", "settings", "signup", "terms", "transparency", "robots.txt", "sitemap.xml", "favicon.ico"]);
+export function profilePathForIdentity(handle: string | null, username: string): string {
+  const normalized = handle?.replace(/^@/, "") ?? "";
+  return normalized && /^[A-Za-z0-9_]{1,15}$/.test(normalized) && !RESERVED_PUBLIC_PROFILE_PATHS.has(normalized.toLowerCase()) && !/^(en|zh-cn|hi|es|fr|ar|bn|pt-br|ru|id|ur|de|ja|sw|mr|te|tr|ta|vi|ko)$/i.test(normalized)
+    ? `/${normalized}` : `/u/${username}`;
+}
+
+function profileFromRow(row: UserProfileRow): OwnUserProfile {
+  const profilePath = profilePathForIdentity(row.x_handle, row.username);
+  return { username: row.username, displayName: row.display_name, bio: row.bio, visibility: row.visibility, createdAt: row.created_at, updatedAt: row.updated_at, xHandle: row.x_handle, avatarUrl: row.avatar_url, onboardingCompleted: row.onboarding_completed === 1, profilePath };
+}
+
+function requireProfileOwner(): string {
+  const ownerId = currentOwnerId();
+  if (!ownerId) throw new Error("authenticated profile owner required");
+  return ownerId;
+}
+
+export function getOwnUserProfile(now = Math.floor(Date.now() / 1000)): OwnUserProfile {
+  const ownerId = requireProfileOwner();
+  if (!ensureDatabase()) throw new Error("database unavailable");
+  // A server-generated random slug avoids exposing email addresses or predictable account identifiers.
+  let row: UserProfileRow | undefined;
+  for (let attempt = 0; attempt < 3 && !row; attempt++) {
+    const username = Buffer.from(globalThis.crypto.getRandomValues(new Uint8Array(18))).toString("base64url");
+    if (new Set(username).size < 12) continue;
+    try {
+      command(`INSERT INTO user_profiles(owner_user_id,username,visibility,onboarding_completed,created_at,updated_at)
+        VALUES(${sqlString(ownerId)},${sqlString(username)},'public',0,${sqlNumber(now)},${sqlNumber(now)}) ON CONFLICT(owner_user_id) DO NOTHING;`);
+    } catch { /* Retry an astronomically unlikely random slug collision. */ }
+    row = criticalRows<UserProfileRow>(
+      `SELECT username,display_name,bio,visibility,created_at,updated_at,x_handle,avatar_url,onboarding_completed FROM user_profiles WHERE owner_user_id=${sqlString(ownerId)} LIMIT 1;`,
+    )[0];
+  }
+  if (!row) throw new Error("profile could not be initialized");
+  return profileFromRow(row);
+}
+
+export function saveOwnUserProfile(input: { displayName: string; bio: string; visibility: "private" | "public"; now?: number }): OwnUserProfile {
+  const ownerId = requireProfileOwner();
+  getOwnUserProfile(input.now);
+  if (!ensureDatabase()) throw new Error("database unavailable");
+  const now = input.now ?? Math.floor(Date.now() / 1000);
+  command(`UPDATE user_profiles SET display_name=${sqlString(input.displayName)},bio=${sqlString(input.bio)},visibility=${sqlString(input.visibility)},onboarding_completed=1,updated_at=${sqlNumber(now)}
+    WHERE owner_user_id=${sqlString(ownerId)};`);
+  return getOwnUserProfile(now);
+}
+
+export function getPublicUserProfile(username: string): PublicUserProfile | null {
+  if (!ensureDatabase()) throw new Error("database unavailable");
+  // Keep this projection explicit and visibility-gated; never return the owner key or private columns.
+  const row = criticalRows<{ username: string; display_name: string; bio: string; x_handle: string | null; avatar_url: string | null }>(
+    `SELECT username,display_name,bio,x_handle,avatar_url FROM user_profiles WHERE username=${sqlString(username)} AND visibility='public' AND onboarding_completed=1 LIMIT 1;`,
+  )[0];
+  return row ? { username: row.username, displayName: row.display_name, bio: row.bio, xHandle: row.x_handle, avatarUrl: row.avatar_url, profilePath: profilePathForIdentity(row.x_handle, row.username) } : null;
+}
+
+export function getPublicUserProfileByHandle(handle: string): PublicUserProfile | null {
+  if (!ensureDatabase()) throw new Error("database unavailable");
+  const row = criticalRows<{ username: string; display_name: string; bio: string; x_handle: string; avatar_url: string | null }>(
+    `SELECT username,display_name,bio,x_handle,avatar_url FROM user_profiles WHERE lower(x_handle)=lower(${sqlString(handle)}) AND visibility='public' AND onboarding_completed=1 LIMIT 1;`,
+  )[0];
+  return row ? { username: row.username, displayName: row.display_name, bio: row.bio, xHandle: row.x_handle, avatarUrl: row.avatar_url, profilePath: profilePathForIdentity(row.x_handle, row.username) } : null;
+}
+
+export function getProfileAvatarAccess(xUserId: string, ownerUserId?: string): boolean {
+  if (!ensureDatabase()) return false;
+  const owner = ownerUserId ? ` OR profile.owner_user_id=${sqlString(ownerUserId)}` : "";
+  return criticalRows<{ allowed: number }>(`SELECT 1 AS allowed FROM user_profiles profile JOIN user_profile_x_identity identity ON identity.owner_user_id=profile.owner_user_id
+    WHERE identity.x_user_id=${sqlString(xUserId)} AND (profile.visibility='public' AND profile.onboarding_completed=1${owner}) LIMIT 1;`).length > 0;
+}
+
+export function syncUserProfileFromX(input: { ownerUserId: string; xUserId: string; handle: string; displayName: string; bio: string; avatarUrl: string | null; now?: number }): void {
+  if (!ensureDatabase()) throw new Error("database unavailable");
+  const handle = input.handle.replace(/^@/, "");
+  if (!input.ownerUserId || !/^\d{1,32}$/.test(input.xUserId) || !/^[A-Za-z0-9_]{1,15}$/.test(handle)) throw new Error("verified X profile identity is invalid");
+  if (input.avatarUrl !== null && input.avatarUrl !== `/api/profile/avatar/${input.xUserId}`) throw new Error("X avatar must use the local profile proxy");
+  const now = input.now ?? Math.floor(Date.now() / 1000);
+  runAsOwner(input.ownerUserId, () => getOwnUserProfile(now));
+  const row = criticalRows<{ owner_user_id: string; x_user_id: string | null }>(`SELECT profile.owner_user_id,identity.x_user_id FROM user_profiles profile LEFT JOIN user_profile_x_identity identity ON identity.owner_user_id=profile.owner_user_id WHERE profile.owner_user_id=${sqlString(input.ownerUserId)} LIMIT 1;`)[0];
+  if (!row) throw new Error("profile could not be initialized");
+  // The first verified account owns the public identity; subsequent connections cannot replace it.
+  if (row.x_user_id && row.x_user_id !== input.xUserId) return;
+  if (!row.x_user_id) {
+    const used = criticalRows<{ owner_user_id: string }>(`SELECT owner_user_id FROM user_profile_x_identity WHERE x_user_id=${sqlString(input.xUserId)} LIMIT 1;`)[0];
+    if (used && used.owner_user_id !== input.ownerUserId) return;
+    command(`INSERT INTO user_profile_x_identity(owner_user_id,x_user_id) VALUES(${sqlString(input.ownerUserId)},${sqlString(input.xUserId)}) ON CONFLICT(owner_user_id) DO NOTHING;`);
+  }
+  try {
+    command(`UPDATE user_profiles SET x_handle=${sqlString(handle)},display_name=${sqlString(input.displayName.slice(0, 80))},bio=${sqlString(input.bio.slice(0, 500))},avatar_url=COALESCE(${input.avatarUrl === null ? "NULL" : sqlString(input.avatarUrl)},avatar_url),updated_at=${sqlNumber(now)}
+      WHERE owner_user_id=${sqlString(input.ownerUserId)} AND EXISTS (SELECT 1 FROM user_profile_x_identity WHERE owner_user_id=${sqlString(input.ownerUserId)} AND x_user_id=${sqlString(input.xUserId)});`);
+  } catch (error) {
+    if (String(error).includes("UNIQUE constraint failed")) return;
+    throw error;
+  }
+}
+
+export type HitShareMetrics = { views: number | null; likes: number | null; replies: number | null; reposts: number | null; quotes: number | null };
+export type ShareableXPost = { remotePostId: string; accountHandle: string; postUrl: string; text: string; publishedAt: number; metrics: HitShareMetrics; observedAt: number };
+export type OwnHitShare = { publicId: string; remotePostId: string; createdAt: number; revokedAt: number | null; leaderboardOptIn: boolean };
+export type PublicHitShare = ShareableXPost & { publicId: string; verification: "official_x_api" };
+
+type HitEvidenceRow = {
+  prediction_id: string; account_id: number; account_handle: string; intent_remote_post_id: string; remote_url: string;
+  confirmed_at: number; published_text: string; observed_at: number; captured_at: number;
+  views: number | null; likes: number | null; replies: number | null; reposts: number | null; quotes: number | null; provenance_ref: string;
+  followers_count?: number | null; followers_observed_at?: number | null; followers_x_user_id?: string | null;
+  followers_provenance_ref?: string | null; censored_json?: string; x_user_id?: string; auth_state?: string;
+};
+
+function hitPostIdFromUrl(value: string): string | null {
+  try {
+    const url = new URL(value);
+    if (url.protocol !== "https:" || !["x.com", "www.x.com", "twitter.com", "www.twitter.com"].includes(url.hostname.toLowerCase())) return null;
+    return url.pathname.match(/^\/[^/]+\/status\/(\d+)\/?$/)?.[1] ?? null;
+  } catch { return null; }
+}
+
+function mapHitEvidence(row: HitEvidenceRow): ShareableXPost | null {
+  const remotePostId = hitPostIdFromUrl(row.remote_url);
+  if (!remotePostId || row.intent_remote_post_id && row.intent_remote_post_id !== remotePostId) return null;
+  const provenance = row.provenance_ref.match(/^official_x:(\d+):(\d+):published_at=(\d+)$/);
+  if (!provenance || Number(provenance[1]) !== row.account_id || provenance[2] !== remotePostId) return null;
+  const publishedAt = Number(provenance[3]);
+  if (!Number.isSafeInteger(publishedAt) || publishedAt <= 0 || row.observed_at < publishedAt || row.captured_at < row.observed_at) return null;
+  if (![row.views, row.likes, row.replies, row.reposts, row.quotes].some((value) => value !== null)) return null;
+  return {
+    remotePostId, accountHandle: row.account_handle, postUrl: row.remote_url, text: row.published_text,
+    publishedAt, observedAt: row.captured_at,
+    metrics: { views: row.views, likes: row.likes, replies: row.replies, reposts: row.reposts, quotes: row.quotes },
+  };
+}
+
+function hitEvidenceRows(ownerId: string, remotePostId?: string, leaderboard = false): HitEvidenceRow[] {
+  const postFilter = remotePostId
+    ? `AND (intent.remote_post_id=${sqlString(remotePostId)} OR intent.remote_url LIKE ${sqlString(`%/status/${remotePostId}`)} OR intent.remote_url LIKE ${sqlString(`%/status/${remotePostId}/`)})`
+    : "";
+  const observationFilter = leaderboard ? `AND latest.observed_at - CAST(substr(latest.provenance_ref,instr(latest.provenance_ref,'published_at=')+13) AS INTEGER) BETWEEN 86400 AND 108000` : "";
+  return criticalRows<HitEvidenceRow>(`SELECT prediction.id AS prediction_id, account.id AS account_id, account.handle AS account_handle,
+      intent.remote_post_id AS intent_remote_post_id, intent.remote_url, intent.confirmed_at,
+      approval.text AS published_text, outcome.observed_at, outcome.captured_at,
+      outcome.views, outcome.likes, outcome.replies, outcome.reposts, outcome.quotes, outcome.provenance_ref,
+      outcome.followers_count, outcome.followers_observed_at, outcome.followers_x_user_id, outcome.followers_provenance_ref,
+      outcome.censored_json, ${leaderboard ? "oauth.x_user_id, oauth.auth_state" : "NULL AS x_user_id,NULL AS auth_state"}
+    FROM evaluation_predictions AS prediction
+    INNER JOIN accounts AS account ON account.id=CAST(prediction.account_id AS INTEGER) AND account.owner_user_id=prediction.owner_user_id
+    ${leaderboard ? "INNER JOIN x_oauth_accounts AS oauth ON oauth.account_id=account.id AND oauth.owner_user_id=prediction.owner_user_id" : ""}
+    INNER JOIN publication_intents AS intent ON intent.account_id=account.id AND intent.status='confirmed' AND intent.confirmed_at IS NOT NULL
+      AND prediction.created_at<=intent.requested_at
+    INNER JOIN drafts AS intent_draft ON intent_draft.id=intent.draft_id AND intent_draft.owner_user_id=prediction.owner_user_id
+    INNER JOIN publication_approval_snapshots AS approval ON approval.id=intent.approval_snapshot_id
+      AND approval.entity_type='publication_intent' AND approval.entity_id=intent.id AND approval.draft_id=intent.draft_id AND approval.account_id=account.id
+      AND approval.action='post' AND approval.format='post' AND approval.external_id=json_extract(prediction.features_json,'$.sourceCandidateId')
+      AND approval.text=intent.text AND approval.approved_at>=prediction.created_at
+      AND approval.approved_at<=COALESCE(intent.dispatched_at,intent.confirmed_at)
+      AND approval.expires_at>=COALESCE(intent.dispatched_at,intent.confirmed_at)
+    INNER JOIN evaluation_outcome_revisions AS outcome ON outcome.owner_user_id=prediction.owner_user_id
+      AND outcome.prediction_id=prediction.id AND outcome.source='official_x_api'
+      AND outcome.id=(SELECT latest.id FROM evaluation_outcome_revisions AS latest
+        WHERE latest.owner_user_id=prediction.owner_user_id AND latest.prediction_id=prediction.id AND latest.source='official_x_api'
+        ${observationFilter}
+        ORDER BY latest.captured_at ${leaderboard ? "ASC" : "DESC"},latest.id ${leaderboard ? "ASC" : "DESC"} LIMIT 1)
+    WHERE prediction.owner_user_id=${sqlString(ownerId)} AND prediction.action='post'
+      AND json_extract(prediction.features_json,'$.decision')='eligible'
+      AND outcome.provenance_ref LIKE ('official_x:' || account.id || ':%:published_at=%')
+      AND (outcome.views IS NOT NULL OR outcome.likes IS NOT NULL OR outcome.replies IS NOT NULL OR outcome.reposts IS NOT NULL OR outcome.quotes IS NOT NULL)
+      ${postFilter}
+    ORDER BY outcome.captured_at DESC, prediction.id DESC LIMIT 500;`);
+}
+
+export function listOwnShareableXPosts(): ShareableXPost[] {
+  const ownerId = requireProfileOwner();
+  return hitEvidenceRows(ownerId).map(mapHitEvidence).filter((item): item is ShareableXPost => item !== null).slice(0, 100);
+}
+
+export function listOwnHitShares(): OwnHitShare[] {
+  const ownerId = requireProfileOwner();
+  return criticalRows<{ public_id: string; remote_post_id: string; created_at: number; revoked_at: number | null; leaderboard_opt_in: number }>(
+    `SELECT public_id,remote_post_id,created_at,revoked_at,leaderboard_opt_in FROM hit_shares WHERE owner_user_id=${sqlString(ownerId)} ORDER BY created_at DESC,id DESC LIMIT 100;`,
+  ).map((row) => ({ publicId: row.public_id, remotePostId: row.remote_post_id, createdAt: row.created_at, revokedAt: row.revoked_at, leaderboardOptIn: row.leaderboard_opt_in === 1 }));
+}
+
+export function createOwnHitShare(remotePostId: string, now = Math.floor(Date.now() / 1000)): OwnHitShare {
+  const ownerId = requireProfileOwner();
+  if (!/^\d{1,32}$/.test(remotePostId)) throw new Error("geçerli bir 𝕏 gönderi kimliği gerekli");
+  if (!Number.isSafeInteger(now) || now < 0) throw new Error("paylaşım zamanı geçersiz");
+  if (!ensureDatabase()) throw new Error("database unavailable");
+  command("BEGIN IMMEDIATE;");
+  try {
+    const hit = hitEvidenceRows(ownerId, remotePostId).map(mapHitEvidence).find((item) => item?.remotePostId === remotePostId);
+    if (!hit) throw new Error("resmi 𝕏 verisiyle doğrulanmış kendi gönderisi bulunamadı");
+    const existing = criticalRows<{ public_id: string; remote_post_id: string; created_at: number; revoked_at: number | null; leaderboard_opt_in: number }>(
+      `SELECT public_id,remote_post_id,created_at,revoked_at,leaderboard_opt_in FROM hit_shares WHERE owner_user_id=${sqlString(ownerId)} AND remote_post_id=${sqlString(remotePostId)} AND revoked_at IS NULL LIMIT 1;`,
+    )[0];
+    if (existing) {
+      command("COMMIT;");
+      return { publicId: existing.public_id, remotePostId: existing.remote_post_id, createdAt: existing.created_at, revokedAt: existing.revoked_at, leaderboardOptIn: existing.leaderboard_opt_in === 1 };
+    }
+    const candidate = hitEvidenceRows(ownerId, remotePostId).find((row) => mapHitEvidence(row)?.remotePostId === remotePostId);
+    if (!candidate) throw new Error("resmi 𝕏 verisiyle doğrulanmış kendi gönderisi bulunamadı");
+    let publicId = "";
+    for (let attempt = 0; attempt < 3; attempt++) {
+      publicId = Buffer.from(globalThis.crypto.getRandomValues(new Uint8Array(24))).toString("base64url");
+      try {
+        command(`INSERT INTO hit_shares(public_id,owner_user_id,account_id,prediction_id,remote_post_id,created_at,revoked_at)
+          VALUES(${sqlString(publicId)},${sqlString(ownerId)},${sqlNumber(candidate.account_id)},${sqlString(candidate.prediction_id)},${sqlString(remotePostId)},${sqlNumber(now)},NULL);`);
+        break;
+      } catch (error) {
+        if (attempt === 2) throw error;
+        publicId = "";
+      }
+    }
+    if (!publicId) throw new Error("paylaşım bağlantısı oluşturulamadı");
+    command("COMMIT;");
+    return { publicId, remotePostId, createdAt: now, revokedAt: null, leaderboardOptIn: false };
+  } catch (error) {
+    command("ROLLBACK;");
+    throw error;
+  }
+}
+
+export function revokeOwnHitShare(publicId: string, now = Math.floor(Date.now() / 1000)): boolean {
+  const ownerId = requireProfileOwner();
+  if (!/^[A-Za-z0-9_-]{32}$/.test(publicId)) return false;
+  if (!Number.isSafeInteger(now) || now < 0) throw new Error("revoke time is invalid");
+  const changed = criticalRows<{ public_id: string }>(`UPDATE hit_shares SET revoked_at=${sqlNumber(now)}
+    WHERE public_id=${sqlString(publicId)} AND owner_user_id=${sqlString(ownerId)} AND revoked_at IS NULL RETURNING public_id;`);
+  return changed.length > 0;
+}
+
+export function getPublicHitShare(publicId: string): PublicHitShare | null {
+  if (!/^[A-Za-z0-9_-]{32}$/.test(publicId)) return null;
+  const row = criticalRows<HitEvidenceRow & { public_id: string }>(`SELECT hit.public_id,
+      prediction.id AS prediction_id, account.id AS account_id, account.handle AS account_handle,
+      intent.remote_post_id AS intent_remote_post_id, intent.remote_url, intent.confirmed_at,
+      approval.text AS published_text, outcome.observed_at, outcome.captured_at,
+      outcome.views, outcome.likes, outcome.replies, outcome.reposts, outcome.quotes, outcome.provenance_ref
+    FROM hit_shares AS hit
+    INNER JOIN evaluation_predictions AS prediction ON prediction.id=hit.prediction_id AND prediction.owner_user_id=hit.owner_user_id
+    INNER JOIN accounts AS account ON account.id=hit.account_id AND account.owner_user_id=hit.owner_user_id AND account.id=CAST(prediction.account_id AS INTEGER)
+    INNER JOIN publication_intents AS intent ON intent.account_id=account.id AND intent.status='confirmed' AND intent.confirmed_at IS NOT NULL
+    INNER JOIN drafts AS intent_draft ON intent_draft.id=intent.draft_id AND intent_draft.owner_user_id=prediction.owner_user_id
+    INNER JOIN publication_approval_snapshots AS approval ON approval.id=intent.approval_snapshot_id
+      AND approval.entity_type='publication_intent' AND approval.entity_id=intent.id AND approval.draft_id=intent.draft_id AND approval.account_id=account.id
+      AND approval.action='post' AND approval.format='post' AND approval.external_id=json_extract(prediction.features_json,'$.sourceCandidateId')
+      AND approval.text=intent.text AND approval.approved_at>=prediction.created_at
+      AND approval.approved_at<=COALESCE(intent.dispatched_at,intent.confirmed_at)
+      AND approval.expires_at>=COALESCE(intent.dispatched_at,intent.confirmed_at)
+    INNER JOIN evaluation_outcome_revisions AS outcome ON outcome.owner_user_id=hit.owner_user_id
+      AND outcome.prediction_id=prediction.id AND outcome.source='official_x_api'
+      AND outcome.id=(SELECT latest.id FROM evaluation_outcome_revisions AS latest
+        WHERE latest.owner_user_id=hit.owner_user_id AND latest.prediction_id=prediction.id AND latest.source='official_x_api'
+        ORDER BY latest.captured_at DESC,latest.id DESC LIMIT 1)
+    WHERE hit.public_id=${sqlString(publicId)} AND hit.revoked_at IS NULL
+      AND (intent.remote_post_id='' OR hit.remote_post_id=intent.remote_post_id)
+      AND prediction.action='post' AND prediction.created_at<=intent.requested_at
+      AND json_extract(prediction.features_json,'$.decision')='eligible'
+      AND outcome.provenance_ref LIKE ('official_x:' || account.id || ':' || hit.remote_post_id || ':published_at=%')
+      AND (outcome.views IS NOT NULL OR outcome.likes IS NOT NULL OR outcome.replies IS NOT NULL OR outcome.reposts IS NOT NULL OR outcome.quotes IS NOT NULL)
+    LIMIT 1;`)[0];
+  if (!row) return null;
+  const hit = mapHitEvidence(row);
+  return hit ? { ...hit, publicId: row.public_id, verification: "official_x_api" } : null;
+}
+
+/** Explicit per-card participation, independent from sharing and profile visibility. */
+export function setOwnHitLeaderboardOptIn(publicId: string, enabled: boolean): boolean {
+  const ownerId = requireProfileOwner();
+  if (!/^[A-Za-z0-9_-]{32}$/.test(publicId) || typeof enabled !== "boolean") return false;
+  return criticalRows<{ public_id: string }>(`UPDATE hit_shares SET leaderboard_opt_in=${enabled ? 1 : 0}
+    WHERE public_id=${sqlString(publicId)} AND owner_user_id=${sqlString(ownerId)} AND revoked_at IS NULL RETURNING public_id;`).length > 0;
+}
+
+/** Operator-only moderation persists across share revocation and recreation. */
+export function setHitEvidenceExcluded(publicId: string, excluded: boolean, reason: string, now = Math.floor(Date.now()/1000)): boolean {
+  const operator = currentOwnerId();
+  if (!operator || operator !== process.env.ISPATLA_OPERATOR_USER_ID) throw new Error("operator authorization required");
+  if (!/^[A-Za-z0-9_-]{32}$/.test(publicId) || typeof excluded !== "boolean" || typeof reason !== "string" || reason.length > 500 || excluded && !reason.trim()) throw new Error("invalid moderation request");
+  const hit = criticalRows<{owner_user_id:string;account_id:number;remote_post_id:string}>(`SELECT owner_user_id,account_id,remote_post_id FROM hit_shares WHERE public_id=${sqlString(publicId)} LIMIT 1;`)[0];
+  if (!hit) return false;
+  const key = `owner_user_id=${sqlString(hit.owner_user_id)} AND account_id=${sqlNumber(hit.account_id)} AND remote_post_id=${sqlString(hit.remote_post_id)}`;
+  if (excluded) command(`INSERT INTO hit_evidence_exclusions(owner_user_id,account_id,remote_post_id,reason,flagged_at)
+    VALUES(${sqlString(hit.owner_user_id)},${sqlNumber(hit.account_id)},${sqlString(hit.remote_post_id)},${sqlString(reason.trim())},${sqlNumber(now)})
+    ON CONFLICT(owner_user_id,account_id,remote_post_id) DO UPDATE SET reason=excluded.reason,flagged_at=excluded.flagged_at;`);
+  else command(`DELETE FROM hit_evidence_exclusions WHERE ${key};`);
+  return true;
+}
+
+export type LeaderboardEvidence = ShareableXPost & {
+  ownerUserId: string; accountId: number; followers: number; publicId: string | null;
+};
+
+/** Internal evidence only; the public service projects no owner IDs or unshared posts. */
+export function listQualifiedLeaderboardEvidence(): LeaderboardEvidence[] {
+  if (!ensureDatabase()) throw new Error("database unavailable");
+  const shares = criticalRows<{owner_user_id:string;account_id:number;remote_post_id:string;public_id:string;prediction_id:string}>(`SELECT owner_user_id,account_id,remote_post_id,public_id,prediction_id FROM hit_shares
+    WHERE revoked_at IS NULL AND leaderboard_opt_in=1 ORDER BY created_at DESC,id DESC LIMIT 500;`);
+  const result: LeaderboardEvidence[] = [];
+  for (const owner of new Set(shares.map((share) => share.owner_user_id))) {
+    const excluded = criticalRows<{account_id:number;remote_post_id:string}>(`SELECT account_id,remote_post_id FROM hit_evidence_exclusions WHERE owner_user_id=${sqlString(owner)};`);
+    const seen = new Set<string>();
+    for (const row of hitEvidenceRows(owner, undefined, true)) {
+      const post = mapHitEvidence(row);
+      if (!post || row.auth_state !== "connected" || !Number.isSafeInteger(row.followers_count) || (row.followers_count ?? 0) <= 0
+        || row.followers_observed_at !== row.observed_at || row.followers_x_user_id !== row.x_user_id
+        || row.followers_provenance_ref !== `official_x_user:${row.account_id}:${row.x_user_id}`
+        || !["[]", '["views"]'].includes(row.censored_json ?? "") || [row.likes,row.replies,row.reposts,row.quotes].some((value) => value === null || !Number.isSafeInteger(value) || value < 0)
+        || excluded.some((item) => item.account_id === row.account_id && item.remote_post_id === post.remotePostId)) continue;
+      const key = `${row.account_id}:${post.remotePostId}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const share = shares.find((item) => item.owner_user_id === owner && item.account_id === row.account_id && item.remote_post_id === post.remotePostId && item.prediction_id === row.prediction_id);
+      if (share && !getPublicHitShare(share.public_id)) continue;
+      result.push({ ...post, observedAt: row.observed_at, ownerUserId: owner, accountId: row.account_id, followers: row.followers_count!, publicId: share?.public_id ?? null });
+    }
+  }
+  return result;
 }

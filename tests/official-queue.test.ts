@@ -22,14 +22,19 @@ const setup = `
   import { ensureDatabase, createDraft, createJob, claimAutomationJobLease, markAutomationJobRequestSent, finishAutomationJobLease, claimAccountDispatchLease, releaseAccountDispatchLease, getAccounts, getJob, getDraft, getAutomationJobEvents, saveAccount, updateDraft } from "./src/server/db.ts";
   import { connectXAccount, disconnectXAccount, getXAccountAuthState, setAutomationConsent } from "./src/server/x-oauth-store.ts";
   import { runAsOwner } from "./src/server/owner-context.ts";
-  import { queueDraftIds, runAutomationJob, reconcileAutomationJobs } from "./src/server/queue-service.ts";
+  import { queueDraftIds, runAutomationJob, runDueAutomationJobs, reconcileAutomationJobs } from "./src/server/queue-service.ts";
   import { X_POLICY_VERSION, X_CONSENT_COPY_VERSION } from "./src/server/x-policy.ts";
   import { OfficialXClient, OfficialXError } from "./src/server/official-x.ts";
   if (!ensureDatabase()) throw new Error("database unavailable");
+  const { Database } = process.getBuiltinModule("bun:sqlite");
+  const authDb = new Database(process.env.ISPATLA_DB);
+  authDb.exec("CREATE TABLE auth_user_status(owner_user_id TEXT PRIMARY KEY,status TEXT NOT NULL,updated_at INTEGER NOT NULL)");
+  authDb.close();
   const now = Math.floor(Date.now()/1000);
   const scopes=["tweet.read","tweet.write","users.read","media.write","offline.access"];
   let index=0;
   function makeJob(action="repost", owner="owner-a", expiresAt=now+7200) {
+    const statusDb=new Database(process.env.ISPATLA_DB);statusDb.query("INSERT INTO auth_user_status(owner_user_id,status,updated_at) VALUES (?,'active',?) ON CONFLICT(owner_user_id) DO UPDATE SET status='active'").run(owner,now);statusDb.close();
     const handle="owner"+(index++).toString(36)+now.toString(36).slice(-6);
     const linked=connectXAccount({ownerUserId:owner,xUserId:String(900000+index),handle,displayName:"Fixture",accessToken:"fixture-access",refreshToken:"fixture-refresh",expiresAt,scopes,now});
     let account=runAsOwner(owner,()=>getAccounts().find(row=>row.id===linked.accountId)!);
@@ -183,7 +188,7 @@ test("post receipt reconciles only exact authenticated owner, text, and bounded-
   const result=JSON.parse(runIsolated(`${setup}
     const item=makeJob("post","reconcile-post");
     const dispatched=await runAutomationJob(item.job.id,now,fixtureClient(async(_credential,input)=>({id:"81234991",text:input.text})));
-    const client={getPost:async(_credential,id)=>({id,author_id:"900001",text:item.draft.text,created_at:new Date((getJob(item.job.id).remoteWriteStartedAt)*1000).toISOString()}),getOwnTimeline:async()=>[]};
+    const client={getPost:async(_credential,id)=>({id,author_id:"900001",text:item.draft.text,created_at:new Date((getJob(item.job.id).remoteWriteStartedAt)*1000).toISOString()})};
     const count=await reconcileAutomationJobs(10,{client:client as unknown as OfficialXClient,now:()=>now+1});
     console.log(JSON.stringify({dispatch:dispatched.job?.status,count,final:getJob(item.job.id)?.status,draft:getDraft(item.draft.id)?.status}));
   `));
@@ -193,34 +198,34 @@ test("post receipt reconciles only exact authenticated owner, text, and bounded-
   expect(result.draft).toBe("confirmed");
 });
 
-test("missing post receipt reconciles only one exact own-timeline candidate in the send window", () => {
+test("missing post receipt stays manual without attempting an unavailable timeline read", () => {
   const result=JSON.parse(runIsolated(`${setup}
     const item=makeJob("post","timeline-reconcile");
     await runAutomationJob(item.job.id,now,fixtureClient(async()=>{throw new OfficialXError({code:"unknown_remote_state",message:"lost",safeToRetry:false,remoteStateKnown:false});}));
-    const sentAt=getJob(item.job.id).remoteWriteStartedAt;
-    const candidate={id:"81234992",author_id:"900001",text:item.draft.text,created_at:new Date(sentAt*1000).toISOString()};
-    const client={getPost:async()=>null,getOwnTimeline:async()=>[candidate]};
+    let reads=0;
+    const client={getPost:async()=>{reads++;return null;}};
     const count=await reconcileAutomationJobs(10,{client:client as unknown as OfficialXClient,now:()=>now+1});
-    console.log(JSON.stringify({count,status:getJob(item.job.id)?.status,receipt:getJob(item.job.id)?.receipt}));
+    console.log(JSON.stringify({count,reads,status:getJob(item.job.id)?.status,reason:getJob(item.job.id)?.reason,receipt:getJob(item.job.id)?.receipt}));
   `));
-  expect(result.count).toBe(1);
-  expect(result.status).toBe("confirmed");
-  expect(result.receipt).toContain("81234992");
+  expect(result.count).toBe(0);
+  expect(result.reads).toBe(0);
+  expect(result.status).toBe("reconciliation_required");
+  expect(result.reason).toContain("lost");
 });
 
-test("ambiguous own-timeline matches remain manual instead of confirming", () => {
+test("receipt lookup mismatch remains manual instead of confirming", () => {
   const result=JSON.parse(runIsolated(`${setup}
     const item=makeJob("post","ambiguous-timeline");
     await runAutomationJob(item.job.id,now,fixtureClient(async(_credential,input)=>({id:"81234995",text:input.text})));
-    const sentAt=getJob(item.job.id).remoteWriteStartedAt;
-    const candidate={author_id:"900001",text:item.draft.text,created_at:new Date(sentAt*1000).toISOString()};
-    const client={getPost:async()=>null,getOwnTimeline:async()=>[{...candidate,id:"81234993"},{...candidate,id:"81234994"}]};
+    let reads=0;
+    const client={getPost:async()=>{reads++;return null;}};
     const count=await reconcileAutomationJobs(10,{client:client as unknown as OfficialXClient,now:()=>now+1});
-    console.log(JSON.stringify({count,status:getJob(item.job.id)?.status,reason:getJob(item.job.id)?.reason}));
+    console.log(JSON.stringify({count,reads,status:getJob(item.job.id)?.status,reason:getJob(item.job.id)?.reason}));
   `));
   expect(result.count).toBe(0);
+  expect(result.reads).toBe(1);
   expect(result.status).toBe("reconciliation_required");
-  expect(result.reason).toContain("multiple exact timeline candidates");
+  expect(result.reason).toContain("exact receipt lookup did not confirm");
 });
 
 test("reply reconciliation requires its exact referenced target as well as owner, text, and time", () => {
@@ -232,13 +237,13 @@ test("reply reconciliation requires its exact referenced target as well as owner
     const post={id:"81234996",author_id:"900001",text:item.draft.text,created_at:new Date(sentAt*1000).toISOString(),referenced_tweets:[{type:"replied_to",id:"81234002"}]};
     const goodSentAt=getJob(good.job.id).remoteWriteStartedAt;
     const valid={id:"81234997",author_id:"900001",text:good.draft.text,created_at:new Date(goodSentAt*1000).toISOString(),referenced_tweets:[{type:"replied_to",id:"81234001"}]};
-    const client={getPost:async(_credential,id)=>id==="81234996"?post:valid,getOwnTimeline:async()=>[]};
+    const client={getPost:async(_credential,id)=>id==="81234996"?post:valid};
     const count=await reconcileAutomationJobs(10,{client:client as unknown as OfficialXClient,now:()=>now+1});
     console.log(JSON.stringify({count,status:getJob(item.job.id)?.status,reason:getJob(item.job.id)?.reason,good:getJob(good.job.id)?.status}));
   `));
   expect(result.count).toBe(1);
   expect(result.status).toBe("reconciliation_required");
-  expect(result.reason).toContain("no unique authenticated post evidence");
+  expect(result.reason).toContain("exact receipt lookup did not confirm");
   expect(result.good).toBe("confirmed");
 });
 
@@ -271,7 +276,7 @@ test("a complete repost lookup without the authenticated user becomes manual unk
   expect(result.reason).toContain("did not confirm this account");
 });
 
-test("official author mention creates audited eligibility before a queued reply can write",()=>{
+test("official author mention creates audited eligibility even when verification follows the scheduled clock",()=>{
  const result=JSON.parse(runIsolated(`${setup}
   const item=makeJob("post");
   const version=getXAccountAuthState(item.account.id,item.owner).consents.find(row=>row.action==="reply").version;
@@ -280,6 +285,7 @@ test("official author mention creates audited eligibility before a queued reply 
   const job=runAsOwner(item.owner,()=>createJob({draftId:draft.id,accountId:item.account.id,action:"reply",scheduledAt:now,now}));
   let reads=0,sends=0;
   const client={getPost:async(credentials,id)=>{reads++;return {id,author_id:"888881",entities:{mentions:[{id:credentials.xUserId}]}};},reply:async(credentials,input)=>{sends++;if(input.summonedBy!=="author_mention")throw Error("bad eligibility");return {id:"81234991",text:input.text};}} as unknown as OfficialXClient;
+  Date.now=()=> (now+2)*1000;
   const outcome=await runAsOwner(item.owner,()=>runAutomationJob(job.id,now,client));
   console.log(JSON.stringify({reads,sends,status:outcome.job.status}));
  `));
@@ -319,4 +325,22 @@ test("an automatic queue approval downgraded to Assist cannot write",()=>{
  expect(result.reason).toContain("human_approval_required");
  expect(result.sends).toBe(0);
  expect(result.requestSent).toBe(false);
+});
+
+test("disabled owners are excluded from queued automation and direct worker dispatch", async()=>{
+ const result=JSON.parse(runIsolated(`${setup}
+  const item=makeJob("post","disabled-worker");
+  runAsOwner(item.owner,()=>saveAccount({id:item.account.id,accountKey:item.account.accountKey,handle:item.account.handle,displayName:item.account.displayName,enabled:true,defaultAccount:item.account.defaultAccount,automationMode:"auto",dailyLimit:item.account.dailyLimit,capabilities:item.account.capabilities,styleProfile:item.account.styleProfile,now}));
+  const prior=getXAccountAuthState(item.account.id,item.owner).consents.find(row=>row.action==="post");
+  setAutomationConsent({accountId:item.account.id,ownerUserId:item.owner,action:"post",mode:"auto",policyVersion:X_POLICY_VERSION,copyVersion:X_CONSENT_COPY_VERSION,dailyLimit:5,cadenceSeconds:900,expectedVersion:prior.version,now});
+  const raw=new Database(process.env.ISPATLA_DB);raw.query("UPDATE auth_user_status SET status='disabled' WHERE owner_user_id=?").run(item.owner);raw.close();
+  let sends=0;
+  const due=await runDueAutomationJobs(now,5);
+  const direct=await runAutomationJob(item.job.id,now,fixtureClient(async()=>{sends++;return{id:"81234998",text:item.draft.text};}));
+  console.log(JSON.stringify({due,direct:{ok:direct.ok,reason:direct.reason},sends,status:getJob(item.job.id)?.status}));
+ `));
+ expect(result.due).toEqual([]);
+ expect(result.direct).toEqual({ok:false,reason:"account owner is disabled"});
+ expect(result.sends).toBe(0);
+ expect(result.status).toBe("queued");
 });

@@ -30,7 +30,7 @@ function publicAccount(account: Account) {
 async function POSTHandler(request: Request) {
   const denied = guardMutation(request);
   if (denied) return denied;
-  return NextResponse.json({ error: "Yayın hesabı yalnızca doğrulanmış X OAuth bağlantısıyla oluşturulabilir." }, { status: 422 });
+  return NextResponse.json({ error: "Yayın hesabı yalnızca doğrulanmış 𝕏 OAuth bağlantısıyla oluşturulabilir." }, { status: 422 });
 }
 
 export const GET = withUser(GETHandler);

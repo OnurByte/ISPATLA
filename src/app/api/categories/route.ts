@@ -1,6 +1,6 @@
 import { withUser } from "@/server/request-auth";
 import { NextResponse } from "next/server";
-import { getCategories, saveCategory, type CategoryDefinition } from "@/server/db";
+import { getCategoriesForAccount, saveAccountCategory, type CategoryDefinition } from "@/server/db";
 import { guardMutation, readJsonBody } from "@/server/api-guard";
 
 export const runtime = "nodejs";
@@ -37,8 +37,11 @@ function categoryInput(body: Record<string, unknown>, builtIn = false): Omit<Cat
   };
 }
 
-function GETHandler() {
-  return NextResponse.json(getCategories());
+function GETHandler(request: Request) {
+  const accountId = Number(new URL(request.url).searchParams.get("accountId"));
+  if (!Number.isSafeInteger(accountId) || accountId < 1) return NextResponse.json({ error: "owned accountId gerekli" }, { status: 400 });
+  try { return NextResponse.json(getCategoriesForAccount(accountId).filter((category) => category.builtIn || category.accountId === accountId)); }
+  catch { return NextResponse.json({ error: "hesap bulunamadı" }, { status: 404 }); }
 }
 
 async function POSTHandler(request: Request) {
@@ -46,7 +49,9 @@ async function POSTHandler(request: Request) {
   if (denied) return denied;
   try {
     const body = await readJsonBody(request);
-    return NextResponse.json(saveCategory({ ...categoryInput(body), now: Math.floor(Date.now() / 1000) }), { status: 201 });
+    const accountId = Number(body.accountId);
+    if (!Number.isSafeInteger(accountId) || accountId < 1) return NextResponse.json({ error: "owned accountId gerekli" }, { status: 400 });
+    return NextResponse.json(saveAccountCategory({ ...categoryInput(body), accountId, now: Math.floor(Date.now() / 1000) }), { status: 201 });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "category kaydedilemedi" }, { status: 400 });
   }
@@ -54,4 +59,4 @@ async function POSTHandler(request: Request) {
 
 export const GET = withUser(GETHandler);
 
-export const POST = withUser(POSTHandler, true);
+export const POST = withUser(POSTHandler);

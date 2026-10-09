@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { PassThrough } from "node:stream";
 import { guardMutation, readJsonBody } from "@/server/api-guard";
 import { proxy } from "@/proxy";
 import {
@@ -7,7 +8,14 @@ import {
   isAllowedFxTwitterFeed,
   isAllowedMediaContentType,
   isAllowedMediaUrl,
+  isPublicProviderAddress,
+  compatibleProviderUrl,
+  MAX_COMPATIBLE_PROVIDER_RESPONSE_BYTES,
+  pinnedProviderLookup,
+  readNativeProviderResponse,
+  requestCompatibleProvider,
   safeStatusUrl,
+  validateCompatibleProviderEndpoint,
 } from "@/server/security";
 
 function withEnv<T>(values: Record<string, string | undefined>, run: () => T): T {
@@ -27,6 +35,88 @@ function withEnv<T>(values: Record<string, string | undefined>, run: () => T): T
 }
 
 describe("security boundaries", () => {
+  test("rejects non-public compatible provider URLs and addresses", () => {
+    for (const url of [
+      "http://gateway.example/v1",
+      "https://localhost/v1",
+      "https://service.local/v1",
+      "https://127.0.0.1/v1",
+      "https://[::1]/v1",
+      "https://user:pass@gateway.example/v1",
+      "https://gateway.example/v1?token=secret",
+      "https://gateway.example/v1#fragment",
+    ]) expect(compatibleProviderUrl(url)).toBeNull();
+    for (const address of [
+      "0.0.0.1", "10.1.2.3", "100.64.0.1", "127.0.0.1", "169.254.1.2",
+      "172.16.0.1", "192.168.1.1", "198.18.0.1", "203.0.113.1", "224.0.0.1",
+      "::", "::1", "fc00::1", "fe80::1", "ff02::1", "::ffff:127.0.0.1", "2001:db8::1",
+    ]) expect(isPublicProviderAddress(address)).toBe(false);
+    expect(compatibleProviderUrl("https://gateway.example/v1")?.hostname).toBe("gateway.example");
+    expect(isPublicProviderAddress("8.8.8.8")).toBe(true);
+    expect(isPublicProviderAddress("2606:4700:4700::1111")).toBe(true);
+  });
+
+  test("rejects any private DNS answer and pins network lookup to the validated address", async () => {
+    await expect(validateCompatibleProviderEndpoint("https://gateway.example/v1", async () => ["8.8.8.8", "10.0.0.4"]))
+      .rejects.toThrow("güvenli, herkese açık IP");
+    await expect(validateCompatibleProviderEndpoint("https://gateway.example/v1", async () => []))
+      .rejects.toThrow("güvenli, herkese açık IP");
+    await expect(requestCompatibleProvider({
+      url: "https://gateway.example/v1/chat/completions",
+      method: "POST",
+      headers: {},
+      body: "{}",
+      timeoutMs: 100,
+      resolver: async () => ["169.254.169.254"],
+    })).rejects.toThrow("güvenli, herkese açık IP");
+
+    const lookup = pinnedProviderLookup("8.8.8.8");
+    const result = await new Promise<{ address: string; family: number }>((resolve, reject) => {
+      lookup("gateway.example", {}, (error, address, family) => {
+        if (error) return reject(error);
+        if (typeof address !== "string" || family === undefined) return reject(new Error("expected one pinned provider address"));
+        resolve({ address, family });
+      });
+    });
+    expect(result).toEqual({ address: "8.8.8.8", family: 4 });
+  });
+
+  test("caps compatible-provider response bytes and cancels oversized fetch streams", async () => {
+    const previousFetch = globalThis.fetch;
+    let cancelled = false;
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new Uint8Array(MAX_COMPATIBLE_PROVIDER_RESPONSE_BYTES));
+        controller.enqueue(new Uint8Array([1]));
+      },
+      cancel() { cancelled = true; },
+    });
+    globalThis.fetch = (async () => new Response(stream)) as unknown as typeof fetch;
+    try {
+      await expect(requestCompatibleProvider({
+        url: "https://gateway.example/v1/chat/completions",
+        method: "POST",
+        headers: {},
+        body: "{}",
+        timeoutMs: 100,
+      })).rejects.toThrow("response exceeds 1 MiB");
+      expect(cancelled).toBe(true);
+    } finally {
+      globalThis.fetch = previousFetch;
+    }
+  });
+
+  test("caps native HTTPS response streams and aborts the request once", async () => {
+    const response = new PassThrough() as PassThrough & { statusCode: number };
+    response.statusCode = 200;
+    let aborts = 0;
+    const result = readNativeProviderResponse(response as never, () => { aborts += 1; });
+    response.write(Buffer.alloc(MAX_COMPATIBLE_PROVIDER_RESPONSE_BYTES));
+    response.write(Buffer.from([1]));
+    await expect(result).rejects.toThrow("response exceeds 1 MiB");
+    expect(aborts).toBe(1);
+  });
+
   test("only accepts HTTPS FxTwitter and exact media hosts", () => {
     expect(isAllowedFxTwitterFeed("https://api.fxtwitter.com/2/profile/foo/statuses")).toBe(true);
     expect(isAllowedFxTwitterFeed("http://api.fxtwitter.com/2/profile/foo/statuses")).toBe(false);

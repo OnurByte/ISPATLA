@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { Bot, CircleStop, Play, RefreshCw } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import { Activity, RefreshCw } from "lucide-react";
 import type { AutomationLog, AutomationTaskId, AutomationTaskSchedule } from "@/server/db";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -9,7 +9,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Spinner } from "@/components/ui/spinner";
 
-type State = { paused: boolean };
+type Runtime = { owner: "none" | "worker" | "web"; heartbeatAt: number | null; healthy: boolean; lagSeconds: number | null };
+type AccountAutomation = { accountId: number; handle: string; displayName: string; enabled: boolean; connected: boolean; postMode: string };
+type State = { runtime: Runtime; accountAutomation: AccountAutomation[] };
 function time(value: number) {
   return value ? new Intl.DateTimeFormat("tr-TR", { dateStyle: "short", timeStyle: "short" }).format(value * 1000) : "Henüz çalışmadı";
 }
@@ -24,40 +26,45 @@ const taskNames: Record<AutomationTaskId, { name: string; detail: string }> = {
   monitor_engine: { name: "Adaptive monitor engine", detail: "Hesap, keyword, sorgu ve conversation hedeflerini bütçeli tarar" },
   source_scan: { name: "Otomatik scan", detail: "FxTwitter intake, kaynak skoru, fırsat ve publish gate" },
   source_liveness: { name: "Ölü kaynak / liveness", detail: "Profil 404 ve kimlik uyuşmazlıklarını temizler" },
-  queue_worker: { name: "Due queue worker", detail: "Onaylanmış resmi X API işlerini çalıştırır" },
+  queue_worker: { name: "Due queue worker", detail: "Onaylanmış resmi 𝕏 API işlerini çalıştırır" },
   reconciliation: { name: "FxTwitter reconciliation", detail: "Pending transport sonuçlarını yayın kanıtıyla doğrular" },
+  account_inference: { name: "Hesap konu önerileri", detail: "Bağlı 𝕏 hesaplarının kendi profil ve gönderilerinden konu önerisi hazırlar" },
 };
 
-export function AutomationSettings({ initial, schedules: initialSchedules, logs: initialLogs }: { initial: State; schedules: AutomationTaskSchedule[]; logs: AutomationLog[] }) {
+export function AutomationSettings({ initial, schedules: initialSchedules, logs: initialLogs, canManageSchedules }: { initial: State; schedules: AutomationTaskSchedule[]; logs: AutomationLog[]; canManageSchedules: boolean }) {
   const [state, setState] = useState<State>(initial);
   const [schedules, setSchedules] = useState(initialSchedules);
   const [logs, setLogs] = useState(initialLogs);
   const [message, setMessage] = useState("");
   const [pending, setPending] = useState(false);
 
-  async function load() {
-    setPending(true);
-    const response = await fetch("/api/settings/automation", { cache: "no-store" });
-    const body = await response.json() as State & { schedules: AutomationTaskSchedule[]; logs: AutomationLog[] };
-    setState(body); setSchedules(body.schedules); setLogs(body.logs);
-    setPending(false);
-  }
+  const load = useCallback(async (quiet = false) => {
+    if (!quiet) setPending(true);
+    try {
+      const response = await fetch("/api/settings/automation", { cache: "no-store" });
+      if (!response.ok) throw new Error("Otomasyon durumu alınamadı.");
+      const body = await response.json() as State & { schedules: AutomationTaskSchedule[]; logs: AutomationLog[] };
+      setState(body); setSchedules(body.schedules); setLogs(body.logs);
+    } catch (error) {
+      if (!quiet) setMessage(error instanceof Error ? error.message : "Otomasyon durumu alınamadı.");
+    } finally { if (!quiet) setPending(false); }
+  }, []);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => { void load(true); }, 15_000);
+    return () => window.clearInterval(timer);
+  }, [load]);
 
   async function saveSchedule(schedule: AutomationTaskSchedule) {
     setPending(true);
-    const response = await fetch("/api/settings/automation", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "update_schedule", task: schedule.id, enabled: schedule.enabled, intervalSeconds: schedule.intervalSeconds, nextRunAt: schedule.nextRunAt }) });
-    const body = await response.json().catch(() => ({}));
-    if (response.ok) { setSchedules(body.schedules); setLogs(body.logs); setMessage(`${taskNames[schedule.id].name} planı kaydedildi.`); }
-    else setMessage(body.error || "Plan kaydedilemedi.");
-    setPending(false);
-  }
-
-  async function setPaused(paused: boolean) {
-    setPending(true);
-    const response = await fetch("/api/settings/automation", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ paused }) });
-    const body = await response.json().catch(() => ({}));
-    setMessage(response.ok ? `Otomasyon ${paused ? "durduruldu" : "devam ediyor"}.` : body.error || "Ayar değişmedi.");
-    await load();
+    try {
+      const response = await fetch("/api/settings/automation", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "update_schedule", task: schedule.id, enabled: schedule.enabled, intervalSeconds: schedule.intervalSeconds, nextRunAt: schedule.nextRunAt }) });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body.error || "Plan kaydedilemedi.");
+      setSchedules(body.schedules); setLogs(body.logs); setMessage(`${taskNames[schedule.id].name} planı kaydedildi.`);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Plan kaydedilemedi.");
+    } finally { setPending(false); }
   }
 
   return (
@@ -65,27 +72,34 @@ export function AutomationSettings({ initial, schedules: initialSchedules, logs:
       <Card>
         <CardHeader className="flex-row items-start justify-between gap-4">
           <div className="flex items-start gap-3">
-            <Bot aria-hidden="true" />
+            <Activity aria-hidden="true" />
             <div>
-              <CardTitle>Global kill switch</CardTitle>
-              <CardDescription>Scheduler ve yeni automation akışını tek dokunuşla durdur.</CardDescription>
+              <CardTitle>Çalıştırıcı durumu</CardTitle>
+              <CardDescription>Bu gösterge veritabanındaki gerçek worker kalp atışını izler; planların açık olması worker’ın çalıştığı anlamına gelmez.</CardDescription>
             </div>
           </div>
-          <Badge variant={state.paused ? "destructive" : "default"}>{state.paused ? "paused" : "running"}</Badge>
+          <Badge variant={state.runtime.healthy ? "default" : "destructive"}>{state.runtime.healthy ? "çalışıyor" : "yanıt yok"}</Badge>
         </CardHeader>
-        <CardContent className="flex flex-wrap gap-2">
-          <Button onClick={() => setPaused(false)} disabled={!state.paused || pending}>
-            {pending ? <Spinner data-icon="inline-start" /> : <Play data-icon="inline-start" aria-hidden="true" />} Devam ettir
-          </Button>
-          <Button variant="destructive" onClick={() => setPaused(true)} disabled={state.paused || pending}>
-            {pending ? <Spinner data-icon="inline-start" /> : <CircleStop data-icon="inline-start" aria-hidden="true" />} Durdur
-          </Button>
-          <Button variant="outline" onClick={load} disabled={pending}>
+        <CardContent className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-sm text-muted-foreground">
+            {state.runtime.healthy
+              ? `${state.runtime.owner === "worker" ? "Arka plan worker’ı" : "Web worker"} etkin · son kalp atışı ${time(state.runtime.heartbeatAt || 0)}${state.runtime.lagSeconds !== null ? ` · ${state.runtime.lagSeconds} sn önce` : ""}`
+              : "Aktif worker kalp atışı yok. Zamanlanmış planlar kaydedilir; çalışması için arka plan worker’ı çevrimiçi olmalıdır."}
+          </p>
+          <Button variant="outline" onClick={() => { void load(); }} disabled={pending}>
             {pending ? <Spinner data-icon="inline-start" /> : <RefreshCw data-icon="inline-start" aria-hidden="true" />} Yenile
           </Button>
         </CardContent>
       </Card>
 
+      <Card>
+        <CardHeader><CardTitle>Bağlı hesapların izinleri</CardTitle><CardDescription>Bu hesapların kendi yayın izni ve bağlantı durumu.</CardDescription></CardHeader>
+        <CardContent className="flex flex-col gap-2">
+          {state.accountAutomation.length ? state.accountAutomation.map((account) => <div key={account.accountId} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border p-3 text-sm"><div><div className="font-medium">{account.displayName || `@${account.handle}`} <span className="text-muted-foreground">@{account.handle}</span></div><div className="text-xs text-muted-foreground">{account.enabled ? "İzleme açık" : "Hesap devre dışı"} · {account.connected ? "X bağlantısı aktif" : "X bağlantısı yok"}</div></div><Badge variant={account.connected && account.enabled ? "outline" : "secondary"}>Yayın izni: {account.postMode === "auto" ? "Otomatik" : account.postMode === "assist" ? "Onaylı" : "Kapalı"}</Badge></div>) : <div className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">Henüz bağlı X hesabı yok. Hesap bağlantısı ve yayın izinlerini Hesaplar bölümünden yönetebilirsin.</div>}
+        </CardContent>
+      </Card>
+
+      {canManageSchedules ? <>
       <Card>
         <CardHeader>
           <CardTitle>Planlı otomatik görevler</CardTitle>
@@ -102,16 +116,20 @@ export function AutomationSettings({ initial, schedules: initialSchedules, logs:
               <div className="text-xs text-muted-foreground lg:col-span-5">Son: {time(schedule.lastRunAt)} · {schedule.lastStatus}</div>
             </div>
           ))}
-          <Alert><AlertDescription>Çalıştırıcı: <code>bun run automation:worker</code>. Uzun çalışan worker 15 saniyelik burst hedeflerini ve diğer planlı görevleri aynı SQLite kilidi altında yürütür.</AlertDescription></Alert>
+          <Alert><AlertDescription>Planlar yalnızca bu veritabanına bağlı arka plan worker’ı çalışırken yürütülür. Sonuçlar son çalışma alanında görünür.</AlertDescription></Alert>
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader><CardTitle>Automation log</CardTitle><CardDescription>Scan, liveness, queue ve reconciliation sonuçları; secret değerleri redakte edilir.</CardDescription></CardHeader>
         <CardContent className="flex flex-col gap-2">
-          {logs.length ? logs.map((log) => <div key={log.id} className="rounded-lg border p-3 text-xs"><div className="flex flex-wrap justify-between gap-2"><span className="font-medium">{log.taskId} · {log.status}</span><span className="text-muted-foreground">{time(log.startedAt)}{log.finishedAt ? ` → ${time(log.finishedAt)}` : ""}</span></div><pre className="mt-2 whitespace-pre-wrap break-words text-muted-foreground">{log.message || JSON.stringify(log.details)}</pre></div>) : <div className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">Henüz otomasyon logu yok.</div>}
+          {logs.length ? logs.map((log) => {
+            const details = Object.entries(log.details).filter(([, value]) => ["string", "number", "boolean"].includes(typeof value));
+            return <div key={log.id} className="rounded-lg border p-3 text-xs"><div className="flex flex-wrap justify-between gap-2"><span className="font-medium">{taskNames[log.taskId]?.name || log.taskId} · {log.status}</span><span className="text-muted-foreground">{time(log.startedAt)}{log.finishedAt ? ` → ${time(log.finishedAt)}` : ""}</span></div>{log.message && <p className="mt-2 text-muted-foreground">{log.message}</p>}{details.length > 0 && <dl className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">{details.map(([key, value]) => <div key={key} className="rounded-md bg-muted/50 px-2 py-1"><dt className="text-muted-foreground">{key}</dt><dd className="font-medium">{String(value)}</dd></div>)}</dl>}</div>;
+          }) : <div className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">Henüz otomasyon çalışması kaydedilmemiş.</div>}
         </CardContent>
       </Card>
+      </> : <Card><CardHeader><CardTitle>Görev planları</CardTitle><CardDescription>Worker’ın global çalışma planı yalnızca operatör tarafından yönetilir.</CardDescription></CardHeader></Card>}
 
       {message && <Alert><AlertDescription>{message}</AlertDescription></Alert>}
     </div>

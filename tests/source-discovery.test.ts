@@ -1,26 +1,19 @@
 import { describe, expect, test } from "bun:test";
-import { codexEnvironment, getAiSettings, getCompatibleSettings, isAiEnabled, needsTerraReview, parseAiScore, requestAiScore, reviewModel, setAiEnabled, setAiSettings, setCompatibleSettings } from "@/server/ai";
+import { aiConfigured, canUseCodexProvider, codexCapabilityForCurrentContext, codexEnvironment, getAiSettings, getCompatibleSettings, isAiEnabled, needsTerraReview, parseAiScore, requestAiScore, requestAiText, requestDraftSemanticFeatures, reviewModel, setAiEnabled, setAiSettings, setCompatibleSettings, testAiConnection } from "@/server/ai";
 import { getSetting, setSetting } from "@/server/db";
+import { runAsOwner } from "@/server/owner-context";
 import { automationEnabled, isDefinitiveMissingSourceError } from "@/server/pipeline";
-import { asIdeology, asIdeologyTags, extractDiscoveryEvidence, mergeEvidence, nextSourceState, sourceDueForScoring } from "@/server/sources";
+import { extractDiscoveryEvidence, mergeEvidence, nextSourceState, sourceDueForScoring } from "@/server/sources";
 
 const sourceScore = {
   score: 80, risk: 10, confidence: 90, reason: "Kaynaklı ve güncel.",
   niche: "haber", topics: ["gündem"], tone: "doğrudan",
-  ideology: "belirsiz", ideologyTags: [], ideologyConfidence: 0,
-  ideologyBasis: "insufficient_evidence", ideologyReason: "Yeterli açık siyasi çizgi yok.",
 };
 
 describe("source discovery and AI lifecycle", () => {
   test("liveness checker only treats definitive missing errors as dead", () => {
     expect(isDefinitiveMissingSourceError(new Error("404 Not Found"))).toBe(true);
     expect(isDefinitiveMissingSourceError(new Error("network timeout"))).toBe(false);
-  });
-
-  test("normalizes catalog ideologies and drops values outside the catalog", () => {
-    expect(asIdeology("merkez")).toBe("centrism");
-    expect(asIdeology("uydurma")).toBe("belirsiz");
-    expect(asIdeologyTags("islamcı, antikemalist, uydurma")).toEqual(["islamism", "anti-kemalism"]);
   });
 
   test("extracts and weights quote, reply and mention accounts without the parent", () => {
@@ -82,6 +75,58 @@ describe("source discovery and AI lifecycle", () => {
     })).toEqual({ HOME: "/tmp/user", PATH: "/usr/bin", HTTPS_PROXY: "http://proxy.example" });
   });
 
+  test("fails closed for the shared Codex CLI outside the configured production operator context", async () => {
+    const previousNodeEnv = process.env.NODE_ENV;
+    const previousOperatorId = process.env.ISPATLA_OPERATOR_USER_ID;
+    const originalProviderSetting = getSetting("ai_provider", "api");
+    const originalModelSetting = getSetting("ai_model", "gpt-5.6-luna");
+    Reflect.set(process.env, "NODE_ENV", "production");
+    delete process.env.ISPATLA_OPERATOR_USER_ID;
+    try {
+      const blockedRequests = runAsOwner("codex-tenant", async () => {
+        expect(canUseCodexProvider()).toBe(false);
+        expect(codexCapabilityForCurrentContext()).toEqual({
+          available: false,
+          authenticated: false,
+          bin: "",
+          version: "",
+          reason: "Codex CLI is unavailable in this production context.",
+        });
+        expect(aiConfigured({ provider: "codex", model: "codex-mini-latest" })).toBe(false);
+        expect(() => setAiSettings("codex", "codex-mini-latest")).toThrow("unavailable");
+        await expect(requestAiScore({ evidence: "test", provider: "codex", model: "codex-mini-latest" })).rejects.toThrow("unavailable");
+        await expect(requestAiText({ evidence: "test", instructions: "test", provider: "codex", model: "codex-mini-latest" })).rejects.toThrow("unavailable");
+        await expect(requestDraftSemanticFeatures({ text: "test", provider: "codex", model: "codex-mini-latest" })).rejects.toThrow("unavailable");
+      });
+      await blockedRequests;
+
+      // An ownerless background worker is also outside the explicitly configured operator context.
+      expect(canUseCodexProvider()).toBe(false);
+      expect(() => setAiSettings("codex", "codex-mini-latest")).toThrow("unavailable");
+      await expect(requestAiScore({ evidence: "test", provider: "codex", model: "codex-mini-latest" })).rejects.toThrow("unavailable");
+      await expect(requestAiText({ evidence: "test", instructions: "test", provider: "codex", model: "codex-mini-latest" })).rejects.toThrow("unavailable");
+      await expect(requestDraftSemanticFeatures({ text: "test", provider: "codex", model: "codex-mini-latest" })).rejects.toThrow("unavailable");
+
+      process.env.ISPATLA_OPERATOR_USER_ID = "self-hosted-operator";
+      await runAsOwner("ordinary-tenant", async () => {
+        expect(canUseCodexProvider()).toBe(false);
+        expect(() => setAiSettings("codex", "codex-mini-latest")).toThrow("unavailable");
+      });
+      await runAsOwner("self-hosted-operator", async () => {
+        expect(canUseCodexProvider()).toBe(true);
+        expect(setAiSettings("codex", "codex-mini-latest")).toEqual({ provider: "codex", model: "codex-mini-latest" });
+      });
+    } finally {
+      const now = Math.floor(Date.now() / 1000);
+      setSetting("ai_provider", originalProviderSetting, now);
+      setSetting("ai_model", originalModelSetting, now);
+      if (previousNodeEnv === undefined) Reflect.deleteProperty(process.env, "NODE_ENV");
+      else Reflect.set(process.env, "NODE_ENV", previousNodeEnv);
+      if (previousOperatorId === undefined) Reflect.deleteProperty(process.env, "ISPATLA_OPERATOR_USER_ID");
+      else Reflect.set(process.env, "ISPATLA_OPERATOR_USER_ID", previousOperatorId);
+    }
+  });
+
   test("blocks scoring when AI is disabled or the monthly budget is exhausted", async () => {
     const enabled = isAiEnabled();
     const budget = getSetting("ai_monthly_budget_usd", "0");
@@ -93,7 +138,7 @@ describe("source discovery and AI lifecycle", () => {
       await expect(requestAiScore({ evidence: "kanıt", provider: "api", model: "gpt-5.6-luna" })).rejects.toThrow("AI kullanımı kapalı");
       setAiEnabled(true);
       setSetting("ai_monthly_budget_usd", "0.000001", Math.floor(Date.now() / 1000));
-      await expect(requestAiScore({ evidence: "kanıt", provider: "api", model: "gpt-5.6-luna" })).rejects.toThrow("bütçe limiti");
+      await expect(requestAiScore({ evidence: "kanıt", provider: "api", model: "gpt-5.6-luna" })).rejects.toThrow("tahmini kullanım eşiği");
       expect(called).toBe(false);
     } finally {
       globalThis.fetch = previousFetch;
@@ -102,7 +147,7 @@ describe("source discovery and AI lifecycle", () => {
     }
   });
 
-  test("validates per-source niche and political taxonomy", () => {
+  test("validates source context without requiring or returning political classification", () => {
     const score = parseAiScore({
       score: 80,
       risk: 15,
@@ -111,33 +156,11 @@ describe("source discovery and AI lifecycle", () => {
       niche: "ekonomi ve finans",
       topics: ["borsa", "enflasyon"],
       tone: "analitik",
-      ideology: "merkez",
-      ideologyTags: ["haber-merkezli"],
-      ideologyConfidence: 35,
-      ideologyBasis: "editorial",
-      ideologyReason: "Açık parti aidiyeti kanıtı yok.",
     }, "gpt-5.6-luna", "api");
     expect(score.sourceContext).toEqual({ niche: "ekonomi ve finans", topics: ["borsa", "enflasyon"], tone: "analitik" });
-    expect(score.political).toMatchObject({ ideology: "merkez", tags: ["haber-merkezli"], basis: "editorial" });
+    expect(score).not.toHaveProperty("political");
+    expect(parseAiScore({ ...sourceScore, ideology: "legacy-only", ideologyTags: ["legacy"] }, "gpt-5.6-luna", "api")).not.toHaveProperty("political");
     expect(() => parseAiScore({ score: 80, risk: 15, confidence: 88, reason: "eksik" }, "gpt-5.6-luna", "api")).toThrow();
-  });
-
-  test("preserves antikemalist as an explicit source tag", () => {
-    const score = parseAiScore({
-      score: 80,
-      risk: 15,
-      confidence: 88,
-      reason: "Kaynak kalitesi iyi.",
-      niche: "siyaset",
-      topics: ["gündem"],
-      tone: "eleştirel",
-      ideology: "belirsiz",
-      ideologyTags: ["antikemalist"],
-      ideologyConfidence: 75,
-      ideologyBasis: "editorial",
-      ideologyReason: "Tekrarlanan editoryal dilde açık biçimde gözleniyor.",
-    }, "gpt-5.6-luna", "api");
-    expect(score.political?.tags).toEqual(["antikemalist"]);
   });
 
   test("requests Luna medium structured output without storing the response", async () => {
@@ -155,6 +178,9 @@ describe("source discovery and AI lifecycle", () => {
       expect(requestBody.store).toBe(false);
       expect(requestBody.reasoning).toEqual({ effort: "medium" });
       expect(requestBody.text).toMatchObject({ format: { type: "json_schema", strict: true } });
+      const schema = (requestBody.text as { format: { schema: { properties: Record<string, unknown>; required: string[] } } }).format.schema;
+      expect(schema.properties).not.toHaveProperty("ideology");
+      expect(schema.required).not.toContain("ideology");
     } finally {
       globalThis.fetch = previousFetch;
       if (previousKey === undefined) delete process.env.OPENAI_API_KEY;
@@ -166,16 +192,21 @@ describe("source discovery and AI lifecycle", () => {
     const previousKey = process.env.AI_COMPATIBLE_API_KEY;
     const previousFetch = globalThis.fetch;
     const previous = getCompatibleSettings();
+    const previousAi = getAiSettings();
     let url = "";
     let body: Record<string, unknown> = {};
     process.env.AI_COMPATIBLE_API_KEY = "test-only-key";
     globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
       url = String(input);
       body = JSON.parse(String(init?.body)) as Record<string, unknown>;
-      return new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify(sourceScore) } }] }));
+      const schemaName = (body.response_format as { json_schema?: { name?: string } })?.json_schema?.name;
+      const content = schemaName === "ispatla_connection_test" ? { ok: true } : sourceScore;
+      return new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify(content) } }] }));
     }) as unknown as typeof fetch;
     try {
       setCompatibleSettings("https://gateway.example/v1", "Test gateway");
+      setAiSettings("compatible", "any-vendor/model-v1");
+      await testAiConnection();
       const result = await requestAiScore({ evidence: "kanıt", provider: "compatible", model: "any-vendor/model-v1" });
       expect(result.provider).toBe("compatible");
       expect(url).toBe("https://gateway.example/v1/chat/completions");
@@ -186,6 +217,8 @@ describe("source discovery and AI lifecycle", () => {
       const now = Math.floor(Date.now() / 1000);
       setSetting("ai_compatible_base_url", previous.baseUrl, now);
       setSetting("ai_compatible_name", previous.name, now);
+      setSetting("ai_provider", previousAi.provider, now);
+      setSetting("ai_model", previousAi.model, now);
       if (previousKey === undefined) delete process.env.AI_COMPATIBLE_API_KEY;
       else process.env.AI_COMPATIBLE_API_KEY = previousKey;
     }

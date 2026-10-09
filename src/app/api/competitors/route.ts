@@ -15,7 +15,7 @@ async function POSTHandler(request: Request) {
   try {
     const body = await readJsonBody(request);
     const handle = String(body.handle || "").replace(/^@/, "").toLowerCase();
-    if (!/^[a-z0-9_]{1,15}$/.test(handle)) return NextResponse.json({ error: "geçerli X handle gerekli" }, { status: 400 });
+    if (!/^[a-z0-9_]{1,15}$/.test(handle)) return NextResponse.json({ error: "geçerli 𝕏 handle gerekli" }, { status: 400 });
     return NextResponse.json(saveCompetitor({
       handle,
       name: String(body.name || handle).slice(0, 120),

@@ -1,5 +1,8 @@
 import { AuthForm } from "@/components/auth-form"
+import { PublicHeader, requestPublicLocale } from "@/components/public-header"
 
-export default function SignupPage() {
-  return <AuthForm mode="signup" privateBeta={process.env.ISPATLA_PRIVATE_BETA === "1"} />
+export default async function SignupPage({ searchParams }: { searchParams: Promise<{ x_error?: string }> }) {
+  const params = await searchParams
+  const locale = await requestPublicLocale()
+  return <><PublicHeader locale={locale} current="signup" /><AuthForm locale={locale} mode="signup" xLoginEnabled={Boolean(process.env.X_OAUTH_CLIENT_ID && process.env.X_OAUTH_CLIENT_SECRET)} xLoginError={params.x_error === "1"} /></>
 }

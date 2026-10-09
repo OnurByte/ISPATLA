@@ -1,4 +1,5 @@
 import { AuthForm } from "@/components/auth-form"
+import { PublicHeader, requestPublicLocale } from "@/components/public-header"
 
 export default async function ResetPasswordPage({
   searchParams,
@@ -6,5 +7,6 @@ export default async function ResetPasswordPage({
   searchParams: Promise<{ token?: string | string[] }>
 }) {
   const { token } = await searchParams
-  return <AuthForm mode="reset" token={typeof token === "string" ? token : undefined} />
+  const locale = await requestPublicLocale()
+  return <><PublicHeader locale={locale} current="reset" /><AuthForm locale={locale} mode="reset" token={typeof token === "string" ? token : undefined} /></>
 }

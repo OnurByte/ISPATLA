@@ -79,7 +79,7 @@ export async function refreshDiscoveryQueries(now = Math.floor(Date.now() / 1000
     if (getSetting(setting, "") === day) continue;
     const text = await requestAiText({
       usageKind: "discovery_query", usageUnits: 15,
-      instructions: "Bu kategori için X aramasında kullanılacak en fazla 5 kısa, yüksek kesinlikli sorgu üret. Her satırda yalnız bir sorgu yaz; açıklama, numara veya markdown kullanma. Gizli X sıralama bilgisi bildiğini iddia etme.",
+      instructions: "Bu kategori için 𝕏 aramasında kullanılacak en fazla 5 kısa, yüksek kesinlikli sorgu üret. Her satırda yalnız bir sorgu yaz; açıklama, numara veya markdown kullanma. Gizli 𝕏 sıralama bilgisi bildiğini iddia etme.",
       evidence: JSON.stringify({ name: category.name, description: category.description, keywords: category.keywords, positiveExamples: category.positiveExamples, negativeExamples: category.negativeExamples }),
     });
     for (const query of queryLines(text)) {

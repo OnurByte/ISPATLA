@@ -352,7 +352,7 @@ export function DraftsPage({ initial, accounts, selectedDraftId }: { initial: Dr
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
                     <div className="text-sm font-medium">Draft performance evaluator</div>
-                    <div className="mt-1 text-xs text-muted-foreground">Shadow mode; X’in iç ranking skoru veya erişim garantisi değildir.</div>
+                    <div className="mt-1 text-xs text-muted-foreground">Shadow mode; 𝕏’in iç ranking skoru veya erişim garantisi değildir.</div>
                   </div>
                   <div className="flex gap-2">
                     <Badge>{form.evaluation.score}/100</Badge>

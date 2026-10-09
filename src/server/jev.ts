@@ -51,7 +51,7 @@ import { secretOrEnv } from "./vault";
 export const JEV_MODES = ["off", "shadow", "on"] as const;
 export type JevMode = (typeof JEV_MODES)[number];
 
-export const JEV_PROVIDERS = ["typesafe", "vercel"] as const;
+export const JEV_PROVIDERS = ["typesafe", "vercel", "openrouter"] as const;
 export type JevProvider = (typeof JEV_PROVIDERS)[number];
 
 export const JEV_DIAGNOSTICS = [
@@ -81,6 +81,7 @@ export const JEV_RUBRIC_VERSION = "relevance-v1";
 export const JEV_CACHE_SCHEMA = 1;
 
 export const JEV_DEFAULT_MODEL = "jev-1.13.0";
+export const JEV_OPENROUTER_MODEL = "typesafe/jev-1.13";
 export const JEV_DEFAULT_BASE_URL = "https://api.typesafe.ai";
 export const JEV_DEFAULT_TIMEOUT_MS = 3000;
 export const JEV_MIN_TIMEOUT_MS = 500;
@@ -315,7 +316,8 @@ export function getJevSettings(): JevSettings {
   const candidate = stored || environment;
   const timeout = Number(setting(JEV_TIMEOUT_SETTING, String(JEV_DEFAULT_TIMEOUT_MS)));
   const provider = setting(JEV_PROVIDER_SETTING, "typesafe").trim();
-  const model = setting(JEV_MODEL_SETTING, JEV_DEFAULT_MODEL).trim() || JEV_DEFAULT_MODEL;
+  const defaultModel = provider === "openrouter" ? JEV_OPENROUTER_MODEL : JEV_DEFAULT_MODEL;
+  const model = setting(JEV_MODEL_SETTING, defaultModel).trim() || defaultModel;
   const storedTtl = setting(JEV_CACHE_TTL_SETTING, "").trim();
   const ttl = storedTtl ? Number(storedTtl) : defaultCacheTtlSeconds(model);
   return {
@@ -336,7 +338,8 @@ export function jevMode(): JevMode {
 
 function apiKey(): string | null {
   try {
-    return secretOrEnv("jev_api_key", "JEV_API_KEY");
+    const provider = getJevSettings().provider;
+    return provider === "openrouter" ? secretOrEnv("openrouter_api_key", "OPENROUTER_API_KEY") : secretOrEnv("jev_api_key", "JEV_API_KEY");
   } catch {
     return null;
   }
@@ -354,9 +357,11 @@ export function jevEndpoint(baseUrl: string): string {
 }
 
 export function jevConfig(settings = getJevSettings()): JevConfig {
+  const baseUrl = settings.provider === "openrouter" ? "https://openrouter.ai/api/v1" : settings.baseUrl;
   return {
     ...settings,
-    endpoint: jevEndpoint(settings.baseUrl),
+    baseUrl,
+    endpoint: jevEndpoint(baseUrl),
     rubricVersion: JEV_RUBRIC_VERSION,
     purpose: JEV_PURPOSE,
     maxCandidates: JEV_MAX_CANDIDATES,

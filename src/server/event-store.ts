@@ -108,7 +108,7 @@ function mapObservation(row: Record<string, unknown>, metric: Record<string, unk
 }
 export function upsertXObservation(input: XObservationInput): XObservation {
   ensureEventStore();
-  if (!input.xPostId.trim() || !input.authorId.trim() || !input.readerProvider.trim() || !input.rawHash.trim()) throw new Error("X observation requires post, author, provider, and raw provenance");
+  if (!input.xPostId.trim() || !input.authorId.trim() || !input.readerProvider.trim() || !input.rawHash.trim()) throw new Error("𝕏 observation requires post, author, provider, and raw provenance");
   if (!Number.isFinite(input.observedAt) || !Number.isFinite(input.postCreatedAt) || !Number.isFinite(input.metrics.capturedAt)) throw new Error("observation timestamps must be finite");
   for (const key of ["likes", "replies", "reposts", "quotes", "views"] as const) { const value = input.metrics[key]; if (value !== null && (!Number.isFinite(value) || value < 0)) throw new Error(`invalid ${key} metric`); }
   return tx(() => {
@@ -154,7 +154,7 @@ export function getOrCreateCandidateEvent(input: { candidateKey: string; title: 
   return tx(() => {
     const existing = rows<{ event_id: number }>(`SELECT event_id FROM intelligence_candidate_events WHERE candidate_key=${q(input.candidateKey)};`)[0];
     if (existing) return getEvent(existing.event_id)!;
-    const event = createEvent({ title: input.title || "Unclassified X event", category: input.category || "unclassified", firstSeenAt: input.firstSeenAt });
+    const event = createEvent({ title: input.title || "Unclassified 𝕏 event", category: input.category || "unclassified", firstSeenAt: input.firstSeenAt });
     exec(`INSERT INTO intelligence_candidate_events(candidate_key,event_id,resolver,created_at) VALUES (${q(input.candidateKey)},${event.id},'legacy_cluster_shadow',${n(input.firstSeenAt)});`);
     return event;
   });
@@ -163,7 +163,7 @@ export function getEvent(id: number): EventRecord | null { ensureEventStore(); r
 export function attachObservationToEvent(eventId: number, observationId: number, attachedAt: number): void {
   ensureEventStore();
   tx(() => {
-    if (!getEvent(eventId) || !getXObservation(observationId)) throw new Error("event or X observation not found");
+    if (!getEvent(eventId) || !getXObservation(observationId)) throw new Error("event or 𝕏 observation not found");
     exec(`INSERT OR IGNORE INTO intelligence_event_observations(event_id,observation_id,attached_at) VALUES (${n(eventId)},${n(observationId)},${n(attachedAt)});`);
     exec(`UPDATE intelligence_events SET first_seen_at=MIN(first_seen_at,(SELECT observed_at FROM intelligence_observations WHERE id=${n(observationId)})),last_seen_at=MAX(last_seen_at,(SELECT observed_at FROM intelligence_observations WHERE id=${n(observationId)})) WHERE id=${n(eventId)};`);
   });
@@ -179,7 +179,7 @@ export function linkObservationClaim(claimId: number, observationId: number, rel
   ensureEventStore();
   tx(() => {
     const claim = getClaim(claimId);
-    if (!claim || !getXObservation(observationId)) throw new Error("claim or X observation not found");
+    if (!claim || !getXObservation(observationId)) throw new Error("claim or 𝕏 observation not found");
     exec(`INSERT OR IGNORE INTO intelligence_event_observations(event_id,observation_id,attached_at) VALUES (${n(claim.eventId)},${n(observationId)},${n(linkedAt)});`);
     exec(`UPDATE intelligence_events SET first_seen_at=MIN(first_seen_at,(SELECT observed_at FROM intelligence_observations WHERE id=${n(observationId)})),last_seen_at=MAX(last_seen_at,(SELECT observed_at FROM intelligence_observations WHERE id=${n(observationId)})) WHERE id=${n(claim.eventId)};`);
     exec(`INSERT OR IGNORE INTO intelligence_claim_evidence(claim_id,observation_id,relation,linked_at) VALUES (${n(claimId)},${n(observationId)},${q(relation)},${n(linkedAt)});`);

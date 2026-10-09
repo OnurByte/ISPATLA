@@ -1,5 +1,5 @@
 import {
- claimAccountDispatchLease,renewAccountDispatchLease,releaseAccountDispatchLease,isAccountDispatchLeaseCurrent,readPublicationPolicyHistory,
+ claimAccountDispatchLease,renewAccountDispatchLease,releaseAccountDispatchLease,isAccountDispatchLeaseCurrent,readPublicationPolicyHistory,isOwnerEnabled,
  createJob,claimAutomationJobLease,renewAutomationJobLease,markAutomationJobRequestSent,finishAutomationJobLease,getApprovalSnapshotSource,
  getAccountCategoryConfigs,getAccounts,getDraft,getJob,getJobs,getPost,getSourceRights,updateDraft,updateJob,
  confirmAutomationJobRemote,markAutomationJobReconciliationRequired,
@@ -23,7 +23,7 @@ export function queueDraftIds(draftIds:number[],now=Math.floor(Date.now()/1000))
  if(!ids.length)throw new Error('En az bir draft seçilmeli');
  const rows=ids.map(id=>{
   const draft=getDraft(id),account=getAccounts().find(item=>item.id===draft?.accountId&&item.enabled);
-  if(!draft||!account)throw new Error(`draft #${id}: aktif hesap gerekli`);
+  if(!draft||!account?.ownerUserId||!isOwnerEnabled(account.ownerUserId))throw new Error(`draft #${id}: etkin hesap gerekli`);
   if(!['post','repost','reply'].includes(draft.format))throw new Error(`draft #${id}: eylem desteklenmiyor`);
   if(draft.status==='blocked')throw new Error(`draft #${id}: quality gate blokladı`);
   return {draft,account};
@@ -40,7 +40,7 @@ export function queueDraftIds(draftIds:number[],now=Math.floor(Date.now()/1000))
 export async function runDueAutomationJobs(now=Math.floor(Date.now()/1000),limit=10):Promise<Array<{id:number;ok:boolean;reason?:string}>>{
  await recoverStaleAutomationJobs(now);
  if(!publishingEnabled())return [];
- const due=getJobs(200).filter(job=>job.status==='queued'&&job.scheduledAt<=now&&job.nextAttemptAt<=now&&getAccounts().some(account=>account.id===job.accountId&&account.automationMode==='auto')).slice(0,Math.max(1,Math.min(50,limit)));
+ const due=getJobs(200).filter(job=>job.status==='queued'&&job.scheduledAt<=now&&job.nextAttemptAt<=now&&getAccounts().some(account=>account.id===job.accountId&&account.automationMode==='auto'&&Boolean(account.ownerUserId&&isOwnerEnabled(account.ownerUserId)))).slice(0,Math.max(1,Math.min(50,limit)));
  const results=[];
  for(const job of due){try{const result=await runAutomationJob(job.id,now);results.push({id:job.id,ok:result.ok,reason:result.reason});}catch{results.push({id:job.id,ok:false,reason:'İş yürütülemedi'});}}
  return results;
@@ -51,13 +51,14 @@ export async function runAutomationJob(id:number,now=Math.floor(Date.now()/1000)
  const job=getJob(id);if(!job)throw new Error('job bulunamadı');
  if(!['queued','failed'].includes(job.status))throw new Error('job çalıştırılamaz');
  if(job.scheduledAt>now||job.nextAttemptAt>now)return {ok:false,job,reason:'job is not due'};
+ const account=getAccounts().find(row=>row.id===job.accountId&&row.enabled);
+ if(!account?.ownerUserId||!isOwnerEnabled(account.ownerUserId))return {ok:false,job,reason:'account owner is disabled'};
+ if(currentOwnerId()&&currentOwnerId()!==account.ownerUserId)throw new Error('Hesabın resmi 𝕏 bağlantısı gerekli');
  const draft=getDraft(job.draftId);if(!draft)throw new Error('draft bulunamadı');
  const post=draft.externalId?getPost(draft.externalId):null;
  if(post&&job.action==='post'){
   const reason=qualityGate(post,draft.text);if(reason){const candidate=getAccounts().find(row=>row.id===job.accountId);if(candidate?.ownerUserId)runAsOwner(candidate.ownerUserId,()=>{const consent=getXAccountAuthState(candidate.id,candidate.ownerUserId!)?.consents.find(row=>row.action==='post');if(consent?.mode==='auto')try{demoteAutomaticExecution({draftId:draft.id,accountId:candidate.id,action:'post',reason:'unacceptable_outcome',now});}catch{}});const blocked=updateJob({id,status:'blocked',reason,now});updateDraft({id:draft.id,status:'blocked',gateReason:reason,now});return {ok:false,job:blocked,reason};}
  }
- const account=getAccounts().find(row=>row.id===job.accountId&&row.enabled);
- if(!account?.ownerUserId||currentOwnerId()&&currentOwnerId()!==account.ownerUserId)throw new Error('Hesabın resmi X bağlantısı gerekli');
  return runAsOwner(account.ownerUserId,async()=>{
   const state=getXAccountAuthState(account.id,account.ownerUserId!);
   const consent=state?.consents.find(row=>row.action===job.action);
@@ -69,7 +70,7 @@ export async function runAutomationJob(id:number,now=Math.floor(Date.now()/1000)
   if(job.action==='reply'&&targetId&&state?.connected&&mode!=='observe') {
     try{await verifyOfficialReplyEligibility(account,targetId,clock(),client);}catch{if(mode==='auto')demoteForAutomaticFailure({draftId:draft.id,accountId:account.id,action:job.action as 'post'|'repost'|'reply'},'auth uncertainty',clock());return {ok:false,job:getJob(id),reason:'Official reply evidence could not be read; no publication attempted'};}
   }
-  const evidence={...policyControls(),action:job.action,automatic:mode==='auto',mode,accountId:account.id,now,text:draft.text,
+  const evidence={...policyControls(),action:job.action,automatic:mode==='auto',mode,accountId:account.id,now:clock(),text:draft.text,
    grantConnected:Boolean(state?.connected),capabilities:state?.scopes.includes('tweet.write')?['post','repost','reply']:[],
    humanApproved:getApprovalSnapshotSource('automation_job',job.id)==='human',consent:consent||undefined,targetId,
    sourceText:post?.text,clusterId:post?.clusterKey,sourceHandle:post?.sourceHandle,sensitive:post?.sensitive,
@@ -84,7 +85,7 @@ export async function runAutomationJob(id:number,now=Math.floor(Date.now()/1000)
   const heartbeat=setInterval(()=>{try{healthy=healthy&&renewAccountDispatchLease({...accountLease,now:clock()})&&renewAutomationJobLease({id,leaseToken:lease.leaseToken,now:clock()});}catch{healthy=false;}},15000);
   try{
    const receipt=await withOfficialAccount(account,async credential=>{
-    if(!healthy||!publishingEnabled()||!isAccountDispatchLeaseCurrent({...accountLease,now:clock()})||!getAccounts().some(row=>row.id===account.id&&row.enabled))throw new Error('Dispatch paused before send');
+    if(!healthy||!publishingEnabled()||!isOwnerEnabled(account.ownerUserId!)||!isAccountDispatchLeaseCurrent({...accountLease,now:clock()})||!getAccounts().some(row=>row.id===account.id&&row.enabled))throw new Error('Dispatch paused before send');
     const latest=getXAccountAuthState(account.id,account.ownerUserId!);
     const fresh=latest?.consents.find(row=>row.action===job.action);
     if(!latest?.connected||fresh?.mode!==mode){if(mode==='auto')demoteForAutomaticFailure({draftId:draft.id,accountId:account.id,action:job.action as 'post'|'repost'|'reply'},'auth uncertainty',clock());throw new Error('Policy changed before send');}
@@ -104,7 +105,7 @@ export async function runAutomationJob(id:number,now=Math.floor(Date.now()/1000)
     if(job.action==='reply'&&targetId&&eligibility)return client.reply(credential,{text:draft.text,postId:targetId,summonedBy:eligibility.kind==='mention'?'author_mention':'author_quoted'});
     throw new Error('Unsupported or ineligible action');
    });
-   const finished=finishAutomationJobLease({id,leaseToken:lease.leaseToken,accountLeaseToken:accountLease.leaseToken,outcome:'accepted',receipt:JSON.stringify(receipt),reason:'X accepted; remote verification required',now:clock()});
+   const finished=finishAutomationJobLease({id,leaseToken:lease.leaseToken,accountLeaseToken:accountLease.leaseToken,outcome:'accepted',receipt:JSON.stringify(receipt),reason:'𝕏 accepted; remote verification required',now:clock()});
    if(!finished)return {ok:false,job:getJob(id),reason:'Receipt arrived after lease expiry; reconcile'};
    return {ok:true,job:finished};
   }catch(error){
@@ -164,7 +165,7 @@ export async function reconcileAutomationJobs(limit=20,options:{client?:Official
  for(const candidate of candidates){
   const account=getAccounts().find(row=>row.id===candidate.accountId);
   const owner=account?.ownerUserId;
-  if(!account||!owner||caller&&caller!==owner)continue;
+  if(!account||!owner||!isOwnerEnabled(owner)||caller&&caller!==owner)continue;
   const leaseNow=now();
   const accountLease=claimAccountDispatchLease({accountId:account.id,now:leaseNow,leaseSeconds:120});
   if(!accountLease)continue;
@@ -172,11 +173,11 @@ export async function reconcileAutomationJobs(limit=20,options:{client?:Official
   const heartbeat=setInterval(()=>{try{leaseHealthy=renewAccountDispatchLease({...accountLease,now:now(),leaseSeconds:120})&&leaseHealthy;}catch{leaseHealthy=false;}},15_000);
   try{
    const result=await runAsOwner(owner,async()=>{
-    if(!leaseHealthy||!isAccountDispatchLeaseCurrent({...accountLease,now:now()}))return false;
+    if(!leaseHealthy||!isOwnerEnabled(owner)||!isAccountDispatchLeaseCurrent({...accountLease,now:now()}))return false;
     const job=getJob(candidate.id);if(!job||!['pending_reconciliation','reconciliation_required'].includes(job.status)||job.remoteWriteStartedAt===null)return false;
     const draft=getDraft(job.draftId);if(!draft)return false;
     return withOfficialAccount(account,async credential=>{
-     if(!credential.scopes.includes('tweet.read'))return false;
+     if(!isOwnerEnabled(owner)||!credential.scopes.includes('tweet.read'))return false;
      if(job.action==='repost'){
      const targetId=jobTargetId(draft.sourceUrl);
       if(!targetId){markJobManualReview(job,owner,now(),'repost target missing; manual reconciliation required',accountLease.leaseToken);return false;}
@@ -199,13 +200,7 @@ export async function reconcileAutomationJobs(limit=20,options:{client?:Official
       const post=await client.getPost(credential,id);
       if(postMatchesJob(post||{},job,draft.text,credential.xUserId,targetId))match=post;
      }
-     if(!match){
-      const timeline=await client.getOwnTimeline(credential,100);
-      const matches=timeline.filter(post=>postMatchesJob(post,job,draft.text,credential.xUserId,targetId));
-      if(matches.length===1)match=matches[0]!;
-      else if(matches.length!==0){markJobManualReview(job,owner,now(),'multiple exact timeline candidates; manual reconciliation required',accountLease.leaseToken);return false;}
-     }
-     if(!match){markJobManualReview(job,owner,now(),'no unique authenticated post evidence; manual reconciliation required',accountLease.leaseToken);return false;}
+     if(!match){markJobManualReview(job,owner,now(),id?'exact receipt lookup did not confirm this account; manual reconciliation required':'post receipt missing; manual reconciliation required',accountLease.leaseToken);return false;}
      const postId=String(match.id);const url=`https://x.com/${account.handle}/status/${postId}`;
      const updated=confirmAutomationJobRemote({id:job.id,now:now(),receipt:job.receipt||JSON.stringify({id:postId,text:draft.text}),remoteUrl:url});
      if(updated){updateDraft({id:draft.id,status:'confirmed',now:now()});return true;}

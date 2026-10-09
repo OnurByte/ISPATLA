@@ -39,7 +39,7 @@ test("default MCP session cookie is validated on every call and owner scopes too
     if (!ensureDatabase()) throw new Error("database did not initialize");
     const account = runAsOwner("other-owner", () => saveAccount({ accountKey: "other", handle: "other", displayName: "Other", enabled: true, defaultAccount: true, automationMode: "manual", dailyLimit: 24, capabilities: ["post"], styleProfile: {}, now: 1 }));
     const draft = runAsOwner("other-owner", () => createDraft({ externalId: "", accountId: account.id, format: "post", text: "private draft text", now: 2 }));
-    const authRuntime = await createAuthRuntime();
+    const authRuntime = await createAuthRuntime({ validateSignupEmail: async (email) => ({ accepted: true, normalizedEmail: email, mxStatus: "unknown" }) });
     const authRequest = (path, body, cookie) => new Request("https://ispatla.test/api/auth" + path, {
       method: body ? "POST" : "GET",
       headers: { origin: "https://ispatla.test", ...(body ? { "content-type": "application/json" } : {}), ...(cookie ? { cookie } : {}) },

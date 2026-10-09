@@ -14,16 +14,18 @@ import {
 } from "@/server/jev";
 import { isAllowedJevEndpoint } from "@/server/security";
 import { saveSecret, secretOrEnv, vaultReady } from "@/server/vault";
+import { openRouterConnected } from "@/server/openrouter-oauth";
 
 export const runtime = "nodejs";
 
 function payload() {
   const settings = getJevSettings();
+  const keyConfigured = settings.provider === "openrouter" ? openRouterConnected() : Boolean(secretOrEnv("jev_api_key", "JEV_API_KEY"));
   return {
     settings,
     endpoint: jevEndpoint(settings.baseUrl),
     rubricVersion: JEV_RUBRIC_VERSION,
-    keyConfigured: Boolean(secretOrEnv("jev_api_key", "JEV_API_KEY")),
+    keyConfigured,
     configured: jevConfigured(settings),
     vaultReady: vaultReady(),
     modes: JEV_MODES,
@@ -53,8 +55,9 @@ async function PUTHandler(request: Request) {
     }
     if ("provider" in body) {
       const provider = String(body.provider);
-      if (!(JEV_PROVIDERS as readonly string[]).includes(provider)) throw new Error("Jev sağlayıcısı typesafe veya vercel olmalı");
+      if (!(JEV_PROVIDERS as readonly string[]).includes(provider)) throw new Error("Jev sağlayıcısı desteklenmiyor");
       setSetting("jev_provider", provider, now);
+      if (provider === "openrouter" && !("model" in body)) setSetting("jev_model", "typesafe/jev-1.13", now);
     }
     if ("model" in body) {
       const model = String(body.model).trim();
@@ -79,6 +82,7 @@ async function PUTHandler(request: Request) {
       setSetting("jev_cache_ttl_seconds", String(Math.round(ttl)), now);
     }
     if ("apiKey" in body) {
+      if (getJevSettings().provider === "openrouter") throw new Error("OpenRouter anahtarın zaten hesap bağlantısından kullanılır");
       const value = String(body.apiKey).trim();
       if (!value) throw new Error("Jev API anahtarı boş olamaz");
       saveSecret("jev_api_key", "Jev", value, now);

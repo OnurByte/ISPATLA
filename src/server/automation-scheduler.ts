@@ -10,6 +10,7 @@ import { reconcileAutomationJobs, runDueAutomationJobs } from "./queue-service";
 import { reconcilePublicationIntents, runApprovedPublicationIntents } from "./publication-service";
 import { runDueMonitors } from "./monitoring";
 import { collectDueShadowOutcomes } from "./shadow-evaluation";
+import { runPendingAccountCategoryInferences } from "./account-inference";
 
 function due(task: { enabled: boolean; nextRunAt: number }, now: number): boolean {
   return task.enabled && task.nextRunAt <= now;
@@ -41,6 +42,7 @@ function countsOf(taskId: string, details: Record<string, unknown>): Record<stri
     source_scan: ["sources", "postsSeen", "postsNew", "postsScored"],
     source_liveness: ["checked", "unreachable"],
     queue_worker: ["attempted"],
+    account_inference: ["attempted", "completed", "skipped", "failed"],
   };
   const keys = wanted[taskId] || ["confirmed"];
   const result: Record<string, number> = {};
@@ -85,6 +87,11 @@ export async function runScheduledAutomationTasks(now = Math.floor(Date.now() / 
         const intents = publishing ? await runApprovedPublicationIntents() : [];
         status = result.some((job) => !job.ok) || intents.some((intent) => !intent.ok) ? "partial" : "success";
         details = { jobs: result, intents, attempted: result.length + intents.length, publishing };
+      } else if (task.id === "account_inference") {
+        const result = await runPendingAccountCategoryInferences({ now: startedAt, limit: 5 });
+        status = result.failed > 0 ? "partial" : result.attempted === 0 ? "skipped" : "success";
+        details = result;
+        if (result.failed > 0) message = `${result.failed} hesap için kategori analizi tamamlanamadı`;
       } else {
         const confirmed = await reconcilePending() + await reconcilePublicationIntents() + await reconcileAutomationJobs(20, { now: () => startedAt });
         const errors: string[] = [];

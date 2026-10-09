@@ -14,7 +14,7 @@ const {ensureDatabase,saveAccount,createDraft,upsertPost}=await import("../src/s
 const {runAsOwner}=await import("../src/server/owner-context");
 const {FixtureXReader,FixtureXPublisher}=await import("../src/server/fixture-x");
 const {observedPost,persistShadowObservation}=await import("../src/server/pipeline");
-const auth=await createAuthRuntime({env:process.env});
+const auth=await createAuthRuntime({env:process.env,validateSignupEmail:async(email)=>({accepted:true,normalizedEmail:email,mxStatus:"unknown"})});
 let child:ReturnType<typeof Bun.spawn>|undefined;
 try {
   if(!ensureDatabase())throw new Error("Demo database initialization failed");

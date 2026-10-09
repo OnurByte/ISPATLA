@@ -1,11 +1,40 @@
 import Link from "next/link";
-import {PublicPage,PublicSection} from "@/components/public-page";
-export const metadata={title:"Dokümantasyon · İSPATLA"};
-export default function DocsPage(){return <PublicPage title="Önce incele, sonra bağlan." summary="Kaynağı gör, kararın nedenini oku, taslağı kendi hesabın için düzenle. Yayın kabulü ve uzaktan doğrulama ayrı adımlardır.">
- <div className="space-y-10">
-  <PublicSection title="Bir fırsatı değerlendirmek"><p>Kontrol odasında kaynak postun bağlantısını, konu eşleşmesini ve karar gerekçesini birlikte incele. Eksik ölçüm sıfır sayılmaz. Karar puanı, kalibre edilmiş olasılık veya erişim garantisi değildir.</p><p>Aynı olay her hesap için aynı öneriyi üretmeyebilir. Hesabın konusu, sesi ve yayın geçmişi kararın bağlamıdır.</p></PublicSection>
-  <PublicSection title="Uygulama oturumu ve X bağlantısı"><p>İSPATLA oturumu ile X hesabına verilen izin ayrıdır. X hesabı resmi OAuth akışıyla bağlanır. Observe, Assist ve Off tercihleri hesap ve eylem bazında tutulur; bağlantı kurmak otomatik yayın izni vermez.</p><p>Otomatik yayın için ayrıca kanıta dayalı, belirli hesap/eylem/konu kapsamını gösteren onay gerekir. Yetki veya kanıt eksikse gönderim durur.</p></PublicSection>
-  <PublicSection title="Taslak, onay, sonuç"><p>Taslağı düzenle ve yayından önce son metni incele. İçerik değişince eski gönderim onayı geçersiz olur. Bir gönderimin sonucu belirsizse tekrar göndermek yerine doğrulama kuyruğunda ne olduğunu incele.</p><p>“Kabul edildi” X’in isteği aldığına dair makbuzdur. “Doğrulandı” bağlı hesabın uzaktaki yayınına ait eşleşen kanıtı ifade eder.</p></PublicSection>
-  <PublicSection title="Kimlik bilgisi gerektirmeyen yerel demo"><pre className="overflow-x-auto rounded-md border bg-muted/40 p-4 font-mono text-xs text-foreground">bun install --frozen-lockfile{"\n"}bun run demo</pre><p>Demo sentetik kaynak, geçici veritabanı ve yerel hesap kullanır. X ve AI anahtarı gerekmez. Gerçek X gönderimleri kapalıdır; simüle makbuzlar yayın kanıtı sayılmaz. Giriş bilgisi başlatma çıktısında gösterilir.</p><p>Normal kurulum, worker ve katkı kontrolleri depodaki README ve CONTRIBUTING dosyalarında yer alır.</p></PublicSection>
- </div><aside className="h-fit rounded-lg border bg-muted/30 p-5 text-sm"><p className="font-semibold">Başlangıç noktası</p><p className="mt-3 leading-6 text-muted-foreground">X’i bağlamadan önce yerel demoda fırsat ve taslak akışını inceleyebilirsin.</p><Link href="/signup" className="mt-5 inline-flex min-h-11 items-center rounded-md bg-blue-600 px-4 font-medium text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">Hesap oluştur</Link></aside>
- </PublicPage>;}
+import { PublicPage, PublicSection } from "@/components/public-page";
+import { requestPublicLocale } from "@/components/public-header";
+import { LOCALE_CONFIG, localizePath } from "@/i18n/config";
+import { docsCopy } from "@/i18n/docs-copy";
+import { publicMetadata } from "@/i18n/public-metadata";
+
+export async function generateMetadata() {
+  const locale = await requestPublicLocale();
+  const copy = docsCopy[locale];
+  return publicMetadata(locale, "/docs", copy.metaTitle, copy.metaDescription);
+}
+
+export default async function DocsPage() {
+  const locale = await requestPublicLocale();
+  const copy = docsCopy[locale];
+  const language = LOCALE_CONFIG[locale];
+  const repo = "https://github.com/OnurByte/ISPATLA";
+  return <PublicPage current="docs" title={copy.title} summary={copy.summary}>
+    <div lang={locale} dir={language.dir} className="space-y-10">
+      {copy.sections.map(([title, text]) => <PublicSection key={title} title={title}><p>{text}</p></PublicSection>)}
+      <PublicSection title={copy.demoTitle}>
+        <pre dir="ltr" className="overflow-x-auto rounded-md border bg-muted/40 p-4 font-mono text-xs text-foreground">bun install --frozen-lockfile{"\n"}bun run demo</pre>
+        <p>{copy.demoText}</p>
+      </PublicSection>
+      <PublicSection title={copy.setupTitle}>
+        <p>{copy.setupText}</p>
+        <ul className="space-y-3">{copy.links.map(([file, label]) => <li key={file}><a className="underline underline-offset-4" href={`${repo}/blob/main/${file}`} target="_blank" rel="noopener noreferrer">{label}</a></li>)}</ul>
+        <pre dir="ltr" className="overflow-x-auto rounded-md border bg-muted/40 p-4 font-mono text-xs text-foreground">bun test{"\n"}bun run lint{"\n"}bun run typecheck{"\n"}bun run build</pre>
+        <p>{copy.testLimit}</p>
+      </PublicSection>
+    </div>
+    <aside lang={locale} dir={language.dir} className="h-fit space-y-4 rounded-lg border bg-muted/30 p-5 text-sm">
+      <p className="font-semibold">{copy.startTitle}</p>
+      <p>{copy.startText}</p>
+      <Link className="inline-flex min-h-11 items-center underline" href={`${localizePath(locale, "/")}#signal-detector`}>{copy.explore}</Link>
+      <Link className="block min-h-11 py-3 underline" href={localizePath(locale, "/open-source")}>{copy.openSource}</Link>
+    </aside>
+  </PublicPage>;
+}

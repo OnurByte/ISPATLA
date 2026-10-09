@@ -5,9 +5,19 @@ uses the same SQLite file as domain data. Request wrappers resolve a real
 session and establish the owner context before private data is read or mutated.
 Operator-only shared administration has a separate explicit guard.
 
-X identity comes from OAuth PKCE and `/2/users/me`, separate from application
-login. Encrypted credentials, refresh leases and per-action consent live in
-separate tables. Official X requests use that persisted account binding.
+X sign-in uses OAuth PKCE and `/2/users/me` to authenticate the application
+user and bind the same X account for workspace use; there is no second account
+connection step. Encrypted credentials, refresh leases and per-action consent
+live in separate tables. Official X requests use that persisted account
+binding. Automatic publication still requires workspace preferences and
+explicit publishing consent.
+
+The verified X account supplies the profile name, bio, handle and locally
+stored avatar. New profiles start with Public selected in onboarding and are
+not publicly visible until that choice is saved. Existing visibility choices
+remain unchanged. Public profiles use `/handle`; reserved application paths
+retain an opaque `/u/` link. Private profiles and their avatar endpoints remain
+owner-only. Profile visibility does not publish drafts or enroll hit cards.
 
 A shared radar reader appends provenance and nullable metric revisions to the
 X-only event store. Account decisions and drafts run inside their owner's

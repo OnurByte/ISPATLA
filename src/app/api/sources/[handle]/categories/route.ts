@@ -1,13 +1,15 @@
 import { withUser } from "@/server/request-auth";
 import { NextResponse } from "next/server";
-import { getSourceCategoryConfigs, saveSourceCategoryConfig } from "@/server/db";
+import { deleteAccountSourceCategoryConfig, getAccountSourceCategoryConfigs, getAccounts, saveAccountSourceCategoryConfig } from "@/server/db";
 import { guardMutation, readJsonBody } from "@/server/api-guard";
 
 export const runtime = "nodejs";
 
-async function GETHandler(_request: Request, context: { params: Promise<{ handle: string }> }) {
+async function GETHandler(request: Request, context: { params: Promise<{ handle: string }> }) {
   const handle = (await context.params).handle.replace(/^@/, "").toLowerCase();
-  return NextResponse.json(getSourceCategoryConfigs(handle));
+  const accountId = Number(new URL(request.url).searchParams.get("accountId"));
+  if (!Number.isSafeInteger(accountId) || accountId < 1 || !getAccounts().some((account) => account.id === accountId)) return NextResponse.json({ error: "geçerli yayın hesabı gerekli" }, { status: 404 });
+  return NextResponse.json(getAccountSourceCategoryConfigs(accountId).filter((item) => item.sourceHandle === handle));
 }
 
 async function PUTHandler(request: Request, context: { params: Promise<{ handle: string }> }) {
@@ -16,7 +18,10 @@ async function PUTHandler(request: Request, context: { params: Promise<{ handle:
   try {
     const body = await readJsonBody(request);
     const sourceHandle = (await context.params).handle.replace(/^@/, "").toLowerCase();
-    const config = saveSourceCategoryConfig({
+    const accountId = Number(body.accountId);
+    if (!Number.isSafeInteger(accountId) || accountId < 1 || !getAccounts().some((account) => account.id === accountId)) return NextResponse.json({ error: "geçerli yayın hesabı gerekli" }, { status: 404 });
+    const config = saveAccountSourceCategoryConfig({
+      accountId,
       sourceHandle,
       categoryId: Number(body.categoryId),
       monitoringTier: body.monitoringTier === "A" || body.monitoringTier === "B" ? body.monitoringTier : "C",
@@ -31,6 +36,21 @@ async function PUTHandler(request: Request, context: { params: Promise<{ handle:
   }
 }
 
+async function DELETEHandler(request: Request, context: { params: Promise<{ handle: string }> }) {
+  const denied = guardMutation(request);
+  if (denied) return denied;
+  const url = new URL(request.url);
+  const accountId = Number(url.searchParams.get("accountId"));
+  const categoryId = Number(url.searchParams.get("categoryId"));
+  const sourceHandle = (await context.params).handle.replace(/^@/, "").toLowerCase();
+  if (!Number.isSafeInteger(accountId) || accountId < 1 || !getAccounts().some((account) => account.id === accountId)) return NextResponse.json({ error: "geçerli yayın hesabı gerekli" }, { status: 404 });
+  if (!Number.isSafeInteger(categoryId) || categoryId < 1) return NextResponse.json({ error: "geçerli kategori gerekli" }, { status: 400 });
+  deleteAccountSourceCategoryConfig(accountId, sourceHandle, categoryId);
+  return NextResponse.json({ ok: true });
+}
+
 export const GET = withUser(GETHandler);
 
-export const PUT = withUser(PUTHandler, true);
+export const PUT = withUser(PUTHandler);
+
+export const DELETE = withUser(DELETEHandler);

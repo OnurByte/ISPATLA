@@ -43,13 +43,19 @@ test("source-backed quality gates run even when source media rights are not clea
   const result = JSON.parse(runIsolatedDatabase(`
     import { createDraft, createJob, ensureDatabase, getJobs, saveAccount, upsertPost } from "./src/server/db.ts";
     import { runAutomationJob } from "./src/server/queue-service.ts";
+    import { runAsOwner } from "./src/server/owner-context.ts";
     if (!ensureDatabase()) throw new Error("database did not initialize");
+    const { Database } = process.getBuiltinModule("bun:sqlite");
+    const raw = new Database(process.env.ISPATLA_DB);
+    raw.exec("CREATE TABLE auth_user_status(owner_user_id TEXT PRIMARY KEY,status TEXT NOT NULL,updated_at INTEGER NOT NULL)");
+    raw.query("INSERT INTO auth_user_status(owner_user_id,status,updated_at) VALUES ('owner-main','active',1750000000)").run();
+    raw.close();
     const now = 1750000000;
-    const account = saveAccount({ accountKey: "main", handle: "main", displayName: "Main", enabled: true, defaultAccount: true, automationMode: "auto", dailyLimit: 24, capabilities: ["post"], styleProfile: {}, now });
-    upsertPost({ externalId: "123", sourceHandle: "source", authorHandle: "source", statusUrl: "https://x.com/source/status/123", text: "This is a sufficiently long source post that the short draft copies.", createdTimestamp: now, likes: 0, replies: 0, reposts: 0, quotes: 0, views: 0, followers: 0, mediaCount: 0, mediaJson: "[]", rawJson: "{}", score: 0, scoreReason: "", sensitive: false, clusterKey: "123" }, now);
-    const draft = createDraft({ externalId: "123", accountId: account.id, format: "post", text: "short draft", now });
-    const job = createJob({ draftId: draft.id, accountId: account.id, action: "post", scheduledAt: now, now });
-    const result = await runAutomationJob(job.id, now);
+    const account = runAsOwner("owner-main", () => saveAccount({ accountKey: "main", handle: "main", displayName: "Main", enabled: true, defaultAccount: true, automationMode: "auto", dailyLimit: 24, capabilities: ["post"], styleProfile: {}, now }));
+    runAsOwner("owner-main", () => upsertPost({ externalId: "123", sourceHandle: "source", authorHandle: "source", statusUrl: "https://x.com/source/status/123", text: "This is a sufficiently long source post that the short draft copies.", createdTimestamp: now, likes: 0, replies: 0, reposts: 0, quotes: 0, views: 0, followers: 0, mediaCount: 0, mediaJson: "[]", rawJson: "{}", score: 0, scoreReason: "", sensitive: false, clusterKey: "123" }, now));
+    const draft = runAsOwner("owner-main", () => createDraft({ externalId: "123", accountId: account.id, format: "post", text: "short draft", now }));
+    const job = runAsOwner("owner-main", () => createJob({ draftId: draft.id, accountId: account.id, action: "post", scheduledAt: now, now }));
+    const result = await runAsOwner("owner-main", () => runAutomationJob(job.id, now));
     console.log(JSON.stringify({ result, job: getJobs(20).find((item) => item.id === job.id) }));
   `));
   expect(result.result).toMatchObject({ ok: false, reason: "draft is too short" });

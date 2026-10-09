@@ -10,6 +10,7 @@ import {
   recordEvaluationPrediction,
   splitLeakageGroup,
   type EvaluationPrediction,
+  type OfficialFollowerEvidence,
 } from "./evaluation-store";
 
 const MODEL_VERSION = "decision-score-v1";
@@ -111,8 +112,9 @@ export async function collectDueShadowOutcomes(now = Math.floor(Date.now() / 100
     const due = listDuePublicationOutcomes(now, 500);
     if (!due.length) return;
     const accounts = getAccounts();
+    const followersByAccount = new Map<number, OfficialFollowerEvidence|null>();
     result.checked += due.length;
-    for (const { prediction, accountId, remoteReceipt, remoteUrl } of due) {
+    for (const { prediction, accountId, remoteReceipt, remoteUrl, observationWindow } of due) {
       if (providerReads >= 20) { result.unresolved += 1; continue; }
       providerReads += 1;
       const account = accounts.find((item) => item.id === accountId && item.ownerUserId === owner);
@@ -123,7 +125,19 @@ export async function collectDueShadowOutcomes(now = Math.floor(Date.now() / 100
         const post = await withOfficialAccount(account, async (credential) => {
           if (!credential.scopes.includes("tweet.read")) return null;
           const observed = await client.getPost({ accessToken: credential.accessToken, xUserId: credential.xUserId }, id);
-          return observed?.id === id && observed.author_id === credential.xUserId ? { observed, credential } : null;
+          if (observed?.id !== id || observed.author_id !== credential.xUserId) return null;
+          if (!followersByAccount.has(account.id)) {
+            followersByAccount.set(account.id, null);
+            if (credential.scopes.includes("users.read") && providerReads < 20 && typeof client.getOwnProfile === "function") {
+              providerReads += 1;
+              try {
+                const profile = await client.getOwnProfile({accessToken:credential.accessToken,xUserId:credential.xUserId});
+                const count = profile.public_metrics && typeof profile.public_metrics === "object" ? (profile.public_metrics as Record<string,unknown>).followers_count : null;
+                if (profile.id===credential.xUserId && typeof count==="number" && Number.isSafeInteger(count) && count>=0) followersByAccount.set(account.id,{count,observedAt:now,xUserId:credential.xUserId,provenanceRef:`official_x_user:${account.id}:${credential.xUserId}`});
+              } catch { /* Missing profile access leaves the outcome usable without follower normalization. */ }
+            }
+          }
+          return { observed, credential };
         });
         if (!post) { result.unresolved += 1; continue; }
         const publicMetrics = post.observed.public_metrics;
@@ -132,14 +146,14 @@ export async function collectDueShadowOutcomes(now = Math.floor(Date.now() / 100
           return typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : null;
         };
         const observedAt = epoch(post.observed.created_at);
-        if (observedAt === null || observedAt < prediction.createdAt) { result.unresolved += 1; continue; }
+        if (observedAt === null || observedAt < prediction.createdAt || (observationWindow === "day" && (now-observedAt<86400 || now-observedAt>108000))) { result.unresolved += 1; continue; }
         const metrics = {
           views: field("impression_count"), likes: field("like_count"), replies: field("reply_count"),
           reposts: field("retweet_count") ?? field("repost_count"), quotes: field("quote_count"),
         };
         const censored = METRICS.filter((metric) => metrics[metric] === null);
         appendObservedOutcome({
-          predictionId: prediction.id, capturedAt: now, observedAt: now, metrics, censored,
+          predictionId: prediction.id, capturedAt: now, observedAt: now, metrics, censored, followersEvidence:followersByAccount.get(account.id) ?? null,
           source: "official_x_api", provenanceRef: `official_x:${account.id}:${id}:published_at=${observedAt}`,
         });
         result.collected += 1;

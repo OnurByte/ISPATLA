@@ -46,7 +46,7 @@ test("standalone worker publishes a real heartbeat and releases it on exit", asy
     import { ensureDatabase, getAutomationSchedules, saveAutomationSchedule } from "./src/server/db.ts";
     ensureDatabase();
     const now = Math.floor(Date.now()/1000);
-    for (const task of getAutomationSchedules(now)) saveAutomationSchedule({...task, enabled:false, now});
+    for (const task of getAutomationSchedules(now)) saveAutomationSchedule({...task, enabled:task.id === "reconciliation", nextRunAt:task.id === "reconciliation" ? now : task.nextRunAt, now});
   `], env, stdout: "pipe", stderr: "pipe" });
   expect(setup.exitCode, setup.stderr.toString()).toBe(0);
   const worker = Bun.spawn({ cmd: [process.execPath, "scripts/automation-worker.ts"], env, stdout: "pipe", stderr: "pipe" });
@@ -60,7 +60,12 @@ test("standalone worker publishes a real heartbeat and releases it on exit", asy
     }
     expect(runtime).toMatchObject({ owner: "worker", healthy: true });
     expect(await worker.exited).toBe(0);
-    expect(await new Response(worker.stderr).text()).toContain("durdu ticks=2");
+    const workerLog = await new Response(worker.stderr).text();
+    expect(workerLog).toContain("durdu ticks=2");
+    expect(workerLog).toContain("reconciliation=success");
+    const ranSchedule = Bun.spawnSync({ cmd: [process.execPath, "-e", 'import {getAutomationSchedules} from "./src/server/db.ts"; console.log(JSON.stringify(getAutomationSchedules().find(item=>item.id==="reconciliation")));'], env, stdout: "pipe", stderr: "pipe" });
+    expect(ranSchedule.exitCode, ranSchedule.stderr.toString()).toBe(0);
+    expect(JSON.parse(ranSchedule.stdout.toString())).toMatchObject({ enabled: true, lastStatus: "success" });
     const probe = Bun.spawnSync({ cmd: [process.execPath, "-e", 'import {getAutomationRuntime} from "./src/server/dashboard.ts"; console.log(JSON.stringify(getAutomationRuntime()));'], env, stdout: "pipe", stderr: "pipe" });
     expect(probe.exitCode, probe.stderr.toString()).toBe(0);
     expect(JSON.parse(probe.stdout.toString())).toMatchObject({ owner: "none", healthy: false });

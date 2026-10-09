@@ -1,0 +1,132 @@
+.signal-press {
+  color-scheme: light;
+  --press-paper: #f0ede5;
+  --press-surface: #e5e1d7;
+  --press-ink: #16191e;
+  --press-blue: #315bf5;
+  --press-warm: #66675f;
+  --press-danger: #bc453d;
+  --press-verified: #477865;
+  background: var(--press-paper);
+  color: var(--press-ink);
+}
+
+.dark .signal-press {
+  color-scheme: dark;
+  --press-paper: #16191e;
+  --press-surface: #20242c;
+  --press-ink: #f0ede5;
+  --press-blue: #aebeff;
+  --press-warm: #c1bfb6;
+  --press-danger: #ff9b87;
+  --press-verified: #93edc1;
+}
+
+.signal-press .press-serif { font-family: Georgia, "Times New Roman", serif; }
+.signal-press .press-mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.signal-press .press-paper-grain {
+  background-image: radial-gradient(#16191e 0.55px, transparent 0.55px);
+  background-size: 7px 7px;
+  background-position: 2px 3px;
+}
+.dark .signal-press .press-paper-grain {
+  background-image: radial-gradient(#f0ede5 0.55px, transparent 0.55px);
+}
+.signal-press .press-rule { border-color: color-mix(in srgb, var(--press-ink) 24%, transparent); }
+.signal-press > header { border-color: color-mix(in srgb, var(--press-ink) 24%, transparent); background: var(--press-paper); color: var(--press-ink); }
+.signal-press > header nav a { background: transparent; color: var(--press-ink); }
+.signal-press > header nav a:hover { background: color-mix(in srgb, var(--press-ink) 10%, transparent); }
+.signal-press > header nav a:last-child { background: #315bf5; color: white; }
+.signal-press > header nav a:last-child:hover { background: #2448d8; color: white; }
+.signal-press > header button { border-color: color-mix(in srgb, var(--press-ink) 28%, transparent); color: var(--press-ink); }
+
+/* Restore the warm editorial palette in the light theme. */
+.signal-press [class*="bg-[#f0ede5]"] { background-color: #f0ede5; }
+.signal-press [class*="bg-[#e5e1d7]"] { background-color: #e5e1d7; }
+.signal-press [class*="bg-[#315bf5]"] { background-color: #315bf5; }
+.signal-press [class*="bg-[#16191e]"] { background-color: #16191e; }
+.signal-press [class*="text-[#16191e]"] { color: #16191e; }
+.signal-press [class*="text-[#66675f]"],
+.signal-press [class*="text-[#9a9a91]"] { color: #66675f; }
+.signal-press [class*="text-[#315bf5]"] { color: #315bf5; }
+.signal-press [class*="text-[#bc453d]"] { color: #bc453d; }
+
+/* Only the dark theme remaps paper components; the proof and footer keep their deliberate inverse treatment. */
+.dark .signal-press [class*="bg-[#f0ede5]"],
+.dark .signal-press [class*="bg-[#e5e1d7]"],
+.dark .signal-press [class*="bg-white/40"],
+.dark .signal-press [class*="bg-white/50"],
+.dark .signal-press [class*="bg-white/60"] { background-color: var(--press-surface); }
+.dark .signal-press [class*="text-[#16191e]"] { color: var(--press-ink); }
+.dark .signal-press [class*="text-[#66675f]"],
+.dark .signal-press [class*="text-[#9a9a91]"] { color: var(--press-warm); }
+.dark .signal-press [class*="text-[#315bf5]"] { color: var(--press-blue); }
+.dark .signal-press [class*="text-[#bc453d]"] { color: var(--press-danger); }
+.dark .signal-press [class*="border-[#16191e]"] { border-color: color-mix(in srgb, var(--press-ink) 30%, transparent); }
+.dark .signal-press [class*="border-[#315bf5]"] { border-color: var(--press-blue); }
+.dark .signal-press [class*="border-[#bc453d]"] { border-color: var(--press-danger); }
+.dark .signal-press [class*="bg-[#315bf5]"] { background-color: #315bf5; }
+.dark .signal-press [class*="bg-[#16191e]"] { background-color: #080b10; }
+.dark .signal-press #proof-room { background: #080b10; color: var(--press-ink); }
+.dark .signal-press #proof-room [class*="bg-[#f0ede5]"] { background: var(--press-surface); }
+.dark .signal-press #proof-room [class*="text-[#16191e]"] { color: var(--press-ink); }
+.dark .signal-press #proof-room [class*="bg-[#16191e]"] { background: #080b10; color: var(--press-ink); }
+.dark .signal-press [class*="decoration-[#315bf5]"] { text-decoration-color: var(--press-blue); }
+.dark .signal-press input { background: var(--press-surface); color: var(--press-ink); }
+
+.signal-press .growth-scene {
+  --growth-panel: #fffdf8;
+  --growth-ink: #202329;
+  --growth-muted: #5e6672;
+  --growth-gridline: #95a0b2;
+  --growth-blue: #315bf5;
+  --growth-point: #dce5ff;
+  --growth-mint: #247460;
+  --growth-orange: #a45a18;
+  --growth-alert: #9b4d18;
+  --growth-alert-bg: #fff3df;
+  background: #ece8de;
+  border-color: color-mix(in srgb, var(--press-ink) 25%, transparent);
+  color: var(--growth-ink);
+}
+.dark .signal-press .growth-scene {
+  --growth-panel: #0b1422;
+  --growth-ink: #f2f5fa;
+  --growth-muted: #b1bdce;
+  --growth-gridline: #7d91ad;
+  --growth-blue: #8fb5ff;
+  --growth-point: #c9ddff;
+  --growth-mint: #8bd9c3;
+  --growth-orange: #f1a27e;
+  --growth-alert: #ffd79e;
+  --growth-alert-bg: #392c1e;
+  background: #101b2c;
+  border-color: rgb(255 255 255 / 20%);
+}
+.signal-press .growth-grid {
+  background-image: linear-gradient(color-mix(in srgb, var(--growth-gridline) 25%, transparent) 1px, transparent 1px), linear-gradient(90deg, color-mix(in srgb, var(--growth-gridline) 25%, transparent) 1px, transparent 1px);
+  background-size: 26px 26px;
+}
+.signal-press .growth-panel { background: color-mix(in srgb, var(--growth-panel) 94%, transparent); border-color: color-mix(in srgb, var(--growth-ink) 18%, transparent); }
+.signal-press .growth-ink { color: var(--growth-ink); }
+.signal-press .growth-muted { color: var(--growth-muted); }
+.signal-press .growth-muted.border-t { border-color: color-mix(in srgb, var(--growth-ink) 20%, transparent); }
+.signal-press .growth-metric { background: color-mix(in srgb, var(--growth-ink) 4%, transparent); border-color: color-mix(in srgb, var(--growth-ink) 15%, transparent); }
+.signal-press .growth-synthetic { color: var(--growth-alert); border-color: color-mix(in srgb, var(--growth-alert) 55%, transparent); background: var(--growth-alert-bg); }
+.signal-press .growth-highlight { color: var(--growth-alert); }
+.signal-press .growth-panel [class*="border-white/15"] { border-color: color-mix(in srgb, var(--growth-ink) 16%, transparent); }
+.signal-press .growth-line { stroke-dasharray: 14 7; animation: growth-flow 3.8s linear infinite; }
+@keyframes growth-flow { to { stroke-dashoffset: -84; } }
+@media (prefers-reduced-motion: reduce) { .signal-press .growth-line { animation: none; } }
+
+@media (prefers-reduced-motion: no-preference) {
+  html:has(.signal-press) { scroll-behavior: smooth; }
+  .signal-press .signal-drift { animation: signal-drift 7s ease-in-out infinite alternate; }
+  @keyframes signal-drift { to { transform: translateY(-7px) rotate(1deg); } }
+}
+
+.signal-press section[id] { scroll-margin-top: 2rem; }
+.signal-press a:focus-visible, .signal-press button:focus-visible, .signal-press summary:focus-visible {
+  outline: 3px solid var(--press-blue);
+  outline-offset: 4px;
+}

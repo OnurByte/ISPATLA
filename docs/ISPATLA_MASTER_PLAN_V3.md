@@ -560,15 +560,7 @@ Secondary/settings:
 /app/settings/policy
 ```
 
-Bugünkü `/x` inspector gibi engineering/debug surface primary sidebar’da olmamalı.
-
-Gerekirse:
-
-```text
-/app/developer/x
-```
-
-altına taşınabilir.
+Güncel API timeline okumayı desteklemediği için inspector ekranı ve endpoint’i kaldırıldı.
 
 ---
 

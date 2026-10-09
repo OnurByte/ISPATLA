@@ -146,7 +146,7 @@ export function recordOfficialReplySummon(input: { accountId: number; connectedX
     || !Number.isSafeInteger(input.observedAt) || input.observedAt < 0) throw new Error("official reply summon evidence is invalid");
   const account = getAccounts().find(item => item.id === input.accountId && item.ownerUserId === current);
   const binding = getXAccountAuthState(input.accountId, current);
-  if (!account || !binding?.connected || binding.xUserId !== input.connectedXUserId) throw new Error("connected X account identity mismatch");
+  if (!account || !binding?.connected || binding.xUserId !== input.connectedXUserId) throw new Error("connected 𝕏 account identity mismatch");
   const summoned = input.kind === "mention"
     ? input.post.mentionedUserIds?.includes(input.connectedXUserId) === true
     : input.post.quotedAuthorXUserId === input.connectedXUserId;

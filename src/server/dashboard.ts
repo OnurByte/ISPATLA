@@ -1,4 +1,4 @@
-import { getAccounts, getSummary, readAutomationLock, type DashboardSummary } from "./db";
+import { getAccounts, getDrafts, getSummary, readAutomationLock, type DashboardSummary } from "./db";
 import { aiConfigured, getAiSettings, isAiEnabled } from "./ai";
 import { automationEnabled } from "./pipeline";
 import { loadSources } from "./sources";
@@ -10,6 +10,7 @@ import { X_CONSENT_COPY_VERSION, X_POLICY_VERSION } from "./x-policy";
 export type DashboardView = Omit<DashboardSummary, "officialPublisherConfigured"> & {
   officialPublisherConfigured: boolean;
   officialX: { connectedAccounts: number; postWriteReadyAccounts: number; autoConsentedPostAccounts: number };
+  recentDrafts: { id: number; text: string; status: string }[];
 };
 
 export function getAutomationRuntime(now = Math.floor(Date.now() / 1000)) {
@@ -50,5 +51,6 @@ export function getDashboardSummary(): DashboardView {
     aiProvider: ai.provider,
     officialPublisherConfigured: Boolean(process.env.X_OAUTH_CLIENT_ID && (process.env.ISPATLA_TOKEN_KEY_CURRENT || process.env.ISPATLA_SECRET_KEY)),
     officialX,
+    recentDrafts: owner ? getDrafts(3).map(({ id, text, status }) => ({ id, text, status })) : [],
   })) as DashboardView;
 }

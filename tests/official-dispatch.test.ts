@@ -36,11 +36,18 @@ const setup = `
   import { OfficialXPublisher } from "./src/server/publisher.ts";
   import { OfficialXClient, OfficialXError } from "./src/server/official-x.ts";
   if (!ensureDatabase()) throw new Error("database unavailable");
+  const { Database } = process.getBuiltinModule("bun:sqlite");
+  const authDb = new Database(process.env.ISPATLA_DB);
+  authDb.exec("CREATE TABLE auth_user_status(owner_user_id TEXT PRIMARY KEY,status TEXT NOT NULL,updated_at INTEGER NOT NULL)");
+  authDb.close();
   const scopes = ["tweet.read", "tweet.write", "users.read", "media.write", "offline.access"];
   const now = Math.floor(Date.now() / 1000);
   let handleCounter = 0;
   function makeIntent(suffix: string) {
     const owner = "dispatch-owner-" + suffix;
+    const statusDb = new Database(process.env.ISPATLA_DB);
+    statusDb.query("INSERT INTO auth_user_status(owner_user_id,status,updated_at) VALUES (?,'active',?)").run(owner, now);
+    statusDb.close();
     const handle = "u" + (handleCounter++).toString(36) + now.toString(36).slice(-8);
     const connected = connectXAccount({ ownerUserId: owner, xUserId: String(700000 + Math.abs(suffix.length * 113 + now % 1000)), handle, displayName: "Owner", accessToken: "fixture-access-" + suffix, refreshToken: "fixture-refresh-" + suffix, expiresAt: now + 7200, scopes, now });
     const account = runAsOwner(owner, () => getAccounts().find((item) => item.id === connected.accountId)!);
@@ -92,7 +99,10 @@ test("concurrent dispatches have one lease winner and one once-only request mark
     const held = new Promise((resolve) => { release = resolve; });
     const publisher = fakePublisher(async (_credential, input) => { sends++; await held; return { id: "800001", text: input.text }; });
     const first = dispatchPublicationIntent(item.intent.id, { publisher, now: () => now });
-    await new Promise((resolve) => setTimeout(resolve, 25));
+    for (let attempt = 0; attempt < 100 && sends === 0; attempt++) {
+      await new Promise((resolve) => setTimeout(resolve, 5));
+    }
+    if (sends === 0) throw new Error("first dispatch did not reach publisher");
     let second = "";
     try { await dispatchPublicationIntent(item.intent.id, { publisher, now: () => now }); } catch (error) { second = error instanceof Error ? error.message : String(error); }
     release();
@@ -173,7 +183,6 @@ test("reconciliation confirms only exact post evidence by the persisted X identi
     const reads = [];
     const client = {
       getPost: async (credential, id) => { reads.push({ token: credential.accessToken, xUserId: credential.xUserId, id }); return { id, author_id: credential.xUserId, text: dispatched.text }; },
-      getOwnTimeline: async () => [],
     } as unknown as OfficialXClient;
     const confirmed = await reconcilePublicationIntents(10, { client, now: () => now + 1 });
     console.log(JSON.stringify({ dispatched: dispatched.status, confirmed, final: getPublicationIntent(item.intent.id)?.status, reads }));
@@ -189,12 +198,14 @@ test("reconciliation ignores mismatched author or exact text", () => {
     const item = makeIntent("mismatch");
     const publisher = fakePublisher(async (_credential, input) => ({ id: "800004", text: input.text }));
     await dispatchPublicationIntent(item.intent.id, { publisher, now: () => now });
-    const client = { getPost: async (credential, id) => ({ id, author_id: "someone-else", text: "different" }), getOwnTimeline: async () => [] } as unknown as OfficialXClient;
+    let receiptReads = 0;
+    const client = { getPost: async (credential, id) => { receiptReads++; return { id, author_id: "someone-else", text: "different" }; } } as unknown as OfficialXClient;
     const confirmed = await reconcilePublicationIntents(10, { client, now: () => now + 1 });
-    console.log(JSON.stringify({ confirmed, status: getPublicationIntent(item.intent.id)?.status }));
+    console.log(JSON.stringify({ confirmed, status: getPublicationIntent(item.intent.id)?.status, receiptReads }));
   `));
   expect(result.confirmed).toBe(0);
-  expect(result.status).toBe("pending_reconciliation");
+  expect(result.status).toBe("reconciliation_required");
+  expect(result.receiptReads).toBe(1);
 });
 
 test("a verified session owner cannot dispatch another owner's intent", () => {

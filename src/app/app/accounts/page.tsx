@@ -3,7 +3,6 @@ import { AccountsPage, type AccountPageData } from "@/components/accounts-page";
 import { PageHeading } from "@/components/page-heading";
 import { getAccounts, getCategories } from "@/server/db";
 import { currentOwnerId } from "@/server/owner-context";
-import { ideologyOptions } from "@/server/ideologies";
 import { renderUserPage } from "@/server/page-auth";
 import { getXAccountAuthState } from "@/server/x-oauth";
 import { X_CONSENT_COPY_VERSION, X_POLICY_VERSION } from "@/server/x-policy";
@@ -54,6 +53,6 @@ export default async function AccountsRoute({ searchParams }: {
     const connections = Object.fromEntries(accounts.map((account) => [account.id,
       ownerId ? safeConnectionState(account.id, ownerId) : null,
     ]));
-    return <AppShell><main className="min-h-screen"><div className="mx-auto flex w-full max-w-[1480px] flex-col gap-7 px-4 py-6 sm:px-6 lg:px-8 lg:py-10"><PageHeading eyebrow="Operasyon / hesaplar" title="X hesapları ve yayın sınırları" description="X bağlantılarını ve her hesabın editoryal tercihlerini tek yerde yönetin." /><AccountsPage initial={accounts} ideologies={ideologyOptions()} categories={getCategories()} connections={connections} policyVersion={X_POLICY_VERSION} copyVersion={X_CONSENT_COPY_VERSION} connectionResult={query.connection} connectionAccountId={query.accountId ? Number(query.accountId) : undefined} /></div></main></AppShell>;
+    return <AppShell><main className="min-h-screen"><div className="mx-auto flex w-full max-w-[1480px] flex-col gap-7 px-4 py-6 sm:px-6 lg:px-8 lg:py-10"><PageHeading eyebrow="Operasyon / hesaplar" title="𝕏 hesapları ve yayın sınırları" description="𝕏 bağlantılarını ve her hesabın editoryal tercihlerini tek yerde yönetin." /><AccountsPage initial={accounts} categories={getCategories()} connections={connections} policyVersion={X_POLICY_VERSION} copyVersion={X_CONSENT_COPY_VERSION} connectionResult={query.connection} connectionAccountId={query.accountId ? Number(query.accountId) : undefined} /></div></main></AppShell>;
   });
 }

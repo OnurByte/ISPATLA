@@ -1,0 +1,113 @@
+import { expect, test } from "bun:test";
+import { dictionaries } from "../src/i18n/dictionaries";
+import { DEFAULT_LOCALE, LOCALES, LOCALE_CONFIG, isLocale, localeFromPath, localizePath, stripLocalePrefix } from "../src/i18n/config";
+import { landingAlternates } from "../src/i18n/metadata";
+import { proxy } from "../src/proxy";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { PublicHeader } from "../src/components/public-header";
+import { LocaleSwitcher } from "../src/i18n/locale-switcher";
+
+test("all locale choices carry flags and the themed Select names its current language accessibly", () => {
+  for (const locale of LOCALES) {
+    expect(LOCALE_CONFIG[locale].flag).toMatch(/^[\u{1F1E6}-\u{1F1FF}]{2}$/u);
+    const markup = renderToStaticMarkup(createElement(LocaleSwitcher, { locale }));
+    expect(markup).toContain('data-slot="select-trigger"');
+    expect(markup).not.toContain("<select");
+    expect(markup).toContain(`aria-label="${dictionaries[locale].nav.language}"`);
+    expect(markup).toContain(LOCALE_CONFIG[locale].nativeName);
+    expect(markup).toContain(`<span aria-hidden="true" class="shrink-0">${LOCALE_CONFIG[locale].flag}</span>`);
+    expect(markup).toContain("bg-popover text-popover-foreground");
+  }
+});
+
+test("all twenty locales have complete, translated navigation and landing dictionaries", () => {
+  expect(LOCALES).toHaveLength(20);
+  expect(LOCALES).toEqual(["en", "zh-CN", "hi", "es", "fr", "ar", "bn", "pt-BR", "ru", "id", "ur", "de", "ja", "sw", "mr", "te", "tr", "ta", "vi", "ko"]);
+  expect(Object.keys(dictionaries).sort()).toEqual([...LOCALES].sort());
+  const flatten = (value: unknown, prefix = ""): string[] => {
+    if (value && typeof value === "object") {
+      return Object.entries(value).flatMap(([key, child]) => flatten(child, prefix ? `${prefix}.${key}` : key));
+    }
+    return [prefix];
+  };
+  const baseline = flatten(dictionaries[DEFAULT_LOCALE]).sort();
+  for (const locale of LOCALES) {
+    const dictionary = dictionaries[locale];
+    expect(flatten(dictionary).sort(), locale).toEqual(baseline);
+    expect(Object.values(dictionary.nav).every((text) => text.trim().length > 0), `${locale} navigation`).toBe(true);
+    expect(Object.entries(dictionary.landing).every(([key, text]) => key === "partialNotice" ? text === "" : text.trim().length > 0), `${locale} landing`).toBe(true);
+    expect(dictionary.status.partial.trim().length, `${locale} partial status`).toBeGreaterThan(0);
+    expect(dictionary.landing.partialNotice, `${locale} localized landing notice`).toBe("");
+    if (locale !== "en") {
+      expect(dictionary.nav.login, `${locale} sign-in label`).not.toBe(dictionaries.en.nav.login);
+      expect(dictionary.landing.headlineFirst, `${locale} landing headline`).not.toBe(dictionaries.en.landing.headlineFirst);
+      expect(dictionary.status.partial, `${locale} status translation`).not.toBe(dictionaries.en.status.partial);
+    }
+  }
+  expect(dictionaries["zh-CN"].landing.headlineFirst).toBe("别再讨好算法。");
+  expect(dictionaries.hi.nav.login).toBe("साइन इन");
+  expect(dictionaries.es.landing.headlineSecond).toBe("Haz que tu próximo paso cuente.");
+  expect(dictionaries.ar.nav.login).toBe("تسجيل الدخول");
+  expect(dictionaries.ur.landing.headlineSecond).toBe("اپنے اگلے قدم کو معنی دیں۔");
+  expect(dictionaries.sw.landing.headlineFirst).toBe("Acha kuisihi algoriti.");
+  expect(dictionaries.ta.nav.login).toBe("உள்நுழை");
+  expect(dictionaries.tr.landing.headlineSecond).toBe("Kendi oyununu kur.");
+  expect(LOCALE_CONFIG.ar.dir).toBe("rtl");
+  expect(LOCALE_CONFIG.ur.dir).toBe("rtl");
+  expect(LOCALE_CONFIG["zh-CN"].nativeName).toBe("简体中文");
+  expect(LOCALE_CONFIG["pt-BR"].nativeName).toBe("Português (Brasil)");
+  expect(LOCALE_CONFIG.en.dir).toBe("ltr");
+});
+
+test("locale path helpers preserve flat routes and safely add or remove a locale prefix", () => {
+  expect(isLocale("ar")).toBe(true);
+  expect(isLocale("not-a-locale")).toBe(false);
+  expect(localeFromPath("/zh-CN/app/settings")).toBe("zh-CN");
+  expect(localeFromPath("/app/settings")).toBeNull();
+  expect(stripLocalePrefix("/zh-CN/app/settings")).toBe("/app/settings");
+  expect(localizePath("en", "/app/settings?tab=profile")).toBe("/en/app/settings?tab=profile");
+  expect(localizePath("tr", "/en")).toBe("/tr");
+  expect(localizePath("tr", "/")).toBe("/tr");
+});
+
+test("localized landing metadata provides one canonical path and hreflang entry per supported locale", () => {
+  const metadata = landingAlternates("zh-CN");
+  expect(metadata.canonical).toBe("/zh-CN");
+  expect(metadata.languages).toMatchObject({ "zh-CN": "/zh-CN", "pt-BR": "/pt-BR", tr: "/tr", en: "/en", "x-default": "/" });
+  expect(Object.keys(metadata.languages)).toHaveLength(LOCALES.length + 1);
+});
+
+test("proxy rewrites localized pages, protects localized app routes, and leaves API callbacks flat", () => {
+  const localized = proxy(new Request("http://localhost:3000/ar/privacy?from=mail"));
+  expect(localized.headers.get("x-middleware-rewrite")).toBe("http://localhost:3000/privacy?from=mail");
+  expect(localized.headers.get("x-middleware-request-x-ispatla-locale")).toBe("ar");
+
+  const protectedPage = proxy(new Request("http://localhost:3000/en/app/settings/profile"));
+  expect(protectedPage.status).toBe(307);
+  expect(protectedPage.headers.get("location")).toBe("http://localhost:3000/en/login");
+
+  const callback = proxy(new Request("http://localhost:3000/api/auth/callback/x"));
+  expect(callback.headers.get("x-middleware-rewrite")).toBeNull();
+  expect(callback.headers.get("location")).toBeNull();
+
+  const remembered = proxy(new Request("http://localhost:3000/privacy", { headers: { cookie: "ispatla-locale=ja" } }));
+  expect(remembered.headers.get("x-middleware-request-x-ispatla-locale")).toBe("ja");
+  const explicitWins = proxy(new Request("http://localhost:3000/en/privacy", { headers: { cookie: "ispatla-locale=ja" } }));
+  expect(explicitWins.headers.get("x-middleware-request-x-ispatla-locale")).toBe("en");
+  const invalidCookie = proxy(new Request("http://localhost:3000/privacy", { headers: { cookie: "ispatla-locale=../../api" } }));
+  expect(invalidCookie.headers.get("x-middleware-request-x-ispatla-locale")).toBe("tr");
+});
+
+
+test("public product-tour navigation shares the brand and preserves every locale", () => {
+  for (const locale of LOCALES) {
+    const markup = renderToStaticMarkup(createElement(PublicHeader, { locale, current: "docs" }));
+    expect(markup).toContain("ispatla.tr");
+    expect(markup).toContain("/brand/ispatla-symbol.png");
+    for (const route of ["/docs", "/login", "/signup"]) expect(markup).toContain(`href="${localizePath(locale, route)}"`);
+    const tourLink = markup.match(/<a\b[^>]*>/g)?.find((tag) => tag.includes(`href="${localizePath(locale, "/docs")}"`));
+    expect(tourLink).toContain('aria-current="page"');
+    expect(markup).toContain('data-slot="select-trigger"');
+  }
+});

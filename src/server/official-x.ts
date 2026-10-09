@@ -51,7 +51,7 @@ const MEDIA_LIMITS: Record<string, { maxBytes: number; category: string }> = {
 
 function credentialsValid(credentials: OfficialXCredentials) {
   if (!credentials.accessToken.trim() || !/^\d{1,19}$/.test(credentials.xUserId)) {
-    throw new OfficialXError({ code: "reauth", message: "Connect the X account again.", safeToRetry: false, remoteStateKnown: true });
+    throw new OfficialXError({ code: "reauth", message: "Connect the 𝕏 account again.", safeToRetry: false, remoteStateKnown: true });
   }
 }
 
@@ -65,22 +65,22 @@ function remoteError(response: Response, write: boolean): OfficialXError {
   const reset = Number(response.headers.get("x-rate-limit-reset"));
   const retryAfter = response.headers.get("retry-after") || undefined;
   const common = { retryAfter, ...(Number.isFinite(reset) && reset > 0 ? { rateLimitReset: reset } : {}) };
-  if (status === 401) return new OfficialXError({ ...common, code: "reauth", message: "Reconnect the X account to continue.", safeToRetry: false, remoteStateKnown: true });
-  if (status === 403) return new OfficialXError({ ...common, code: "capability", message: "This X account or API plan cannot perform this action.", safeToRetry: false, remoteStateKnown: true });
-  if (status === 429) return new OfficialXError({ ...common, code: "rate_limited", message: "X rate limit reached. Wait until the supplied reset time before another action.", safeToRetry: false, remoteStateKnown: true });
+  if (status === 401) return new OfficialXError({ ...common, code: "reauth", message: "Reconnect the 𝕏 account to continue.", safeToRetry: false, remoteStateKnown: true });
+  if (status === 403) return new OfficialXError({ ...common, code: "capability", message: "This 𝕏 account or API plan cannot perform this action.", safeToRetry: false, remoteStateKnown: true });
+  if (status === 429) return new OfficialXError({ ...common, code: "rate_limited", message: "𝕏 rate limit reached. Wait until the supplied reset time before another action.", safeToRetry: false, remoteStateKnown: true });
   if (status >= 500) return new OfficialXError({ ...common,
     code: write ? "unknown_remote_state" : "known_retryable",
-    message: write ? "X may have processed this write. Reconcile before any retry." : "X is temporarily unavailable.",
+    message: write ? "𝕏 may have processed this write. Reconcile before any retry." : "𝕏 is temporarily unavailable.",
     safeToRetry: !write, remoteStateKnown: !write,
   });
-  return new OfficialXError({ ...common, code: "remote_validation", message: "X rejected the request. Review the account, content, and media requirements.", safeToRetry: false, remoteStateKnown: true });
+  return new OfficialXError({ ...common, code: "remote_validation", message: "𝕏 rejected the request. Review the account, content, and media requirements.", safeToRetry: false, remoteStateKnown: true });
 }
 
 export class OfficialXClient {
   constructor(private readonly fetcher: Fetcher = fetch as Fetcher) {}
 
   private async request(credentials: OfficialXCredentials, path: string, init: RequestInit, write: boolean): Promise<Response> {
-    if(process.env.ISPATLA_DEMO === "1") throw new Error("Official X requests are disabled in demo mode");
+    if(process.env.ISPATLA_DEMO === "1") throw new Error("Official 𝕏 requests are disabled in demo mode");
     credentialsValid(credentials);
     try {
       const response = await this.fetcher(`${API}${path}`, {
@@ -96,7 +96,7 @@ export class OfficialXClient {
       // A lost response to any write leaves the remote outcome ambiguous. Never retry here.
       throw new OfficialXError({
         code: write ? "unknown_remote_state" : "remote_unavailable",
-        message: write ? "The connection ended before X confirmed the write. Reconcile before any retry." : "Could not reach X. Try again later.",
+        message: write ? "The connection ended before 𝕏 confirmed the write. Reconcile before any retry." : "Could not reach 𝕏. Try again later.",
         safeToRetry: false,
         remoteStateKnown: !write,
       });
@@ -114,7 +114,7 @@ export class OfficialXClient {
     } catch {
       throw new OfficialXError({
         code: write ? "unknown_remote_state" : "remote_unavailable",
-        message: write ? "X accepted a response connection but did not return a usable receipt. Reconcile before any retry." : "X returned an unreadable response.",
+        message: write ? "𝕏 accepted a response connection but did not return a usable receipt. Reconcile before any retry." : "𝕏 returned an unreadable response.",
         safeToRetry: false,
         remoteStateKnown: !write,
       });
@@ -134,22 +134,22 @@ export class OfficialXClient {
     text: string; postId: string; summonedBy: "author_mention" | "author_quoted" | "manual_approval" | "unknown";
   }): Promise<OfficialXPostReceipt> {
     if (input.summonedBy !== "author_mention" && input.summonedBy !== "author_quoted") {
-      throw new OfficialXError({ code: "policy_blocked", message: "X self-serve replies require the original author to summon this account by mention or quote. Manual approval does not satisfy this requirement.", safeToRetry: false, remoteStateKnown: true });
+      throw new OfficialXError({ code: "policy_blocked", message: "𝕏 self-serve replies require the original author to summon this account by mention or quote. Manual approval does not satisfy this requirement.", safeToRetry: false, remoteStateKnown: true });
     }
     if (!input.text.trim() || input.text.length > 280) throw new OfficialXError({ code: "remote_validation", message: "Reply text is invalid.", safeToRetry: false, remoteStateKnown: true });
     return this.postReceipt(await this.json(credentials, "/tweets", { text: input.text, reply: { in_reply_to_tweet_id: endpointId(input.postId, "post ID") } }));
   }
 
   async quote(credentials: OfficialXCredentials, input: { text: string; postId: string }, capabilities: OfficialXCapabilities = { quote: "unknown" }): Promise<OfficialXPostReceipt> {
-    if (capabilities.quote !== "enabled") throw new OfficialXError({ code: "capability", message: "Quote posts require a verified X Enterprise entitlement.", safeToRetry: false, remoteStateKnown: true });
+    if (capabilities.quote !== "enabled") throw new OfficialXError({ code: "capability", message: "Quote posts require a verified 𝕏 Enterprise entitlement.", safeToRetry: false, remoteStateKnown: true });
     if (!input.text.trim() || input.text.length > 280) throw new OfficialXError({ code: "remote_validation", message: "Quote text is invalid.", safeToRetry: false, remoteStateKnown: true });
     return this.postReceipt(await this.json(credentials, "/tweets", { text: input.text, quote_tweet_id: endpointId(input.postId, "post ID") }));
   }
 
   async repost(credentials: OfficialXCredentials, postId: string): Promise<{ reposted: boolean }> {
-    const result = await this.json(credentials, `/users/${endpointId(credentials.xUserId, "X user ID")}/retweets`, { tweet_id: endpointId(postId, "post ID") });
+    const result = await this.json(credentials, `/users/${endpointId(credentials.xUserId, "𝕏 user ID")}/retweets`, { tweet_id: endpointId(postId, "post ID") });
     const data = result.data as Record<string, unknown> | undefined;
-    if (typeof data?.retweeted !== "boolean") throw new OfficialXError({ code: "unknown_remote_state", message: "X returned no usable repost receipt. Reconcile before any retry.", safeToRetry: false, remoteStateKnown: false });
+    if (typeof data?.retweeted !== "boolean") throw new OfficialXError({ code: "unknown_remote_state", message: "𝕏 returned no usable repost receipt. Reconcile before any retry.", safeToRetry: false, remoteStateKnown: false });
     return { reposted: data.retweeted };
   }
 
@@ -163,7 +163,7 @@ export class OfficialXClient {
     });
     const initData = initialized.data as Record<string, unknown> | undefined;
     const mediaId = typeof initData?.id === "string" ? initData.id : "";
-    if (!/^\d{1,32}$/.test(mediaId)) throw new OfficialXError({ code: "unknown_remote_state", message: "X returned no usable media upload ID. Reconcile before any retry.", safeToRetry: false, remoteStateKnown: false });
+    if (!/^\d{1,32}$/.test(mediaId)) throw new OfficialXError({ code: "unknown_remote_state", message: "𝕏 returned no usable media upload ID. Reconcile before any retry.", safeToRetry: false, remoteStateKnown: false });
 
     for (let offset = 0, segment = 0; offset < input.bytes.byteLength; offset += UPLOAD_CHUNK_BYTES, segment++) {
       const form = new FormData();
@@ -189,7 +189,7 @@ export class OfficialXClient {
     const result = await this.json(credentials, `/media/upload?media_id=${encodeURIComponent(id)}`);
     const data = result.data as Record<string, unknown> | undefined;
     const processing = data?.processing_info as Record<string, unknown> | undefined;
-    if (!data || typeof data.id !== "string") throw new OfficialXError({ code: "remote_validation", message: "X returned an invalid media status.", safeToRetry: false, remoteStateKnown: true });
+    if (!data || typeof data.id !== "string") throw new OfficialXError({ code: "remote_validation", message: "𝕏 returned an invalid media status.", safeToRetry: false, remoteStateKnown: true });
     return {
       mediaId: data.id,
       ...(typeof data.media_key === "string" ? { mediaKey: data.media_key } : {}),
@@ -218,10 +218,18 @@ export class OfficialXClient {
     return result.data && typeof result.data === "object" ? result.data as Record<string, unknown> : null;
   }
 
-  async getOwnTimeline(credentials: OfficialXCredentials, maxResults = 100): Promise<Array<Record<string, unknown>>> {
-    const count = Math.max(5, Math.min(100, Math.floor(maxResults)));
-    const result = await this.json(credentials, `/users/${endpointId(credentials.xUserId, "X user ID")}/tweets?max_results=${count}&tweet.fields=author_id,created_at,conversation_id,referenced_tweets`);
-    return Array.isArray(result.data) ? result.data.filter((post): post is Record<string, unknown> => Boolean(post) && typeof post === "object") : [];
+  async getOwnProfile(credentials: OfficialXCredentials): Promise<Record<string, unknown>> {
+    const result = await this.json(credentials, "/users/me?user.fields=description,name,username,profile_image_url,public_metrics");
+    return result.data && typeof result.data === "object" ? result.data as Record<string, unknown> : {};
+  }
+
+  async getOwnTimeline(credentials: OfficialXCredentials, limit = 100): Promise<string[]> {
+    const boundedLimit = Math.max(5, Math.min(100, Math.floor(limit)));
+    const result = await this.json(credentials, `/users/${endpointId(credentials.xUserId, "𝕏 user ID")}/tweets?max_results=${boundedLimit}&tweet.fields=created_at`);
+    return Array.isArray(result.data) ? result.data.slice(0, boundedLimit).flatMap((post) => {
+      const text = post && typeof post === "object" ? (post as Record<string, unknown>).text : undefined;
+      return typeof text === "string" ? [text.slice(0, 4_000)] : [];
+    }) : [];
   }
 
   /** Read bounded pages of the official reposted_by endpoint; only a returned user ID is positive evidence. */
@@ -259,7 +267,7 @@ export class OfficialXClient {
   private postReceipt(result: Record<string, unknown>): OfficialXPostReceipt {
     const data = result.data as Record<string, unknown> | undefined;
     if (typeof data?.id !== "string" || typeof data.text !== "string") {
-      throw new OfficialXError({ code: "unknown_remote_state", message: "X returned no usable post receipt. Reconcile before any retry.", safeToRetry: false, remoteStateKnown: false });
+      throw new OfficialXError({ code: "unknown_remote_state", message: "𝕏 returned no usable post receipt. Reconcile before any retry.", safeToRetry: false, remoteStateKnown: false });
     }
     return { id: data.id, text: data.text };
   }

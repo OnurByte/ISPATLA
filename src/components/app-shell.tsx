@@ -5,23 +5,20 @@ import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import {
   BarChart3,
-  Bot,
   FileKey2,
   Gauge,
-  Inbox,
-  KeyRound,
-  ListFilter,
-  Tags,
   Settings2,
   Sparkles,
   Users,
-  Search,
   LogOut,
+  Trophy,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { ModeToggle } from "@/components/mode-toggle";
+import { BrandLogo } from "@/components/brand-logo";
+import { SidebarSearch } from "@/components/sidebar-search";
+import { DEFAULT_LOCALE, localeFromPath, localizePath, stripLocalePrefix, type Locale } from "@/i18n/config";
+import { getDictionary } from "@/i18n/dictionaries";
 import {
   Sidebar,
   SidebarContent,
@@ -41,33 +38,12 @@ import {
 
 type NavItem = { href: string; label: string; icon: LucideIcon };
 
-const primaryNav: NavItem[] = [
-  { href: "/app", label: "Kontrol merkezi", icon: Gauge },
-  { href: "/app/opportunities", label: "Fırsatlar", icon: Sparkles },
-  { href: "/app/drafts", label: "Draft stüdyosu", icon: FileKey2 },
-  { href: "/app/queue", label: "Yayın kuyruğu", icon: Inbox },
-];
-
-const operationsNav: NavItem[] = [
-  { href: "/app/accounts", label: "Hesaplar", icon: Users },
-  { href: "/app/developer/x", label: "X timeline", icon: Search },
-  { href: "/app/sources", label: "Kaynaklar", icon: ListFilter },
-  { href: "/app/categories", label: "Kategoriler", icon: Tags },
-  { href: "/app/analytics", label: "Analytics", icon: BarChart3 },
-  { href: "/app/evaluation", label: "Karar değerlendirmesi", icon: ListFilter },
-];
-
-const settingsNav: NavItem[] = [
-  { href: "/app/settings/keys", label: "Key yönetimi", icon: KeyRound },
-  { href: "/app/settings/automation", label: "Otomasyon", icon: Bot },
-  { href: "/app/settings/style", label: "Stil profili", icon: Settings2 },
-];
-
 function isActive(pathname: string, href: string) {
   return href === "/app" ? pathname === href : pathname === href || pathname.startsWith(`${href}/`);
 }
 
-function SignOutButton() {
+export function SignOutButton({ locale }: { locale: Locale }) {
+  const dict = getDictionary(locale);
   const router = useRouter();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
@@ -76,12 +52,12 @@ function SignOutButton() {
     setPending(true);
     setError("");
     try {
-      const response = await fetch("/api/auth/sign-out", { method: "POST", credentials: "same-origin" });
-      if (!response.ok) throw new Error("Oturum kapatılamadı. Yeniden dene.");
-      router.replace("/");
+      const response = await fetch("/api/auth/sign-out", { method: "POST", credentials: "same-origin", headers: { "content-type": "application/json" }, body: "{}" });
+      if (!response.ok) throw new Error(dict.nav.signOutError);
+      router.replace(localizePath(locale, "/"));
       router.refresh();
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Oturum kapatılamadı. Yeniden dene.");
+      setError(caught instanceof Error ? caught.message : dict.nav.signOutError);
     } finally {
       setPending(false);
     }
@@ -89,7 +65,7 @@ function SignOutButton() {
 
   return <div className="space-y-1">
     <Button type="button" variant="ghost" className="w-full justify-start" onClick={() => void signOut()} disabled={pending}>
-      <LogOut data-icon="inline-start" aria-hidden="true" />{pending ? "Çıkış yapılıyor…" : "Çıkış yap"}
+      <LogOut data-icon="inline-start" aria-hidden="true" />{pending ? dict.nav.signOutPending : dict.nav.signOut}
     </Button>
     {error && <p className="px-2 text-xs text-destructive" role="alert">{error}</p>}
   </div>;
@@ -104,11 +80,12 @@ function NavGroup({ title, items, pathname }: { title: string; items: NavItem[];
           {items.map(({ href, label, icon: Icon }) => (
             <SidebarMenuItem key={href}>
               <SidebarMenuButton
-                isActive={isActive(pathname, href)}
+                isActive={isActive(stripLocalePrefix(pathname), stripLocalePrefix(href))}
                 tooltip={label}
+                className="group/nav-item"
                 render={<Link href={href} />}
               >
-                <Icon aria-hidden="true" />
+                <Icon aria-hidden="true" className="transition-transform duration-150 group-hover/nav-item:-translate-y-0.5 group-active/nav-item:scale-95 motion-reduce:transition-none" />
                 <span>{label}</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
@@ -121,43 +98,60 @@ function NavGroup({ title, items, pathname }: { title: string; items: NavItem[];
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const locale = localeFromPath(pathname) ?? DEFAULT_LOCALE;
+  const dict = getDictionary(locale);
+  const routePathname = stripLocalePrefix(pathname);
+  const contentTabs = [{ href: "/app/drafts", label: dict.nav.drafts }, { href: "/app/queue", label: dict.nav.queue }];
+  const accountTabs = [{ href: "/app/accounts", label: dict.nav.accounts }, { href: "/app/sources", label: dict.nav.sources }, { href: "/app/categories", label: dict.nav.categories }];
+  const insightTabs = [{ href: "/app/analytics", label: dict.nav.analytics }, { href: "/app/evaluation", label: dict.nav.evaluation }];
+  const contextualTabs = [contentTabs, accountTabs, insightTabs].find((tabs) => tabs.some((tab) => isActive(routePathname, tab.href)));
+  const navPathname = contextualTabs?.[0].href || routePathname;
+  const primaryNav: NavItem[] = [
+    { href: "/app", label: dict.nav.dashboard, icon: Gauge },
+    { href: "/app/opportunities", label: dict.nav.opportunities, icon: Sparkles },
+    { href: "/app/drafts", label: dict.nav.drafts, icon: FileKey2 },
+    { href: "/leaderboard", label: dict.nav.leaderboard, icon: Trophy },
+  ];
+  const operationsNav: NavItem[] = [
+    { href: "/app/accounts", label: dict.nav.accounts, icon: Users },
+    { href: "/app/analytics", label: dict.nav.analytics, icon: BarChart3 },
+  ];
+  const settingsNav: NavItem[] = [{ href: "/app/settings", label: dict.nav.settings, icon: Settings2 }];
+  const localized = (items: NavItem[]) => items.map((item) => ({ ...item, href: localizePath(locale, item.href) }));
 
   return (
     <SidebarProvider>
       <Sidebar collapsible="offcanvas">
         <SidebarHeader className="gap-3 p-4">
-          <div className="flex items-center gap-3">
-            <Avatar size="lg">
-              <AvatarFallback>İ</AvatarFallback>
-            </Avatar>
+          <div dir="ltr" className="flex items-center gap-3">
             <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-              <span className="font-semibold tracking-tight">Ispatla</span>
-              <span className="truncate text-xs text-sidebar-foreground/60">Araştırma ve yayın masası</span>
+              <BrandLogo href={localizePath(locale, "/")} />
+              <span dir="auto" className="truncate text-xs text-sidebar-foreground/60">{dict.nav.shellDescription}</span>
             </div>
-            <ModeToggle />
           </div>
         </SidebarHeader>
 
         <SidebarContent>
-          <NavGroup title="Üretim" items={primaryNav} pathname={pathname} />
-          <NavGroup title="Operasyon" items={operationsNav} pathname={pathname} />
+          <SidebarSearch locale={locale} />
+          <NavGroup title={dict.nav.primary} items={localized(primaryNav)} pathname={navPathname} />
+          <NavGroup title={dict.nav.operations} items={localized(operationsNav)} pathname={navPathname} />
         </SidebarContent>
 
         <SidebarFooter className="gap-3 p-3">
           <SidebarSeparator />
-          <NavGroup title="Ayarlar" items={settingsNav} pathname={pathname} />
-          <SignOutButton />
+          <NavGroup title={dict.nav.settings} items={localized(settingsNav)} pathname={routePathname} />
           <p className="px-2 pb-1 text-xs leading-5 text-sidebar-foreground/50">
-            Kaynak → fırsat → draft → resmi X API → doğrulama
+            Kaynak → fırsat → draft → resmi 𝕏 API → doğrulama
           </p>
         </SidebarFooter>
       </Sidebar>
 
       <SidebarInset>
         <header className="sticky top-0 z-20 flex h-12 items-center gap-2 border-b bg-background/90 px-4 backdrop-blur md:hidden">
-          <SidebarTrigger aria-label="Menüyü aç" />
-          <span className="text-sm font-medium">Ispatla</span>
+          <SidebarTrigger aria-label={dict.nav.menuOpen} />
+          <BrandLogo href={localizePath(locale, "/")} />
         </header>
+        {contextualTabs && <nav aria-label={contextualTabs[0].label} className="flex flex-wrap gap-1 border-b px-4 py-2 sm:px-6">{contextualTabs.map(({ href, label }) => <Link key={href} href={localizePath(locale, href)} aria-current={isActive(routePathname, href) ? "page" : undefined} className={`rounded-md px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-ring ${isActive(routePathname, href) ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-accent"}`}>{label}</Link>)}</nav>}
         {children}
       </SidebarInset>
     </SidebarProvider>

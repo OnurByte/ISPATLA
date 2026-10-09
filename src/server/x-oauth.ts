@@ -4,11 +4,12 @@ import {
   getXAccountAuthState, setAutomationConsent, disconnectXAccount, withXTokenRefresh,
 } from "./x-oauth-store";
 import type { XCredential } from "./x-oauth-store";
+import { cacheSelectedProfileAvatar } from "./profile-avatar";
 
 export const X_OAUTH_SCOPES = ["tweet.read", "tweet.write", "users.read", "media.write", "offline.access"] as const;
 const AUTHORIZATION_ENDPOINT = "https://x.com/i/oauth2/authorize";
 const TOKEN_ENDPOINT = "https://api.x.com/2/oauth2/token";
-const ME_ENDPOINT = "https://api.x.com/2/users/me?user.fields=name,username";
+const ME_ENDPOINT = "https://api.x.com/2/users/me?user.fields=name,username,description,profile_image_url";
 
 type Fetcher = typeof fetch;
 type Environment = Record<string, string | undefined>;
@@ -19,17 +20,17 @@ function providerFetch(fetcher: Fetcher, url: string, init: RequestInit): Promis
 }
 
 function oauthConfig(env: Environment) {
-  if(env.ISPATLA_DEMO === "1") throw new Error("X OAuth is disabled in demo mode");
+  if(env.ISPATLA_DEMO === "1") throw new Error("𝕏 OAuth is disabled in demo mode");
   const clientId = env.X_OAUTH_CLIENT_ID;
-  if (!clientId) throw new Error("X OAuth is not configured");
+  if (!clientId) throw new Error("𝕏 OAuth is not configured");
   const redirectUri = env.X_OAUTH_REDIRECT_URI;
   if (!redirectUri) throw new Error("X_OAUTH_REDIRECT_URI must be configured");
   let parsed: URL;
-  try { parsed = new URL(redirectUri); } catch { throw new Error("X OAuth callback must be an absolute URL"); }
+  try { parsed = new URL(redirectUri); } catch { throw new Error("𝕏 OAuth callback must be an absolute URL"); }
   const production = env.NODE_ENV === "production";
   if (parsed.pathname !== "/api/x/oauth/callback" || parsed.search || parsed.hash || parsed.username || parsed.password
     || (production && parsed.protocol !== "https:") || (!production && !["https:", "http:"].includes(parsed.protocol))) {
-    throw new Error("X OAuth callback URL is not allowed");
+    throw new Error("𝕏 OAuth callback URL is not allowed");
   }
   const clientSecret = env.X_OAUTH_CLIENT_SECRET;
   if (production && !clientSecret) throw new Error("X_OAUTH_CLIENT_SECRET must be configured in production");
@@ -83,7 +84,7 @@ export async function completeXOAuth(input: {
   const state = url.searchParams.get("state") || "";
   const code = url.searchParams.get("code") || "";
   if (!state || !code || code.length > 2048 || state.length > 500) throw new Error("invalid OAuth callback");
-  if (url.searchParams.has("error")) throw new Error("X authorization was not completed");
+  if (url.searchParams.has("error")) throw new Error("𝕏 authorization was not completed");
   const transaction = consumeOAuthTransaction({ state, ownerUserId: input.ownerUserId, sessionId: input.sessionId,
     now: input.now, databasePath: input.databasePath });
   if (!transaction) throw new Error("OAuth transaction expired or already used");
@@ -98,15 +99,22 @@ export async function completeXOAuth(input: {
   const refreshToken = typeof tokenData.refresh_token === "string" ? tokenData.refresh_token : "";
   const expiresIn = Number(tokenData.expires_in);
   const scopes = typeof tokenData.scope === "string" ? tokenData.scope.split(/\s+/).filter(Boolean) : [];
-  if (!accessToken || !refreshToken || !Number.isFinite(expiresIn) || expiresIn < 1) throw new Error("X did not issue a renewable account grant");
+  if (!accessToken || !refreshToken || !Number.isFinite(expiresIn) || expiresIn < 1) throw new Error("𝕏 did not issue a renewable account grant");
   const missing = X_OAUTH_SCOPES.filter((scope) => !scopes.includes(scope));
-  if (missing.length) throw new Error("required X permissions are missing");
+  if (missing.length) throw new Error("required 𝕏 permissions are missing");
   const meData = await readJson(await providerFetch(fetcher, ME_ENDPOINT, { headers: { authorization: `Bearer ${accessToken}`, accept: "application/json" } }));
   const user = meData.data as Record<string, unknown> | undefined;
-  if (!user || typeof user.id !== "string" || typeof user.username !== "string") throw new Error("X identity response is invalid");
+  if (!user || typeof user.id !== "string" || typeof user.username !== "string") throw new Error("𝕏 identity response is invalid");
+  const bio = typeof user.description === "string" ? user.description : "";
+  const displayName = typeof user.name === "string" ? user.name : user.username;
   const connected = connectXAccount({ ownerUserId: input.ownerUserId, xUserId: user.id, handle: user.username,
-    displayName: typeof user.name === "string" ? user.name : user.username, accessToken, refreshToken,
+    displayName, bio, avatarUrl: null, accessToken, refreshToken,
     expiresAt: (input.now ?? Math.floor(Date.now() / 1000)) + expiresIn, scopes, now: input.now, databasePath: input.databasePath });
+  if (typeof user.profile_image_url === "string") {
+    try { await cacheSelectedProfileAvatar({ ownerUserId: input.ownerUserId,
+      xUserId: user.id, handle: user.username, displayName, bio, avatarUrl: user.profile_image_url, fetcher, databasePath: input.databasePath }); }
+    catch { /* The image is optional after the account grant has been stored. */ }
+  }
   return { ...connected, returnTo: transaction.returnTo };
 }
 
@@ -127,7 +135,7 @@ export async function refreshXToken<T>(input: {
     const rotatedRefreshToken = typeof data.refresh_token === "string" ? data.refresh_token : "";
     const expiresIn = Number(data.expires_in);
     const scopes = typeof data.scope === "string" ? data.scope.split(/\s+/).filter(Boolean) : current.scopes;
-    if (!accessToken || !rotatedRefreshToken || !Number.isFinite(expiresIn) || expiresIn < 1) throw new Error("X token refresh failed");
+    if (!accessToken || !rotatedRefreshToken || !Number.isFinite(expiresIn) || expiresIn < 1) throw new Error("𝕏 token refresh failed");
     return { accessToken, refreshToken: rotatedRefreshToken, expiresAt: (input.now?.() ?? Math.floor(Date.now() / 1000)) + expiresIn, scopes };
   } }, work);
 }
