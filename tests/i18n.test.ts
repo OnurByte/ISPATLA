@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { dictionaries } from "../src/i18n/dictionaries";
-import { DEFAULT_LOCALE, LOCALES, LOCALE_CONFIG, isLocale, localeFromPath, localizePath, stripLocalePrefix } from "../src/i18n/config";
+import { DEFAULT_LOCALE, LOCALES, LOCALE_CONFIG, isLocale, localeFromAcceptLanguage, localeFromPath, localizePath, stripLocalePrefix } from "../src/i18n/config";
 import { landingAlternates } from "../src/i18n/metadata";
 import { proxy } from "../src/proxy";
 import { createElement } from "react";
@@ -63,27 +63,42 @@ test("all twenty locales have complete, translated navigation and landing dictio
 test("locale path helpers preserve flat routes and safely add or remove a locale prefix", () => {
   expect(isLocale("ar")).toBe(true);
   expect(isLocale("not-a-locale")).toBe(false);
-  expect(localeFromPath("/zh-CN/app/settings")).toBe("zh-CN");
-  expect(localeFromPath("/app/settings")).toBeNull();
-  expect(stripLocalePrefix("/zh-CN/app/settings")).toBe("/app/settings");
-  expect(localizePath("en", "/app/settings?tab=profile")).toBe("/en/app/settings?tab=profile");
-  expect(localizePath("tr", "/en")).toBe("/tr");
-  expect(localizePath("tr", "/")).toBe("/tr");
+  expect(localeFromPath("/zh-CN/settings")).toBe("zh-CN");
+  expect(localeFromPath("/settings")).toBeNull();
+  expect(stripLocalePrefix("/zh-CN/settings")).toBe("/settings");
+  expect(localizePath("en", "/settings?tab=profile")).toBe("/en/settings?tab=profile");
+  expect(localizePath("tr", "/en")).toBe("/");
+  expect(localizePath("tr", "/")).toBe("/");
+  expect(localizePath("tr", "/accounts")).toBe("/accounts");
+  expect(localizePath("en", "/accounts")).toBe("/en/accounts");
+});
+
+test("system language matching honors browser preference order and supported language fallbacks", () => {
+  expect(localeFromAcceptLanguage("fr-CA,fr;q=0.9,en;q=0.8")).toBe("fr");
+  expect(localeFromAcceptLanguage("ar-EG,en-US;q=0.8")).toBe("ar");
+  expect(localeFromAcceptLanguage("pt,en;q=0.7")).toBe("pt-BR");
+  expect(localeFromAcceptLanguage("xx, *;q=0.5")).toBeNull();
+  expect(localeFromAcceptLanguage("tr;q=0,en;q=1")).toBe("en");
 });
 
 test("localized landing metadata provides one canonical path and hreflang entry per supported locale", () => {
   const metadata = landingAlternates("zh-CN");
   expect(metadata.canonical).toBe("/zh-CN");
-  expect(metadata.languages).toMatchObject({ "zh-CN": "/zh-CN", "pt-BR": "/pt-BR", tr: "/tr", en: "/en", "x-default": "/" });
+  expect(metadata.languages).toMatchObject({ "zh-CN": "/zh-CN", "pt-BR": "/pt-BR", tr: "/", en: "/en", "x-default": "/" });
   expect(Object.keys(metadata.languages)).toHaveLength(LOCALES.length + 1);
 });
 
-test("proxy rewrites localized pages, protects localized app routes, and leaves API callbacks flat", () => {
+test("proxy canonicalizes the default locale, remembers language choice, protects app routes, and leaves API callbacks flat", () => {
+  const defaultLocaleCanonical = proxy(new Request("http://localhost:3000/tr/accounts?tab=connections"));
+  expect(defaultLocaleCanonical.status).toBe(307);
+  expect(defaultLocaleCanonical.headers.get("location")).toBe("http://localhost:3000/accounts?tab=connections");
+  expect(defaultLocaleCanonical.headers.get("set-cookie")).toContain("ispatla-locale=tr");
+
   const localized = proxy(new Request("http://localhost:3000/ar/privacy?from=mail"));
   expect(localized.headers.get("x-middleware-rewrite")).toBe("http://localhost:3000/privacy?from=mail");
   expect(localized.headers.get("x-middleware-request-x-ispatla-locale")).toBe("ar");
 
-  const protectedPage = proxy(new Request("http://localhost:3000/en/app/settings/profile"));
+  const protectedPage = proxy(new Request("http://localhost:3000/en/settings/profile"));
   expect(protectedPage.status).toBe(307);
   expect(protectedPage.headers.get("location")).toBe("http://localhost:3000/en/login");
 
@@ -91,7 +106,13 @@ test("proxy rewrites localized pages, protects localized app routes, and leaves 
   expect(callback.headers.get("x-middleware-rewrite")).toBeNull();
   expect(callback.headers.get("location")).toBeNull();
 
-  const remembered = proxy(new Request("http://localhost:3000/privacy", { headers: { cookie: "ispatla-locale=ja" } }));
+  const unknownNestedRoute = proxy(new Request("http://localhost:3000/fr/this-route/does-not-exist"));
+  expect(unknownNestedRoute.status).toBe(307);
+  expect(unknownNestedRoute.headers.get("location")).toBe("http://localhost:3000/fr/");
+
+  const selectedLanguage = proxy(new Request("http://localhost:3000/privacy", { headers: { "accept-language": "ja-JP,en;q=0.8", cookie: "ispatla-locale=fr" } }));
+  expect(selectedLanguage.headers.get("x-middleware-request-x-ispatla-locale")).toBe("fr");
+  const remembered = proxy(new Request("http://localhost:3000/privacy", { headers: { cookie: "better-auth.session_token=valid; ispatla-locale=ja" } }));
   expect(remembered.headers.get("x-middleware-request-x-ispatla-locale")).toBe("ja");
   const explicitWins = proxy(new Request("http://localhost:3000/en/privacy", { headers: { cookie: "ispatla-locale=ja" } }));
   expect(explicitWins.headers.get("x-middleware-request-x-ispatla-locale")).toBe("en");
@@ -109,7 +130,7 @@ test("public product-tour navigation shares the brand and preserves every locale
     for (const route of ["/docs", "/login", "/signup"]) expect(markup).toContain(`href="${localizePath(locale, route)}"`);
     const tourLink = markup.match(/<a\b[^>]*>/g)?.find((tag) => tag.includes(`href="${localizePath(locale, "/docs")}"`));
     expect(tourLink).toContain('aria-current="page"');
-    expect(markup).toContain('data-slot="select-trigger"');
+    expect(markup).not.toContain('data-slot="select-trigger"');
     const authenticatedMarkup = renderToStaticMarkup(createElement(PublicHeaderContent, { locale, authenticated: true }));
     expect(authenticatedMarkup).toContain(dictionaries[locale].nav.dashboard);
     expect(authenticatedMarkup).not.toContain(dictionaries[locale].nav.signOut);

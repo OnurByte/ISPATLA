@@ -1,9 +1,10 @@
-import { notFound } from "next/navigation";
+import { redirect } from "next/navigation";
 import type { Metadata } from "next";
 import { PublicHeader, requestPublicLocale } from "@/components/public-header";
 import { PublicProfileView } from "@/components/public-profile-view";
 import { findPublicProfileByPath } from "@/server/public-profile";
 import { PUBLIC_ORIGIN } from "@/i18n/public-metadata";
+import { localizePath } from "@/i18n/config";
 
 export const dynamic = "force-dynamic";
 
@@ -23,7 +24,7 @@ export async function generateMetadata({ params }: { params: Promise<{ handle: s
 export default async function PublicHandlePage({ params }: { params: Promise<{ handle: string }> }) {
   const { handle } = await params;
   const profile = findPublicProfileByPath(handle);
-  if (!profile) notFound();
   const locale = await requestPublicLocale();
+  if (!profile) redirect(localizePath(locale, "/"));
   return <><PublicHeader locale={locale} /><PublicProfileView profile={profile} /></>;
 }

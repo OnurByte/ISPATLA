@@ -116,27 +116,27 @@ export function Dashboard({ initial, canRunScan }: { initial: DashboardView; can
             <h2 id="first-step-title" className="text-lg font-semibold">{!summary.officialX.connectedAccounts ? "Hesabını bağla, konularını birlikte bulalım." : !summary.aiConfigured ? "Taslak hazırlamak için kendi AI sağlayıcını bağla." : "İlk fırsatını seç ve taslağını hazırla."}</h2>
             <p className="mt-1 text-sm leading-6 text-muted-foreground">{!summary.officialX.connectedAccounts ? "İzin verdiğin profil ve gönderilerinden konu önerileri hazırlanır. Tercihlerini sen onaylarsın; hesap bağlantısı otomatik yayın izni vermez." : !summary.aiConfigured ? "AI anahtarın yalnızca senin isteklerinde kullanılır. Sağlayıcı hazır olduğunda gerçek bir kaynak üzerinden taslak oluşturabilirsin." : "Kaynak bağlantısı ve hesap uyumunu incele. Tahmini performans puanı yayın sonucu değildir; yayınlamak için ayrıca onay vermen gerekir."}</p>
           </div>
-          <Link href={!summary.officialX.connectedAccounts ? "/app/accounts" : !summary.aiConfigured ? "/app/settings/keys" : "/app/opportunities"} className={buttonVariants({ variant: "outline", className: "shrink-0" })}>
+          <Link href={!summary.officialX.connectedAccounts ? "/accounts" : !summary.aiConfigured ? "/settings/keys" : "/opportunities"} className={buttonVariants({ variant: "outline", className: "shrink-0" })}>
             {!summary.officialX.connectedAccounts ? "Hesabımı bağla" : !summary.aiConfigured ? "AI ayarlarını aç" : "Fırsatları incele"} <ArrowUpRight data-icon="inline-end" aria-hidden="true" />
           </Link>
         </section>
 
         <section className="grid gap-4 sm:grid-cols-2" aria-label="İçeriklerin ve bağlantıların">
-          <MetricCard icon={Sparkles} label="Senin için fırsatlar" value={summary.opportunities} detail="Kaynak ve uygunluk kanıtını incele" href="/app/opportunities" />
-          <MetricCard icon={Send} label="Yayın sonuçların" value={summary.publishedConfirmed} detail="Yayın makbuzu doğrulandı; performans metrikleri ayrıca gözlenir" href="/app/analytics" />
-          <MetricCard icon={Bot} label="AI sağlayıcın" value={!summary.aiEnabled ? "Kapalı" : summary.aiConfigured ? "Yapılandırıldı" : "Bağlantı gerekli"} detail="Kendi anahtarını yönet ve bağlantıyı test et" href="/app/settings/keys" />
-          <MetricCard icon={ShieldCheck} label="Bağlı 𝕏 hesapların" value={summary.officialX.connectedAccounts} detail="Bağlantı, konular ve izinlerini yönet" href="/app/accounts" />
+          <MetricCard icon={Sparkles} label="Senin için fırsatlar" value={summary.opportunities} detail="Kaynak ve uygunluk kanıtını incele" href="/opportunities" />
+          <MetricCard icon={Send} label="Yayın sonuçların" value={summary.publishedConfirmed} detail="Yayın makbuzu doğrulandı; performans metrikleri ayrıca gözlenir" href="/analytics" />
+          <MetricCard icon={Bot} label="AI sağlayıcın" value={!summary.aiEnabled ? "Kapalı" : summary.aiConfigured ? "Yapılandırıldı" : "Bağlantı gerekli"} detail="Kendi anahtarını yönet ve bağlantıyı test et" href="/settings/keys" />
+          <MetricCard icon={ShieldCheck} label="Bağlı 𝕏 hesapların" value={summary.officialX.connectedAccounts} detail="Bağlantı, konular ve izinlerini yönet" href="/accounts" />
         </section>
         <Card><CardHeader><CardTitle>Taslakların</CardTitle><CardDescription>Son üç taslağın. Düzenlemek ve yayına hazırlamak için taslak masanı aç.</CardDescription></CardHeader><CardContent className="space-y-4">
-          {summary.recentDrafts.length ? <ul className="divide-y">{summary.recentDrafts.map((draft) => <li key={draft.id} className="py-3"><Link href="/app/drafts" className="line-clamp-2 text-sm leading-6 hover:underline">{draft.text}</Link></li>)}</ul> : <p className="text-sm text-muted-foreground">Henüz taslağın yok. Bir fırsat seçebilir veya kendi fikrinden başlayabilirsin.</p>}
-          <Link href="/app/drafts" className={buttonVariants({ variant: "outline" })}>Taslak masamı aç <ArrowUpRight data-icon="inline-end" aria-hidden="true" /></Link>
+          {summary.recentDrafts.length ? <ul className="divide-y">{summary.recentDrafts.map((draft) => <li key={draft.id} className="py-3"><Link href="/drafts" className="line-clamp-2 text-sm leading-6 hover:underline">{draft.text}</Link></li>)}</ul> : <p className="text-sm text-muted-foreground">Henüz taslağın yok. Bir fırsat seçebilir veya kendi fikrinden başlayabilirsin.</p>}
+          <Link href="/drafts" className={buttonVariants({ variant: "outline" })}>Taslak masamı aç <ArrowUpRight data-icon="inline-end" aria-hidden="true" /></Link>
         </CardContent></Card>
-        <Card><CardHeader><CardTitle>Hesabının gelişimi</CardTitle><CardDescription>Hesap bazında ölçümleri ve zaman içindeki değişimi incele. Kaynak gönderilerin hareketi, kendi hesabının büyümesi olarak gösterilmez.</CardDescription></CardHeader><CardContent><Link href="/app/analytics" className={buttonVariants({ variant: "outline" })}>Hesap analizini aç <ArrowUpRight data-icon="inline-end" aria-hidden="true" /></Link></CardContent></Card>
+        <Card><CardHeader><CardTitle>Hesabının gelişimi</CardTitle><CardDescription>Hesap bazında ölçümleri ve zaman içindeki değişimi incele. Kaynak gönderilerin hareketi, kendi hesabının büyümesi olarak gösterilmez.</CardDescription></CardHeader><CardContent><Link href="/analytics" className={buttonVariants({ variant: "outline" })}>Hesap analizini aç <ArrowUpRight data-icon="inline-end" aria-hidden="true" /></Link></CardContent></Card>
         <details className="rounded-xl border p-5"><summary className="cursor-pointer font-medium">Gelişmiş analiz ve çalışma durumu</summary><div className="mt-6 flex flex-col gap-6">
         <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4" aria-label="Teknik metrikler">
           <MetricCard icon={Database} label="Kaynaklar" value={`${summary.sourcesObserved}/${summary.sourcesConfigured}`} detail="Enabled config / state içinde görülen" />
           <MetricCard icon={Activity} label="Gözlenen post" value={summary.postsObserved} detail={`${summary.postsLast24h} son 24 saatte`} />
-          <MetricCard icon={Sparkles} label="Fırsatlar" value={summary.opportunities} detail="Skor ≥ 70, sensitive değil · listeyi aç" href="/app/opportunities" />
+          <MetricCard icon={Sparkles} label="Fırsatlar" value={summary.opportunities} detail="Skor ≥ 70, sensitive değil · listeyi aç" href="/opportunities" />
           <MetricCard icon={Send} label="Reconciliation kuyruğu" value={summary.attemptsPending} detail={`${summary.publishedConfirmed} confirmed · ${summary.publishBlocked} blocked`} />
         </section>
 

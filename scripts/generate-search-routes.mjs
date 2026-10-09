@@ -6,6 +6,7 @@ const scriptDir = dirname(fileURLToPath(import.meta.url));
 const appRoot = resolve(scriptDir, "../src/app");
 const output = resolve(scriptDir, "../src/generated/search-routes.ts");
 const routes = [];
+const redirectOnlyRoutes = new Set(["/settings/profile"]);
 
 function visit(directory) {
   for (const entry of readdirSync(directory, { withFileTypes: true })) {
@@ -16,7 +17,8 @@ function visit(directory) {
     }
     if (!/^page\.(?:js|jsx|ts|tsx)$/.test(entry.name)) continue;
     const segments = relative(appRoot, path).split(sep).slice(0, -1).filter((segment) => !segment.startsWith("("));
-    if (!segments.some((segment) => segment.startsWith("["))) routes.push(segments.length ? `/${segments.join("/")}` : "/");
+    const route = segments.length ? `/${segments.join("/")}` : "/";
+    if (!segments.some((segment) => segment.startsWith("[")) && !redirectOnlyRoutes.has(route)) routes.push(route);
   }
 }
 

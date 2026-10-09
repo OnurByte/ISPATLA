@@ -77,28 +77,31 @@ function NavGroup({ title, items, pathname }: { title: string; items: NavItem[];
   );
 }
 
+function XBrandIcon() {
+  return <svg aria-hidden="true" viewBox="0 0 24 24" className="size-4 fill-current"><path d="M18.9 2H22l-6.8 7.8L23.2 22h-6.3L12 14.6 5.5 22H2.4l7.3-8.4L1.8 2h6.5l4.4 6.9L18.9 2Zm-1.1 17.9h1.7L7.3 4H5.5l12.3 15.9Z" /></svg>;
+}
+
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const locale = localeFromPath(pathname) ?? DEFAULT_LOCALE;
   const dict = getDictionary(locale);
   const routePathname = stripLocalePrefix(pathname);
   const primaryNav: NavItem[] = [
-    { href: "/app", label: dict.nav.dashboard, icon: Gauge },
-    { href: "/app/opportunities", label: dict.nav.opportunities, icon: Sparkles },
-    { href: "/app/drafts", label: dict.nav.drafts, icon: FileKey2, children: [{ href: "/app/queue", label: dict.nav.queue, icon: FileKey2 }] },
+    { href: "/dashboard", label: dict.nav.dashboard, icon: Gauge },
+    { href: "/opportunities", label: dict.nav.opportunities, icon: Sparkles },
+    { href: "/drafts", label: dict.nav.drafts, icon: FileKey2, children: [{ href: "/queue", label: dict.nav.queue, icon: FileKey2 }] },
     { href: "/leaderboard", label: dict.nav.leaderboard, icon: Trophy },
   ];
   const operationsNav: NavItem[] = [
-    { href: "/app/accounts", label: dict.nav.accounts, icon: Users, children: [{ href: "/app/sources", label: dict.nav.sources, icon: Users }, { href: "/app/categories", label: dict.nav.categories, icon: Sparkles }] },
-    { href: "/app/analytics", label: dict.nav.analytics, icon: BarChart3, children: [{ href: "/app/evaluation", label: dict.nav.evaluation, icon: Trophy }] },
+    { href: "/accounts", label: dict.nav.accounts, icon: Users, children: [{ href: "/sources", label: dict.nav.sources, icon: Users }, { href: "/categories", label: dict.nav.categories, icon: Sparkles }] },
+    { href: "/analytics", label: dict.nav.analytics, icon: BarChart3, children: [{ href: "/evaluation", label: dict.nav.evaluation, icon: Trophy }] },
   ];
-  const settingsNav: NavItem[] = [{ href: "/app/settings", label: dict.nav.settings, icon: Settings2, children: [
-    { href: "/app/settings/appearance", label: dict.nav.appearance, icon: Settings2 },
-    { href: "/app/settings/style", label: dict.nav.style, icon: Sparkles },
-    { href: "/app/settings/profile", label: dict.nav.profile, icon: Users },
-    { href: "/app/settings/security", label: dict.nav.security, icon: FileKey2 },
-    { href: "/app/settings/keys", label: dict.nav.keys, icon: FileKey2 },
-    { href: "/app/settings/automation", label: dict.nav.automation, icon: Gauge },
+  const settingsNav: NavItem[] = [{ href: "/settings", label: dict.nav.settings, icon: Settings2, children: [
+    { href: "/settings/appearance", label: dict.nav.appearance, icon: Settings2 },
+    { href: "/settings/style", label: dict.nav.style, icon: Sparkles },
+    { href: "/settings/security", label: dict.nav.security, icon: FileKey2 },
+    { href: "/settings/keys", label: dict.nav.keys, icon: FileKey2 },
+    { href: "/settings/automation", label: dict.nav.automation, icon: Gauge },
   ] }];
   const localized = (items: NavItem[]) => items.map((item) => ({ ...item, href: localizePath(locale, item.href), children: item.children?.map((child) => ({ ...child, href: localizePath(locale, child.href) })) }));
 
@@ -106,7 +109,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     <SidebarProvider>
       <Sidebar collapsible="icon">
         <SidebarHeader className="flex-row items-center justify-between gap-2 p-3 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-1.5">
-          <BrandLogo href={localizePath(locale, "/")} className="group-data-[collapsible=icon]:hidden" />
+          <BrandLogo href={localizePath(locale, "/dashboard")} className="group-data-[collapsible=icon]:hidden" />
           <SidebarTrigger aria-label={dict.nav.menuOpen} className="hidden size-9 md:inline-flex group-data-[collapsible=icon]:inline-flex" />
         </SidebarHeader>
 
@@ -119,16 +122,21 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
         <SidebarFooter className="gap-3 p-3">
           <SidebarSeparator />
-          <p className="px-2 pb-1 text-xs leading-5 text-sidebar-foreground/50">
-            Kaynak → fırsat → draft → resmi 𝕏 API → doğrulama
-          </p>
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton isActive={isSidebarRouteActive(routePathname, "/profile")} tooltip={dict.nav.profile} render={<Link href={localizePath(locale, "/profile")} />}>
+                <XBrandIcon />
+                <span>{dict.nav.profile}</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
         </SidebarFooter>
       </Sidebar>
 
       <SidebarInset>
         <header className="sticky top-0 z-20 flex h-12 items-center gap-2 border-b bg-background/90 px-4 backdrop-blur md:hidden">
           <SidebarTrigger aria-label={dict.nav.menuOpen} />
-          <BrandLogo href={localizePath(locale, "/")} />
+          <BrandLogo href={localizePath(locale, "/dashboard")} />
         </header>
         {children}
       </SidebarInset>

@@ -37,7 +37,7 @@ export type XConnectionState = {
   consents: XConsentState[];
 } | null;
 
-export function XConnectButton({ returnTo = "/app/accounts?connection=connected", size = "default" }: { returnTo?: string; size?: "default" | "sm" }) {
+export function XConnectButton({ returnTo = "/accounts?connection=connected", size = "default" }: { returnTo?: string; size?: "default" | "sm" }) {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
   async function connect() {
@@ -121,7 +121,7 @@ export function XConnectionControls({ accountId, initial, policyVersion, copyVer
     try {
       const response = await fetch("/api/x/oauth/start", {
         method: "POST", headers: { "content-type": "application/json" },
-        body: JSON.stringify({ returnTo: `/app/accounts?connection=connected&accountId=${accountId}` }),
+        body: JSON.stringify({ returnTo: `/accounts?connection=connected&accountId=${accountId}` }),
       });
       const body = await responseBody(response);
       if (!response.ok || typeof body.authorizationUrl !== "string") throw new Error(typeof body.error === "string" ? body.error : "𝕏 bağlantısı başlatılamadı.");

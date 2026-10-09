@@ -29,6 +29,26 @@ export function isLocale(value: string): value is Locale {
   return (LOCALES as readonly string[]).includes(value);
 }
 
+export function localeFromAcceptLanguage(value: string | null): Locale | null {
+  if (!value) return null;
+  const candidates = value.split(",").map((part, index) => {
+    const [tag, ...parameters] = part.trim().split(";");
+    const qualityParameter = parameters.find((parameter) => /^q=/i.test(parameter.trim()));
+    const qualityValue = qualityParameter && /^q=(0(?:\.\d{0,3})?|1(?:\.0{0,3})?)$/i.exec(qualityParameter.trim())?.[1];
+    return { tag: tag?.trim().toLowerCase(), quality: qualityParameter ? qualityValue === undefined ? 0 : Number(qualityValue) : 1, index };
+  }).filter((candidate) => candidate.tag && candidate.quality > 0).sort((a, b) => b.quality - a.quality || a.index - b.index);
+  for (const { tag } of candidates) {
+    const exact = LOCALES.find((locale) => locale.toLowerCase() === tag);
+    if (exact) return exact;
+    const language = tag!.split("-")[0];
+    const primary = LOCALES.find((locale) => locale.toLowerCase() === language);
+    if (primary) return primary;
+    if (language === "zh") return "zh-CN";
+    if (language === "pt") return "pt-BR";
+  }
+  return null;
+}
+
 export function localeFromPath(pathname: string): Locale | null {
   const first = pathname.split("/")[1] || "";
   return isLocale(first) ? first : null;
@@ -42,5 +62,7 @@ export function stripLocalePrefix(pathname: string): string {
 }
 
 export function localizePath(locale: Locale, pathname: string): string {
-  return `/${locale}${stripLocalePrefix(pathname) === "/" ? "" : stripLocalePrefix(pathname)}`;
+  const path = stripLocalePrefix(pathname);
+  if (locale === DEFAULT_LOCALE) return path;
+  return `/${locale}${path === "/" ? "" : path}`;
 }

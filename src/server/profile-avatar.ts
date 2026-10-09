@@ -65,13 +65,13 @@ export async function cacheProfileAvatar(input: {
 }
 
 export async function cacheSelectedProfileAvatar(input: {
-  ownerUserId: string; xUserId: string; handle: string; displayName: string; bio: string; avatarUrl: string;
+  ownerUserId: string; xUserId: string; handle: string; displayName: string; bio: string; protected?: boolean | null; avatarUrl: string;
   fetcher?: typeof fetch; databasePath?: string;
 }): Promise<string | null> {
   if (!getProfileAvatarAccess(input.xUserId, input.ownerUserId)) return null;
   const avatarUrl = await cacheProfileAvatar({ xUserId: input.xUserId, avatarUrl: input.avatarUrl, fetcher: input.fetcher, databasePath: input.databasePath });
   if (avatarUrl) {
-    try { syncUserProfileFromX({ ownerUserId: input.ownerUserId, xUserId: input.xUserId, handle: input.handle, displayName: input.displayName, bio: input.bio, avatarUrl }); }
+    try { syncUserProfileFromX({ ownerUserId: input.ownerUserId, xUserId: input.xUserId, handle: input.handle, displayName: input.displayName, bio: input.bio, protected: input.protected, avatarUrl }); }
     catch { /* Avatar availability does not affect a successful X connection. */ }
   }
   return avatarUrl;

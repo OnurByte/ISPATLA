@@ -139,7 +139,7 @@ export function MarketPage({ initial, accounts }: { initial: MarketInbox; accoun
     if (!response.ok) return setMessage(body.error || "Draft üretilemedi.");
     const draftId = Number(body.id);
     if (!Number.isInteger(draftId) || draftId <= 0) return setMessage("Draft oluşturuldu fakat editör kimliği alınamadı.");
-    router.push(`/app/drafts?draft=${draftId}`);
+    router.push(`/drafts?draft=${draftId}`);
   }
 
   const matchingAccounts = accounts.filter((account) => account.enabled && `${account.handle} ${account.displayName}`.toLocaleLowerCase("tr-TR").includes(accountSearch.toLocaleLowerCase("tr-TR")));
@@ -159,7 +159,7 @@ export function MarketPage({ initial, accounts }: { initial: MarketInbox; accoun
         </div>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
-        {!accountId && <Alert><AlertDescription className="flex flex-wrap items-center justify-between gap-3"><span>Hesap olmadan örnek post üretebilirsin; yayın/kuyruk için hesap eşlemen gerekir.</span><Link href="/app/accounts" className={buttonVariants({ variant: "outline", size: "sm" })}>Hesap ekle</Link></AlertDescription></Alert>}
+        {!accountId && <Alert><AlertDescription className="flex flex-wrap items-center justify-between gap-3"><span>Hesap olmadan örnek post üretebilirsin; yayın/kuyruk için hesap eşlemen gerekir.</span><Link href="/accounts" className={buttonVariants({ variant: "outline", size: "sm" })}>Hesap ekle</Link></AlertDescription></Alert>}
         <Tabs value={view} onValueChange={(value) => { if (value) void load(value as DeskView); }}>
           <TabsList variant="line"><TabsTrigger value="opportunities">Fırsatlar <Badge variant="outline">{page.counts.opportunities}</Badge></TabsTrigger><TabsTrigger value="observed">Gözlenen 24s <Badge variant="outline">{page.counts.observed}</Badge></TabsTrigger><TabsTrigger value="rejected">Elenen <Badge variant="outline">{page.counts.rejected}</Badge></TabsTrigger></TabsList>
           <TabsContent value="opportunities" className="pt-4">{view === "opportunities" ? list(page.items) : null}</TabsContent>

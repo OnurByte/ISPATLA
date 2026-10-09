@@ -10,5 +10,5 @@ test("all twenty translations have self canonical URLs and reciprocal sitemap al
   expect(publicMetadata("ja", "/open-source", "Title", "Description").alternates?.canonical).toBe("https://ispatla.tr/ja/open-source");
   expect(publicMetadata("ja", "/open-source", "Title", "Description").robots).toEqual({ index: true, follow: true });
   expect(publicMetadata("en", "/docs", "Docs", "Setup").alternates?.canonical).toBe("https://ispatla.tr/en/docs");
-  expect(robots().rules).toMatchObject({ disallow: expect.arrayContaining(["/api/", "/en/app/", "/tr/reset-password"]) });
+  expect(robots().rules).toMatchObject({ disallow: expect.arrayContaining(["/api/", "/dashboard", "/en/dashboard", "/reset-password"]) });
 });

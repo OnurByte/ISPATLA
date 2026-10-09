@@ -15,7 +15,7 @@ export function splitRevision(before: string, after: string) {
   return { prefix: left.slice(0, prefix).join(""), removed: left.slice(prefix, left.length - suffix).join(""), added: right.slice(prefix, right.length - suffix).join(""), suffix: suffix ? left.slice(left.length - suffix).join("") : "" };
 }
 
-export function SignalExperience({ copy }: { copy: SignalPressCopy }) {
+export function SignalExperience({ copy, startHref }: { copy: SignalPressCopy; startHref: string }) {
   const [selected, setSelected] = useState(copy.examples[0].id);
   const started = useRef(false);
   const example = copy.examples.find((item) => item.id === selected) ?? copy.examples[0];
@@ -60,6 +60,6 @@ export function SignalExperience({ copy }: { copy: SignalPressCopy }) {
       </div>
     </section>
 
-    <ExcuseBurner locale={copy.contentLocale} />
+    <ExcuseBurner locale={copy.contentLocale} startHref={startHref} />
   </>;
 }

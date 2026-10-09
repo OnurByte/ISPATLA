@@ -27,7 +27,7 @@ describe("Official X write client", () => {
     expect(await client.getOwnProfile(credentials)).toEqual({ id: credentials.xUserId, description: "Linux and open source" });
     const url = new URL(seen);
     expect(url.pathname).toBe("/2/users/me");
-    expect(url.searchParams.get("user.fields")).toBe("description,name,username,profile_image_url,public_metrics");
+    expect(url.searchParams.get("user.fields")).toBe("description,name,username,profile_image_url,public_metrics,protected");
   });
 
   test("scans only the connected account timeline with bounded, capped post text", async () => {

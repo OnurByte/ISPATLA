@@ -82,7 +82,7 @@ export function AuthForm({ mode, token, locale = DEFAULT_LOCALE, xLoginEnabled =
 
       if (mode === "login" || mode === "signup") {
         announceSessionChange()
-        window.location.assign(path("/app"))
+        window.location.assign(path("/dashboard"))
       } else if (mode === "forgot") {
         setMessage("Bu adres için bir hesap varsa sıfırlama bağlantısı gönderildi.")
       } else {
@@ -105,7 +105,7 @@ export function AuthForm({ mode, token, locale = DEFAULT_LOCALE, xLoginEnabled =
         <h1 id="auth-title" className="text-2xl font-semibold tracking-tight">{heading.title}</h1>
         <p className="mt-2 text-sm text-muted-foreground">{heading.description}</p>
         {(mode === "login" || mode === "signup") && <div className="mt-6 space-y-2">
-          <Button type="button" variant="outline" className="w-full" disabled={pending || !xLoginEnabled} aria-describedby={!xLoginEnabled ? "x-login-unavailable" : undefined} onClick={() => void continueWithX("/api/auth/sign-in/social", path("/app"), path(mode === "signup" ? "/signup" : "/login") + "?x_error=1")}>
+          <Button type="button" variant="outline" className="w-full" disabled={pending || !xLoginEnabled} aria-describedby={!xLoginEnabled ? "x-login-unavailable" : undefined} onClick={() => void continueWithX("/api/auth/sign-in/social", path("/dashboard"), path(mode === "signup" ? "/signup" : "/login") + "?x_error=1")}>
             𝕏 ile giriş yap
           </Button>
           {!xLoginEnabled && <p id="x-login-unavailable" className="text-xs text-muted-foreground">Bu kurulumda 𝕏 girişi henüz etkin değil.</p>}

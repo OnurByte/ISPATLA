@@ -6743,7 +6743,7 @@ export function getOwnUserProfile(now = Math.floor(Date.now() / 1000)): OwnUserP
     if (new Set(username).size < 12) continue;
     try {
       command(`INSERT INTO user_profiles(owner_user_id,username,visibility,onboarding_completed,created_at,updated_at)
-        VALUES(${sqlString(ownerId)},${sqlString(username)},'public',0,${sqlNumber(now)},${sqlNumber(now)}) ON CONFLICT(owner_user_id) DO NOTHING;`);
+        VALUES(${sqlString(ownerId)},${sqlString(username)},'private',0,${sqlNumber(now)},${sqlNumber(now)}) ON CONFLICT(owner_user_id) DO NOTHING;`);
     } catch { /* Retry an astronomically unlikely random slug collision. */ }
     row = criticalRows<UserProfileRow>(
       `SELECT username,display_name,bio,visibility,created_at,updated_at,x_handle,avatar_url,onboarding_completed FROM user_profiles WHERE owner_user_id=${sqlString(ownerId)} LIMIT 1;`,
@@ -6753,12 +6753,18 @@ export function getOwnUserProfile(now = Math.floor(Date.now() / 1000)): OwnUserP
   return profileFromRow(row);
 }
 
-export function saveOwnUserProfile(input: { displayName: string; bio: string; visibility: "private" | "public"; now?: number }): OwnUserProfile {
+export function getOwnUserProfileXUserId(): string | null {
+  const ownerId = requireProfileOwner();
+  if (!ensureDatabase()) throw new Error("database unavailable");
+  return criticalRows<{ x_user_id: string }>(`SELECT x_user_id FROM user_profile_x_identity WHERE owner_user_id=${sqlString(ownerId)} LIMIT 1;`)[0]?.x_user_id ?? null;
+}
+
+export function saveOwnUserProfile(input: { now?: number } = {}): OwnUserProfile {
   const ownerId = requireProfileOwner();
   getOwnUserProfile(input.now);
   if (!ensureDatabase()) throw new Error("database unavailable");
   const now = input.now ?? Math.floor(Date.now() / 1000);
-  command(`UPDATE user_profiles SET display_name=${sqlString(input.displayName)},bio=${sqlString(input.bio)},visibility=${sqlString(input.visibility)},onboarding_completed=1,updated_at=${sqlNumber(now)}
+  command(`UPDATE user_profiles SET onboarding_completed=1,updated_at=${sqlNumber(now)}
     WHERE owner_user_id=${sqlString(ownerId)};`);
   return getOwnUserProfile(now);
 }
@@ -6787,7 +6793,7 @@ export function getProfileAvatarAccess(xUserId: string, ownerUserId?: string): b
     WHERE identity.x_user_id=${sqlString(xUserId)} AND (profile.visibility='public' AND profile.onboarding_completed=1${owner}) LIMIT 1;`).length > 0;
 }
 
-export function syncUserProfileFromX(input: { ownerUserId: string; xUserId: string; handle: string; displayName: string; bio: string; avatarUrl: string | null; now?: number }): void {
+export function syncUserProfileFromX(input: { ownerUserId: string; xUserId: string; handle: string; displayName: string; bio: string; avatarUrl: string | null; protected?: boolean | null; now?: number }): void {
   if (!ensureDatabase()) throw new Error("database unavailable");
   const handle = input.handle.replace(/^@/, "");
   if (!input.ownerUserId || !/^\d{1,32}$/.test(input.xUserId) || !/^[A-Za-z0-9_]{1,15}$/.test(handle)) throw new Error("verified X profile identity is invalid");
@@ -6804,7 +6810,8 @@ export function syncUserProfileFromX(input: { ownerUserId: string; xUserId: stri
     command(`INSERT INTO user_profile_x_identity(owner_user_id,x_user_id) VALUES(${sqlString(input.ownerUserId)},${sqlString(input.xUserId)}) ON CONFLICT(owner_user_id) DO NOTHING;`);
   }
   try {
-    command(`UPDATE user_profiles SET x_handle=${sqlString(handle)},display_name=${sqlString(input.displayName.slice(0, 80))},bio=${sqlString(input.bio.slice(0, 500))},avatar_url=COALESCE(${input.avatarUrl === null ? "NULL" : sqlString(input.avatarUrl)},avatar_url),updated_at=${sqlNumber(now)}
+    const visibility = typeof input.protected === "boolean" ? `,visibility=${sqlString(input.protected ? "private" : "public")}` : "";
+    command(`UPDATE user_profiles SET x_handle=${sqlString(handle)},display_name=${sqlString(input.displayName.slice(0, 80))},bio=${sqlString(input.bio.slice(0, 500))},avatar_url=COALESCE(${input.avatarUrl === null ? "NULL" : sqlString(input.avatarUrl)},avatar_url)${visibility},updated_at=${sqlNumber(now)}
       WHERE owner_user_id=${sqlString(input.ownerUserId)} AND EXISTS (SELECT 1 FROM user_profile_x_identity WHERE owner_user_id=${sqlString(input.ownerUserId)} AND x_user_id=${sqlString(input.xUserId)});`);
   } catch (error) {
     if (String(error).includes("UNIQUE constraint failed")) return;

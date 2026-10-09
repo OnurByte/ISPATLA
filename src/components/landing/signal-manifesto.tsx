@@ -5,12 +5,12 @@ import { CostEstimate } from "@/components/landing/cost-estimate";
 import { getDictionary } from "@/i18n/dictionaries";
 import type { ReactNode } from "react";
 
-export function SignalManifesto({ copy, path, children }: { copy: SignalPressCopy; path: (href: string) => string; children?: ReactNode }) {
+export function SignalManifesto({ copy, path, startHref, children }: { copy: SignalPressCopy; path: (href: string) => string; startHref: string; children?: ReactNode }) {
   return <>
     <section id="open-source" className="mx-auto max-w-7xl scroll-mt-8 px-5 py-16 sm:px-8 sm:py-24">
       <div className="grid gap-10 lg:grid-cols-[1fr_.8fr] lg:items-start">
         <div><p className="press-mono text-xs tracking-[.15em] text-[#315bf5]">{copy.manifestoKicker}</p><h2 className="press-serif mt-5 max-w-3xl text-4xl leading-[.98] sm:text-6xl">{copy.manifestoTitle}</h2><p className="mt-7 max-w-2xl text-base leading-8">{copy.intro}</p>
-          <Link href={path("/signup")} className="mt-8 inline-flex min-h-12 items-center bg-[var(--press-ink)] px-5 text-sm font-bold text-[var(--press-paper)]">{getDictionary(copy.contentLocale).nav.start} →</Link>
+          <Link href={startHref} className="mt-8 inline-flex min-h-12 items-center bg-[var(--press-ink)] px-5 text-sm font-bold text-[var(--press-paper)]">{getDictionary(copy.contentLocale).nav.start} →</Link>
         </div>
         <aside className="border-l-4 border-[#315bf5] ps-5 sm:ps-8"><h3 className="press-mono text-xs uppercase tracking-widest"><Link href={path("/no-viral-guarantee")} className="underline underline-offset-4">{copy.antiTitle} ↗</Link></h3><p className="mt-4 text-base leading-7">{copy.antiBody}</p><CostEstimate copy={copy} /></aside>
       </div>

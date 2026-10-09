@@ -62,7 +62,7 @@ beforeAll(async () => {
     const url = new URL(typeof input === "string" ? input : input instanceof URL ? input.href : input.url);
     if (url.href === "https://api.x.com/2/oauth2/token") return Response.json({ access_token: `fixture-access-token-${tokenGeneration}`, ...(omitRefreshToken ? {} : { refresh_token: `fixture-refresh-token-${tokenGeneration}` }), expires_in: 3600, scope: xScopes.filter((scope) => !(omitPublishingScope && scope === "tweet.write")).join(" "), token_type: "bearer" });
     if (url.origin === "https://api.x.com" && url.pathname === "/2/users/me") {
-      const data = { id: profileId, name: "Fixture X User", username: invalidUsername ? "invalid handle" : `fixture_${profileId.slice(-4)}`, description: "Official profile bio", profile_image_url: "https://pbs.twimg.com/profile_images/fixture/avatar.png", ...(profileHasEmail ? { confirmed_email: `x-${profileId.slice(-4)}@example.test` } : {}) };
+      const data = { id: profileId, name: "Fixture X User", username: invalidUsername ? "invalid handle" : `fixture_${profileId.slice(-4)}`, description: "Official profile bio", profile_image_url: "https://pbs.twimg.com/profile_images/fixture/avatar.png", protected: false, ...(profileHasEmail ? { confirmed_email: `x-${profileId.slice(-4)}@example.test` } : {}) };
       return Response.json({ data });
     }
     if (url.origin === "https://pbs.twimg.com") {
@@ -97,7 +97,7 @@ function cookieHeader(response: Response): string {
   return (headers.getSetCookie?.() || [response.headers.get("set-cookie") || ""]).map((value) => value.split(";", 1)[0]).filter(Boolean).join("; ");
 }
 
-async function startXLogin(callbackURL = "/app") {
+async function startXLogin(callbackURL = "/dashboard") {
   const response = await runtime.handler(authRequest("/sign-in/social", { provider: "twitter", callbackURL, errorCallbackURL: "/login?x_error=1" }));
   expect(response.status).toBe(200);
   const { url } = await response.json() as { url: string };
@@ -116,8 +116,8 @@ async function finishXLogin(authorizeURL: URL, cookie: string): Promise<Response
   return runtime.handler(new Request(callbackURL, { headers: { cookie } }));
 }
 
-async function startXLink(sessionCookie: string, callbackURL = "/app/settings/security") {
-  const response = await runtime.handler(authRequest("/link-social", { provider: "twitter", callbackURL, errorCallbackURL: "/app/settings/security?x_error=1" }, sessionCookie));
+async function startXLink(sessionCookie: string, callbackURL = "/settings/security") {
+  const response = await runtime.handler(authRequest("/link-social", { provider: "twitter", callbackURL, errorCallbackURL: "/settings/security?x_error=1" }, sessionCookie));
   expect(response.status).toBe(200);
   const { url } = await response.json() as { url: string };
   const authorizeURL = new URL(url);
@@ -131,7 +131,7 @@ describe("X sign-in provisions the publishing connection without automation cons
     expect(started.cookie).not.toBe("");
     const callback = await finishXLogin(started.authorizeURL, started.cookie);
     expect(callback.status).toBe(302);
-    expect(callback.headers.get("location")).toBe("/app");
+    expect(callback.headers.get("location")).toBe("/dashboard");
     const session = await runtime.handler(new Request("http://localhost:3000/api/auth/get-session", { headers: { cookie: cookieHeader(callback) } }));
     expect((await session.json() as { user?: { email?: string } }).user?.email).toBe(`x-${profileId.slice(-4)}@example.test`);
     const replay = await finishXLogin(started.authorizeURL, started.cookie);
@@ -194,7 +194,7 @@ describe("X sign-in provisions the publishing connection without automation cons
     const linked = await startXLink(sessionCookie);
     const linkCallback = await finishXLogin(linked.authorizeURL, linked.cookie);
     expect(linkCallback.status).toBe(302);
-    expect(linkCallback.headers.get("location")).toBe("/app/settings/security");
+    expect(linkCallback.headers.get("location")).toBe("/settings/security");
     const linkDb = new Database(databasePath);
     try {
       const linkedAccount = linkDb.query("SELECT userId, providerId, accountId, accessToken, refreshToken, scope FROM account WHERE providerId='twitter' AND accountId=?").get(profileId) as Record<string, unknown>;
@@ -257,7 +257,7 @@ describe("X sign-in provisions the publishing connection without automation cons
   });
 
   test("X identity linking requires a current session", async () => {
-    const anonymous = await runtime.handler(authRequest("/link-social", { provider: "twitter", callbackURL: "/app/settings/security" }));
+        const anonymous = await runtime.handler(authRequest("/link-social", { provider: "twitter", callbackURL: "/settings/security" }));
     expect(anonymous.status).toBe(401);
     profileHasEmail = true;
   });

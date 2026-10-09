@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { isLocale } from "@/i18n/config";
 import {
   connectXAccount, consumeOAuthTransaction, createOAuthTransaction, getXCredential,
   getXAccountAuthState, setAutomationConsent, disconnectXAccount, withXTokenRefresh,
@@ -9,7 +10,7 @@ import { cacheSelectedProfileAvatar } from "./profile-avatar";
 export const X_OAUTH_SCOPES = ["tweet.read", "tweet.write", "users.read", "media.write", "offline.access"] as const;
 const AUTHORIZATION_ENDPOINT = "https://x.com/i/oauth2/authorize";
 const TOKEN_ENDPOINT = "https://api.x.com/2/oauth2/token";
-const ME_ENDPOINT = "https://api.x.com/2/users/me?user.fields=name,username,description,profile_image_url";
+const ME_ENDPOINT = "https://api.x.com/2/users/me?user.fields=name,username,description,profile_image_url,protected";
 
 type Fetcher = typeof fetch;
 type Environment = Record<string, string | undefined>;
@@ -38,10 +39,12 @@ function oauthConfig(env: Environment) {
 }
 
 function returnPath(value: string | undefined): string {
-  if (!value) return "/app/accounts";
+  if (!value) return "/accounts";
   if (!value.startsWith("/") || value.startsWith("//") || value.includes("\\") || /[\r\n]/.test(value)) throw new Error("OAuth return path is not allowed");
   const url = new URL(value, "https://ispatla.invalid");
-  if (url.origin !== "https://ispatla.invalid" || !["/app/accounts", "/app/settings"].includes(url.pathname)) {
+  const firstSegment = url.pathname.split("/")[1] || "";
+  const path = isLocale(firstSegment) ? url.pathname.slice(firstSegment.length + 1) || "/" : url.pathname;
+  if (url.origin !== "https://ispatla.invalid" || !["/accounts", "/settings", "/onboarding"].includes(path)) {
     throw new Error("OAuth return path is not allowed");
   }
   return `${url.pathname}${url.search}`;
@@ -108,7 +111,7 @@ export async function completeXOAuth(input: {
   const bio = typeof user.description === "string" ? user.description : "";
   const displayName = typeof user.name === "string" ? user.name : user.username;
   const connected = connectXAccount({ ownerUserId: input.ownerUserId, xUserId: user.id, handle: user.username,
-    displayName, bio, avatarUrl: null, accessToken, refreshToken,
+    displayName, bio, protected: typeof user.protected === "boolean" ? user.protected : null, avatarUrl: null, accessToken, refreshToken,
     expiresAt: (input.now ?? Math.floor(Date.now() / 1000)) + expiresIn, scopes, now: input.now, databasePath: input.databasePath });
   if (typeof user.profile_image_url === "string") {
     try { await cacheSelectedProfileAvatar({ ownerUserId: input.ownerUserId,

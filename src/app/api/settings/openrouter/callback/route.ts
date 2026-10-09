@@ -18,7 +18,7 @@ async function GETHandler(request: Request) {
       result = "connected";
     }
   } catch { /* Provider details and authorization codes must not reach the browser URL. */ }
-  const destination = new URL("/app/settings/keys", base);
+  const destination = new URL("/settings/keys", base);
   destination.searchParams.set("openrouter", result);
   return NextResponse.redirect(destination, 303);
 }

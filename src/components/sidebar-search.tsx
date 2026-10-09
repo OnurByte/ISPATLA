@@ -1,7 +1,7 @@
 "use client";
 
 import { Dialog } from "@base-ui/react/dialog";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { useRouter } from "next/navigation";
 import { Search, ArrowUp, ArrowDown, CornerDownLeft, X, Gauge, Users, BarChart3, Tag, FileKey2, Trophy, Sparkles, Settings2, UserRound, ShieldCheck, KeyRound, CalendarClock, BookOpen, FileText, LockKeyhole, Globe2, type LucideIcon } from "lucide-react";
 import { DEFAULT_LOCALE, localizePath, type Locale } from "@/i18n/config";
@@ -13,7 +13,7 @@ type SearchRoute = { href: string; label: string; group: string; keywords: strin
 
 const PAGE_DETAILS: Record<string, { icon: LucideIcon; en: string; tr: string }> = {
   home: { icon: Gauge, en: "Return to the public home page.", tr: "Ana sayfaya dön." },
-  app: { icon: Gauge, en: "Review your workspace at a glance.", tr: "Çalışma alanının genel görünümünü incele." },
+  dashboard: { icon: Gauge, en: "Review your workspace at a glance.", tr: "Çalışma alanının genel görünümünü incele." },
   accounts: { icon: Users, en: "Connect and manage your 𝕏 accounts.", tr: "𝕏 hesaplarını bağla ve yönet." },
   analytics: { icon: BarChart3, en: "Review publishing and account metrics.", tr: "Yayın ve hesap metriklerini incele." },
   categories: { icon: Tag, en: "Organize the topics used in your workspace.", tr: "Çalışma alanındaki konu kategorilerini düzenle." },
@@ -59,22 +59,40 @@ const SEARCH_TERMS: Record<string, string> = {
 
 export function getSidebarSearchRoutes(locale: Locale): SearchRoute[] {
   const { nav, landing } = getDictionary(locale);
-  return SEARCH_PAGE_PATHS.map((href) => {
+  return [...new Set(SEARCH_PAGE_PATHS)].map((href) => {
     const segment = href.split("/").filter(Boolean).at(-1) || "home";
     const dictionary = nav as unknown as Record<string, string>;
     const label = href === "/"
       ? landing.brand
-      : href === "/app"
+      : href === "/dashboard"
         ? nav.dashboard
       : segment === "keys"
         ? locale === "tr" ? "Yapay zekâ sağlayıcıları" : "AI providers"
         : segment === "onboarding"
           ? locale === "tr" ? "Kurulum" : "Setup"
           : dictionary[segment] || segment.split("-").map((part) => part[0]?.toLocaleUpperCase() + part.slice(1)).join(" ");
-    const group = href.startsWith("/app/settings") ? nav.settings : href.startsWith("/app") ? nav.primary : locale === "tr" ? "Sayfalar" : "Pages";
-    const detail = PAGE_DETAILS[href === "/research/xpatla-consumer-complaints-2026" ? "research/xpatla-consumer-complaints-2026" : segment] ?? { icon: FileText, en: `Open ${label}.`, tr: `${label} sayfasını aç.` };
+    const group = href === "/profile"
+      ? nav.profile
+      : href.startsWith("/settings/") || href === "/settings"
+      ? nav.settings
+      : ["/dashboard", "/accounts", "/analytics", "/categories", "/drafts", "/evaluation", "/onboarding", "/opportunities", "/queue", "/sources"].includes(href)
+        ? nav.primary
+        : locale === "tr" ? "Sayfalar" : "Pages";
+    const detail = PAGE_DETAILS[segment] ?? { icon: FileText, en: `Open ${label}.`, tr: `${label} sayfasını aç.` };
     return { href, label, group, keywords: `${href.replaceAll("/", " ")} ${SEARCH_TERMS[segment] || ""}`, icon: detail.icon, description: locale === "tr" ? detail.tr : locale === "en" ? detail.en : `${label} · ${group}` };
   });
+}
+
+export function getSidebarSearchKeyboardAction(key: string, active: number, routeCount: number): { type: "move"; active: number } | { type: "open"; index: number } | null {
+  if (routeCount === 0) return null;
+  if (key === "ArrowDown") return { type: "move", active: (active + 1) % routeCount };
+  if (key === "ArrowUp") return { type: "move", active: (active - 1 + routeCount) % routeCount };
+  if (key === "Enter") return { type: "open", index: active };
+  return null;
+}
+
+export function isSidebarSearchShortcut(event: Pick<KeyboardEvent, "key" | "metaKey" | "ctrlKey">) {
+  return (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k";
 }
 
 export function filterSidebarSearchRoutes(routes: SearchRoute[], query: string): SearchRoute[] {
@@ -124,18 +142,26 @@ export function SidebarSearch({ locale = DEFAULT_LOCALE }: { locale?: Locale }) 
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") { event.preventDefault(); openSearch(); }
-      if (!open || !flat.length) return;
-      if (event.key === "ArrowDown") { event.preventDefault(); setActive((index) => (index + 1) % flat.length); }
-      if (event.key === "ArrowUp") { event.preventDefault(); setActive((index) => (index - 1 + flat.length) % flat.length); }
-      if (event.key === "Enter") { event.preventDefault(); const route = flat[active]; if (route) { setOpen(false); router.push(localizePath(locale, route.href)); } }
+      if (isSidebarSearchShortcut(event)) { event.preventDefault(); openSearch(); }
     }
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [active, flat, locale, open, openSearch, router]);
+    window.addEventListener("keydown", onKeyDown, true);
+    return () => window.removeEventListener("keydown", onKeyDown, true);
+  }, [openSearch]);
+
+  function handleSearchKeyDown(event: ReactKeyboardEvent<HTMLInputElement>) {
+    const action = getSidebarSearchKeyboardAction(event.key, active, flat.length);
+    if (!action) return;
+    event.preventDefault();
+    event.stopPropagation();
+    if (action.type === "move") setActive(action.active);
+    else {
+      const route = flat[action.index];
+      if (route) { setOpen(false); router.push(localizePath(locale, route.href)); }
+    }
+  }
 
   return <Dialog.Root open={open} onOpenChange={setOpen}>
-    <Dialog.Trigger render={<Button variant="outline" className="mx-3 mb-1 h-9 justify-between border-sidebar-border bg-sidebar px-3 text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground group-data-[collapsible=icon]:mx-1 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0" aria-label={`${copy.search} (⌘K)`} />}>
+    <Dialog.Trigger render={<Button variant="outline" className="mx-3 mb-1 h-10 justify-between border-sidebar-border bg-sidebar px-3 text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground group-data-[collapsible=icon]:mx-1 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0" aria-label={`${copy.search} (⌘K)`} />}>
       <span className="flex items-center gap-2 group-data-[collapsible=icon]:gap-0"><Search aria-hidden="true" className="size-4" /><span className="group-data-[collapsible=icon]:hidden">{copy.search}</span></span><kbd className="rounded border px-1.5 py-0.5 text-[10px] group-data-[collapsible=icon]:hidden">⌘K</kbd>
     </Dialog.Trigger>
     <Dialog.Portal>
@@ -145,7 +171,7 @@ export function SidebarSearch({ locale = DEFAULT_LOCALE }: { locale?: Locale }) 
           <Search aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
           <Dialog.Title className="sr-only">{copy.search}</Dialog.Title>
           <Dialog.Description className="sr-only">{copy.description}</Dialog.Description>
-          <input ref={inputRef} autoFocus type="search" role="combobox" aria-expanded="true" aria-controls="sidebar-search-results" aria-activedescendant={routes[active] ? optionId(routes[active].href) : undefined} value={query} onChange={(event) => { setQuery(event.target.value); setActive(0); }} placeholder={copy.placeholder} aria-label={copy.search} className="h-14 min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground" />
+          <input ref={inputRef} autoFocus type="search" role="combobox" aria-expanded="true" aria-controls="sidebar-search-results" aria-activedescendant={routes[active] ? optionId(routes[active].href) : undefined} value={query} onChange={(event) => { setQuery(event.target.value); setActive(0); }} onKeyDown={handleSearchKeyDown} placeholder={copy.placeholder} aria-label={copy.search} className="h-14 min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground" />
           <Dialog.Close aria-label={copy.close} className="rounded p-1.5 text-muted-foreground hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring"><X aria-hidden="true" className="size-4" /></Dialog.Close>
         </div>
         <div id="sidebar-search-results" className="max-h-[min(60vh,28rem)] overflow-y-auto p-2" role="listbox" aria-label={copy.search}>

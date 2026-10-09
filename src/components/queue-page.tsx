@@ -243,7 +243,7 @@ export function QueuePage({ initial, initialIntents, initialStatus = "all", init
                   <TableCell className="text-xs">
                       {job.status === "confirmed" ? <span>Doğrulandı{job.remoteUrl ? <> · <a className="underline" href={job.remoteUrl} target="_blank" rel="noreferrer">𝕏’te aç</a></> : null}</span>
                       : needsManualReview(job.status) ? "Sonuç belirsiz · uzaktaki doğrulama gerekli; elle incele"
-                        : job.status === "expired" ? <>Onay süresi doldu · {approvalExpiryLabel(job.approvalExpiresAt)} · onay kaydı #{job.approvalSnapshotId ?? "—"}<br /><span>Onaylanan içerik özeti görüntülenemiyor; yeni onaydan önce taslağı incele. <Link href={`/app/drafts?draft=${job.draftId}`} className="underline">Taslağı aç</Link></span></>
+                        : job.status === "expired" ? <>Onay süresi doldu · {approvalExpiryLabel(job.approvalExpiresAt)} · onay kaydı #{job.approvalSnapshotId ?? "—"}<br /><span>Onaylanan içerik özeti görüntülenemiyor; yeni onaydan önce taslağı incele. <Link href={`/drafts?draft=${job.draftId}`} className="underline">Taslağı aç</Link></span></>
                         : job.receipt ? "İstek kabul edildi · doğrulama gerekli" : job.remoteWriteStartedAt ? "İstek gönderildi · sonuç henüz doğrulanmadı" : "Henüz uzak işlem yok"}
                     {job.approvalSnapshotId && job.status !== "expired" && <span className="block text-muted-foreground">Onay kaydı #{job.approvalSnapshotId} · son tarih {approvalExpiryLabel(job.approvalExpiresAt)}</span>}
                     {job.reconciliationStatus && job.reconciliationStatus !== "not_started" ? <span className="block text-muted-foreground">{job.reconciliationStatus}</span> : null}
