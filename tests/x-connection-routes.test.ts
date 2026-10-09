@@ -16,11 +16,12 @@ test("X connection routes require real sessions, enforce owner boundaries, and k
           ...(body===undefined?{}:{body:JSON.stringify(body)}),
         });
         const context = (id) => ({params:Promise.resolve({id:String(id)})});
-        const [authRoute,startRoute,connectionRoute,consentRoute] = await Promise.all([
+        const [authRoute,startRoute,connectionRoute,consentRoute,testRoute] = await Promise.all([
           import("./src/app/api/auth/[...all]/route.ts"),
           import("./src/app/api/x/oauth/start/route.ts"),
           import("./src/app/api/accounts/[id]/connection/route.ts"),
           import("./src/app/api/accounts/[id]/consent/route.ts"),
+          import("./src/app/api/accounts/[id]/test/route.ts"),
         ]);
         const {connectXAccount,getXCredential} = await import("./src/server/x-oauth-store.ts");
         const {X_POLICY_VERSION,X_CONSENT_COPY_VERSION} = await import("./src/server/x-policy.ts");
@@ -47,6 +48,26 @@ test("X connection routes require real sessions, enforce owner boundaries, and k
         assert.equal(publicState.includes("fixture-refresh-token"),false);
         assert.equal(publicState.includes("encrypted_access_token"),false);
         assert.equal(otherState.status,404);
+
+        const {OfficialXClient} = await import("./src/server/official-x.ts");
+        process.env.X_OAUTH_CLIENT_ID = "connection-test-client";
+        process.env.X_OAUTH_REDIRECT_URI = origin + "/api/x/oauth/callback";
+        let profileId = "101010", profileReads = 0;
+        OfficialXClient.prototype.getOwnProfile = async () => { profileReads++; return {id:profileId}; };
+        const testConnection = (cookie) => testRoute.POST(request("/api/accounts/"+account.accountId+"/test","POST",{cookie}),context(account.accountId));
+        assert.equal((await testConnection(undefined)).status,401);
+        assert.equal((await testConnection(b.cookie)).status,404);
+        assert.equal(profileReads,0);
+        const validConnection = await testConnection(a.cookie);
+        assert.equal(validConnection.status,200);
+        assert.deepEqual(await validConnection.json(),{ok:true,connection:{connected:true,handle:"owner_fixture"}});
+        profileId = "202020";
+        assert.equal((await testConnection(a.cookie)).status,422);
+        profileId = undefined;
+        assert.equal((await testConnection(a.cookie)).status,422);
+        assert.equal(profileReads,3);
+        delete process.env.X_OAUTH_CLIENT_ID;
+        delete process.env.X_OAUTH_REDIRECT_URI;
 
         const anonymousStart=await startRoute.POST(request("/api/x/oauth/start","POST",{body:{returnTo:"/app/accounts"}}));
         const ownerStart=await startRoute.POST(request("/api/x/oauth/start","POST",{cookie:a.cookie,body:{returnTo:"/app/accounts"}}));

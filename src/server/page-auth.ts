@@ -1,12 +1,12 @@
 import { headers } from "next/headers"
 import { notFound, redirect } from "next/navigation"
-import { getAuth } from "@/server/auth"
+import { getAuth, isAuthenticatedUserDisabled } from "@/server/auth"
 import { runAsOwner } from "@/server/owner-context"
 
 export async function requirePageUser() {
   const requestHeaders = await headers()
   const session = await (await getAuth()).api.getSession({ headers: requestHeaders })
-  if (!session) redirect("/login")
+  if (!session || await isAuthenticatedUserDisabled(session.user.id)) redirect("/login")
   return session.user
 }
 

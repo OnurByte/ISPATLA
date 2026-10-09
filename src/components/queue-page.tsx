@@ -111,7 +111,7 @@ export function QueuePage({ initial, initialIntents, initialStatus = "all", init
     const response = await fetch(`/api/publications/${id}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action }) });
     const body = await response.json().catch(() => ({}));
     setPending(0);
-    setMessage(response.ok ? action === "approve" ? "Yayın niyeti onaylandı; resmi X API worker işleyecek." : "Yayın niyeti iptal edildi." : body.error || "Yayın niyeti güncellenemedi.");
+    setMessage(response.ok ? action === "approve" ? "Yayın niyeti onaylandı; resmi 𝕏 API worker işleyecek." : "Yayın niyeti iptal edildi." : body.error || "Yayın niyeti güncellenemedi.");
     await reload();
   }
 
@@ -139,7 +139,7 @@ export function QueuePage({ initial, initialIntents, initialStatus = "all", init
     const response = await fetch(`/api/queue/${id}/run`, { method: "POST" });
     const body = await response.json().catch(() => ({}));
     setPending(0);
-    setMessage(response.ok ? (body.ok ? "X isteği kabul etti; uzaktaki yayın kanıtı bekleniyor." : body.reason || "Job bloklandı.") : body.error || "Job çalışmadı.");
+    setMessage(response.ok ? (body.ok ? "𝕏 isteği kabul etti; uzaktaki yayın kanıtı bekleniyor." : body.reason || "Job bloklandı.") : body.error || "Job çalışmadı.");
     await reload();
   }
 
@@ -241,7 +241,7 @@ export function QueuePage({ initial, initialIntents, initialStatus = "all", init
                   <TableCell className="whitespace-nowrap text-xs">{time(job.scheduledAt)}</TableCell>
                   <TableCell><Badge variant={variant(job.status)}>{job.status}</Badge></TableCell>
                   <TableCell className="text-xs">
-                      {job.status === "confirmed" ? <span>Doğrulandı{job.remoteUrl ? <> · <a className="underline" href={job.remoteUrl} target="_blank" rel="noreferrer">X’te aç</a></> : null}</span>
+                      {job.status === "confirmed" ? <span>Doğrulandı{job.remoteUrl ? <> · <a className="underline" href={job.remoteUrl} target="_blank" rel="noreferrer">𝕏’te aç</a></> : null}</span>
                       : needsManualReview(job.status) ? "Sonuç belirsiz · uzaktaki doğrulama gerekli; elle incele"
                         : job.status === "expired" ? <>Onay süresi doldu · {approvalExpiryLabel(job.approvalExpiresAt)} · onay kaydı #{job.approvalSnapshotId ?? "—"}<br /><span>Onaylanan içerik özeti görüntülenemiyor; yeni onaydan önce taslağı incele. <Link href={`/app/drafts?draft=${job.draftId}`} className="underline">Taslağı aç</Link></span></>
                         : job.receipt ? "İstek kabul edildi · doğrulama gerekli" : job.remoteWriteStartedAt ? "İstek gönderildi · sonuç henüz doğrulanmadı" : "Henüz uzak işlem yok"}

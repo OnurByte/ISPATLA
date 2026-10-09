@@ -12,7 +12,7 @@ type AuthFormMode = "login" | "signup" | "forgot" | "reset"
 
 const copy: Record<AuthFormMode, { title: string; description: string; button: string }> = {
   login: { title: "Giriş yap", description: "Fırsatlarına, taslaklarına ve sonuçlarına devam et.", button: "Giriş yap" },
-  signup: { title: "Hesap oluştur", description: "Hesabını oluştur, X hesabını bağla ve sana uygun fırsatları keşfet.", button: "Hesap oluştur" },
+  signup: { title: "Hesap oluştur", description: "Hesabını oluştur ve sana uygun fırsatları keşfet.", button: "Hesap oluştur" },
   forgot: { title: "Şifreni sıfırla", description: "Sıfırlama bağlantısını e-posta adresine gönderelim.", button: "Bağlantı gönder" },
   reset: { title: "Yeni şifre belirle", description: "Hesabın için yeni bir şifre seç.", button: "Şifreyi güncelle" },
 }
@@ -43,12 +43,12 @@ export function AuthForm({ mode, token, locale = DEFAULT_LOCALE, xLoginEnabled =
         body: JSON.stringify({ provider: "twitter", callbackURL, errorCallbackURL }),
       })
       const data = await response.json().catch(() => null) as { url?: unknown } | null
-      if (!response.ok || typeof data?.url !== "string") throw new Error("X ile devam edilemedi. E-posta ile giriş yapabilir veya yeniden deneyebilirsin.")
+      if (!response.ok || typeof data?.url !== "string") throw new Error("𝕏 ile devam edilemedi. E-posta ile giriş yapabilir veya yeniden deneyebilirsin.")
       const target = new URL(data.url)
-      if (target.origin !== "https://x.com" || target.pathname !== "/i/oauth2/authorize") throw new Error("X giriş bağlantısı doğrulanamadı.")
+      if (target.origin !== "https://x.com" || target.pathname !== "/i/oauth2/authorize") throw new Error("𝕏 giriş bağlantısı doğrulanamadı.")
       window.location.assign(target.href)
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "X ile devam edilemedi. Yeniden dene.")
+      setError(caught instanceof Error ? caught.message : "𝕏 ile devam edilemedi. Yeniden dene.")
       setPending(false)
     }
   }
@@ -105,12 +105,12 @@ export function AuthForm({ mode, token, locale = DEFAULT_LOCALE, xLoginEnabled =
       <section className="w-full rounded-2xl border bg-card p-6 text-card-foreground shadow-sm sm:p-8" aria-labelledby="auth-title">
         <h1 id="auth-title" className="text-2xl font-semibold tracking-tight">{heading.title}</h1>
         <p className="mt-2 text-sm text-muted-foreground">{heading.description}</p>
-        {xLoginEnabled && (mode === "login" || mode === "signup") && <div className="mt-6 space-y-2">
-          <Button type="button" variant="outline" className="w-full" disabled={pending} onClick={() => void continueWithX("/api/auth/sign-in/social", path("/app"), path(mode === "signup" ? "/signup" : "/login") + "?x_error=1")}>
-            X ile devam et
+        {(mode === "login" || mode === "signup") && <div className="mt-6 space-y-2">
+          <Button type="button" variant="outline" className="w-full" disabled={pending || !xLoginEnabled} aria-describedby={!xLoginEnabled ? "x-login-unavailable" : undefined} onClick={() => void continueWithX("/api/auth/sign-in/social", path("/app"), path(mode === "signup" ? "/signup" : "/login") + "?x_error=1")}>
+            𝕏 ile giriş yap
           </Button>
-          <p className="text-xs text-muted-foreground">X ile giriş paylaşım izni vermez. Yayın yetkisini hesabını bağlarken ayrıca seçersin.</p>
-          {xLoginError && <p className="text-sm text-destructive" role="alert">X girişinde doğrulanmış e-posta alınamadı veya bağlantı tamamlanmadı. E-posta ile devam et ya da X hesabında e-posta iznini kontrol et.</p>}
+          {!xLoginEnabled && <p id="x-login-unavailable" className="text-xs text-muted-foreground">Bu kurulumda 𝕏 girişi henüz etkin değil.</p>}
+          {xLoginError && <p className="text-sm text-destructive" role="alert">𝕏 girişinde doğrulanmış e-posta alınamadı veya bağlantı tamamlanmadı. E-posta ile devam et ya da 𝕏 hesabında e-posta iznini kontrol et.</p>}
         </div>}
         <form className="mt-6 space-y-4" onSubmit={submit}>
           {fields && <div className="space-y-2">
@@ -124,7 +124,6 @@ export function AuthForm({ mode, token, locale = DEFAULT_LOCALE, xLoginEnabled =
           </div>}
           {error && <p className="text-sm text-destructive" role="alert">{error}</p>}
           {message && <p className="text-sm text-muted-foreground" role="status">{message}</p>}
-          {mode === "signup" && <p className="text-xs leading-5 text-muted-foreground">E-posta adresin hesap erişimi ve kurtarma için gerekli. Doğrulamayı daha sonra hesap güvenliğinden yapabilirsin; kayıt sonrası çalışma alanına geçersin.</p>}
           <Button className="w-full" type="submit" disabled={pending || (mode === "reset" && !token)}>
             {pending ? "Lütfen bekle…" : heading.button}
           </Button>

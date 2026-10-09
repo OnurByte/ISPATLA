@@ -1,0 +1,13 @@
+These font subsets are used only by server-generated social images.
+Source: Noto fonts installed on this system; SIL Open Font License 1.1 (NOTO-LICENSE.txt).
+Subsets retain font licensing and attribution records.
+
+latin: Copyright 2022 The Noto Project Authors (https://github.com/notofonts/latin-greek-cyrillic)
+arabic: Copyright 2022 The Noto Project Authors (https://github.com/notofonts/arabic)
+devanagari: Copyright 2022 The Noto Project Authors (https://github.com/notofonts/devanagari)
+bengali: Copyright 2025 The Noto Project Authors (https://github.com/notofonts/bengali)
+tamil: Copyright 2022 The Noto Project Authors (https://github.com/notofonts/tamil)
+telugu: Copyright 2022 The Noto Project Authors (https://github.com/notofonts/telugu)
+cjk: © 2014-2021 Adobe (http://www.adobe.com/).
+
+math: Copyright 2022 Google LLC. All Rights Reserved.

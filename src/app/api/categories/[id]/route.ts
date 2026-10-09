@@ -1,7 +1,8 @@
 import { withUser } from "@/server/request-auth";
 import { NextResponse } from "next/server";
-import { deleteCategory, getCategories, saveCategory, type CategoryDefinition } from "@/server/db";
+import { deleteAccountCategory, getCategories, getCategoriesForAccount, saveAccountCategory, saveCategory, type CategoryDefinition } from "@/server/db";
 import { guardMutation, readJsonBody } from "@/server/api-guard";
+import { currentOwnerId } from "@/server/owner-context";
 
 export const runtime = "nodejs";
 
@@ -17,11 +18,17 @@ async function PATCHHandler(request: Request, context: { params: Promise<{ id: s
   const denied = guardMutation(request);
   if (denied) return denied;
   const id = Number((await context.params).id);
-  const current = getCategories().find((category) => category.id === id);
+  let body: Record<string, unknown>;
+  try { body = await readJsonBody(request); } catch { return NextResponse.json({ error: "geçersiz JSON gövdesi" }, { status: 400 }); }
+  const accountId = Number(body.accountId);
+  if (!Number.isSafeInteger(accountId) || accountId < 1) return NextResponse.json({ error: "owned accountId gerekli" }, { status: 400 });
+  let current: CategoryDefinition | undefined;
+  try { current = getCategoriesForAccount(accountId).find((category) => category.id === id); } catch { return NextResponse.json({ error: "category bulunamadı" }, { status: 404 }); }
   if (!current) return NextResponse.json({ error: "category bulunamadı" }, { status: 404 });
+  const operator = Boolean(currentOwnerId() && currentOwnerId() === process.env.ISPATLA_OPERATOR_USER_ID);
+  if (current.builtIn && !operator) return NextResponse.json({ error: "hazır kategoriler salt okunur" }, { status: 403 });
   try {
-    const body = await readJsonBody(request);
-    return NextResponse.json(saveCategory({
+    const updated = {
       id,
       slug: String(body.slug ?? current.slug),
       name: String(body.name ?? current.name),
@@ -42,8 +49,11 @@ async function PATCHHandler(request: Request, context: { params: Promise<{ id: s
       scoringPolicy: object(body.scoringPolicy, current.scoringPolicy),
       publishingPolicy: object(body.publishingPolicy, current.publishingPolicy),
       aiContext: String(body.aiContext ?? current.aiContext),
+      ownerUserId: current.ownerUserId,
+      accountId: current.accountId,
       now: Math.floor(Date.now() / 1000),
-    }));
+    } as Omit<CategoryDefinition, "createdAt" | "updatedAt"> & { now: number };
+    return NextResponse.json(current.builtIn ? saveCategory(updated) : saveAccountCategory({ ...updated, accountId }));
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "category güncellenemedi" }, { status: 400 });
   }
@@ -53,14 +63,17 @@ async function DELETEHandler(request: Request, context: { params: Promise<{ id: 
   const denied = guardMutation(request);
   if (denied) return denied;
   const id = Number((await context.params).id);
+  const current = getCategories().find((category) => category.id === id);
+  if (!current) return NextResponse.json({ error: "category bulunamadı" }, { status: 404 });
+  if (current.builtIn) return NextResponse.json({ error: "hazır kategoriler silinemez" }, { status: 403 });
   try {
-    if (!deleteCategory(id)) return NextResponse.json({ error: "category bulunamadı" }, { status: 404 });
+    if (!deleteAccountCategory(id)) return NextResponse.json({ error: "category bulunamadı" }, { status: 404 });
     return NextResponse.json({ ok: true });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "category silinemedi" }, { status: 400 });
   }
 }
 
-export const PATCH = withUser(PATCHHandler, true);
+export const PATCH = withUser(PATCHHandler);
 
-export const DELETE = withUser(DELETEHandler, true);
+export const DELETE = withUser(DELETEHandler);

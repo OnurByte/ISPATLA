@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { PublicHeader, requestPublicLocale } from "@/components/public-header";
 import { localizePath } from "@/i18n/config";
 import { getDictionary } from "@/i18n/dictionaries";
+import { BrandLogo } from "@/components/brand-logo";
 
 export async function PublicPage({ title, summary, children, current }: { title: string; summary: string; children: ReactNode; current?: "docs" }) {
   const locale = await requestPublicLocale();
@@ -22,7 +23,7 @@ export async function PublicPage({ title, summary, children, current }: { title:
     </main>
     <footer className="border-t border-border">
       <div className="mx-auto flex max-w-7xl flex-wrap justify-between gap-4 px-5 py-7 text-xs text-muted-foreground sm:px-8">
-        <Link href={path("/")} className="focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring">ispatla.tr · Social AI HitMaker</Link>
+        <BrandLogo href={path("/")} ariaLabel={landing.brand} className="focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring" />
         <a href="https://github.com/OnurByte/Ispatla" target="_blank" rel="noreferrer" className="underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring">{landing.sourceCode} · AGPL-3.0-or-later</a>
       </div>
     </footer>

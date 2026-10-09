@@ -15,7 +15,7 @@ function isolated(script: string): string {
   } finally { rmSync(directory, { recursive: true, force: true }); }
 }
 
-const account = (id: number, weight: number, capabilities: string[], withVoice = true): Account => ({
+const account = (id: number, capabilities: string[], withVoice = true): Account => ({
   id, ownerUserId: "owner", accountKey: `a${id}`, handle: `a${id}`, displayName: `A${id}`,
   enabled: true, defaultAccount: false, automationMode: "manual", dailyLimit: 5,
   capabilities, styleProfile: withVoice ? { voice: { version: 1 } } : {},
@@ -28,9 +28,9 @@ const config = (accountId: number, weight: number): AccountCategoryConfig => ({
 });
 
 test("same event gets account-specific fit and format from configured history", () => {
-  const a = chooseAccountFit({ account: account(1, 1, ["post", "repost"]), category: "news", categoryConfig: config(1, 1), topicFatigue: 0, sourceFatigue: 0, budgetAvailable: true,
+  const a = chooseAccountFit({ account: account(1, ["post", "repost"]), category: "news", categoryConfig: config(1, 1), topicFatigue: 0, sourceFatigue: 0, budgetAvailable: true,
     formatEvidence: { post: { samples: 8, engagementRate: 8 }, repost: { samples: 8, engagementRate: 1 } }, capabilities: ["post", "repost"], sourceRights: "cleared", replySummoned: false, duplicate: false, now: 0, officialTimeOutcomes: [] });
-  const b = chooseAccountFit({ account: account(2, 5, ["post", "repost"]), category: "news", categoryConfig: config(2, 5), topicFatigue: 3, sourceFatigue: 4, budgetAvailable: true,
+  const b = chooseAccountFit({ account: account(2, ["post", "repost"]), category: "news", categoryConfig: config(2, 5), topicFatigue: 3, sourceFatigue: 4, budgetAvailable: true,
     formatEvidence: { post: { samples: 8, engagementRate: 1 }, repost: { samples: 8, engagementRate: 8 } }, capabilities: ["post", "repost"], sourceRights: "cleared", replySummoned: false, duplicate: false, now: 0, officialTimeOutcomes: [] });
   expect(a.format).toBe("post");
   expect(b.format).toBe("repost");
@@ -38,8 +38,18 @@ test("same event gets account-specific fit and format from configured history", 
   expect(a.confidenceBasis).toBe("configured_category_voice_and_history");
 });
 
+test("legacy ideology labels do not affect account fit", () => {
+  const make = (id: number, ideology: string): Account => ({
+    ...account(id, ["post"]),
+    styleProfile: { voice: { version: 1 }, ideology },
+  });
+  const input = (value: Account) => chooseAccountFit({ account: value, category: "news", categoryConfig: config(value.id, 3), topicFatigue: 1, sourceFatigue: 2, budgetAvailable: true,
+    formatEvidence: { post: { samples: 7, engagementRate: 4 } }, capabilities: ["post"], sourceRights: "unknown", replySummoned: false, duplicate: false, now: 0, officialTimeOutcomes: null });
+  expect(input(make(11, "secular"))).toEqual(input(make(12, "islamist")));
+});
+
 test("reply needs official summon and quote stays denied; unknown risk never grants publish consent", () => {
-  const result = chooseAccountFit({ account: account(3, 3, ["post", "reply", "quote"]), category: "news", categoryConfig: config(3, 3), topicFatigue: 0, sourceFatigue: null, budgetAvailable: true,
+  const result = chooseAccountFit({ account: account(3, ["post", "reply", "quote"]), category: "news", categoryConfig: config(3, 3), topicFatigue: 0, sourceFatigue: null, budgetAvailable: true,
     formatEvidence: { reply: { samples: 9, engagementRate: 99 } }, capabilities: ["post", "reply", "quote"], sourceRights: "unknown", replySummoned: false, duplicate: false, now: 0, officialTimeOutcomes: null });
   expect(result.format).toBe("post");
   expect(result.blocked.reply).toBe("official_reply_summon_missing");
@@ -49,7 +59,7 @@ test("reply needs official summon and quote stays denied; unknown risk never gra
 });
 
 test("published cluster blocks post and repost suggestions", () => {
-  const result = chooseAccountFit({ account: account(4, 3, ["post", "repost"]), category: "news", categoryConfig: config(4, 3), topicFatigue: 1, sourceFatigue: 1, budgetAvailable: true,
+  const result = chooseAccountFit({ account: account(4, ["post", "repost"]), category: "news", categoryConfig: config(4, 3), topicFatigue: 1, sourceFatigue: 1, budgetAvailable: true,
     formatEvidence: { repost: { samples: 12, engagementRate: 99 } }, capabilities: ["post", "repost"], sourceRights: "cleared", replySummoned: false, duplicate: true, now: 0, officialTimeOutcomes: null });
   expect(result.format).toBe(null);
   expect(result.blocked.post).toBe("duplicate_or_cluster_already_published");
@@ -57,7 +67,7 @@ test("published cluster blocks post and repost suggestions", () => {
 });
 
 test("exhausted daily budget suppresses every format suggestion", () => {
-  const result = chooseAccountFit({ account: account(5, 3, ["post", "repost", "reply"]), category: "news", categoryConfig: config(5, 3), topicFatigue: 0, sourceFatigue: 0, budgetAvailable: false,
+  const result = chooseAccountFit({ account: account(5, ["post", "repost", "reply"]), category: "news", categoryConfig: config(5, 3), topicFatigue: 0, sourceFatigue: 0, budgetAvailable: false,
     formatEvidence: { post: { samples: 10, engagementRate: 99 } }, capabilities: ["post", "repost", "reply"], sourceRights: "cleared", replySummoned: true, duplicate: false, now: 0, officialTimeOutcomes: null });
   expect(result.format).toBe(null);
   expect(result.blocked.post).toBe("daily_budget_exhausted");
@@ -72,7 +82,7 @@ test("quiet window wraps midnight and obeys both exact boundaries", () => {
   expect(isQuietHour(22 * 60, window!)).toBe(true);
   expect(isQuietHour(5 * 60 + 59, window!)).toBe(true);
   expect(isQuietHour(6 * 60, window!)).toBe(false);
-  const invalidClock = chooseAccountFit({ account: { ...account(9, 3, ["post"]), styleProfile: { postingSchedule: { quietHours: { start: "22:00", end: "06:00", timeZone: "UTC" } } } },
+  const invalidClock = chooseAccountFit({ account: { ...account(9, ["post"]), styleProfile: { postingSchedule: { quietHours: { start: "22:00", end: "06:00", timeZone: "UTC" } } } },
     category: "news", categoryConfig: config(9, 3), topicFatigue: 0, sourceFatigue: 0, budgetAvailable: true,
     formatEvidence: {}, capabilities: ["post"], sourceRights: "unknown", replySummoned: false, duplicate: false, now: Number.NaN, officialTimeOutcomes: null });
   expect(invalidClock.timing.eligibility).toBe("quiet_hours_invalid");
@@ -80,14 +90,14 @@ test("quiet window wraps midnight and obeys both exact boundaries", () => {
 });
 
 test("invalid configured quiet hours fail closed while missing configuration and outcomes stay unknown", () => {
-  const malformed = chooseAccountFit({ account: { ...account(6, 3, ["post"]), styleProfile: { postingSchedule: { quietHours: { start: "25:00", end: "06:00", timeZone: "No/Such_Zone" } } } },
+  const malformed = chooseAccountFit({ account: { ...account(6, ["post"]), styleProfile: { postingSchedule: { quietHours: { start: "25:00", end: "06:00", timeZone: "No/Such_Zone" } } } },
     category: "news", categoryConfig: config(6, 3), topicFatigue: null, sourceFatigue: null, budgetAvailable: true,
     formatEvidence: {}, capabilities: ["post"], sourceRights: "unknown", replySummoned: false, duplicate: false, now: 1_791_446_400, officialTimeOutcomes: null });
   expect(malformed.timing.eligibility).toBe("quiet_hours_invalid");
   expect(malformed.timing.publishWindowOpen).toBe(false);
   expect(malformed.timing.recommendedLocalHour).toBeNull();
   expect(malformed.timing.bestTimeReason).toBe("official_outcome_history_unavailable");
-  const missing = chooseAccountFit({ account: account(7, 3, ["post"]), category: "news", categoryConfig: config(7, 3), topicFatigue: null, sourceFatigue: null, budgetAvailable: true,
+  const missing = chooseAccountFit({ account: account(7, ["post"]), category: "news", categoryConfig: config(7, 3), topicFatigue: null, sourceFatigue: null, budgetAvailable: true,
     formatEvidence: {}, capabilities: ["post"], sourceRights: "unknown", replySummoned: false, duplicate: false, now: 0, officialTimeOutcomes: null });
   expect(missing.timing.eligibility).toBe("quiet_hours_unconfigured");
   expect(missing.timing.publishWindowOpen).toBeNull();
@@ -95,7 +105,7 @@ test("invalid configured quiet hours fail closed while missing configuration and
 });
 
 test("best local hour needs five official non-null-view outcomes and excludes quiet hours", () => {
-  const accountWithSchedule = { ...account(8, 3, ["post"]), styleProfile: { postingSchedule: { quietHours: { start: "22:00", end: "06:00", timeZone: "UTC" } } } };
+  const accountWithSchedule = { ...account(8, ["post"]), styleProfile: { postingSchedule: { quietHours: { start: "22:00", end: "06:00", timeZone: "UTC" } } } };
   const publishedAt = (hour: number, day: number) => Math.floor(Date.UTC(2026, 0, day, hour) / 1000);
   const outcomes: { publishedAt: number; views: number | null }[] = [
     ...[1, 2, 3, 4, 5].map((day) => ({ publishedAt: publishedAt(13, day), views: 100 + day })),

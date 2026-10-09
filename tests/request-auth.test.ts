@@ -29,7 +29,7 @@ test("HTTP routes isolate two authenticated users and reject invalid authority",
         });
         const context = (id) => ({ params: Promise.resolve({ id: String(id) }) });
 
-        const [authRoute, accounts, accountById, drafts, draftById, draftQueue, jobs, jobById, publications, publicationById, scan] = await Promise.all([
+        const [authRoute, accounts, accountById, drafts, draftById, draftQueue, jobs, jobById, publications, publicationById, scan, automation, categories, categoryById] = await Promise.all([
           import("./src/app/api/auth/[...all]/route.ts"),
           import("./src/app/api/accounts/route.ts"),
           import("./src/app/api/accounts/[id]/route.ts"),
@@ -41,6 +41,9 @@ test("HTTP routes isolate two authenticated users and reject invalid authority",
           import("./src/app/api/publications/route.ts"),
           import("./src/app/api/publications/[id]/route.ts"),
           import("./src/app/api/scan/route.ts"),
+          import("./src/app/api/settings/automation/route.ts"),
+          import("./src/app/api/categories/route.ts"),
+          import("./src/app/api/categories/[id]/route.ts"),
         ]);
         const db = await import("./src/server/db.ts");
         const { runAsOwner } = await import("./src/server/owner-context.ts");
@@ -70,6 +73,28 @@ test("HTTP routes isolate two authenticated users and reject invalid authority",
         const { connectXAccount } = await import("./src/server/x-oauth-store.ts");
         const linkedAccount = connectXAccount({ownerUserId:a.id,xUserId:"101010",handle:"alice",displayName:"Alice",accessToken:"fixture-access",refreshToken:"fixture-refresh",expiresAt:9999999999,scopes:["tweet.read","tweet.write","users.read","media.write","offline.access"]});
         const account=runAsOwner(a.id,()=>db.getAccounts().find(row=>row.id===linkedAccount.accountId));
+        const categoryCreate = await categories.POST(apiRequest("/categories", "POST", { cookie: a.cookie, body: { accountId: account.id, slug: "bitcoin", name: "Bitcoin", description: "Bitcoin konu takibi", keywords: ["bitcoin"] } }));
+        assert.equal(categoryCreate.status, 201, await categoryCreate.clone().text());
+        const customCategory = await json(categoryCreate);
+        assert.equal(customCategory.ownerUserId, a.id);
+        assert.equal(customCategory.accountId, account.id);
+        const visibleCategories = await categories.GET(apiRequest("/categories?accountId=" + account.id, "GET", { cookie: a.cookie })).then(json);
+        assert.ok(visibleCategories.some((item) => item.id === customCategory.id));
+        const builtInCategory = visibleCategories.find((item) => item.builtIn);
+        const builtInEdit = await categoryById.PATCH(apiRequest("/categories/" + builtInCategory.id, "PATCH", { cookie: a.cookie, body: { accountId: account.id, name: "tampered" } }), context(builtInCategory.id));
+        assert.equal(builtInEdit.status, 403);
+        const foreignCategories = await categories.GET(apiRequest("/categories?accountId=" + account.id, "GET", { cookie: b.cookie }));
+        assert.equal(foreignCategories.status, 404);
+        const forgedCreate = await categories.POST(apiRequest("/categories", "POST", { cookie: b.cookie, body: { accountId: account.id, slug: "forged", name: "Forged", description: "No access", keywords: ["forged"] } }));
+        assert.equal(forgedCreate.status, 400);
+        const foreignPatch = await categoryById.PATCH(apiRequest("/categories/" + customCategory.id, "PATCH", { cookie: b.cookie, body: { accountId: account.id, name: "intruded" } }), context(customCategory.id));
+        assert.equal(foreignPatch.status, 404);
+        const ownerPatch = await categoryById.PATCH(apiRequest("/categories/" + customCategory.id, "PATCH", { cookie: a.cookie, body: { accountId: account.id, name: "Bitcoin tools" } }), context(customCategory.id));
+        assert.equal(ownerPatch.status, 200, await ownerPatch.clone().text());
+        const foreignDelete = await categoryById.DELETE(apiRequest("/categories/" + customCategory.id, "DELETE", { cookie: b.cookie }), context(customCategory.id));
+        assert.equal(foreignDelete.status, 404);
+        const ownerDelete = await categoryById.DELETE(apiRequest("/categories/" + customCategory.id, "DELETE", { cookie: a.cookie }), context(customCategory.id));
+        assert.equal(ownerDelete.status, 200);
 
         const draftResponse = await drafts.POST(apiRequest("/drafts", "POST", { cookie: a.cookie, body: { externalId: "", format: "post", text: "A private draft" } }));
         assert.equal(draftResponse.status, 201, await draftResponse.clone().text());
@@ -82,6 +107,16 @@ test("HTTP routes isolate two authenticated users and reject invalid authority",
           const jobDraft = db.createDraft({ externalId: "", accountId: account.id, format: "repost", text: "repost action", sourceUrl: "https://x.com/source/status/1", now: 1 });
           return { job: db.createJob({ draftId: jobDraft.id, accountId: account.id, action: "repost", scheduledAt: 2, now: 1 }), jobDraftId: jobDraft.id };
         });
+
+        const automationA = await automation.GET(apiRequest("/settings/automation", "GET", { cookie: a.cookie })).then(json);
+        const automationB = await automation.GET(apiRequest("/settings/automation", "GET", { cookie: b.cookie })).then(json);
+        assert.equal(automationA.operator, false);
+        assert.deepEqual(automationA.accountAutomation.map((item) => item.handle), ["alice"]);
+        assert.deepEqual(automationB.accountAutomation, []);
+        assert.deepEqual(automationA.schedules, []);
+        assert.deepEqual(automationA.logs, []);
+        const automationMutation = await automation.POST(apiRequest("/settings/automation", "POST", { cookie: a.cookie, body: { paused: true } }));
+        assert.equal(automationMutation.status, 403);
 
         const [aAccounts, bAccounts, aDrafts, bDrafts, aJobs, bJobs, aIntents, bIntents] = await Promise.all([
           accounts.GET(apiRequest("/accounts", "GET", { cookie: a.cookie })).then(json),

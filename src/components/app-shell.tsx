@@ -5,28 +5,18 @@ import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import {
   BarChart3,
-  Bot,
   FileKey2,
   Gauge,
-  Inbox,
-  KeyRound,
-  ListFilter,
-  Tags,
   Settings2,
   Sparkles,
   Users,
-  Search,
   LogOut,
-  ShieldCheck,
-  UserRound,
-  Palette,
   Trophy,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { ModeToggle } from "@/components/mode-toggle";
 import { BrandLogo } from "@/components/brand-logo";
-import { LocaleSwitcher } from "@/i18n/locale-switcher";
+import { SidebarSearch } from "@/components/sidebar-search";
 import { DEFAULT_LOCALE, localeFromPath, localizePath, stripLocalePrefix, type Locale } from "@/i18n/config";
 import { getDictionary } from "@/i18n/dictionaries";
 import {
@@ -52,7 +42,7 @@ function isActive(pathname: string, href: string) {
   return href === "/app" ? pathname === href : pathname === href || pathname.startsWith(`${href}/`);
 }
 
-function SignOutButton({ locale }: { locale: Locale }) {
+export function SignOutButton({ locale }: { locale: Locale }) {
   const dict = getDictionary(locale);
   const router = useRouter();
   const [pending, setPending] = useState(false);
@@ -62,7 +52,7 @@ function SignOutButton({ locale }: { locale: Locale }) {
     setPending(true);
     setError("");
     try {
-      const response = await fetch("/api/auth/sign-out", { method: "POST", credentials: "same-origin" });
+      const response = await fetch("/api/auth/sign-out", { method: "POST", credentials: "same-origin", headers: { "content-type": "application/json" }, body: "{}" });
       if (!response.ok) throw new Error(dict.nav.signOutError);
       router.replace(localizePath(locale, "/"));
       router.refresh();
@@ -92,9 +82,10 @@ function NavGroup({ title, items, pathname }: { title: string; items: NavItem[];
               <SidebarMenuButton
                 isActive={isActive(stripLocalePrefix(pathname), stripLocalePrefix(href))}
                 tooltip={label}
+                className="group/nav-item"
                 render={<Link href={href} />}
               >
-                <Icon aria-hidden="true" />
+                <Icon aria-hidden="true" className="transition-transform duration-150 group-hover/nav-item:-translate-y-0.5 group-active/nav-item:scale-95 motion-reduce:transition-none" />
                 <span>{label}</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
@@ -110,29 +101,22 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const locale = localeFromPath(pathname) ?? DEFAULT_LOCALE;
   const dict = getDictionary(locale);
   const routePathname = stripLocalePrefix(pathname);
+  const contentTabs = [{ href: "/app/drafts", label: dict.nav.drafts }, { href: "/app/queue", label: dict.nav.queue }];
+  const accountTabs = [{ href: "/app/accounts", label: dict.nav.accounts }, { href: "/app/sources", label: dict.nav.sources }, { href: "/app/categories", label: dict.nav.categories }];
+  const insightTabs = [{ href: "/app/analytics", label: dict.nav.analytics }, { href: "/app/evaluation", label: dict.nav.evaluation }];
+  const contextualTabs = [contentTabs, accountTabs, insightTabs].find((tabs) => tabs.some((tab) => isActive(routePathname, tab.href)));
+  const navPathname = contextualTabs?.[0].href || routePathname;
   const primaryNav: NavItem[] = [
     { href: "/app", label: dict.nav.dashboard, icon: Gauge },
     { href: "/app/opportunities", label: dict.nav.opportunities, icon: Sparkles },
     { href: "/app/drafts", label: dict.nav.drafts, icon: FileKey2 },
-    { href: "/app/queue", label: dict.nav.queue, icon: Inbox },
     { href: "/leaderboard", label: dict.nav.leaderboard, icon: Trophy },
   ];
   const operationsNav: NavItem[] = [
     { href: "/app/accounts", label: dict.nav.accounts, icon: Users },
-    { href: "/app/developer/x", label: dict.nav.timeline, icon: Search },
-    { href: "/app/sources", label: dict.nav.sources, icon: ListFilter },
-    { href: "/app/categories", label: dict.nav.categories, icon: Tags },
     { href: "/app/analytics", label: dict.nav.analytics, icon: BarChart3 },
-    { href: "/app/evaluation", label: dict.nav.evaluation, icon: ListFilter },
   ];
-  const settingsNav: NavItem[] = [
-    { href: "/app/settings/keys", label: dict.nav.keys, icon: KeyRound },
-    { href: "/app/settings/automation", label: dict.nav.automation, icon: Bot },
-    { href: "/app/settings/style", label: dict.nav.style, icon: Settings2 },
-    { href: "/app/settings/profile", label: dict.nav.profile, icon: UserRound },
-    { href: "/app/settings/security", label: dict.nav.security, icon: ShieldCheck },
-    { href: "/app/settings/appearance", label: dict.nav.appearance, icon: Palette },
-  ];
+  const settingsNav: NavItem[] = [{ href: "/app/settings", label: dict.nav.settings, icon: Settings2 }];
   const localized = (items: NavItem[]) => items.map((item) => ({ ...item, href: localizePath(locale, item.href) }));
 
   return (
@@ -141,25 +125,23 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <SidebarHeader className="gap-3 p-4">
           <div dir="ltr" className="flex items-center gap-3">
             <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-              <BrandLogo />
+              <BrandLogo href={localizePath(locale, "/")} />
               <span dir="auto" className="truncate text-xs text-sidebar-foreground/60">{dict.nav.shellDescription}</span>
             </div>
-            <ModeToggle />
           </div>
-          <LocaleSwitcher locale={locale} className="px-1" />
         </SidebarHeader>
 
         <SidebarContent>
-          <NavGroup title={dict.nav.primary} items={localized(primaryNav)} pathname={routePathname} />
-          <NavGroup title={dict.nav.operations} items={localized(operationsNav)} pathname={routePathname} />
+          <SidebarSearch locale={locale} />
+          <NavGroup title={dict.nav.primary} items={localized(primaryNav)} pathname={navPathname} />
+          <NavGroup title={dict.nav.operations} items={localized(operationsNav)} pathname={navPathname} />
         </SidebarContent>
 
         <SidebarFooter className="gap-3 p-3">
           <SidebarSeparator />
           <NavGroup title={dict.nav.settings} items={localized(settingsNav)} pathname={routePathname} />
-          <SignOutButton locale={locale} />
           <p className="px-2 pb-1 text-xs leading-5 text-sidebar-foreground/50">
-            Kaynak → fırsat → draft → resmi X API → doğrulama
+            Kaynak → fırsat → draft → resmi 𝕏 API → doğrulama
           </p>
         </SidebarFooter>
       </Sidebar>
@@ -167,8 +149,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <SidebarInset>
         <header className="sticky top-0 z-20 flex h-12 items-center gap-2 border-b bg-background/90 px-4 backdrop-blur md:hidden">
           <SidebarTrigger aria-label={dict.nav.menuOpen} />
-          <BrandLogo />
+          <BrandLogo href={localizePath(locale, "/")} />
         </header>
+        {contextualTabs && <nav aria-label={contextualTabs[0].label} className="flex flex-wrap gap-1 border-b px-4 py-2 sm:px-6">{contextualTabs.map(({ href, label }) => <Link key={href} href={localizePath(locale, href)} aria-current={isActive(routePathname, href) ? "page" : undefined} className={`rounded-md px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-ring ${isActive(routePathname, href) ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-accent"}`}>{label}</Link>)}</nav>}
         {children}
       </SidebarInset>
     </SidebarProvider>

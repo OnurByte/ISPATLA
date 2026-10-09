@@ -49,7 +49,7 @@ function validateAiRoute(value: unknown): void {
   for (const [key, item] of Object.entries(value)) {
     if (!AI_ROUTE_FIELDS.has(key)) invalid(`aiRoute.${key} desteklenmiyor.`);
     if (key.endsWith("Provider")) {
-      if (item !== "api" && item !== "compatible" && item !== "codex") invalid(`${key} geçersiz.`);
+      if (item !== "api" && item !== "compatible" && item !== "codex" && item !== "anthropic" && item !== "chatgpt") invalid(`${key} geçersiz.`);
     } else if (typeof item !== "string" || item.length > 160 || /\s/u.test(item)) invalid(`${key} geçersiz.`);
   }
 }

@@ -2,15 +2,18 @@
 
 The public surface explains the product; `/app` shows operational evidence.
 Provider status, empty/live work and receipts never become marketing statistics.
+The Signal Press landing and shared paper/carbon/cobalt theme are implemented; [LANDING_DESIGN_SYSTEM.md](LANDING_DESIGN_SYSTEM.md) records
+the approved target direction and [SIGNAL_PRESS_STATUS.md](SIGNAL_PRESS_STATUS.md)
+tracks proof by phase.
 
-## Tokens and geometry
+## Current tokens and geometry
 
 Use the existing neutral background/foreground/muted/border tokens in globals.css.
 Public accents are cobalt: blue-600 for actions, blue-700 for light-background
 emphasis, blue-300 for dark-background emphasis. The creator card uses blue-950
 with white/blue-100 text. Color supplements a status label rather than replacing it.
 
-Headlines use the system/Geist sans stack with tight tracking. Dense record IDs
+Editorial headings use Georgia; the original brand symbol and wordmark font remain unchanged. Interface text uses the existing sans stack. Dense record IDs
 and code use the existing monospace stack. Public content width is 72–80rem;
 text paragraphs are bounded at 46rem. Horizontal page padding is 20px, rising to
 32px. Action targets are at least 44px tall. Navigation wraps at narrow widths.

@@ -1,12 +1,22 @@
 import { withUser } from "@/server/request-auth";
 import { NextResponse } from "next/server";
-import { AUTOMATION_TASK_IDS, getAutomationLogs, getAutomationSchedules, getSetting, saveAutomationSchedule, setSetting } from "@/server/db";
+import { AUTOMATION_TASK_IDS, getAccounts, getAutomationLogs, getAutomationSchedules, saveAutomationSchedule, setSetting } from "@/server/db";
 import { guardMutation, readJsonBody } from "@/server/api-guard";
+import { getAutomationRuntime } from "@/server/dashboard";
+import { currentOwnerId } from "@/server/owner-context";
+import { getXAccountAuthState } from "@/server/x-oauth-store";
 
 export const runtime = "nodejs";
 
 function GETHandler() {
-  return NextResponse.json({ paused: getSetting("automation_paused", "0") === "1", schedules: getAutomationSchedules(), logs: getAutomationLogs(100) });
+  const owner = currentOwnerId();
+  const operator = Boolean(owner && owner === process.env.ISPATLA_OPERATOR_USER_ID);
+  const accountAutomation = getAccounts().filter((account) => account.ownerUserId === owner).map((account) => {
+    const state = getXAccountAuthState(account.id, owner!);
+    return { accountId: account.id, handle: account.handle, displayName: account.displayName, enabled: account.enabled, connected: Boolean(state?.connected), postMode: state?.consents.find((consent) => consent.action === "post")?.mode || "off" };
+  });
+  return NextResponse.json({ runtime: getAutomationRuntime(), operator, accountAutomation,
+    schedules: operator ? getAutomationSchedules() : [], logs: operator ? getAutomationLogs(100) : [] }, { headers: { "Cache-Control": "no-store" } });
 }
 
 async function POSTHandler(request: Request) {
@@ -33,6 +43,6 @@ async function POSTHandler(request: Request) {
   return NextResponse.json({ paused });
 }
 
-export const GET = withUser(GETHandler, true);
+export const GET = withUser(GETHandler);
 
 export const POST = withUser(POSTHandler, true);

@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { BadgeCheck, Pin, Plus, RotateCcw, RotateCw, ScanSearch, Save, Trash2, UserRoundCheck } from "lucide-react";
 import type { DeletedSource, SourceConfig } from "@/server/db";
+import type { AccountCategoryConfig, SourceCategoryConfig } from "@/server/db";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   AlertDialog,
@@ -32,12 +33,10 @@ type SourceDraft = Pick<SourceConfig, "handle" | "name" | "enabled" | "maxPosts"
   niche: string;
   topics: string;
   tone: string;
-  ideology: string;
-  ideologyTags: string;
 };
 
 function blankSource(): SourceDraft {
-  return { handle: "", name: "", enabled: true, maxPosts: 20, rightsStatus: "unknown", pinned: true, niche: "", topics: "", tone: "", ideology: "belirsiz", ideologyTags: "" };
+  return { handle: "", name: "", enabled: true, maxPosts: 20, rightsStatus: "unknown", pinned: true, niche: "", topics: "", tone: "" };
 }
 
 function draftFrom(source: SourceConfig): SourceDraft {
@@ -51,8 +50,6 @@ function draftFrom(source: SourceConfig): SourceDraft {
     niche: source.profile.niche || "",
     topics: (source.profile.topics || []).join(", "),
     tone: source.profile.tone || "",
-    ideology: source.profile.ideology || "belirsiz",
-    ideologyTags: (source.profile.ideologyTags || []).join(", "),
   };
 }
 
@@ -68,13 +65,17 @@ function verificationClass(status: SourceConfig["profile"]["blueCheckStatus"]): 
   return status === "blue" ? "text-primary" : status === "organization" ? "text-amber-600" : status === "government" ? "text-indigo-600" : "text-muted-foreground";
 }
 
-type IdeologyOption = { id: string; name: { en: string; tr: string } };
+type SourceAccount = { id: number; handle: string; displayName: string };
 
-export function SourcesPage({ initial, initialDeleted, initialWarnings, ideologies }: { initial: SourceConfig[]; initialDeleted: DeletedSource[]; initialWarnings: DeletedSource[]; ideologies: IdeologyOption[] }) {
+export function SourcesPage({ accounts, initial, initialAvailable, initialDeleted, initialWarnings }: { accounts: SourceAccount[]; initial: SourceConfig[]; initialAvailable: SourceConfig[]; initialDeleted: DeletedSource[]; initialWarnings: DeletedSource[] }) {
   const [sources, setSources] = useState(initial);
+  const [available, setAvailable] = useState(initialAvailable);
+  const [accountId, setAccountId] = useState(accounts[0]?.id || 0);
+  const [sourceToAdd, setSourceToAdd] = useState("");
+  const [accountCategories, setAccountCategories] = useState<AccountCategoryConfig[]>([]);
+  const [sourceCategoryIds, setSourceCategoryIds] = useState<number[]>([]);
   const [deleted, setDeleted] = useState<DeletedSource[]>(initialDeleted);
   const [warnings, setWarnings] = useState<DeletedSource[]>(initialWarnings);
-  const [ideologyFilter, setIdeologyFilter] = useState("all");
   const firstSource = initial.find((source) => source.profile.status !== "candidate") || initial[0];
   const [draft, setDraft] = useState<SourceDraft>(firstSource ? draftFrom(firstSource) : blankSource());
   const [message, setMessage] = useState("");
@@ -83,12 +84,58 @@ export function SourcesPage({ initial, initialDeleted, initialWarnings, ideologi
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [resetOpen, setResetOpen] = useState(false);
 
-  async function reload() {
-    const next = await fetch("/api/sources", { cache: "no-store" }).then((response) => response.json() as Promise<SourceConfig[]>);
+  useEffect(() => {
+    if (!accountId) return;
+    let current = true;
+    Promise.all([
+      fetch(`/api/accounts/${accountId}/categories`, { cache: "no-store" }).then((response) => response.json() as Promise<AccountCategoryConfig[]>),
+      draft.handle ? fetch(`/api/sources/${draft.handle}/categories?accountId=${accountId}`, { cache: "no-store" }).then((response) => response.json() as Promise<SourceCategoryConfig[]>) : Promise.resolve([]),
+    ]).then(([categories, mappings]) => {
+      if (!current) return;
+      setAccountCategories(categories.filter((category) => category.enabled));
+      setSourceCategoryIds(mappings.filter((mapping) => mapping.enabled).map((mapping) => mapping.categoryId));
+    }).catch(() => {
+      if (current) { setAccountCategories([]); setSourceCategoryIds([]); }
+    });
+    return () => { current = false; };
+  }, [accountId, draft.handle]);
+
+  async function reload(forAccountId = accountId) {
+    if (!forAccountId) return [];
+    const query = `accountId=${forAccountId}`;
+    const [next, nextAvailable, nextDeleted, nextWarnings] = await Promise.all([
+      fetch(`/api/sources?${query}`, { cache: "no-store" }).then((response) => response.json() as Promise<SourceConfig[]>),
+      fetch(`/api/sources?${query}&view=available`, { cache: "no-store" }).then((response) => response.json() as Promise<SourceConfig[]>),
+      fetch(`/api/sources?${query}&view=deleted`, { cache: "no-store" }).then((response) => response.json() as Promise<DeletedSource[]>),
+      fetch(`/api/sources?${query}&view=warnings`, { cache: "no-store" }).then((response) => response.json() as Promise<DeletedSource[]>),
+    ]);
     setSources(next);
-    setDeleted(await fetch("/api/sources?view=deleted", { cache: "no-store" }).then((response) => response.json() as Promise<DeletedSource[]>));
-    setWarnings(await fetch("/api/sources?view=warnings", { cache: "no-store" }).then((response) => response.json() as Promise<DeletedSource[]>));
+    setAvailable(nextAvailable);
+    setDeleted(nextDeleted);
+    setWarnings(nextWarnings);
     return next;
+  }
+
+  async function switchAccount(nextAccountId: string | null) {
+    const id = Number(nextAccountId);
+    if (!accounts.some((account) => account.id === id)) return;
+    setAccountId(id);
+    setDraft(blankSource());
+    await reload(id);
+  }
+
+  async function addSource() {
+    if (!accountId || !sourceToAdd) return;
+    setPending(true);
+    const response = await fetch("/api/sources", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "select", accountId, handle: sourceToAdd }) });
+    const body = await response.json().catch(() => ({}));
+    setPending(false);
+    if (!response.ok) return setMessage(body.error || "Kaynak hesaba eklenemedi.");
+    const next = await reload();
+    const source = next.find((item) => item.handle === sourceToAdd);
+    if (source) setDraft(draftFrom(source));
+    setSourceToAdd("");
+    setMessage("Kaynak bu yayın hesabına eklendi.");
   }
 
   async function save() {
@@ -97,27 +144,38 @@ export function SourcesPage({ initial, initialDeleted, initialWarnings, ideologi
     const response = await fetch(editing ? `/api/sources/${draft.handle}` : "/api/sources", {
       method: editing ? "PATCH" : "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify(draft),
+      body: JSON.stringify({ ...draft, accountId }),
     });
     const body = await response.json().catch(() => ({}));
     setPending(false);
     if (!response.ok) return setMessage(body.error || "Kaynak kaydedilemedi.");
+    if (draft.handle && !(await saveSourceCategories(draft.handle))) return setMessage("Kaynak kaydedildi ancak kategori eşleşmeleri kaydedilemedi.");
     const next = await reload();
     const saved = next.find((source) => source.handle === draft.handle);
     if (saved) setDraft(draftFrom(saved));
     setMessage("Kaynak kaydedildi.");
   }
 
+  async function saveSourceCategories(handle: string) {
+    const url = `/api/sources/${handle}/categories?accountId=${accountId}`;
+    const existing = await fetch(url, { cache: "no-store" }).then((response) => response.json() as Promise<SourceCategoryConfig[]>);
+    const results = await Promise.all([
+      ...existing.filter((mapping) => !sourceCategoryIds.includes(mapping.categoryId)).map((mapping) => fetch(`${url}&categoryId=${mapping.categoryId}`, { method: "DELETE" })),
+      ...sourceCategoryIds.filter((id) => !existing.some((mapping) => mapping.categoryId === id)).map((categoryId) => fetch(url, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ accountId, categoryId, enabled: true, monitoringTier: "C", discoveryWeight: 1, categoryReputation: null, lastEvidenceAt: Math.floor(Date.now() / 1000) }) })),
+    ]);
+    return results.every((response) => response.ok);
+  }
+
   async function remove() {
     if (!draft.handle) return;
     setPending(true);
-    const response = await fetch(`/api/sources/${draft.handle}`, { method: "DELETE" });
+    const response = await fetch(`/api/sources/${draft.handle}?accountId=${accountId}`, { method: "DELETE" });
     setPending(false);
     setDeleteOpen(false);
     if (!response.ok) return setMessage("Kaynak silinemedi.");
     await reload();
     setDraft(blankSource());
-    setMessage("Kaynak silindi; yedi gün yeniden keşfedilmeyecek.");
+    setMessage("Kaynak bu yayın hesabından kaldırıldı.");
   }
 
   async function scanSources() {
@@ -132,7 +190,7 @@ export function SourcesPage({ initial, initialDeleted, initialWarnings, ideologi
 
   async function checkLiveness() {
     setScanning(true);
-    const response = await fetch("/api/sources", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "check_liveness" }) });
+    const response = await fetch("/api/sources", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "check_liveness", accountId }) });
     const body = await response.json().catch(() => ({}));
     setScanning(false);
     if (!response.ok) return setMessage(body.error || "Toplu hesap kontrolü çalışmadı.");
@@ -142,7 +200,7 @@ export function SourcesPage({ initial, initialDeleted, initialWarnings, ideologi
 
   async function recoverTechnical() {
     setScanning(true);
-    const response = await fetch("/api/sources", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "recover_technical" }) });
+    const response = await fetch("/api/sources", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "recover_technical", accountId }) });
     const body = await response.json().catch(() => ({}));
     setScanning(false);
     if (!response.ok) return setMessage(body.error || "Teknik kaynak kurtarma çalışmadı.");
@@ -153,13 +211,13 @@ export function SourcesPage({ initial, initialDeleted, initialWarnings, ideologi
   async function resetSources() {
     setPending(true);
     try {
-      const response = await fetch("/api/sources", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "reset" }) });
+      const response = await fetch("/api/sources", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "reset", accountId }) });
       const body = await response.json().catch(() => ({}));
       if (!response.ok) return setMessage(body.error || "Kaynak havuzu sıfırlanamadı.");
       const next = await reload();
       const first = next.find((source) => source.profile.status !== "candidate") || next[0];
       setDraft(first ? draftFrom(first) : blankSource());
-      setMessage("Kaynak havuzu varsayılanlara döndürüldü.");
+      setMessage("Bu yayın hesabının kaynak seçimi temizlendi.");
       setResetOpen(false);
     } catch {
       setMessage("Kaynak havuzu sıfırlanamadı. Bağlantıyı kontrol edip yeniden deneyin.");
@@ -170,23 +228,20 @@ export function SourcesPage({ initial, initialDeleted, initialWarnings, ideologi
 
   const active = sources.filter((source) => source.profile.status !== "candidate");
   const candidates = sources.filter((source) => source.profile.status === "candidate");
-  const ideologyOptions = ["all", "belirsiz", ...ideologies.map((ideology) => ideology.id)];
-  const ideologyName = (id: string) => ideologies.find((ideology) => ideology.id === id)?.name.tr || ideologies.find((ideology) => ideology.id === id)?.name.en || id;
 
   function sourceList(items: SourceConfig[]) {
-    const filtered = ideologyFilter === "all" ? items : items.filter((source) => source.profile.ideology === ideologyFilter || source.profile.ideologyTags?.some((tag) => tag === ideologyFilter));
-    if (filtered.length === 0) {
+    if (items.length === 0) {
       return (
         <Empty className="border border-dashed py-8">
           <EmptyHeader>
             <EmptyTitle>Bu bölüm boş</EmptyTitle>
           <EmptyDescription>Kaynak havuzuna yalnız başlangıçtaki AI hesapları ve elle eklediklerin girer.</EmptyDescription>
         </EmptyHeader>
-          <EmptyContent><Button variant="outline" onClick={() => setDraft(blankSource())}><Plus data-icon="inline-start" aria-hidden="true" /> X hesabı ekle</Button></EmptyContent>
+          <EmptyContent><Button variant="outline" onClick={() => setDraft(blankSource())}><Plus data-icon="inline-start" aria-hidden="true" /> 𝕏 hesabı ekle</Button></EmptyContent>
         </Empty>
       );
     }
-    return filtered.map((source) => {
+    return items.map((source) => {
       const selected = draft.handle === source.handle;
       const identityValid = source.profile.identityHandle === source.handle;
       const score = Number(source.profile.sourceScore || 0);
@@ -214,7 +269,6 @@ export function SourcesPage({ initial, initialDeleted, initialWarnings, ideologi
           </div>
           <span className="flex flex-col items-end gap-1">
             <Badge variant={score >= 70 ? "default" : "outline"}>{score || "—"}</Badge>
-            <Badge variant={source.profile.ideology && source.profile.ideology !== "belirsiz" ? "secondary" : "outline"}>{source.profile.ideology || "belirsiz"}</Badge>
             <Badge variant={source.enabled ? "secondary" : "outline"}>{source.profile.status || (source.enabled ? "active" : "kapalı")}</Badge>
           </span>
         </Button>
@@ -237,31 +291,30 @@ export function SourcesPage({ initial, initialDeleted, initialWarnings, ideologi
   );
 
   return (
-    <div className="grid gap-5 xl:grid-cols-[minmax(320px,0.9fr)_minmax(0,1.1fr)]">
+    <div className="space-y-5">
+      {accounts.length ? <div className="flex flex-wrap items-end gap-3 rounded-lg border p-4">
+        <div className="min-w-64 flex-1"><FieldLabel htmlFor="sources-account">Yayın hesabı</FieldLabel><Select value={String(accountId)} onValueChange={switchAccount}><SelectTrigger id="sources-account" className="mt-2 w-full"><SelectValue /></SelectTrigger><SelectContent><SelectGroup>{accounts.map((account) => <SelectItem key={account.id} value={String(account.id)}>{account.displayName} · @{account.handle}</SelectItem>)}</SelectGroup></SelectContent></Select></div>
+        <div className="min-w-64 flex-1"><FieldLabel htmlFor="account-source-add">Bu hesaba kaynak ekle</FieldLabel><Select value={sourceToAdd} onValueChange={(value) => setSourceToAdd(value || "")}><SelectTrigger id="account-source-add" className="mt-2 w-full"><SelectValue placeholder="Kaynak seç" /></SelectTrigger><SelectContent><SelectGroup>{available.map((source) => <SelectItem key={source.handle} value={source.handle}>@{source.handle} · {source.name}</SelectItem>)}</SelectGroup></SelectContent></Select></div>
+        <Button onClick={addSource} disabled={!sourceToAdd || pending}><Plus data-icon="inline-start" aria-hidden="true" />Ekle</Button>
+      </div> : <Alert><AlertDescription>Kaynak bağlamak için önce bir 𝕏 yayın hesabı ekle.</AlertDescription></Alert>}
+      <div className="grid gap-5 xl:grid-cols-[minmax(320px,0.9fr)_minmax(0,1.1fr)]">
       <Card>
           <CardHeader className="flex-row items-start justify-between gap-3">
           <div>
-            <CardTitle>Kaynak havuzu</CardTitle>
-            <CardDescription>{active.length} aktif · {candidates.length} keşif adayı · Kimlik/transport hatası uyarıdır, eleme değildir.</CardDescription>
+            <CardTitle>@{accounts.find((account) => account.id === accountId)?.handle || "—"} kaynakları</CardTitle>
+            <CardDescription>{active.length} aktif · {candidates.length} keşif adayı · seçimler yalnız bu yayın hesabına uygulanır.</CardDescription>
           </div>
           <div className="flex gap-2">
-            <Button size="icon" variant="outline" onClick={() => setResetOpen(true)} disabled={pending || scanning} aria-label="Kaynak havuzunu varsayılana döndür" title="Kaynak havuzunu varsayılana döndür"><RotateCw aria-hidden="true" /></Button>
-            <Button size="icon" variant="outline" onClick={scanSources} disabled={scanning} aria-label="Kaynak postlarını tara" title="Kaynak postlarını tara">
+            <Button size="icon" variant="outline" onClick={() => setResetOpen(true)} disabled={!accountId || pending || scanning} aria-label="Bu hesabın kaynaklarını temizle" title="Bu hesabın kaynaklarını temizle"><RotateCw aria-hidden="true" /></Button>
+            <Button size="icon" variant="outline" onClick={scanSources} disabled={!accountId || scanning} aria-label="Kaynak postlarını tara" title="Kaynak postlarını tara">
               {scanning ? <Spinner /> : <ScanSearch aria-hidden="true" />}
             </Button>
-            <Button size="icon" variant="outline" onClick={checkLiveness} disabled={scanning} aria-label="Kaynak hesaplarının canlılığını kontrol et" title="Kaynak canlılığını kontrol et">{scanning ? <Spinner /> : <UserRoundCheck aria-hidden="true" />}</Button>
-            <Button size="icon" variant="outline" onClick={recoverTechnical} disabled={scanning || warnings.length === 0} aria-label="Teknik hatayla elenen kaynakları geri al" title="Teknik hatayla elenen kaynakları geri al"><RotateCcw aria-hidden="true" /></Button>
-            <Button size="icon" variant="outline" onClick={() => setDraft(blankSource())} aria-label="Yeni kaynak"><Plus aria-hidden="true" /></Button>
+            <Button size="icon" variant="outline" onClick={checkLiveness} disabled={!accountId || scanning || sources.length === 0} aria-label="Bu hesaptaki kaynakları kontrol et" title="Bu hesaptaki kaynakları kontrol et">{scanning ? <Spinner /> : <UserRoundCheck aria-hidden="true" />}</Button>
+            <Button size="icon" variant="outline" onClick={recoverTechnical} disabled={!accountId || scanning || warnings.length === 0} aria-label="Teknik uyarıları denetle" title="Teknik uyarıları denetle"><RotateCcw aria-hidden="true" /></Button>
+            <Button size="icon" variant="outline" onClick={() => setDraft(blankSource())} disabled={!accountId} aria-label="Yeni kaynak"><Plus aria-hidden="true" /></Button>
           </div>
         </CardHeader>
-        <CardContent>
-          <div className="mb-3 flex items-center gap-2">
-            <Select value={ideologyFilter} onValueChange={(value) => setIdeologyFilter(value || "all")}>
-              <SelectTrigger className="w-full" aria-label="Kaynak tandans filtresi"><SelectValue placeholder="Tüm tandanslar" /></SelectTrigger>
-              <SelectContent><SelectGroup>{ideologyOptions.map((value) => <SelectItem key={value} value={value}>{value === "all" ? "Tüm tandanslar" : ideologyName(value)}</SelectItem>)}</SelectGroup></SelectContent>
-            </Select>
-          </div>
-          <Tabs defaultValue="active">
+        <CardContent><Tabs defaultValue="active">
             <TabsList variant="line">
               <TabsTrigger value="active">Aktif <Badge variant="outline">{active.length}</Badge></TabsTrigger>
               <TabsTrigger value="candidates">Adaylar <Badge variant="outline">{candidates.length}</Badge></TabsTrigger>
@@ -282,7 +335,7 @@ export function SourcesPage({ initial, initialDeleted, initialWarnings, ideologi
 
       <Card>
         <CardHeader>
-          <CardTitle>Kaynak edit</CardTitle>
+            <CardTitle>Kaynak ayarları</CardTitle>
           <CardDescription>{selectedDescription}</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-5">
@@ -293,12 +346,8 @@ export function SourcesPage({ initial, initialDeleted, initialWarnings, ideologi
               {selectedIsScored ? <Badge variant="outline">güven {Number(selected.profile.sourceConfidence || 0)}</Badge> : <Badge variant="outline">AI skoru bekliyor</Badge>}
               {selectedIsScored ? <Badge variant={Number(selected.profile.sourceRisk || 0) >= 70 ? "destructive" : "outline"}>risk {Number(selected.profile.sourceRisk || 0)}</Badge> : null}
               <Badge variant="outline" title="Seed kaynaklar keşif zinciri olmadan başlangıçta eklenir.">{evidenceLabel}</Badge>
-              <Badge variant={selected.profile.ideology && selected.profile.ideology !== "belirsiz" ? "secondary" : "outline"}>politik: {selected.profile.ideology || "belirsiz"}</Badge>
-              {selected.profile.ideologyTags?.slice(0, 4).map((tag) => <Badge key={tag} variant="outline">{tag}</Badge>)}
-              {selected.profile.ideologyConfidence !== undefined ? <Badge variant="outline">politik güven {selected.profile.ideologyConfidence}</Badge> : null}
             </div>
           ) : null}
-          {selected?.profile.ideologyReason ? <p className="text-xs leading-5 text-muted-foreground">Politik okuma: {selected.profile.ideologyReason}</p> : null}
           <FieldGroup>
             <div className="grid gap-5 sm:grid-cols-2">
               <Field>
@@ -324,21 +373,6 @@ export function SourcesPage({ initial, initialDeleted, initialWarnings, ideologi
                 <Input id="source-tone" value={draft.tone} onChange={(event) => setDraft({ ...draft, tone: event.target.value })} placeholder="analitik, kısa, eleştirel" />
               </Field>
               <Field>
-                <FieldLabel htmlFor="source-ideology">Kaynak tandansı</FieldLabel>
-                <FieldDescription>Yalnız doğrulanmış katalogdan seçilir; serbest kategori eklenemez.</FieldDescription>
-                <Select value={draft.ideology} onValueChange={(value) => setDraft({ ...draft, ideology: value || "belirsiz" })}>
-                  <SelectTrigger id="source-ideology" className="w-full" aria-label="Kaynak ideolojisi"><SelectValue /></SelectTrigger>
-                  <SelectContent><SelectGroup><SelectItem value="belirsiz">Belirsiz</SelectItem>{ideologies.map((ideology) => <SelectItem key={ideology.id} value={ideology.id}>{ideology.name.tr || ideology.name.en}</SelectItem>)}</SelectGroup></SelectContent>
-                </Select>
-              </Field>
-              <Field>
-                <FieldLabel htmlFor="source-ideology-tags">Tandans etiketleri</FieldLabel>
-                <FieldDescription>İsteğe bağlı; Ctrl/Cmd ile en fazla altı katalog ideolojisi seç.</FieldDescription>
-                <select id="source-ideology-tags" multiple value={draft.ideologyTags.split(", ").filter(Boolean)} onChange={(event) => setDraft({ ...draft, ideologyTags: Array.from(event.currentTarget.selectedOptions).map((option) => option.value).slice(0, 6).join(", ") })} className="min-h-24 w-full rounded-md border bg-transparent px-3 py-2 text-sm">
-                  {ideologies.map((ideology) => <option key={ideology.id} value={ideology.id}>{ideology.name.tr || ideology.name.en}</option>)}
-                </select>
-              </Field>
-              <Field>
                 <FieldLabel htmlFor="source-max">Max post</FieldLabel>
                 <FieldDescription>Tek taramada alınacak üst sınır.</FieldDescription>
                 <Input id="source-max" type="number" min={1} max={50} value={draft.maxPosts} onChange={(event) => setDraft({ ...draft, maxPosts: Number(event.target.value) })} />
@@ -356,6 +390,10 @@ export function SourcesPage({ initial, initialDeleted, initialWarnings, ideologi
               </Field>
             </div>
           </FieldGroup>
+          <fieldset className="space-y-3 rounded-lg border p-4">
+            <legend className="px-1 text-sm font-medium">Bu kaynaktan hangi hesap kategorileri beslensin?</legend>
+            {accountCategories.length ? accountCategories.map((category) => <label key={category.categoryId} className="flex min-h-10 items-center gap-3 text-sm"><input type="checkbox" checked={sourceCategoryIds.includes(category.categoryId)} onChange={(event) => setSourceCategoryIds((current) => event.target.checked ? [...new Set([...current, category.categoryId])] : current.filter((id) => id !== category.categoryId))} />{category.categoryName}</label>) : <p className="text-sm text-muted-foreground">Önce bu yayın hesabı için kategori seç.</p>}
+          </fieldset>
           <Field orientation="horizontal">
             <FieldContent><FieldLabel htmlFor="source-enabled">Kaynak aktif</FieldLabel><FieldDescription>Aktif kaynaklar intake taramasına dahil edilir.</FieldDescription></FieldContent>
             <Switch id="source-enabled" checked={draft.enabled} onCheckedChange={(value) => setDraft({ ...draft, enabled: value })} />
@@ -376,7 +414,7 @@ export function SourcesPage({ initial, initialDeleted, initialWarnings, ideologi
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>@{draft.handle} silinsin mi?</AlertDialogTitle>
-            <AlertDialogDescription>Kaynak havuzdan kalıcı silinir. Geçmiş post kanıtları korunur ve hesap yedi gün yeniden keşfedilmez.</AlertDialogDescription>
+            <AlertDialogDescription>Kaynak yalnızca seçili yayın hesabından çıkarılır. Kaynak kataloğu ve geçmiş post kanıtları korunur.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Vazgeç</AlertDialogCancel>
@@ -389,7 +427,7 @@ export function SourcesPage({ initial, initialDeleted, initialWarnings, ideologi
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Kaynak havuzu varsayılana döndürülsün mü?</AlertDialogTitle>
-            <AlertDialogDescription>Manuel ve keşfedilmiş kaynaklar ile kaynak-niş eşlemeleri kaldırılır; config/sources.json ve kategori varsayılanları yeniden yüklenir. Toplanan postlar ve kaynak geçmişi korunur.</AlertDialogDescription>
+            <AlertDialogDescription>Bu hesaptaki kaynak ve kategori seçimleri temizlenir. Kaynak kataloğu ve toplanan post geçmişi korunur.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Vazgeç</AlertDialogCancel>
@@ -397,6 +435,7 @@ export function SourcesPage({ initial, initialDeleted, initialWarnings, ideologi
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      </div>
     </div>
   );
 }

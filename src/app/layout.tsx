@@ -7,9 +7,9 @@ import { getDictionary } from "@/i18n/dictionaries";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Ispatla — X intelligence desk",
-  description: "X sinyallerini izle, yayın kararını kanıtla ve sonucu doğrula.",
-  icons: { icon: "/brand/ispatla-symbol.png" },
+  title: "Ispatla — 𝕏 intelligence desk",
+  description: "𝕏 sinyallerini izle, yayın kararını kanıtla ve sonucu doğrula.",
+  icons: { icon: "/brand/ispatla-favicon.png" },
 };
 
 export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

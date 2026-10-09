@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { dirname } from "node:path";
 import { ensureDatabase } from "./db";
 import { X_CONSENT_COPY_VERSION, X_POLICY_VERSION } from "./x-policy";
+import { syncUserProfileFromX } from "./db";
 
 type Statement = {
   get(...values: unknown[]): Record<string, unknown> | undefined;
@@ -23,7 +24,7 @@ export type AutomationMode = "shadow" | "manual" | "auto" | "off";
 
 function openDb(path = DEFAULT_DB): SqliteDb {
   const getBuiltinModule = (process as unknown as { getBuiltinModule?: (name: string) => unknown }).getBuiltinModule;
-  if (!getBuiltinModule) throw new Error("X OAuth storage requires Node.js 22.5+ or Bun SQLite support");
+  if (!getBuiltinModule) throw new Error("𝕏 OAuth storage requires Node.js 22.5+ or Bun SQLite support");
   const runtime = typeof (globalThis as { Bun?: unknown }).Bun !== "undefined"
     ? getBuiltinModule("bun:sqlite") as { Database: SqliteCtor }
     : getBuiltinModule("node:sqlite") as { DatabaseSync: SqliteCtor };
@@ -98,6 +99,20 @@ function init(db: SqliteDb): void {
   `);
 }
 
+export function initializeXOAuthStore(databasePath?: string): void {
+  if (!ensureDatabase(databasePath)) throw new Error("application database unavailable");
+  const db = openDb(databasePath);
+  try { init(db); } finally { db.close(); }
+}
+
+export function assertXAccountOwner(input: { xUserId: string; ownerUserId: string; databasePath?: string }): void {
+  const db = openDb(input.databasePath);
+  try {
+    const mapped = db.prepare("SELECT owner_user_id FROM x_oauth_accounts WHERE x_user_id=?").get(input.xUserId);
+    if (mapped && mapped.owner_user_id !== input.ownerUserId) throw new Error("𝕏 account is already connected to another user");
+  } finally { db.close(); }
+}
+
 function hash(value: string): string { return createHash("sha256").update(value).digest("hex"); }
 function timestamp(value?: number): number { return value ?? Math.floor(Date.now() / 1000); }
 
@@ -120,8 +135,8 @@ function tokenKeys(env: Record<string, string | undefined> = process.env) {
   return tokenKeyCache;
 }
 
-function seal(value: string): { ciphertext: string; keyId: string } {
-  const keys = tokenKeys();
+function seal(value: string, env?: Record<string, string | undefined>): { ciphertext: string; keyId: string } {
+  const keys = tokenKeys(env);
   const [keyId, key] = keys.entries().next().value as [string, Buffer];
   const iv = randomBytes(12);
   const cipher = createCipheriv("aes-256-gcm", key, iv);
@@ -131,12 +146,12 @@ function seal(value: string): { ciphertext: string; keyId: string } {
 
 function open(value: string, keyIdColumn?: string): string {
   const parts = value.split(":");
-  if (parts[0] !== "v2" || parts.length !== 5) throw new Error("invalid X credential envelope");
+  if (parts[0] !== "v2" || parts.length !== 5) throw new Error("invalid 𝕏 credential envelope");
   const [, embeddedKeyId, ivPart, tagPart, ciphertextPart] = parts;
   const keyId = keyIdColumn || embeddedKeyId;
-  if (embeddedKeyId !== keyId) throw new Error("X credential key id mismatch");
+  if (embeddedKeyId !== keyId) throw new Error("𝕏 credential key id mismatch");
   const key = tokenKeys().get(keyId);
-  if (!key) throw new Error("X credential decryption key is not configured");
+  if (!key) throw new Error("𝕏 credential decryption key is not configured");
   const decipher = createDecipheriv("aes-256-gcm", key, Buffer.from(ivPart, "base64url"));
   decipher.setAuthTag(Buffer.from(tagPart, "base64url"));
   return Buffer.concat([decipher.update(Buffer.from(ciphertextPart, "base64url")), decipher.final()]).toString("utf8");
@@ -202,32 +217,33 @@ export type XCredential = {
 };
 
 function requireConnectedCredential(credential: XCredential | null): XCredential {
-  if (!credential) throw new Error("X account is not connected");
-  if (credential.revokedAt !== null || credential.authState === "revoked") throw new Error("X account is disconnected");
-  if (credential.authState !== "connected") throw new Error("X account requires reauthorization");
+  if (!credential) throw new Error("𝕏 account is not connected");
+  if (credential.revokedAt !== null || credential.authState === "revoked") throw new Error("𝕏 account is disconnected");
+  if (credential.authState !== "connected") throw new Error("𝕏 account requires reauthorization");
   return credential;
 }
 
 export function connectXAccount(input: {
-  ownerUserId: string; xUserId: string; handle: string; displayName?: string; accessToken: string; refreshToken: string;
-  expiresAt: number; scopes: string[]; now?: number; databasePath?: string;
+  ownerUserId: string; xUserId: string; handle: string; displayName?: string; bio?: string; avatarUrl?: string | null; accessToken: string; refreshToken: string;
+  expiresAt: number; scopes: string[]; now?: number; databasePath?: string; encryptionEnv?: Record<string, string | undefined>;
 }): { accountId: number; handle: string; displayName: string; connectedAt: number } {
-  if (!/^[0-9]+$/.test(input.xUserId) || !input.accessToken || !input.refreshToken) throw new Error("invalid X account grant");
+  if (!/^[0-9]+$/.test(input.xUserId) || !input.accessToken || !input.refreshToken) throw new Error("invalid 𝕏 account grant");
   const missing = REQUIRED_SCOPES.filter((scope) => !input.scopes.includes(scope));
-  if (missing.length) throw new Error("required X permissions are missing");
-  if (!ensureDatabase()) throw new Error("application database unavailable");
+  if (missing.length) throw new Error("required 𝕏 permissions are missing");
+  if (!ensureDatabase(input.databasePath)) throw new Error("application database unavailable");
   const now = timestamp(input.now);
   const handle = input.handle.replace(/^@/, "").trim().toLowerCase();
-  if (!/^[a-z0-9_]{1,15}$/.test(handle)) throw new Error("invalid X username");
+  if (!/^[a-z0-9_]{1,15}$/.test(handle)) throw new Error("invalid 𝕏 username");
   const displayName = (input.displayName || handle).slice(0, 100);
-  const accessEnvelope = seal(input.accessToken);
-  const refreshEnvelope = seal(input.refreshToken);
+  const accessEnvelope = seal(input.accessToken, input.encryptionEnv);
+  const refreshEnvelope = seal(input.refreshToken, input.encryptionEnv);
   const db = openDb(input.databasePath);
+  let connected: { accountId: number; handle: string; displayName: string; connectedAt: number };
   try {
     init(db);
     db.exec("BEGIN IMMEDIATE;");
     const mapped = db.prepare("SELECT * FROM x_oauth_accounts WHERE x_user_id=?").get(input.xUserId);
-    if (mapped && mapped.owner_user_id !== input.ownerUserId) throw new Error("X account is already connected to another user");
+    if (mapped && mapped.owner_user_id !== input.ownerUserId) throw new Error("𝕏 account is already connected to another user");
     const accountKey = `x:${input.xUserId}`;
     const existingAccount = mapped
       ? db.prepare("SELECT id FROM accounts WHERE id=? AND owner_user_id=?").get(Number(mapped.account_id), input.ownerUserId)
@@ -264,11 +280,14 @@ export function connectXAccount(input: {
       VALUES(?,?,?,'shadow',?,?,0,0,1,NULL,NULL,?) ON CONFLICT(account_id,action_type) DO NOTHING`);
     for (const actionType of AUTOMATION_ACTIONS) consentInsert.run(accountId, input.ownerUserId, actionType, X_POLICY_VERSION, X_CONSENT_COPY_VERSION, now);
     db.exec("COMMIT;");
-    return { accountId, handle, displayName, connectedAt: mapped ? Number(mapped.connected_at) : now };
+    connected = { accountId, handle, displayName, connectedAt: mapped ? Number(mapped.connected_at) : now };
   } catch (error) {
     try { db.exec("ROLLBACK;"); } catch {}
     throw error;
   } finally { db.close(); }
+  syncUserProfileFromX({ ownerUserId: input.ownerUserId, xUserId: input.xUserId, handle, displayName,
+    bio: input.bio || "", avatarUrl: input.avatarUrl ?? null, now });
+  return connected!;
 }
 
 export function getXCredential(accountId: number, ownerUserId: string, databasePath?: string): XCredential | null {
@@ -329,7 +348,7 @@ export function setAutomationConsent(input: AutomationConsentRouteInput) {
     if (mode === "auto") {
       const linked = db.prepare(`SELECT 1 FROM x_oauth_accounts a JOIN x_oauth_credentials c USING(account_id)
         WHERE a.account_id=? AND a.owner_user_id=? AND a.auth_state='connected' AND c.revoked_at IS NULL`).get(input.accountId, input.ownerUserId);
-      if (!linked) throw new Error("a connected X grant is required for automation consent");
+      if (!linked) throw new Error("a connected 𝕏 grant is required for automation consent");
     }
     if (!Number.isSafeInteger(input.dailyLimit) || input.dailyLimit < 0 || input.dailyLimit > 1000
       || !Number.isSafeInteger(input.cadenceSeconds) || input.cadenceSeconds < 0 || input.cadenceSeconds > 86400
@@ -392,7 +411,7 @@ export async function withXTokenRefresh<T>(input: {
       db.exec("BEGIN IMMEDIATE;");
       const row = db.prepare(`SELECT token_version,access_expires_at,revoked_at,refresh_lease_until FROM x_oauth_credentials
         WHERE account_id=? AND owner_user_id=?`).get(input.accountId, input.ownerUserId);
-      if (!row || row.revoked_at != null) { db.exec("ROLLBACK;"); throw new Error("X account is disconnected"); }
+      if (!row || row.revoked_at != null) { db.exec("ROLLBACK;"); throw new Error("𝕏 account is disconnected"); }
       if (Number(row.access_expires_at) > nowFn() + buffer) { db.exec("COMMIT;"); }
       else if (Number(row.refresh_lease_until) <= nowFn()) {
         const update = db.prepare(`UPDATE x_oauth_credentials SET refresh_lease_id=?,refresh_lease_until=? WHERE account_id=? AND owner_user_id=?
@@ -418,7 +437,7 @@ export async function withXTokenRefresh<T>(input: {
       const refreshed = await input.refresh(current.refreshToken, current);
       const nextScopes = [...new Set(refreshed.scopes)];
       const missing = REQUIRED_SCOPES.filter((scope) => !nextScopes.includes(scope));
-      if (missing.length) throw new Error("required X permissions are missing");
+      if (missing.length) throw new Error("required 𝕏 permissions are missing");
       const db = openDb(path);
       try {
         init(db);
@@ -431,7 +450,7 @@ export async function withXTokenRefresh<T>(input: {
             nowFn(), nowFn(), input.accountId, input.ownerUserId, current.version, leaseId);
         if (saved.changes !== 1) {
           const latest = requireConnectedCredential(getXCredential(input.accountId, input.ownerUserId, path));
-          if (latest.expiresAt <= nowFn() + buffer) throw new Error("X token refresh lost its lease");
+          if (latest.expiresAt <= nowFn() + buffer) throw new Error("𝕏 token refresh lost its lease");
         } else {
           db.prepare(`UPDATE x_oauth_accounts SET auth_state='connected',last_auth_error='',last_health_at=?
             WHERE account_id=? AND owner_user_id=? AND auth_state<>'revoked'`).run(nowFn(), input.accountId, input.ownerUserId);
@@ -455,7 +474,7 @@ export async function withXTokenRefresh<T>(input: {
     const latest = requireConnectedCredential(getXCredential(input.accountId, input.ownerUserId, path));
     return work(latest);
   }
-  throw new Error("X token refresh lease timed out");
+  throw new Error("𝕏 token refresh lease timed out");
 }
 
 export const xOAuthStorageInternals = { openDb, init, hash, requiredScopes: REQUIRED_SCOPES, transactionTtlSeconds: TX_TTL_SECONDS };

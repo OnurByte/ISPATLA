@@ -8,16 +8,21 @@ test("the scheduled account-inference task runs in the shared worker and records
   try {
     const result = Bun.spawnSync({ cmd: [process.execPath, "-e", `
       import { ensureDatabase, getAutomationSchedules, getOwnAccountInference, saveAutomationSchedule } from "./src/server/db.ts";
+      import { Database } from "bun:sqlite";
       import { connectXAccount } from "./src/server/x-oauth-store.ts";
       import { runAsOwner } from "./src/server/owner-context.ts";
       import { OfficialXClient } from "./src/server/official-x.ts";
       import { runScheduledAutomationTasks } from "./src/server/automation-scheduler.ts";
       if (!ensureDatabase()) throw new Error("database unavailable");
       const now = 2000;
+      const auth = new Database(process.env.ISPATLA_DB);
+      auth.exec("CREATE TABLE auth_user_status(owner_user_id TEXT PRIMARY KEY,status TEXT NOT NULL,updated_at INTEGER NOT NULL)");
+      auth.query("INSERT INTO auth_user_status VALUES (?,'active',?)").run("scheduler-owner", now);
+      auth.close();
       connectXAccount({ownerUserId:"scheduler-owner",xUserId:"200001",handle:"sched_account",accessToken:"access",refreshToken:"refresh",expiresAt:9999999999,scopes:["tweet.read","tweet.write","users.read","media.write","offline.access"],now});
       saveAutomationSchedule({id:"account_inference",enabled:true,intervalSeconds:300,nextRunAt:now,now:now-1});
       OfficialXClient.prototype.getOwnProfile = async () => ({description:"Linux software developer"});
-      OfficialXClient.prototype.getOwnTimeline = async () => [{text:"Linux and open source software"}];
+      OfficialXClient.prototype.getOwnTimeline = async () => [];
       const result = await runScheduledAutomationTasks(now);
       const state = runAsOwner("scheduler-owner",()=>getOwnAccountInference(1));
       console.log(JSON.stringify({result,schedule:getAutomationSchedules(now).find((item)=>item.id==="account_inference"),status:state?.status}));

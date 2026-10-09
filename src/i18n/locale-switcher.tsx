@@ -15,7 +15,7 @@ export function LocaleSwitcher({ locale, className = "" }: { locale: Locale; cla
   const selected = LOCALE_CONFIG[locale];
   return <div className={`inline-flex shrink-0 text-xs ${className}`}>
     <Select value={locale} onValueChange={changeLocale}>
-      <SelectTrigger aria-label={getDictionary(locale).nav.language} className="h-9 w-28 max-w-[40vw] rounded-full bg-popover text-popover-foreground sm:w-36">
+      <SelectTrigger aria-label={getDictionary(locale).nav.language} className="h-9 w-28 max-w-[40vw] rounded-md bg-popover text-popover-foreground sm:w-36">
         <SelectValue className="min-w-0"><span aria-hidden="true" className="shrink-0">{selected.flag}</span><bdi lang={locale} dir={selected.dir} className="truncate">{selected.nativeName}</bdi></SelectValue>
       </SelectTrigger>
       <SelectContent align="end" alignItemWithTrigger={false} className="min-w-56 max-w-[calc(100vw-1rem)] bg-popover text-popover-foreground" style={{ maxHeight: "min(var(--available-height), 20rem)" }}>

@@ -594,7 +594,7 @@ Makine çevirisi taslak olarak kullanılabilir ancak yayın kalitesinde çeviril
 
 Yeni public route:
 
-`/u/[username]`
+`/[xHandle]` (uygulama yollarıyla çakışan handle ve eski bağlantılar için `/u/[username]` korunur)
 
 Her kullanıcının kendi profili olur.
 
@@ -610,7 +610,7 @@ Alanlar:
 - Herkese açık hit geçmişi.
 - Performans istatistikleri.
 
-Varsayılan profil gizli olmalı. Kullanıcı yayınlamayı açıkça seçmeli.
+Yeni profilde görünen ad, bio ve fotoğraf bağlı 𝕏 hesabından alınır. İlk kurulumda herkese açık/gizli seçimi gösterilir; varsayılan seçim herkese açıktır. Seçim kaydedilmeden profil yayımlanmaz. Mevcut kullanıcıların görünürlük tercihi korunur. Fotoğraf uygulama altyapısından sunulur; herkese açık profil bağlantısı doğrulanmış 𝕏 handle'ına bağlıdır.
 
 Kullanıcı X bağlantısını kaldırdığında profilin nasıl davranacağı belirlenmeli.
 

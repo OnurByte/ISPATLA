@@ -14,10 +14,13 @@ async function POSTHandler(request: Request, context: { params: Promise<{ id: st
   const account = getAccounts().find((item) => item.id === id && item.enabled);
   if (!account) return NextResponse.json({ error: "aktif yayın hesabı bulunamadı" }, { status: 404 });
   try {
-    const timeline = await withOfficialAccount(account, (credential) => new OfficialXClient().getOwnTimeline(credential, 5));
-    return NextResponse.json({ ok: true, connection: { connected: true, handle: account.handle, timelineReadable: true, observedPosts: timeline.length } });
+    await withOfficialAccount(account, async (credential) => {
+      const profile = await new OfficialXClient().getOwnProfile(credential);
+      if (profile.id !== credential.xUserId) throw new Error("connected profile does not match the saved account");
+    });
+    return NextResponse.json({ ok: true, connection: { connected: true, handle: account.handle } });
   } catch {
-    return NextResponse.json({ error: "X bağlantısı doğrulanamadı. Hesabı yeniden bağlayın." }, { status: 422 });
+    return NextResponse.json({ error: "𝕏 bağlantısı doğrulanamadı. Hesabı yeniden bağlayın." }, { status: 422 });
   }
 }
 

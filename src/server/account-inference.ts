@@ -1,4 +1,4 @@
-import { getAccounts, getCategories, getOwnAccountInference, saveAccountInferenceJob, saveAccountInferenceSuggestions, type Account } from "./db";
+import { getAccounts, getCategoriesForAccount, getOwnAccountInference, isOwnerEnabled, saveAccountInferenceJob, saveAccountInferenceSuggestions, saveGeneratedAccountCategory, type Account } from "./db";
 import { withOfficialAccount } from "./publisher";
 import { OfficialXClient } from "./official-x";
 import { runAsOwner } from "./owner-context";
@@ -20,6 +20,7 @@ const LANGUAGE_WORDS: Record<string, Set<string>> = {
   es: new Set(["el", "la", "los", "las", "y", "para", "con", "una", "un", "que", "por", "del", "en"]),
   fr: new Set(["le", "la", "les", "et", "pour", "avec", "une", "un", "des", "que", "dans", "sur"]),
 };
+const TOPIC_STOP_WORDS = new Set("the and for with from this that are was were have has had you your our their they them about into over after before when what where which while who how all not but can will just very more some also then than ve ile için bu şu bir çok daha ama olarak göre mi mı de da the a an is are to in on of my your el la los las y para con una un que por del en le les et pour avec des dans sur je tu il elle nous vous que qui quoi sur est sont les aux du de la y los las que para con una por del este esta este son sus como para más muy pero porque sobre entre hacia sin con una".split(/\s+/u));
 
 function normalize(value: string): string {
   return value.toLocaleLowerCase().normalize("NFKC").replace(/[^\p{L}\p{N}]+/gu, " ").trim();
@@ -51,10 +52,47 @@ export function inferAccountCategories(input: {
   return { status: suggestions.length ? "ready" : "insufficient_evidence", contentLanguage, suggestions };
 }
 
+export function discoverAccountTopic(input: { bio: string; posts: string[] }): { name: string; slug: string; keywords: string[]; evidence: string[] } | null {
+  const documents = [input.bio, ...input.posts.slice(0, 100)].map((value) => value.slice(0, 4_000)).filter(Boolean);
+  const variants = new Map<string, string>();
+  const termDocs = new Map<string, Set<number>>();
+  const pairDocs = new Map<string, Set<number>>();
+  const hashtagDocs = new Map<string, Set<number>>();
+  for (const [index, document] of documents.entries()) {
+    const hashes = [...document.matchAll(/#([\p{L}\p{N}_]{3,32})/gu)].map((match) => normalize(match[1] || "")).filter(Boolean);
+    for (const tag of new Set(hashes)) hashtagDocs.set(tag, new Set([...(hashtagDocs.get(tag) || []), index]));
+    const rawWords = document.normalize("NFKC").match(/[\p{L}\p{N}]{3,}/gu) || [];
+    const words = rawWords.map((raw) => {
+      const word = normalize(raw);
+      if (!variants.has(word)) variants.set(word, raw.toLocaleLowerCase());
+      return word;
+    }).filter((word) => word && !TOPIC_STOP_WORDS.has(word) && !/^\d+$/u.test(word));
+    for (const word of new Set(words)) termDocs.set(word, new Set([...(termDocs.get(word) || []), index]));
+    for (let i = 0; i < words.length - 1; i++) {
+      const left = words[i]!, right = words[i + 1]!;
+      const pair = `${left} ${right}`;
+      pairDocs.set(pair, new Set([...(pairDocs.get(pair) || []), index]));
+    }
+  }
+  const candidates = [
+    ...[...hashtagDocs].filter(([, docs]) => docs.size >= 2).map(([key, docs]) => ({ key, docs, score: 4 + docs.size, parts: [key] })),
+    ...[...pairDocs].filter(([, docs]) => docs.size >= 2).map(([key, docs]) => ({ key, docs, score: 2 + docs.size, parts: key.split(" ") })),
+    ...[...termDocs].filter(([, docs]) => docs.size >= 3).map(([key, docs]) => ({ key, docs, score: docs.size, parts: [key] })),
+  ].sort((a, b) => b.score - a.score || a.key.localeCompare(b.key));
+  const chosen = candidates[0];
+  if (!chosen) return null;
+  const words = chosen.parts.map((word) => variants.get(word) || word);
+  const name = words.map((word) => word.charAt(0).toLocaleUpperCase() + word.slice(1)).join(" ").slice(0, 60);
+  const slug = chosen.key.normalize("NFKD").replace(/[\u0300-\u036f]/gu, "").replace(/ı/gu, "i").replace(/[^a-z0-9]+/gu, "-").replace(/^-|-$/gu, "").slice(0, 48);
+  if (!name || !slug) return null;
+  const evidence = documents.filter((document) => chosen.parts.every((part) => normalize(document).split(" ").includes(part))).slice(0, 5).map((document) => document.slice(0, 220));
+  return { name, slug, keywords: words, evidence };
+}
+
 /** Runs one durable, owner/account-scoped inference job; completed retries return the same snapshot. */
 export async function runAccountCategoryInference(input: { accountId: number; now?: number; regenerate?: boolean; client?: OfficialXClient }): Promise<InferenceResult> {
   const account = getAccounts().find((item) => item.id === input.accountId);
-  if (!account?.ownerUserId) throw new Error("owned X account not found");
+  if (!account?.ownerUserId || !isOwnerEnabled(account.ownerUserId)) throw new Error("owned X account not found or owner disabled");
   const now = input.now ?? Math.floor(Date.now() / 1000);
   const previous = getOwnAccountInference(account.id);
   if (!input.regenerate && previous && ["ready", "insufficient_evidence"].includes(previous.status)) return previous.result;
@@ -76,9 +114,21 @@ export async function runAccountCategoryInference(input: { accountId: number; no
       handle: account.handle,
       displayName: account.displayName,
       bio: [profile.description, account.styleProfile.bio, account.styleProfile.niche].filter((value): value is string => typeof value === "string").join(" "),
-      posts: posts.map((post) => typeof post.text === "string" ? post.text : "").filter(Boolean),
-      catalog: getCategories().filter((category) => category.enabled).map((category) => ({ id: category.id, slug: category.slug, name: category.name, keywords: category.keywords, description: category.description })),
+      posts,
+      catalog: getCategoriesForAccount(account.id).filter((category) => category.enabled).map((category) => ({ id: category.id, slug: category.slug, name: category.name, keywords: category.keywords, description: category.description })),
     });
+    if (result.suggestions.length === 0) {
+      const topic = discoverAccountTopic({ bio: [profile.description, account.styleProfile.bio, account.styleProfile.niche].filter((value): value is string => typeof value === "string").join(" "), posts });
+      if (topic) {
+        const category = saveGeneratedAccountCategory({
+          accountId: account.id, name: topic.name, slug: topic.slug,
+          description: `Hesap biyografisi ve gönderilerinde tekrar eden “${topic.name}” konusu.`,
+          keywords: topic.keywords, examples: topic.evidence, now,
+        });
+        result.suggestions = [{ categoryId: category.id, slug: category.slug, name: category.name, confidence: 0.68, evidence: topic.evidence.map((item) => item.slice(0, 80)) }];
+        result.status = "ready";
+      }
+    }
     saveAccountInferenceSuggestions({ accountId: account.id, jobId: job.id, result, now });
     return result;
   } catch (error) {
@@ -94,7 +144,9 @@ export async function runPendingAccountCategoryInferences(input: {
   const now = input.now ?? Math.floor(Date.now() / 1000);
   const limit = Math.max(1, Math.min(20, Math.floor(input.limit ?? 5)));
   const result: AccountInferenceSweepResult = { attempted: 0, completed: 0, skipped: 0, failed: 0 };
-  const accounts = getAccounts().filter((account): account is Account & { ownerUserId: string } => Boolean(account.ownerUserId));
+  const ownedAccounts = getAccounts().filter((account): account is Account & { ownerUserId: string } => Boolean(account.ownerUserId));
+  result.skipped += ownedAccounts.filter((account) => !isOwnerEnabled(account.ownerUserId)).length;
+  const accounts = ownedAccounts.filter((account) => isOwnerEnabled(account.ownerUserId));
 
   for (const account of accounts) {
     if (result.attempted >= limit) break;

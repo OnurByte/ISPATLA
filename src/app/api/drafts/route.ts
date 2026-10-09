@@ -1,7 +1,7 @@
 import { withUser } from "@/server/request-auth";
 import { NextResponse } from "next/server";
 import { createDraft, getAccountCategoryConfigs, getDraft, getDrafts, getPost, getAccounts, getStoredSources } from "@/server/db";
-import { accountCategories, accountMatchesSource, baseStrategyForCategory, composeDraft, qualityGate, storeDraftVariants } from "@/server/pipeline";
+import { accountCategories, baseStrategyForCategory, composeDraft, qualityGate, storeDraftVariants } from "@/server/pipeline";
 import { evaluateDraft } from "@/server/draft-evaluator";
 import { guardMutation, readJsonBody } from "@/server/api-guard";
 import { ensureDraftRevisionStore } from "@/server/draft-revisions";
@@ -30,9 +30,6 @@ async function POSTHandler(request: Request) {
     let gateReason = "";
     let generated: Awaited<ReturnType<typeof composeDraft>> | null = null;
     if (!text && post) {
-      if (account && source && !accountMatchesSource(account, source)) {
-        return NextResponse.json({ error: "seçilen hesap, kaynak tandansı ile eşleşmiyor" }, { status: 422 });
-      }
       const categorySlug = account
         ? getAccountCategoryConfigs()
           .filter((item) => item.accountId === account.id && item.enabled)

@@ -19,7 +19,6 @@ import {
 } from "@/components/ui/field";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Spinner } from "@/components/ui/spinner";
 import { Switch } from "@/components/ui/switch";
@@ -69,10 +68,8 @@ function verificationClass(status: Account["publicVerificationStatus"]): string 
   return status === "blue" ? "text-primary" : status === "organization" ? "text-amber-600" : status === "government" ? "text-indigo-600" : "text-muted-foreground";
 }
 
-type IdeologyOption = { id: string; name: { en: string; tr: string } };
-
-export function AccountsPage({ initial, ideologies, categories, connections, policyVersion, copyVersion, connectionResult, connectionAccountId }: {
-  initial: AccountPageData[]; ideologies: IdeologyOption[]; categories: CategoryDefinition[];
+export function AccountsPage({ initial, categories, connections, policyVersion, copyVersion, connectionResult, connectionAccountId }: {
+  initial: AccountPageData[]; categories: CategoryDefinition[];
   connections: Record<number, XConnectionState>; policyVersion: string; copyVersion: string;
   connectionResult?: string; connectionAccountId?: number;
 }) {
@@ -81,8 +78,8 @@ export function AccountsPage({ initial, ideologies, categories, connections, pol
     || (connectionResult === "connected" ? [...initial].sort((left, right) => right.updatedAt - left.updatedAt)[0] : undefined)
     || initial[0];
   const [draft, setDraft] = useState<AccountDraft>(initialSelected ? accountDraft(initialSelected) : blankAccount());
-  const [message, setMessage] = useState(connectionResult === "failed" ? "X bağlantısı tamamlanamadı. İzinleri yeniden deneyin."
-    : connectionResult === "connected" && initialSelected ? `@${initialSelected.handle} X hesabı bağlandı. Hesap ayarlarınız korundu.` : "");
+  const [message, setMessage] = useState(connectionResult === "failed" ? "𝕏 bağlantısı tamamlanamadı. İzinleri yeniden deneyin."
+    : connectionResult === "connected" && initialSelected ? `@${initialSelected.handle} 𝕏 hesabı bağlandı. Hesap ayarlarınız korundu.` : "");
   const [pending, setPending] = useState(false);
   const [inference, setInference] = useState<InferenceResult | null>(null);
   const [selectedSuggestions, setSelectedSuggestions] = useState<number[]>([]);
@@ -97,39 +94,37 @@ export function AccountsPage({ initial, ideologies, categories, connections, pol
   }, []);
 
   useEffect(() => {
-    const accountId = initialSelected?.id;
-    if (connectionResult !== "connected" || !accountId || draft.id !== accountId) return;
+    const account = initialSelected;
+    if (connectionResult !== "connected" || !account || draft.id !== account.id) return;
     let cancelled = false;
-    let timeout: ReturnType<typeof setTimeout> | undefined;
-    let attempts = 0;
-    const maxAttempts = 24;
-    const deadline = Date.now() + 120_000;
-    const poll = async () => {
-      attempts += 1;
+    void (async () => {
       try {
-        const response = await fetch(`/api/accounts/${accountId}/categories/inference`, {
-          cache: "no-store", signal: AbortSignal.timeout(Math.min(10_000, Math.max(1, deadline - Date.now()))),
+        const response = await fetch(`/api/accounts/${account.id}/categories/inference`, {
+          method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({}),
         });
-        const body = await response.json().catch(() => null) as { result?: InferenceResult } | null;
+        const result = await response.json().catch(() => ({})) as InferenceResult & { error?: string };
+        if (!response.ok) throw new Error(result.error || "Hesap analizi yapılamadı.");
         if (cancelled) return;
-        if (response.ok && body?.result) {
-          setInference(body.result);
-          setSelectedSuggestions(body.result.suggestions.map((item) => item.categoryId));
-          setCategoryWeights(Object.fromEntries(body.result.suggestions.map((item) => [item.categoryId, 1])));
-          setInferenceMessage("Hesap konu önerileri arka planda hazırlandı.");
-          return;
+        setInference(result);
+        const categoryIds = result.suggestions.map((item) => item.categoryId);
+        setSelectedSuggestions(categoryIds);
+        setCategoryWeights(Object.fromEntries(categoryIds.map((id) => [id, 1])));
+        if (categoryIds.length && (!Array.isArray(account.styleProfile.categories) || account.styleProfile.categories.length === 0)) {
+          const saved = await fetch(`/api/accounts/${account.id}/categories`, {
+            method: "POST", headers: { "content-type": "application/json" },
+            body: JSON.stringify({ categoryIds, weights: Object.fromEntries(categoryIds.map((id) => [id, 1])) }),
+          });
+          const body = await saved.json().catch(() => ({}));
+          if (!saved.ok) throw new Error(body.error || "Önerilen kategoriler kaydedilemedi.");
+          setInferenceAccepted(true);
         }
-      } catch { /* A later bounded poll can recover from a transient request failure. */ }
-      if (cancelled) return;
-      if (attempts >= maxAttempts || Date.now() >= deadline) {
-        setInferenceMessage("Konu analizi arka planda sürüyor. Önerileri daha sonra hesap ayarlarından yenileyebilirsin.");
-        return;
+        setInferenceMessage("Hesap tarandı; bulunan kategoriler bu hesaba uygulandı.");
+      } catch (error) {
+        if (!cancelled) setInferenceMessage(error instanceof Error ? error.message : "Hesap analizi yapılamadı.");
       }
-      timeout = setTimeout(() => void poll(), Math.min(5_000, deadline - Date.now()));
-    };
-    void poll();
-    return () => { cancelled = true; if (timeout) clearTimeout(timeout); };
-  }, [connectionResult, initialSelected?.id, draft.id]);
+    })();
+    return () => { cancelled = true; };
+  }, [connectionResult, initialSelected, draft.id]);
 
   useEffect(() => {
     if (!draft.id || (connectionResult === "connected" && draft.id === initialSelected?.id)) return;
@@ -203,7 +198,7 @@ export function AccountsPage({ initial, ideologies, categories, connections, pol
   }
 
   async function save() {
-    if (!draft.id) return setMessage("Hesap ayarlarını değiştirmek için önce X hesabını bağlayın.");
+    if (!draft.id) return setMessage("Hesap ayarlarını değiştirmek için önce 𝕏 hesabını bağlayın.");
     setPending(true);
     setMessage("");
     const response = await fetch(`/api/accounts/${draft.id}`, {
@@ -222,7 +217,7 @@ export function AccountsPage({ initial, ideologies, categories, connections, pol
   }
 
   async function remove() {
-    if (!draft.id || !window.confirm("Bu hesabı ve bağlı kayıtlarını silmek, varsa X bağlantısını kapatmak istiyor musunuz?")) return;
+    if (!draft.id || !window.confirm("Bu hesabı ve bağlı kayıtlarını silmek, varsa 𝕏 bağlantısını kapatmak istiyor musunuz?")) return;
     setPending(true);
     const response = await fetch(`/api/accounts/${draft.id}`, { method: "DELETE" });
     const body = await response.json().catch(() => ({}));
@@ -232,8 +227,8 @@ export function AccountsPage({ initial, ideologies, categories, connections, pol
     setAccounts(next);
     setDraft(next[0] ? accountDraft(next[0]) : blankAccount());
     setMessage(body.disconnected === true && body.providerRevoked === false
-      ? "Hesap silindi ve yerel erişim kapatıldı. X erişimi iptal edilemedi; X ayarlarından İSPATLA erişimini kaldırın."
-      : body.disconnected === true ? "Hesap silindi ve X bağlantısı kapatıldı." : "Hesap silindi.");
+      ? "Hesap silindi ve yerel erişim kapatıldı. 𝕏 erişimi iptal edilemedi; 𝕏 ayarlarından İSPATLA erişimini kaldırın."
+      : body.disconnected === true ? "Hesap silindi ve 𝕏 bağlantısı kapatıldı." : "Hesap silindi.");
   }
 
   return (
@@ -250,8 +245,8 @@ export function AccountsPage({ initial, ideologies, categories, connections, pol
           {accounts.length === 0 && (
             <Empty className="border border-dashed py-8">
               <EmptyHeader>
-                <EmptyTitle>Henüz X hesabı bağlı değil</EmptyTitle>
-                <EmptyDescription>X’e güvenli biçimde bağlayınca hesap ayarları burada açılır.</EmptyDescription>
+                <EmptyTitle>Henüz 𝕏 hesabı bağlı değil</EmptyTitle>
+                <EmptyDescription>𝕏’e güvenli biçimde bağlayınca hesap ayarları burada açılır.</EmptyDescription>
               </EmptyHeader>
             </Empty>
           )}
@@ -287,15 +282,15 @@ export function AccountsPage({ initial, ideologies, categories, connections, pol
       <Card>
         <CardHeader>
           <CardTitle>Hesap ayarları</CardTitle>
-          <CardDescription>Hesap profili X bağlantısından gelir. Buradaki editoryal tercihleri bağlantıyı yenilerken koruruz.</CardDescription>
+          <CardDescription>Hesap profili 𝕏 bağlantısından gelir. Buradaki editoryal tercihleri bağlantıyı yenilerken koruruz.</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-5">
-          {!draft.id ? <Empty className="border border-dashed py-8"><EmptyHeader><EmptyTitle>Hesap ayarları açılmadı</EmptyTitle><EmptyDescription>İlk X hesabını bağladığınızda editoryal ayarlar burada görünür.</EmptyDescription></EmptyHeader></Empty> : (
+          {!draft.id ? <Empty className="border border-dashed py-8"><EmptyHeader><EmptyTitle>Hesap ayarları açılmadı</EmptyTitle><EmptyDescription>İlk 𝕏 hesabını bağladığınızda editoryal ayarlar burada görünür.</EmptyDescription></EmptyHeader></Empty> : (
           <>
           <XConnectionControls accountId={draft.id} initial={connections[draft.id] || null} policyVersion={policyVersion} copyVersion={copyVersion} />
           <Separator />
           {inference || inferenceMessage ? <Card>
-            <CardHeader><CardTitle>Senin için hazırladığımız konular</CardTitle><CardDescription>Öneriler hesap adından, kendi herkese açık gönderilerinden ve varsa yazdığın nişten çıkarılır. X bağlantısı yayın izni vermez.</CardDescription></CardHeader>
+            <CardHeader><CardTitle>Senin için hazırladığımız konular</CardTitle><CardDescription>Öneriler hesap adından, kendi herkese açık gönderilerinden ve varsa yazdığın nişten çıkarılır. 𝕏 bağlantısı yayın izni vermez.</CardDescription></CardHeader>
             <CardContent className="flex flex-col gap-3">
               {inference?.status === "insufficient_evidence" ? <p className="text-sm text-muted-foreground">Yeterli konu sinyali bulamadık. Hesap nişini aşağıdaki alana kendin yazabilirsin.</p> : null}
               {inference?.status === "ready" && inference.suggestions.length === 0 ? <p className="text-sm text-muted-foreground">Bekleyen öneri kalmadı. İstersen hesabını yeniden analiz edebilirsin.</p> : null}
@@ -368,14 +363,6 @@ export function AccountsPage({ initial, ideologies, categories, connections, pol
           <FieldGroup>
             <div className="grid gap-5 sm:grid-cols-2">
               <Field>
-                <FieldLabel htmlFor="account-ideology">Editoryal eksen / tandans</FieldLabel>
-                <FieldDescription>Açık tandanslı kaynak yalnız aynı eksen veya etiketli hesapla eşleşir; eşleşme yoksa otomatik yayın yapılmaz. Boş hesap sadece tandansı belirsiz kaynak içindir.</FieldDescription>
-                <Select value={String(draft.styleProfile.ideology || "belirsiz")} onValueChange={(value) => setValue("styleProfile", { ...draft.styleProfile, ideology: value || "belirsiz" })}>
-                  <SelectTrigger id="account-ideology" className="w-full" aria-label="Hesap ideolojisi"><SelectValue /></SelectTrigger>
-                  <SelectContent><SelectGroup><SelectItem value="belirsiz">Belirsiz</SelectItem>{ideologies.map((ideology) => <SelectItem key={ideology.id} value={ideology.id}>{ideology.name.tr || ideology.name.en}</SelectItem>)}</SelectGroup></SelectContent>
-                </Select>
-              </Field>
-              <Field>
                 <FieldLabel htmlFor="account-opening">Giriş biçimi</FieldLabel>
                 <Input id="account-opening" value={String(draft.styleProfile.opening || "")} onChange={(event) => setValue("styleProfile", { ...draft.styleProfile, opening: event.target.value })} placeholder="Emoji ile başla / doğrudan başlık / soru" />
               </Field>
@@ -411,7 +398,7 @@ export function AccountsPage({ initial, ideologies, categories, connections, pol
             )}
             {(
               <Badge variant="outline" className="gap-1">
-                ayarlar bağlı X hesabına ait
+                ayarlar bağlı 𝕏 hesabına ait
               </Badge>
             )}
           </div>

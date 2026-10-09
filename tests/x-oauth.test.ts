@@ -14,7 +14,7 @@ if (process.env.ISPATLA_X_OAUTH_TEST_CHILD !== "1") {
   rmSync(root, { recursive: true, force: true });
   test("X OAuth PKCE and ownership cases run against an isolated SQLite database", () => {
     expect(result.exitCode, output).toBe(0);
-    expect(output).toContain("8 pass");
+    expect(output).toContain("9 pass");
     expect(output).toContain("0 fail");
   });
 } else {
@@ -51,7 +51,8 @@ describe("X OAuth PKCE and credential lifecycle", () => {
     const fetcher = (async (input: RequestInfo | URL) => {
       const url = String(input); calls.push(url);
       if (url.endsWith("/2/oauth2/token")) return Response.json({ access_token: "access-secret", refresh_token: "refresh-secret", expires_in: 7200, scope: scopes.join(" ") });
-      if (url.includes("/2/users/me")) return Response.json({ data: { id: "123456", username: "fixture_user", name: "Fixture User" } });
+      if (url.includes("/2/users/me")) return Response.json({ data: { id: "123456", username: "fixture_user", name: "Fixture User", description: "Manual X bio", profile_image_url: "https://pbs.twimg.com/profile_images/123456/avatar.png" } });
+      if (url.startsWith("https://pbs.twimg.com/")) return new Response(Buffer.from([0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a]), { headers: { "content-type": "image/png" } });
       throw new Error("unexpected fixture request");
     }) as unknown as typeof fetch;
     const callback = new Request("http://localhost:3000/api/x/oauth/callback?code=fixture-code&state=" + encodeURIComponent(authorize.searchParams.get("state")!));
@@ -59,7 +60,15 @@ describe("X OAuth PKCE and credential lifecycle", () => {
     expect(calls).toHaveLength(0);
     const connected = await oauth.completeXOAuth({ request: callback, ownerUserId: "user-a", sessionId: "session-a", env, fetcher });
     expect(connected).toMatchObject({ handle: "fixture_user", returnTo: "/app/accounts?connected=1" });
-    expect(calls).toEqual(["https://api.x.com/2/oauth2/token", "https://api.x.com/2/users/me?user.fields=name,username"]);
+    expect(calls).toEqual(["https://api.x.com/2/oauth2/token", "https://api.x.com/2/users/me?user.fields=name,username,description,profile_image_url", "https://pbs.twimg.com/profile_images/123456/avatar.png"]);
+    const { runAsOwner } = await import("../src/server/owner-context");
+    expect(runAsOwner("user-a", () => database.getOwnUserProfile())).toMatchObject({ xHandle: "fixture_user", displayName: "Fixture User", bio: "Manual X bio", avatarUrl: "/api/profile/avatar/123456" });
+    const secondIdentity = store.connectXAccount({ ownerUserId: "user-a", xUserId: "654321", handle: "second2", displayName: "Second", accessToken: "second-access", refreshToken: "second-refresh", expiresAt: 9999999999, scopes, now: 149 });
+    const { cacheSelectedProfileAvatar } = await import("../src/server/profile-avatar");
+    let secondaryImageFetched = false;
+    expect(await cacheSelectedProfileAvatar({ ownerUserId: "user-a", xUserId: "654321", handle: "second2", displayName: "Second", bio: "", avatarUrl: "https://pbs.twimg.com/profile_images/654321/avatar.png", fetcher: (async () => { secondaryImageFetched = true; return Response.error(); }) as unknown as typeof fetch })).toBeNull();
+    expect(secondaryImageFetched).toBe(false);
+    expect(secondIdentity.handle).toBe("second2");
     await expect(oauth.completeXOAuth({ request: callback, ownerUserId: "user-a", sessionId: "session-a", env, fetcher })).rejects.toThrow("expired or already used");
     expect(store.getXCredential(connected.accountId, "user-a")).toMatchObject({ accessToken: "access-secret", refreshToken: "refresh-secret" });
     const raw = await Bun.file(process.env.ISPATLA_DB!).text();
@@ -69,7 +78,7 @@ describe("X OAuth PKCE and credential lifecycle", () => {
   });
 
   test("enforces account identity ownership, scope set, and internal return allowlist", async () => {
-    const second = store.connectXAccount({ ownerUserId: "user-a", xUserId: "654321", handle: "second_fixture", displayName: "Second", accessToken: "second-access", refreshToken: "second-refresh", expiresAt: 9999999999, scopes, now: 150 });
+    const second = store.connectXAccount({ ownerUserId: "user-a", xUserId: "654322", handle: "second_fixture", displayName: "Second", accessToken: "second-access", refreshToken: "second-refresh", expiresAt: 9999999999, scopes, now: 150 });
     expect(second.accountId).not.toBe(1);
     expect(oauth.getXAccountAuthState(second.accountId, "user-a")).toMatchObject({ connected: true, handle: "second_fixture" });
     const { runAsOwner } = await import("../src/server/owner-context");
@@ -80,6 +89,62 @@ describe("X OAuth PKCE and credential lifecycle", () => {
     expect(() => store.connectXAccount({ ownerUserId: "user-b", xUserId: "123456", handle: "fixture_user", accessToken: "a", refreshToken: "r", expiresAt: 9999999999, scopes, now: 100 })).toThrow("another user");
     expect(() => store.connectXAccount({ ownerUserId: "user-b", xUserId: "987654", handle: "other_user", accessToken: "a", refreshToken: "r", expiresAt: 9999999999, scopes: ["users.read"], now: 100 })).toThrow("permissions are missing");
     await expect(oauth.startXOAuth({ ownerUserId: "user-a", sessionId: "session-a", returnTo: "https://evil.test", env })).rejects.toThrow("return path");
+  });
+
+  test("backfills an existing connected owner's unbound profile from its verified X identity", async () => {
+    const { Database } = await import("bun:sqlite");
+    const { OfficialXClient } = await import("../src/server/official-x");
+    const { loadOwnUserProfileFromX } = await import("../src/server/x-profile-sync");
+    const { runAsOwner } = await import("../src/server/owner-context");
+    const now = Math.floor(Date.now() / 1000);
+    store.connectXAccount({ ownerUserId: "backfill-owner", xUserId: "777000", handle: "old_handle", accessToken: "backfill-access", refreshToken: "backfill-refresh", expiresAt: now + 3600, scopes, now });
+    const db = new Database(process.env.ISPATLA_DB!);
+    try {
+      db.query("DELETE FROM user_profile_x_identity WHERE owner_user_id='backfill-owner'").run();
+      db.query("UPDATE user_profiles SET x_handle=NULL,display_name='',bio='',avatar_url=NULL,visibility='private',onboarding_completed=1 WHERE owner_user_id='backfill-owner'").run();
+    } finally { db.close(); }
+
+    const profileMethod = OfficialXClient.prototype.getOwnProfile;
+    const originalFetch = globalThis.fetch;
+    const savedEnv = { clientId: process.env.X_OAUTH_CLIENT_ID, redirect: process.env.X_OAUTH_REDIRECT_URI };
+    let profileReads = 0;
+    let imageFetches = 0;
+    OfficialXClient.prototype.getOwnProfile = async (credential) => {
+      profileReads++;
+      return { id: credential.xUserId === "777001" ? "999999" : credential.xUserId, username: "Verified_User", name: "Verified name", description: "Verified biography", profile_image_url: "https://pbs.twimg.com/profile_images/777000/avatar.png" };
+    };
+    process.env.X_OAUTH_CLIENT_ID = "fixture-client";
+    process.env.X_OAUTH_REDIRECT_URI = "http://localhost:3000/api/x/oauth/callback";
+    globalThis.fetch = (async (input: RequestInfo | URL) => {
+      if (String(input).startsWith("https://pbs.twimg.com/")) {
+        imageFetches++;
+        return new Response(Buffer.from([0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a]), { headers: { "content-type": "image/png" } });
+      }
+      throw new Error("unexpected backfill request");
+    }) as unknown as typeof fetch;
+    try {
+      const loaded = await runAsOwner("backfill-owner", () => loadOwnUserProfileFromX());
+      expect(loaded).toMatchObject({ xHandle: "Verified_User", displayName: "Verified name", bio: "Verified biography", avatarUrl: "/api/profile/avatar/777000", visibility: "private", onboardingCompleted: true });
+      expect(await runAsOwner("backfill-owner", () => loadOwnUserProfileFromX())).toMatchObject({ xHandle: "Verified_User" });
+      expect(profileReads).toBe(1);
+      expect(imageFetches).toBe(1);
+
+      store.connectXAccount({ ownerUserId: "backfill-mismatch", xUserId: "777001", handle: "mismatch", accessToken: "mismatch-access", refreshToken: "mismatch-refresh", expiresAt: now + 3600, scopes, now });
+      const mismatchDb = new Database(process.env.ISPATLA_DB!);
+      try {
+        mismatchDb.query("DELETE FROM user_profile_x_identity WHERE owner_user_id='backfill-mismatch'").run();
+        mismatchDb.query("UPDATE user_profiles SET x_handle=NULL,display_name='',bio='',avatar_url=NULL WHERE owner_user_id='backfill-mismatch'").run();
+      } finally { mismatchDb.close(); }
+      const mismatch = await runAsOwner("backfill-mismatch", () => loadOwnUserProfileFromX());
+      expect(mismatch.xHandle).toBeNull();
+      expect(profileReads).toBe(2);
+      expect(imageFetches).toBe(1);
+    } finally {
+      OfficialXClient.prototype.getOwnProfile = profileMethod;
+      globalThis.fetch = originalFetch;
+      if (savedEnv.clientId === undefined) delete process.env.X_OAUTH_CLIENT_ID; else process.env.X_OAUTH_CLIENT_ID = savedEnv.clientId;
+      if (savedEnv.redirect === undefined) delete process.env.X_OAUTH_REDIRECT_URI; else process.env.X_OAUTH_REDIRECT_URI = savedEnv.redirect;
+    }
   });
 
   test("rolls back the app account if mapping insertion fails", () => {

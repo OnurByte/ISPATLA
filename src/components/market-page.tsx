@@ -147,7 +147,7 @@ export function MarketPage({ initial, accounts }: { initial: MarketInbox; accoun
   const list = (items: MarketItem[]) => items.length ? <div className="grid gap-3">{items.map((item) => <OpportunityCard key={item.externalId} item={item} accountId={accountId} pending={pendingAction} onGenerate={generate} />)}</div> : <Empty className="border border-dashed py-12"><BrandMark size={64} className="mx-auto" /><EmptyHeader><EmptyTitle>{emptyTitle}</EmptyTitle><EmptyDescription>{emptyDescription}</EmptyDescription></EmptyHeader></Empty>;
 
   return <div className="flex flex-col gap-5">
-    <Alert><BrainCircuit aria-hidden="true" /><AlertDescription>Fırsat, son 24 saatte oluşturulmuş; sensitive olmayan; işlenmemiş ve karar skoru ≥ 70 olan kaynak postudur. Hız ve takipçi oranı FxTwitter&apos;dan gelen gözlenen sayaçlardır; skor X&apos;in iç sıralaması veya erişim garantisi değildir.</AlertDescription></Alert>
+    <Alert><BrainCircuit aria-hidden="true" /><AlertDescription>Fırsat, son 24 saatte oluşturulmuş; sensitive olmayan; işlenmemiş ve karar skoru ≥ 70 olan kaynak postudur. Hız ve takipçi oranı FxTwitter&apos;dan gelen gözlenen sayaçlardır; skor 𝕏&apos;in iç sıralaması veya erişim garantisi değildir.</AlertDescription></Alert>
     <Card>
       <CardHeader className="gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div><CardTitle>Fırsat masası</CardTitle><CardDescription>Önce postun kararını gör; yalnız fırsatlarda draft üret.</CardDescription></div>

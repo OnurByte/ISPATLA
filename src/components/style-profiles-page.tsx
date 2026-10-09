@@ -9,19 +9,18 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { useAbortableRequest } from "@/components/use-abortable-request";
 import { diffStyleProfiles, parseStyleProfileJson, STYLE_PROFILE_SCHEMA_VERSION } from "@/components/style-profile-json";
 import { LOCALES, LOCALE_CONFIG } from "@/i18n/config";
 
-type ExampleStyle = { tone?: string; ideology?: string; opening?: string; emoji?: string; formatRule?: string; editorialInstruction?: string; writingSkillIds?: string[] };
-type IdeologyOption = { id: string; name: { en: string; tr: string } };
+type ExampleStyle = { tone?: string; opening?: string; emoji?: string; formatRule?: string; editorialInstruction?: string; writingSkillIds?: string[] };
 
 function profileJson(profile?: Record<string, unknown>): string {
   const advancedProfile = { ...(profile || {}) };
   delete advancedProfile.editorialInstruction;
+  delete advancedProfile.ideology;
   return JSON.stringify(advancedProfile, null, 2);
 }
 
@@ -36,6 +35,7 @@ function profileText(profile: Record<string, unknown>, key: string): string {
 function withoutInstruction(profile?: Record<string, unknown>): Record<string, unknown> {
   const result = { ...(profile || {}) };
   delete result.editorialInstruction;
+  delete result.ideology;
   return result;
 }
 
@@ -45,7 +45,7 @@ function diffValue(value: unknown): string {
   return rendered.length > 180 ? `${rendered.slice(0, 177)}…` : rendered;
 }
 
-export function StyleProfilesPage({ initial, initialSettings, ideologies }: { initial: Account[]; initialSettings: WritingStyleSettings; ideologies: IdeologyOption[] }) {
+export function StyleProfilesPage({ initial, initialSettings }: { initial: Account[]; initialSettings: WritingStyleSettings }) {
   const [accounts, setAccounts] = useState(initial);
   const [selected, setSelected] = useState(initial[0]?.id || 0);
   const current = accounts.find((account) => account.id === selected);
@@ -155,6 +155,8 @@ export function StyleProfilesPage({ initial, initialSettings, ideologies }: { in
     setAdvancedText(value);
     try {
       const parsed = parseStyleProfileJson(value);
+      if (Object.hasOwn(current?.styleProfile || {}, "ideology")) parsed.ideology = current!.styleProfile.ideology;
+      else delete parsed.ideology;
       setProfile(parsed);
       setAdvancedError("");
     } catch {
@@ -174,9 +176,8 @@ export function StyleProfilesPage({ initial, initialSettings, ideologies }: { in
 
   return <div className="flex flex-col gap-5">
     {pending ? <Alert><AlertDescription className="flex flex-wrap items-center justify-between gap-3"><span>İstek sürüyor. Durdurmak sunucuda tamamlanmış bir kaydetmeyi geri almaz.</span><Button type="button" variant="destructive" size="sm" onClick={abort}>Durdur</Button></AlertDescription></Alert> : null}
-    <Card><CardHeader><CardTitle>Örnek post stili</CardTitle><CardDescription>Hesap seçmeden oluşturulan örnek postların ayrı ses ve tandans profili.</CardDescription></CardHeader><CardContent className="grid gap-4 md:grid-cols-2">
+    <Card><CardHeader><CardTitle>Örnek post stili</CardTitle><CardDescription>Hesap seçmeden oluşturulan örnek postların ortak yazım profili.</CardDescription></CardHeader><CardContent className="grid gap-4 md:grid-cols-2">
       <Field><FieldLabel htmlFor="example-tone">Ton</FieldLabel><Input id="example-tone" value={example.tone || ""} onChange={(event) => updateExample("tone", event.target.value)} disabled={pending} /></Field>
-      <Field><FieldLabel>Editoryal eksen / tandans</FieldLabel><Select value={example.ideology || "belirsiz"} onValueChange={(value) => updateExample("ideology", value || "belirsiz")} disabled={pending}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="belirsiz">Belirsiz / nötr</SelectItem>{ideologies.map((item) => <SelectItem key={item.id} value={item.id}>{item.name.tr || item.name.en}</SelectItem>)}</SelectContent></Select></Field>
       <Field><FieldLabel htmlFor="example-opening">Açılış</FieldLabel><Input id="example-opening" value={example.opening || ""} onChange={(event) => updateExample("opening", event.target.value)} disabled={pending} /></Field>
       <Field><FieldLabel htmlFor="example-emoji">Emoji</FieldLabel><Input id="example-emoji" value={example.emoji || ""} onChange={(event) => updateExample("emoji", event.target.value)} disabled={pending} /></Field>
       <Field className="md:col-span-2"><FieldLabel htmlFor="example-format">Format kuralı</FieldLabel><Input id="example-format" value={example.formatRule || ""} onChange={(event) => updateExample("formatRule", event.target.value)} disabled={pending} /><FieldDescription>Yalnız kaynak postu açık özel-haber etiketi taşıyorsa görünen kaynak adı eklenir.</FieldDescription></Field>

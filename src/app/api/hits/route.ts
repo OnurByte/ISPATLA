@@ -13,7 +13,7 @@ export const POST = withUser(async (request: Request) => {
   try {
     const body = await readJsonBody(request);
     if (Object.keys(body).some((key) => key !== "remotePostId") || typeof body.remotePostId !== "string") {
-      return NextResponse.json({ error: "X gönderi kimliği gerekli" }, { status: 400, headers: { "cache-control": "no-store" } });
+      return NextResponse.json({ error: "𝕏 gönderi kimliği gerekli" }, { status: 400, headers: { "cache-control": "no-store" } });
     }
     const share = shareOwnXPost(body.remotePostId);
     return NextResponse.json({ ...share, path: `/h/${share.publicId}` }, {

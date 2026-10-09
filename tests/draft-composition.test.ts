@@ -150,6 +150,38 @@ test("the manual draft prompt carries the source post as delimited data", () => 
   });
 });
 
+test("legacy account and source ideology fields never enter a generated draft prompt", () => {
+  const output = runIsolated(`
+    import { ensureDatabase } from "./src/server/db.ts";
+    import { setAiSettings, setCompatibleSettings, testAiConnection } from "./src/server/ai.ts";
+    import { generateDraft } from "./src/server/pipeline.ts";
+    if (!ensureDatabase()) throw new Error("database did not initialize");
+    setCompatibleSettings("https://ai-gateway.example/v1", "Test");
+    setAiSettings("compatible", "test-model");
+    let prompt = "";
+    globalThis.fetch = (async (_url, init) => {
+      const body = JSON.parse(String(init.body));
+      if (body.response_format?.json_schema?.name === "ispatla_connection_test") {
+        return new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({ ok: true }) } }] }));
+      }
+      prompt = body.messages.map((item) => item.content).join("\\n");
+      return new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({ text: "Bu değişiklik ürünün çalışma şeklini değiştiriyor." }) } }] }));
+    });
+    await testAiConnection();
+    const result = await generateDraft({ externalId: "1", sourceHandle: "wire", authorHandle: "wire", statusUrl: "https://x.com/wire/status/1", text: "Ürün için yeni bir API yayımlandı.", createdTimestamp: 1, likes: 0, replies: 0, reposts: 0, quotes: 0, views: 0, mediaCount: 0, mediaJson: "[]", rawJson: "{}", score: 80, scoreReason: "test", sensitive: false, clusterKey: "post" }, {
+      account: { handle: "writer", styleProfile: { tone: "doğrudan", ideology: "ACCOUNT_TANDANS_MARKER" } },
+      source: { handle: "wire", name: "Wire", profile: { niche: "technology", topics: ["AI"], ideology: "SOURCE_TANDANS_MARKER", ideologyTags: ["SOURCE_TAG_MARKER"] } },
+      baseStrategy: "technology",
+    });
+    console.log(JSON.stringify({ ok: "text" in result, prompt }));
+  `);
+  const result = JSON.parse(output) as { ok: boolean; prompt: string };
+  expect(result.ok).toBe(true);
+  expect(result.prompt).not.toContain("TANDANS_MARKER");
+  expect(result.prompt).not.toContain("SOURCE_TAG_MARKER");
+  expect(result.prompt.toLocaleLowerCase("tr-TR")).not.toContain("politik profil");
+});
+
 test("composeDraft fans out to three angled variants and marks exactly one winner", () => {
   const output = runIsolated(`
     import { ensureDatabase } from "./src/server/db.ts";

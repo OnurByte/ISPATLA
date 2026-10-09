@@ -10,7 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 
-export function CompetitorsPanel({ initial }: { initial: Competitor[] }) {
+export function CompetitorsPanel({ initial, canManage = false }: { initial: Competitor[]; canManage?: boolean }) {
   const [items, setItems] = useState(initial);
   const [handle, setHandle] = useState("");
   const [name, setName] = useState("");
@@ -47,23 +47,23 @@ export function CompetitorsPanel({ initial }: { initial: Competitor[] }) {
     <Card>
       <CardHeader>
         <CardTitle>Rakip izleme listesi</CardTitle>
-        <CardDescription>Kaynak havuzundan ayrıdır; yalnız public performans karşılaştırması için izlenir ve otomatik draft/publish akışına girmez.</CardDescription>
+        <CardDescription>{canManage ? "Kaynak havuzundan ayrıdır; yalnız public performans karşılaştırması için izlenir ve otomatik draft/publish akışına girmez." : "Ortak public performans karşılaştırması listesi. Yönetim kontrolleri operatör erişimi gerektirir."}</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
-        <FieldGroup>
+        {canManage ? <FieldGroup>
           <div className="grid gap-3 sm:grid-cols-3">
-            <Field><FieldLabel htmlFor="competitor-handle">X handle</FieldLabel><Input id="competitor-handle" value={handle} onChange={(event) => setHandle(event.target.value.replace(/^@/, ""))} placeholder="rakiphesap" /></Field>
+            <Field><FieldLabel htmlFor="competitor-handle">𝕏 handle</FieldLabel><Input id="competitor-handle" value={handle} onChange={(event) => setHandle(event.target.value.replace(/^@/, ""))} placeholder="rakiphesap" /></Field>
             <Field><FieldLabel htmlFor="competitor-name">Görünen ad</FieldLabel><Input id="competitor-name" value={name} onChange={(event) => setName(event.target.value)} placeholder="opsiyonel" /></Field>
             <Field><FieldLabel htmlFor="competitor-category">Kategoriler</FieldLabel><Input id="competitor-category" value={category} onChange={(event) => setCategory(event.target.value)} placeholder="haber, magazin" /></Field>
           </div>
           <Button onClick={add} disabled={pending || !handle.trim()}><Plus data-icon="inline-start" aria-hidden="true" /> Rakip ekle</Button>
-        </FieldGroup>
+        </FieldGroup> : null}
         {message ? <Alert><AlertDescription>{message}</AlertDescription></Alert> : null}
         <div className="flex flex-col gap-2">
           {items.length ? items.map((item) => (
             <div key={item.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border p-3 text-sm">
               <div className="min-w-0"><div className="font-medium">@{item.handle} {item.name && item.name !== item.handle ? `· ${item.name}` : ""}</div><div className="text-xs text-muted-foreground">{item.category || "kategorisiz"}{item.lastError ? ` · son hata: ${item.lastError}` : item.lastSuccessAt ? " · güncel veri alındı" : " · ilk tarama bekliyor"}</div></div>
-              <div className="flex items-center gap-2"><Badge variant={item.enabled ? "secondary" : "outline"}>{item.enabled ? "izleniyor" : "pasif"}</Badge><Button size="icon" variant="ghost" disabled={pending} onClick={() => remove(item)} aria-label={`@${item.handle} sil`}><Trash2 aria-hidden="true" /></Button></div>
+              <div className="flex items-center gap-2"><Badge variant={item.enabled ? "secondary" : "outline"}>{item.enabled ? "izleniyor" : "pasif"}</Badge>{canManage ? <Button size="icon" variant="ghost" disabled={pending} onClick={() => remove(item)} aria-label={`@${item.handle} sil`}><Trash2 aria-hidden="true" /></Button> : null}</div>
             </div>
           )) : <p className="text-sm text-muted-foreground">Henüz izlenen rakip yok.</p>}
         </div>

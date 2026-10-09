@@ -655,16 +655,17 @@ test("stores feedback against the confirmed account publication", () => {
 test("persists a real custom category and rejects an unbounded factual category", () => {
   const output = runIsolatedDatabase(`
     import { ensureDatabase, getCategories, saveCategory } from "./src/server/db.ts";
+    import { runAsOwner } from "./src/server/owner-context.ts";
     if (!ensureDatabase()) throw new Error("database did not initialize");
-    const custom = saveCategory({
+    const custom = runAsOwner("category-owner", () => saveCategory({
       slug: "monero", name: "Monero", enabled: true, builtIn: false, baseStrategy: "technology", clusterStrategy: "topic",
       verificationMode: "moderate", description: "Monero and privacy ecosystem", positiveExamples: ["Monero protocol"], negativeExamples: [],
       keywords: ["monero", "xmr"], excludedKeywords: [], seedHandles: ["monero"], defaultFormats: ["post"],
       sourcePolicy: {}, riskPolicy: {}, scoringPolicy: {}, publishingPolicy: {}, aiContext: "privacy coin", now: 10
-    });
+    }));
     let invalid = "";
     try {
-      saveCategory({ ...custom, id: undefined, slug: "unsafe-politics", name: "Unsafe Politics", builtIn: false, baseStrategy: "politics", clusterStrategy: "event", verificationMode: "none", description: "unsafe", positiveExamples: ["claim"], now: 11 });
+      runAsOwner("category-owner", () => saveCategory({ ...custom, id: undefined, slug: "unsafe-politics", name: "Unsafe Politics", builtIn: false, baseStrategy: "politics", clusterStrategy: "event", verificationMode: "none", description: "unsafe", positiveExamples: ["claim"], now: 11 }));
     } catch (error) { invalid = error instanceof Error ? error.message : String(error); }
     const templates = getCategories().filter((category) => category.slug === "magazin" || category.slug === "troll");
     console.log(JSON.stringify({ builtIn: getCategories().filter((category) => category.builtIn).length, custom, invalid, templates }));

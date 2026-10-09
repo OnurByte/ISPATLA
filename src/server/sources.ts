@@ -14,7 +14,6 @@ import {
   type SourceConfig,
   type SourceProfile,
 } from "./db";
-import { resolveIdeology } from "./ideologies";
 
 type RawSource = {
   handle?: unknown;
@@ -52,15 +51,6 @@ export function asNiche(value: unknown, fallback = ""): string {
 export function asTone(value: unknown, fallback = ""): string {
   const tone = String(value ?? fallback).trim().replace(/\s+/g, " ");
   return tone.slice(0, 140);
-}
-
-export function asIdeology(value: unknown, fallback: SourceProfile["ideology"] = "belirsiz"): SourceProfile["ideology"] {
-  return resolveIdeology(value) || resolveIdeology(fallback) || "belirsiz";
-}
-
-export function asIdeologyTags(value: unknown, fallback: SourceProfile["ideologyTags"] = []): SourceProfile["ideologyTags"] {
-  const values = Array.isArray(value) ? value : String(value ?? fallback.join(",")).split(",");
-  return [...new Set(values.map(resolveIdeology).filter((tag): tag is string => Boolean(tag && tag !== "belirsiz")))].slice(0, 6);
 }
 
 export function asTopics(value: unknown, fallback: string[] = []): string[] {
@@ -101,10 +91,7 @@ function readConfiguredSources(): SourceConfig[] {
 
 export function bootstrapSources(now = Math.floor(Date.now() / 1000)): number {
   syncConfiguredSourcePool(now);
-  if (getSetting("sources_seed_v1", "") === "done") {
-    backfillSeedProfiles(now);
-    return 0;
-  }
+  if (getSetting("sources_seed_v1", "") === "done") return 0;
   const stored = new Map(getStoredSources().map((source) => [source.handle, source]));
   const seedHandles = new Set(readConfiguredSources().map((source) => source.handle));
   let inserted = 0;
@@ -128,7 +115,6 @@ export function bootstrapSources(now = Math.floor(Date.now() / 1000)): number {
   }
   bootstrapCategorySeeds(now);
   setSetting("sources_seed_v1", "done", now);
-  backfillSeedProfiles(now);
   return inserted;
 }
 
@@ -179,38 +165,10 @@ function bootstrapCategorySeeds(now: number): void {
   }
 }
 
-function backfillSeedProfiles(now: number): void {
-  if (getSetting("sources_political_v2", "") === "done") return;
-  const configured = new Map(readConfiguredSources().map((source) => [source.handle, source]));
-  for (const current of getStoredSources()) {
-    const seed = configured.get(current.handle);
-    const hasCurrentIdeology = Boolean(current.profile.ideology?.trim());
-    if (current.profile.origin !== "seed" || hasCurrentIdeology || !seed?.profile.ideology) continue;
-    upsertSource({
-      ...current,
-      profile: {
-        ...current.profile,
-        niche: seed.profile.niche,
-        tone: seed.profile.tone,
-        topics: seed.profile.topics,
-        ideology: seed.profile.ideology,
-        ideologyTags: seed.profile.ideologyTags,
-        ideologyConfidence: seed.profile.ideologyConfidence,
-        ideologyBasis: seed.profile.ideologyBasis,
-        ideologyReason: seed.profile.ideologyReason,
-      },
-    }, now);
-  }
-  setSetting("sources_political_v2", "done", now);
-}
-
 export function loadSources(): SourceConfig[] {
   bootstrapSources();
   const stored = getStoredSources();
-  return (stored.length > 0 ? stored : readConfiguredSources()).map((source) => ({
-    ...source,
-    profile: { ...source.profile, ideology: asIdeology(source.profile.ideology), ideologyTags: asIdeologyTags(source.profile.ideologyTags) },
-  }));
+  return stored.length > 0 ? stored : readConfiguredSources();
 }
 
 export function resetSources(now = Math.floor(Date.now() / 1000)): SourceConfig[] {

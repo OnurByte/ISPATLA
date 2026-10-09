@@ -6,8 +6,8 @@ export const runtime = "nodejs";
 
 const KNOWN_KEYS = [
   { name: "openai_api_key", provider: "OpenAI" },
+  { name: "anthropic_api_key", provider: "Claude" },
   { name: "compatible_api_key", provider: "OpenAI-uyumlu AI" },
-  { name: "jev_api_key", provider: "Jev" },
 ];
 
 function GETHandler() {

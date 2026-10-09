@@ -70,7 +70,7 @@ describe("pipeline trust boundaries", () => {
     expect(qualityGate(post({ sensitive: true }), "Bu özgün ve yeterince uzun bir taslaktır.")).toBe(
       "sensitive source is not autopilot eligible",
     );
-    expect(qualityGate(post(), "a".repeat(281))).toBe("draft exceeds X character limit");
+    expect(qualityGate(post(), "a".repeat(281))).toBe("draft exceeds 𝕏 character limit");
   });
 
   test("normalizes a confirmed post feedback snapshot", () => {
@@ -87,12 +87,11 @@ describe("pipeline trust boundaries", () => {
     expect(selectPublishingAccount(accounts, (id) => id === 2 ? 80 : 30, undefined, [], false, [], [], (id) => id === 2 ? 1 : 0)?.id).toBe(1);
   });
 
-  test("does not cross an explicitly configured source/account editorial axis", () => {
+  test("source editorial labels do not restrict account eligibility", () => {
     const source = { profile: { ideology: "seküler", ideologyTags: [] } } as unknown as SourceConfig;
-    expect(selectPublishingAccount([account(1)], () => null, source)).toBeUndefined();
-    expect(selectPublishingAccount([{ ...account(1), styleProfile: { ideology: "seküler" } }], () => null, source)?.id).toBe(1);
+    expect(selectPublishingAccount([account(1)], () => null, source)?.id).toBe(1);
     const taggedSource = { profile: { ideology: "belirsiz", ideologyTags: ["islamcı"] } } as unknown as SourceConfig;
-    expect(selectPublishingAccount([account(1)], () => null, taggedSource)).toBeUndefined();
+    expect(selectPublishingAccount([account(1)], () => null, taggedSource)?.id).toBe(1);
   });
 
   test("routes automatic publishing only to configured matching categories", () => {

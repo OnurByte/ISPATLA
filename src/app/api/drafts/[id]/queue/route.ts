@@ -29,7 +29,7 @@ async function POSTHandler(request: Request, context: { params: Promise<{ id: st
     return NextResponse.json({ error: "Yalnız post, repost ve uygun reply eylemleri kuyruğa alınabilir." }, { status: 422 });
   }
   const post = draft.externalId ? getPost(draft.externalId) : null;
-  const gateReason = action === "post" ? (post ? qualityGate(post, draft.text) : null) : action === "reply" && !draft.text.trim() ? "reply metni boş olamaz" : !draft.sourceUrl ? "hedef X post URL gerekli" : null;
+  const gateReason = action === "post" ? (post ? qualityGate(post, draft.text) : null) : action === "reply" && !draft.text.trim() ? "reply metni boş olamaz" : !draft.sourceUrl ? "hedef 𝕏 post URL gerekli" : null;
   if (gateReason) {
     updateDraft({ id, accountId, status: "blocked", gateReason, now: Math.floor(Date.now() / 1000) });
     return NextResponse.json({ error: gateReason }, { status: 422 });

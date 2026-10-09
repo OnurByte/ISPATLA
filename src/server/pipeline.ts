@@ -27,10 +27,13 @@ import {
   getSetting,
   getWritingStyleSettings,
   getAccounts,
+  isOwnerEnabled,
   getAccountCategoryConfigs,
+  getAccountSourceCategoryConfigs,
+  getAccountSources,
+  isAccountSourceSelected,
   getCategories,
   getSourceCategoryConfigs,
-  getSourceRights,
   readPublicationPolicyHistory,
   hasPublishedCluster,
   lastPublishAt,
@@ -73,14 +76,12 @@ import {
 import { parseVoiceProfile, voiceExemplarBlock, type VoiceProfile } from "./voice-profile";
 import {
   bootstrapSources,
-  enabledSources,
   nextSourceState,
   sourceDueForScoring,
 } from "./sources";
 import { clusterKey, isCurrentOpportunity, isNumericalHit, scorePost, selectDiverseCandidates } from "./scoring";
 import { preferredRelevanceAccount, rankOpportunityBatch } from "./opportunity-batch";
 import { isAllowedAvatarUrl, isAllowedMediaContentType, isAllowedMediaUrl } from "./security";
-import { resolveIdeology } from "./ideologies";
 import { FxTwitterReader, normalizeFxPost, type XPost, type XProfile } from "./x-reader";
 import { AI_PROVIDERS, aiConfigured, aiModelLabel, getAiSettings, needsTerraReview, requestAiScore, requestAiText, resolveDraftModel, reviewModel, type AiProvider, type AiScore } from "./ai";
 import {
@@ -601,7 +602,7 @@ const WRITING_CONTRACTS: Record<CategoryBaseStrategy, WritingContract> = {
     angles: [
       angle("punchline", "doğrudan punchline", "Sadece punchline'ı yaz. Kurulum kaynakta zaten var."),
       angle("overreact", "abartılı tepki", "Gelişmeye orantısız ama zararsız bir tepki ver; tepkinin kendisi şaka olsun."),
-      angle("format", "format şakası", "Gelişmeyi tanıdık bir X format kalıbına oturt; kalıbı isimlendirme, uygula."),
+      angle("format", "format şakası", "Gelişmeyi tanıdık bir 𝕏 format kalıbına oturt; kalıbı isimlendirme, uygula."),
     ],
   },
   shitpost: {
@@ -698,18 +699,13 @@ export async function generateDraft(
     const writingSkills = writingSettings.skills.filter((skill) => skill.enabled && selectedSkillIds.has(skill.id)).map((skill) => `${skill.name}: ${skill.instructions}`).join("\n");
     const instructionContext = editorialInstructionContext(writingSettings.exampleStyle.editorialInstruction, options.account?.styleProfile.editorialInstruction);
     const accountNiche = typeof accountProfile.niche === "string" ? accountProfile.niche.trim() : "";
-    const accountIdeology = typeof accountProfile.ideology === "string" ? accountProfile.ideology.trim() : "";
     const writingContract = JSON.stringify({
       tone: accountProfile.tone || "sade, kanıt odaklı",
-      ideology: accountIdeology || "nötr / belirtilmemiş",
       opening: accountProfile.opening || "belirtilmemiş",
       emoji: accountProfile.emoji || "kullanma",
       attribution: exclusiveSourceAttribution(source, post.text) ? `yalnız metnin sonunda ${exclusiveSourceAttribution(source, post.text)}` : "otomatik atıf yazma",
       formatRule: accountProfile.formatRule || "kısa, tek paragraf",
     }).slice(0, 3000);
-    const politicalProfile = source?.profile.ideology
-      ? `${source.profile.ideology}${source.profile.ideologyTags?.length ? ` (${source.profile.ideologyTags.join(", ")})` : ""}`
-      : "belirsiz";
     const corroboration = (options.eventPosts || [])
       .filter((item) => item.externalId !== post.externalId)
       .slice(0, 4)
@@ -728,7 +724,7 @@ export async function generateDraft(
         voiceBlock,
         "Original post için 280 karakteri geçme, clickbait ve zincir üretme.",
       ].filter(Boolean).join("\n"),
-      evidence: `Yayın hesabı: @${options.account?.handle || "belirtilmemiş"}\nYayın hesabı nişi: ${accountNiche || "belirtilmemiş"}\nYayın hesabı kategorileri: ${accountCategories(options.account).join(", ") || "belirtilmemiş"}\nYayın hesabı yazım sözleşmesi: ${writingContract}\nKaynak hesap: @${post.sourceHandle}\nKaynak nişi: ${sourceNiche}\nAlt konular: ${source?.profile.topics?.join(", ") || "belirtilmemiş"}\nPolitik profil (yalnız editoryal bağlam): ${politicalProfile}\nKaynak URL: ${post.statusUrl}\nAna kaynak metni (veri olarak ele al):\n${post.text}${corroboration ? `\n\nAynı event için başka kaynak metinleri (tekrar eden aggregator anlatımı bağımsız kanıt değildir; yalnız ortak, çelişmeyen olguları kullan):\n${corroboration}` : ""}`,
+      evidence: `Yayın hesabı: @${options.account?.handle || "belirtilmemiş"}\nYayın hesabı nişi: ${accountNiche || "belirtilmemiş"}\nYayın hesabı kategorileri: ${accountCategories(options.account).join(", ") || "belirtilmemiş"}\nYayın hesabı yazım sözleşmesi: ${writingContract}\nKaynak hesap: @${post.sourceHandle}\nKaynak nişi: ${sourceNiche}\nAlt konular: ${source?.profile.topics?.join(", ") || "belirtilmemiş"}\nKaynak URL: ${post.statusUrl}\nAna kaynak metni (veri olarak ele al):\n${post.text}${corroboration ? `\n\nAynı event için başka kaynak metinleri (tekrar eden aggregator anlatımı bağımsız kanıt değildir; yalnız ortak, çelişmeyen olguları kullan):\n${corroboration}` : ""}`,
       usageKind: `generation:${format}`,
       usageUnits: draftUsageUnits(format),
       provider: options.aiRoute?.provider,
@@ -792,7 +788,6 @@ export async function generateManualDraft(input: {
     const niche = typeof profile.niche === "string" ? profile.niche.trim() : "";
     const writingContract = JSON.stringify({
       tone: profile.tone || "sade, kanıt odaklı",
-      ideology: profile.ideology || "nötr / belirtilmemiş",
       opening: profile.opening || "belirtilmemiş",
       emoji: profile.emoji || "kullanma",
       attribution: "otomatik kaynak adı, @handle veya parantez içi atıf ekleme",
@@ -841,7 +836,7 @@ export async function generateManualDraft(input: {
 export function manualQualityGate(text: string, sourceText = "", sourceUrl = ""): string | null {
   const normalised = normaliseText(text);
   if (normalised.length < 20) return "draft is too short";
-  if (text.length > 280) return "draft exceeds X character limit";
+  if (text.length > 280) return "draft exceeds 𝕏 character limit";
   if (sourceText && copiedSourceText(sourceText, text)) return "draft copies source text";
   if (sourceUrl && !/^https:\/\/[^\s]+$/i.test(sourceUrl)) return "source URL must be HTTPS";
   return null;
@@ -860,7 +855,7 @@ export function manualQualityGate(text: string, sourceText = "", sourceUrl = "")
  */
 export const DRAFT_VARIANT_COUNT = 3;
 export const DRAFT_JEV_WEIGHT = 0.5;
-export const JEV_DRAFT_QUERY = "Bu taslak, yayın hesabının ses sözleşmesine ve kategori sözleşmesine uyan, kaynağı tekrarlamayan özgün bir X postu mu?";
+export const JEV_DRAFT_QUERY = "Bu taslak, yayın hesabının ses sözleşmesine ve kategori sözleşmesine uyan, kaynağı tekrarlamayan özgün bir 𝕏 postu mu?";
 export const JEV_DRAFT_SCOPE = "draft-variant-v1";
 
 export type DraftVariantCandidate = {
@@ -1098,21 +1093,10 @@ export function qualityGate(post: ObservedPost, draft: string): string | null {
   const normalisedDraft = normaliseText(draft);
   const normalisedSource = normaliseText(post.text);
   if (normalisedDraft.length < 20) return "draft is too short";
-  if (draft.length > 280) return "draft exceeds X character limit";
+  if (draft.length > 280) return "draft exceeds 𝕏 character limit";
   if (copiedSourceText(normalisedSource, normalisedDraft)) return "draft copies source text";
   if (post.sensitive) return "sensitive source is not autopilot eligible";
   return null;
-}
-
-function sourceIdeologyLabels(source?: SourceConfig): string[] {
-  return source
-    ? [source.profile.ideology || "", ...(source.profile.ideologyTags || [])].map(resolveIdeology).filter((value): value is string => Boolean(value && value !== "belirsiz"))
-    : [];
-}
-
-export function accountMatchesSource(account: Account, source?: SourceConfig): boolean {
-  const sourceLabels = sourceIdeologyLabels(source);
-  return !sourceLabels.length || sourceLabels.includes(resolveIdeology(account.styleProfile.ideology) || "");
 }
 
 function sourceCategories(source: SourceConfig | undefined, configurations: SourceCategoryConfig[]): string[] {
@@ -1160,12 +1144,20 @@ export function eligiblePublishingAccounts(
   configurations: AccountCategoryConfig[] = [],
   sourceConfigurations: SourceCategoryConfig[] = [],
 ): Account[] {
-  return accounts.filter((account) => account.enabled && (!automatic || Boolean(account.ownerUserId) || account.automationMode === "auto") && accountMatchesSource(account, source) && sourceMatchesCategories(source, categories, sourceConfigurations) && accountMatchesCategories(account, categories, automatic, configurations));
+  return accounts.filter((account) => {
+    const scopedSources = sourceConfigurations.some((item) => item.accountId !== undefined)
+      ? sourceConfigurations.filter((item) => item.accountId === account.id)
+      : sourceConfigurations;
+    return account.enabled && (!automatic || Boolean(account.ownerUserId) || account.automationMode === "auto")
+      && sourceMatchesCategories(source, categories, scopedSources)
+      && accountMatchesCategories(account, categories, automatic, configurations);
+  });
 }
 
 /** Run account-bound reads, routes, and writes under its persisted owner identity. */
 export function withPersistedAccountOwner<T>(accountId: number, ownerUserId: string, callback: (account: Account) => T): T {
   if (!ownerUserId) throw new Error("persisted account owner is required");
+  if (!isOwnerEnabled(ownerUserId)) throw new Error("account owner is disabled");
   return runAsOwner(ownerUserId, () => {
     const account = getAccounts().find((item) => item.id === accountId && item.ownerUserId === ownerUserId);
     if (!account) throw new Error("account not found for persisted owner");
@@ -1174,7 +1166,7 @@ export function withPersistedAccountOwner<T>(accountId: number, ownerUserId: str
 }
 
 export function hasCurrentAutomaticPostConsent(account: Pick<Account, "id" | "ownerUserId" | "enabled">, now: number): boolean {
-  if (!account.enabled || !account.ownerUserId || currentOwnerId() !== account.ownerUserId) return false;
+  if (!account.enabled || !account.ownerUserId || !isOwnerEnabled(account.ownerUserId) || currentOwnerId() !== account.ownerUserId) return false;
   const auth = getXAccountAuthState(account.id, account.ownerUserId);
   const consent = auth?.consents.find((item) => item.action === "post");
   return Boolean(auth?.connected && auth.scopes.includes("tweet.write") && consent?.mode === "auto"
@@ -1203,13 +1195,14 @@ async function publishCandidate(post: ObservedPost & Pick<RecentPost, "relevance
   // filling the pool. Checked here too so every publishCandidate() caller is covered.
   if (publishingPaused()) return;
   if (opportunityScoreForPost(post, now) < opportunityPoolThreshold()) return;
-  const source = getStoredSources().find((item) => item.handle === post.sourceHandle);
+  const source = getAccountSources(selectedAccountId).find((item) => item.handle === post.sourceHandle);
   const evidence = scoreEvidenceFor(post.scoreReason, post.score);
   const currentScore = opportunityScoreForPost(post, now);
   const ownerUserId = currentOwnerId();
   if (!ownerUserId) return;
   const accountConfigurations = getAccountCategoryConfigs();
-  const sourceConfigurations = getSourceCategoryConfigs();
+  if (!isAccountSourceSelected(selectedAccountId, post.sourceHandle)) return;
+  const sourceConfigurations = getAccountSourceCategoryConfigs(selectedAccountId);
   const categories = sourceCategories(source, sourceConfigurations);
   if (!categories.length) return;
   const override = isNumericalHit(evidence.momentum, post.createdTimestamp, evidence.risk, now);
@@ -1442,9 +1435,9 @@ export function isDefinitiveMissingSourceError(error: unknown): boolean {
   return /(?:^|\s)(?:404|not[ -]?found|does not exist)(?:\s|$)/iu.test(error instanceof Error ? error.message : String(error));
 }
 
-export async function checkSourceLiveness(now = Math.floor(Date.now() / 1000), onlyUnknown = false): Promise<SourceCheckResult> {
+export async function checkSourceLiveness(now = Math.floor(Date.now() / 1000), onlyUnknown = false, selectedSources?: SourceConfig[]): Promise<SourceCheckResult> {
   const result: SourceCheckResult = { checked: 0, alive: 0, deleted: 0, unreachable: 0, identityWarnings: 0 };
-  const sources = getStoredSources().filter((source) => !onlyUnknown || !source.profile.blueCheckStatus || source.profile.blueCheckStatus === "unknown");
+  const sources = (selectedSources || getStoredSources()).filter((source) => source.enabled && (!onlyUnknown || !source.profile.blueCheckStatus || source.profile.blueCheckStatus === "unknown"));
   for (let offset = 0; offset < sources.length; offset += 5) {
     await Promise.all(sources.slice(offset, offset + 5).map(async (source) => {
       result.checked += 1;
@@ -1460,16 +1453,11 @@ export async function checkSourceLiveness(now = Math.floor(Date.now() / 1000), o
           result.unreachable += 1;
           return;
         }
-        upsertSource({
-          ...source,
-          name: user.name || source.name,
-          profile: {
-            ...source.profile,
-            identityHandle: user.handle || source.profile.identityHandle,
-            followers: user.followers || source.profile.followers,
-            blueCheckStatus: user.verification,
-            lastSeenAt: now,
-          },
+        const canonical = getStoredSources().find((item) => item.handle === source.handle);
+        if (canonical) upsertSource({
+          ...canonical,
+          name: user.name || canonical.name,
+          profile: { ...canonical.profile, identityHandle: user.handle || canonical.profile.identityHandle, followers: user.followers || canonical.profile.followers, blueCheckStatus: user.verification, lastSeenAt: now },
         }, now);
         result.alive += 1;
       } catch (error) {
@@ -1486,17 +1474,20 @@ export async function checkSourceLiveness(now = Math.floor(Date.now() / 1000), o
   return result;
 }
 
-export async function recoverTechnicalSources(now = Math.floor(Date.now() / 1000)): Promise<{ recovered: number; unresolved: number }> {
+export async function recoverTechnicalSources(now = Math.floor(Date.now() / 1000), selectedHandles?: string[]): Promise<{ recovered: number; unresolved: number }> {
   const existing = new Map(getStoredSources().map((source) => [source.handle, source]));
   const recovered = new Set<string>();
   let unresolved = 0;
+  const selected = selectedHandles ? new Set(selectedHandles) : null;
   for (const source of PROTECTED_SOURCE_RECOVERY) {
+    if (selected && !selected.has(source.handle)) continue;
     if (existing.has(source.handle)) continue;
     upsertSource({ handle: source.handle, name: source.name, enabled: true, maxPosts: 20, rightsStatus: "unknown", profile: { origin: "manual", status: "active", pinned: true } }, now);
     recordSourceEvent({ handle: source.handle, event: "restored", score: 0, reason: "protected source recovery", model: "source-recovery", now });
     recovered.add(source.handle);
   }
   for (const item of getTechnicalSourceWarnings(2_000)) {
+    if (selected && !selected.has(item.handle)) continue;
     if (!isTechnicalSourceRemoval(item.reason)) { unresolved += 1; continue; }
     if (existing.has(item.handle) || recovered.has(item.handle)) continue;
     upsertSource({ handle: item.handle, name: item.handle, enabled: true, maxPosts: 20, rightsStatus: "unknown", profile: { origin: "manual", status: "active", pinned: false } }, now);
@@ -1825,12 +1816,6 @@ async function prepareSourceScoring(
     niche: source.profile.niche || "",
     topics: source.profile.topics || [],
     tone: source.profile.tone || "",
-    existingPoliticalProfile: {
-      ideology: source.profile.ideology || "belirsiz",
-      tags: source.profile.ideologyTags || [],
-      confidence: source.profile.ideologyConfidence || 0,
-      basis: source.profile.ideologyBasis || "insufficient_evidence",
-    },
     parentHandles: source.profile.parentHandles || [],
     recentPosts: samples.slice(0, 10).map((value) => value.text.slice(0, 600)),
   });
@@ -1857,11 +1842,14 @@ export async function scoreSources(
   now: number,
   samplesBySource: Map<string, XPost[]>,
   errors: string[],
+  selectedHandles?: Iterable<string>,
 ): Promise<{ scored: number; promoted: number; deleted: number }> {
   let scored = 0;
   let promoted = 0;
   let deleted = 0;
+  const selected = selectedHandles ? new Set(selectedHandles) : null;
   const due = getStoredSources()
+    .filter((source) => !selected || selected.has(source.handle))
     .filter((source) => source.enabled || sourceDueForScoring(source.profile, now))
     .filter((source) => now - Number(source.profile.lastScoredAt || 0) >= 86400)
     .slice(0, 10);
@@ -1914,11 +1902,6 @@ export async function scoreSources(
         niche: final.sourceContext?.niche || source.profile.niche,
         topics: final.sourceContext?.topics?.length ? final.sourceContext.topics : source.profile.topics,
         tone: final.sourceContext?.tone || source.profile.tone,
-        ideology: final.political?.ideology || source.profile.ideology,
-        ideologyTags: final.political?.tags || source.profile.ideologyTags,
-        ideologyConfidence: final.political?.confidence ?? source.profile.ideologyConfidence,
-        ideologyBasis: final.political?.basis || source.profile.ideologyBasis,
-        ideologyReason: final.political?.reason || source.profile.ideologyReason,
         lastSeenAt: now,
         lastScoredAt: now,
         lowScoreStreak: state.lowScoreStreak,
@@ -1972,7 +1955,18 @@ async function runScanInternal(): Promise<ScanResult> {
   let postsNew = 0;
   ensureDatabase();
   bootstrapSources(startedAt);
-  const sources = enabledSources();
+  const sourceByHandle = new Map<string, SourceConfig>();
+  for (const account of getAccounts()) {
+    if (!account.ownerUserId || !isOwnerEnabled(account.ownerUserId)) continue;
+    try {
+      runAsOwner(account.ownerUserId, () => getAccountSources(account.id).filter((source) => source.enabled && source.profile.status !== "candidate")
+        .forEach((source) => {
+          const previous = sourceByHandle.get(source.handle);
+          sourceByHandle.set(source.handle, previous ? { ...previous, maxPosts: Math.max(previous.maxPosts, source.maxPosts) } : source);
+        }));
+    } catch (error) { errors.push(`account:${account.id}/sources:${error instanceof Error ? error.message : String(error)}`); }
+  }
+  const sources = [...sourceByHandle.values()];
   const samplesBySource = new Map<string, XPost[]>();
   const scanShadowPosts = new Map<string, RecentPost>();
 
@@ -1999,16 +1993,8 @@ async function runScanInternal(): Promise<ScanResult> {
       });
       recordReaderHealth({ ...xReader.health(), checkedAt: startedAt });
       samplesBySource.set(source.handle, batch.posts.slice(0, 10));
-      upsertSource({
-        ...source,
-        profile: {
-          ...source.profile,
-          origin: source.profile.origin || "manual",
-          status: "active",
-          pinned: source.profile.pinned === true,
-          lastSeenAt: startedAt,
-        },
-      }, startedAt);
+      const canonicalSource = getStoredSources().find((item) => item.handle === source.handle);
+      if (canonicalSource) upsertSource({ ...canonicalSource, profile: { ...canonicalSource.profile, lastSeenAt: startedAt } }, startedAt);
       for (const item of batch.posts) {
         const post = observedPost(source.handle, item);
         postsSeen += 1;
@@ -2025,18 +2011,18 @@ async function runScanInternal(): Promise<ScanResult> {
   let sourceResults = { scored: 0, promoted: 0, deleted: 0 };
   const postsScored = 0;
   if (aiConfigured()) {
-    sourceResults = await scoreSources(startedAt, samplesBySource, errors);
+    sourceResults = await scoreSources(startedAt, samplesBySource, errors, sources.map((source) => source.handle));
   }
   await refreshPostMetrics(startedAt, errors);
 
-  const automaticAccounts = getAccounts().filter((account) => account.enabled && Boolean(account.ownerUserId)
+  const automaticAccounts = getAccounts().filter((account) => account.enabled && Boolean(account.ownerUserId && isOwnerEnabled(account.ownerUserId))
     && withPersistedAccountOwner(account.id, account.ownerUserId!, (owned) => hasCurrentAutomaticPostConsent(owned, startedAt)));
   const publisherBatch = selectDiverseCandidates(candidates(24, startedAt), 6);
   const publisherCandidateIds = new Set(publisherBatch.map((post) => post.externalId));
   // Keep public source discovery global. Account decisions and draft work run under
   // each persisted owner so evidence and generated text stay scoped.
   const accountsByOwner = new Map<string, Account[]>();
-  for (const account of getAccounts().filter((item) => Boolean(item.ownerUserId))) {
+  for (const account of getAccounts().filter((item) => Boolean(item.ownerUserId && isOwnerEnabled(item.ownerUserId)))) {
     const owner = account.ownerUserId!;
     const group = accountsByOwner.get(owner) || [];
     group.push(account);
@@ -2050,8 +2036,9 @@ async function runScanInternal(): Promise<ScanResult> {
         const candidatePoolIds = new Set(ownerCandidates.map((post) => post.externalId));
         const shadowPosts = new Map<string, RecentPost>(scanShadowPosts);
         for (const post of ownerCandidates) shadowPosts.set(post.externalId, post);
-        const sourceConfigurations = getSourceCategoryConfigs();
+        const sourceConfigurations = getAccountSourceCategoryConfigs();
         const accountConfigurations = getAccountCategoryConfigs();
+        const accountSourcesById = new Map(ownerAccounts.map((account) => [account.id, new Map(getAccountSources(account.id).map((source) => [source.handle, source]))]));
         let publicationHistory: ReturnType<typeof readPublicationPolicyHistory> | null = null;
         try {
           if (ensureDatabase()) publicationHistory = readPublicationPolicyHistory({ since: startedAt - 86400 });
@@ -2065,24 +2052,29 @@ async function runScanInternal(): Promise<ScanResult> {
         for (const rawPost of shadowPosts.values()) {
           const post = getPost(rawPost.externalId) || rawPost;
           const source = sourceByHandle.get(post.sourceHandle);
-          const categories = sourceCategories(source, sourceConfigurations);
           const evidence = scoreEvidenceFor(post.scoreReason, post.score);
           const score = opportunityScoreForPost(post, startedAt);
           const override = isNumericalHit(evidence.momentum, post.createdTimestamp, evidence.risk, startedAt);
           let candidateDecision: "eligible" | "rejected" | "skipped" = "eligible";
           let candidateReason = "candidate_pool_selected";
-          if (!categories.length) { candidateDecision = "rejected"; candidateReason = "source_category_not_configured"; }
-          else if (post.sensitive) { candidateDecision = "skipped"; candidateReason = "sensitive_source_post"; }
+          if (post.sensitive) { candidateDecision = "skipped"; candidateReason = "sensitive_source_post"; }
           else if (!isCurrentOpportunity(post.createdTimestamp, startedAt)) { candidateDecision = "skipped"; candidateReason = "stale_or_future_candidate"; }
           else if (!/^(?:not_started|blocked)$/.test(post.publishStatus)) { candidateDecision = "skipped"; candidateReason = "candidate_already_processed"; }
           else if (score < opportunityPoolThreshold()) { candidateDecision = "rejected"; candidateReason = "below_opportunity_pool_threshold"; }
           else if (!candidatePoolIds.has(post.externalId)) { candidateDecision = "skipped"; candidateReason = "candidate_pool_cap"; }
           else if (!publisherCandidateIds.has(post.externalId)) { candidateDecision = "skipped"; candidateReason = "publisher_batch_cap_or_diversity"; }
           for (const account of ownerAccounts) {
+            const accountSource = accountSourcesById.get(account.id)?.get(post.sourceHandle);
+            if (!accountSource?.enabled) continue;
+            const scopedSourceConfigurations = sourceConfigurations.filter((item) => item.accountId === account.id);
+            const categories = sourceCategories(source, scopedSourceConfigurations);
+            let accountDecision = candidateDecision;
+            let accountReason = candidateReason;
+            if (!categories.length && accountDecision === "eligible") { accountDecision = "rejected"; accountReason = "source_category_not_configured"; }
             const category = accountCategoryConfigFor(account.id, categories, accountConfigurations);
-            const eligible = eligiblePublishingAccounts([account], source, categories, true, accountConfigurations, sourceConfigurations).length > 0;
-            let decision = candidateDecision;
-            let reason = candidateReason;
+            const eligible = eligiblePublishingAccounts([account], source, categories, true, accountConfigurations, scopedSourceConfigurations).length > 0;
+            let decision = accountDecision;
+            let reason = accountReason;
             if (decision === "eligible") {
               if (!account.enabled) { decision = "skipped"; reason = "account_disabled"; }
               else if (!eligible) { decision = "rejected"; reason = "account_source_or_category_mismatch"; }
@@ -2108,7 +2100,7 @@ async function runScanInternal(): Promise<ScanResult> {
               account, category: fitCategory, categoryConfig: category,
               topicFatigue: recentCategoryPublishCount(startedAt, account.id, fitCategory), sourceFatigue,
               budgetAvailable, formatEvidence, capabilities: account.capabilities,
-              sourceRights: getSourceRights(post.sourceHandle), replySummoned,
+              sourceRights: accountSource.rightsStatus, replySummoned,
               duplicate: hasPublishedCluster(post.clusterKey, account.id), now: startedAt,
               officialTimeOutcomes: officialTimeHistory.get(account.id) ?? null,
             });
@@ -2117,12 +2109,14 @@ async function runScanInternal(): Promise<ScanResult> {
         }
         const scopedAccounts = ownerAccounts.filter((account) => account.enabled && hasCurrentAutomaticPostConsent(account, startedAt));
         if (jevMode() === "off" || scopedAccounts.length === 0) return;
-        await rankOpportunityBatch({
-          posts: ownerCandidates, accounts: scopedAccounts, categories: getCategories(),
-          accountConfigurations,
-          sourceDomains: (post) => sourceConfigurations.filter((item) => item.sourceHandle === post.sourceHandle && item.enabled).map((item) => item.categorySlug),
-          localScore: (post) => opportunityScoreForPost(post, startedAt), now: startedAt,
-        });
+        for (const account of scopedAccounts) {
+          const selectedHandles = new Set(getAccountSources(account.id).map((source) => source.handle));
+          const accountPosts = ownerCandidates.filter((post) => selectedHandles.has(post.sourceHandle));
+          await rankOpportunityBatch({
+            posts: accountPosts, accounts: [account], categories: getCategories(), accountConfigurations,
+            sourceDomains: () => [], localScore: (post) => opportunityScoreForPost(post, startedAt), now: startedAt,
+          });
+        }
       });
     } catch (error) { errors.push(`jev_batch:${ownedAccounts.map((account) => account.id).join(",")}: ${error instanceof Error ? error.message : String(error)}`); }
   }

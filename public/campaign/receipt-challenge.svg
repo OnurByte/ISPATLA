@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="675" viewBox="0 0 1200 675" role="img" aria-labelledby="title desc">
+  <title id="title">Claim it? Show the receipt.</title><desc id="desc">A proof-first editorial campaign receipt.</desc>
+  <rect width="1200" height="675" fill="#16191E"/><path d="M0 0h18v675H0z" fill="#315BF5"/>
+  <g fill="#F0EDE5"><text x="78" y="80" font-family="monospace" font-size="20" letter-spacing="4">FIELD NOTE 001 / CLAIMS NEED EVIDENCE</text><text x="72" y="278" font-family="sans-serif" font-weight="900" font-size="106" letter-spacing="-6">CLAIM IT?</text><text x="72" y="398" font-family="sans-serif" font-weight="900" font-size="106" letter-spacing="-6">SHOW THE</text><text x="72" y="518" font-family="serif" font-style="italic" font-size="112" fill="#315BF5">receipt.</text><text x="78" y="614" font-family="monospace" font-size="19">SOURCE · DECISION · RESULT · PROOF</text></g>
+  <path d="M900 90h210v450l-18-12-18 12-18-12-18 12-18-12-18 12-18-12-18 12-18-12-18 12-18-12-18 12V90z" fill="none" stroke="#9A9A91" stroke-width="3"/><path d="M935 160h140M935 200h110M935 270h140M935 310h80M935 380h140M935 420h100" stroke="#9A9A91" stroke-width="3"/><circle cx="1040" cy="480" r="30" fill="none" stroke="#477865" stroke-width="5"/>
+</svg>

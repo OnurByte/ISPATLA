@@ -1,9 +1,11 @@
+import { getChatGPTConnectionStatus } from "@/server/chatgpt-connection";
 import { withUser } from "@/server/request-auth";
 import { NextResponse } from "next/server";
-import { aiModelCapabilities, canUseCodexProvider, codexCapabilityForCurrentContext, getAiSettings, getCompatibleSettings, isAiEnabled, modelOptions, setAiEnabled, setAiSettings, setCompatibleSettings } from "@/server/ai";
+import { aiConfigured, aiModelCapabilities, canUseCodexProvider, codexCapabilityForCurrentContext, getAiSettings, getCompatibleSettings, isAiEnabled, modelOptions, setAiEnabled, setAiSettings, setCompatibleSettings } from "@/server/ai";
 import { getAiBudgetStatus, getUsageSummary, setSetting } from "@/server/db";
 import { guardMutation, readJsonBody } from "@/server/api-guard";
 import { secretOrEnv } from "@/server/vault";
+import { openRouterConnected, OPENROUTER_MODEL_SUGGESTIONS } from "@/server/openrouter-oauth";
 
 export const runtime = "nodejs";
 
@@ -18,12 +20,15 @@ function payload() {
   return {
     settings,
     enabled: isAiEnabled(),
-    configured: settings.provider === "codex" ? codex.authenticated : settings.provider === "compatible" ? Boolean(settings.model && getCompatibleSettings().baseUrl && compatibleConfigured && aiModelCapabilities("compatible", settings.model)) : apiConfigured,
+    configured: aiConfigured(settings),
     apiConfigured,
+    anthropicConfigured: Boolean(secretOrEnv("anthropic_api_key", "ANTHROPIC_API_KEY")),
     compatibleConfigured,
+    openrouterConfigured: openRouterConnected(),
     compatibleCapabilityVerified: settings.provider === "compatible" && Boolean(aiModelCapabilities("compatible", settings.model)),
     compatible: getCompatibleSettings(),
-    models: { api: modelOptions("api"), compatible: modelOptions("compatible"), codex: codexAllowed ? modelOptions("codex") : [] },
+    chatgpt: { ...getChatGPTConnectionStatus(), available: process.env.NODE_ENV !== "production" },
+      models: { chatgpt: modelOptions("chatgpt"), anthropic: modelOptions("anthropic"), api: modelOptions("api"), compatible: modelOptions("compatible"), codex: codexAllowed ? modelOptions("codex") : [], openrouter: OPENROUTER_MODEL_SUGGESTIONS },
     codex,
     codexAllowed,
     budget: getAiBudgetStatus(),

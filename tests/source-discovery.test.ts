@@ -3,25 +3,17 @@ import { aiConfigured, canUseCodexProvider, codexCapabilityForCurrentContext, co
 import { getSetting, setSetting } from "@/server/db";
 import { runAsOwner } from "@/server/owner-context";
 import { automationEnabled, isDefinitiveMissingSourceError } from "@/server/pipeline";
-import { asIdeology, asIdeologyTags, extractDiscoveryEvidence, mergeEvidence, nextSourceState, sourceDueForScoring } from "@/server/sources";
+import { extractDiscoveryEvidence, mergeEvidence, nextSourceState, sourceDueForScoring } from "@/server/sources";
 
 const sourceScore = {
   score: 80, risk: 10, confidence: 90, reason: "Kaynaklı ve güncel.",
   niche: "haber", topics: ["gündem"], tone: "doğrudan",
-  ideology: "belirsiz", ideologyTags: [], ideologyConfidence: 0,
-  ideologyBasis: "insufficient_evidence", ideologyReason: "Yeterli açık siyasi çizgi yok.",
 };
 
 describe("source discovery and AI lifecycle", () => {
   test("liveness checker only treats definitive missing errors as dead", () => {
     expect(isDefinitiveMissingSourceError(new Error("404 Not Found"))).toBe(true);
     expect(isDefinitiveMissingSourceError(new Error("network timeout"))).toBe(false);
-  });
-
-  test("normalizes catalog ideologies and drops values outside the catalog", () => {
-    expect(asIdeology("merkez")).toBe("centrism");
-    expect(asIdeology("uydurma")).toBe("belirsiz");
-    expect(asIdeologyTags("islamcı, antikemalist, uydurma")).toEqual(["islamism", "anti-kemalism"]);
   });
 
   test("extracts and weights quote, reply and mention accounts without the parent", () => {
@@ -155,7 +147,7 @@ describe("source discovery and AI lifecycle", () => {
     }
   });
 
-  test("validates per-source niche and political taxonomy", () => {
+  test("validates source context without requiring or returning political classification", () => {
     const score = parseAiScore({
       score: 80,
       risk: 15,
@@ -164,33 +156,11 @@ describe("source discovery and AI lifecycle", () => {
       niche: "ekonomi ve finans",
       topics: ["borsa", "enflasyon"],
       tone: "analitik",
-      ideology: "merkez",
-      ideologyTags: ["haber-merkezli"],
-      ideologyConfidence: 35,
-      ideologyBasis: "editorial",
-      ideologyReason: "Açık parti aidiyeti kanıtı yok.",
     }, "gpt-5.6-luna", "api");
     expect(score.sourceContext).toEqual({ niche: "ekonomi ve finans", topics: ["borsa", "enflasyon"], tone: "analitik" });
-    expect(score.political).toMatchObject({ ideology: "merkez", tags: ["haber-merkezli"], basis: "editorial" });
+    expect(score).not.toHaveProperty("political");
+    expect(parseAiScore({ ...sourceScore, ideology: "legacy-only", ideologyTags: ["legacy"] }, "gpt-5.6-luna", "api")).not.toHaveProperty("political");
     expect(() => parseAiScore({ score: 80, risk: 15, confidence: 88, reason: "eksik" }, "gpt-5.6-luna", "api")).toThrow();
-  });
-
-  test("preserves antikemalist as an explicit source tag", () => {
-    const score = parseAiScore({
-      score: 80,
-      risk: 15,
-      confidence: 88,
-      reason: "Kaynak kalitesi iyi.",
-      niche: "siyaset",
-      topics: ["gündem"],
-      tone: "eleştirel",
-      ideology: "belirsiz",
-      ideologyTags: ["antikemalist"],
-      ideologyConfidence: 75,
-      ideologyBasis: "editorial",
-      ideologyReason: "Tekrarlanan editoryal dilde açık biçimde gözleniyor.",
-    }, "gpt-5.6-luna", "api");
-    expect(score.political?.tags).toEqual(["antikemalist"]);
   });
 
   test("requests Luna medium structured output without storing the response", async () => {
@@ -208,6 +178,9 @@ describe("source discovery and AI lifecycle", () => {
       expect(requestBody.store).toBe(false);
       expect(requestBody.reasoning).toEqual({ effort: "medium" });
       expect(requestBody.text).toMatchObject({ format: { type: "json_schema", strict: true } });
+      const schema = (requestBody.text as { format: { schema: { properties: Record<string, unknown>; required: string[] } } }).format.schema;
+      expect(schema.properties).not.toHaveProperty("ideology");
+      expect(schema.required).not.toContain("ideology");
     } finally {
       globalThis.fetch = previousFetch;
       if (previousKey === undefined) delete process.env.OPENAI_API_KEY;

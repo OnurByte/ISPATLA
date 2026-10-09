@@ -50,16 +50,16 @@ export function XConnectButton({ returnTo = "/app/accounts?connection=connected"
         body: JSON.stringify({ returnTo }),
       });
       const body = await responseBody(response);
-      if (!response.ok || typeof body.authorizationUrl !== "string") throw new Error(typeof body.error === "string" ? body.error : "X bağlantısı başlatılamadı.");
+      if (!response.ok || typeof body.authorizationUrl !== "string") throw new Error(typeof body.error === "string" ? body.error : "𝕏 bağlantısı başlatılamadı.");
       window.location.assign(body.authorizationUrl);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "X bağlantısı başlatılamadı.");
+      setError(cause instanceof Error ? cause.message : "𝕏 bağlantısı başlatılamadı.");
       setPending(false);
     }
   }
   return <span className="inline-flex flex-col items-start gap-1">
     <Button type="button" size={size} onClick={connect} disabled={pending}>
-      {pending ? <Spinner data-icon="inline-start" /> : <Link2 data-icon="inline-start" aria-hidden="true" />} X hesabını bağla
+      {pending ? <Spinner data-icon="inline-start" /> : <Link2 data-icon="inline-start" aria-hidden="true" />} 𝕏 hesabını bağla
     </Button>
     {error ? <span role="alert" className="max-w-56 text-xs text-destructive">{error}</span> : null}
   </span>;
@@ -68,7 +68,7 @@ export function XConnectButton({ returnTo = "/app/accounts?connection=connected"
 type ConsentDraft = { mode: Exclude<XConsentMode, "auto">; dailyLimit: number; cadenceSeconds: number };
 const ACTIONS: Array<{ id: XConsentAction; label: string; description: string }> = [
   { id: "post", label: "Yeni gönderi", description: "İSPATLA hesabınız adına özgün bir gönderi hazırlar veya yayın akışına alır." },
-  { id: "repost", label: "Yeniden paylaşım", description: "Seçtiğiniz bir gönderiyi bu X hesabından yeniden paylaşır." },
+  { id: "repost", label: "Yeniden paylaşım", description: "Seçtiğiniz bir gönderiyi bu 𝕏 hesabından yeniden paylaşır." },
   { id: "reply", label: "Yanıt", description: "Yalnızca hesabınızı etiketleyen veya gönderinizi alıntılayan kişilere yanıt verir." },
   { id: "future_quote", label: "Alıntı gönderisi", description: "Bir gönderi hakkında kendi metninizle alıntı gönderisi hazırlar." },
 ];
@@ -124,29 +124,29 @@ export function XConnectionControls({ accountId, initial, policyVersion, copyVer
         body: JSON.stringify({ returnTo: `/app/accounts?connection=connected&accountId=${accountId}` }),
       });
       const body = await responseBody(response);
-      if (!response.ok || typeof body.authorizationUrl !== "string") throw new Error(typeof body.error === "string" ? body.error : "X bağlantısı başlatılamadı.");
+      if (!response.ok || typeof body.authorizationUrl !== "string") throw new Error(typeof body.error === "string" ? body.error : "𝕏 bağlantısı başlatılamadı.");
       window.location.assign(body.authorizationUrl);
     } catch (error) {
-      setNotice({ text: error instanceof Error ? error.message : "X bağlantısı başlatılamadı.", error: true });
+      setNotice({ text: error instanceof Error ? error.message : "𝕏 bağlantısı başlatılamadı.", error: true });
       setBusy(false);
     }
   }
 
   async function disconnect() {
-    if (!window.confirm("X bağlantısını kesmek istiyor musunuz? Açık otomasyon izinleri bu hesap için de kapatılır.")) return;
+    if (!window.confirm("𝕏 bağlantısını kesmek istiyor musunuz? Açık otomasyon izinleri bu hesap için de kapatılır.")) return;
     setBusy(true);
     setNotice(null);
     try {
       const response = await fetch(`/api/accounts/${accountId}/connection`, { method: "DELETE" });
       const body = await responseBody(response);
-      if (!response.ok || body.disconnected !== true) throw new Error(typeof body.error === "string" ? body.error : "X bağlantısı kesilemedi.");
+      if (!response.ok || body.disconnected !== true) throw new Error(typeof body.error === "string" ? body.error : "𝕏 bağlantısı kesilemedi.");
       const providerRevoked = body.providerRevoked === true;
       await refreshConnection();
       setNotice({ text: providerRevoked
-        ? "İSPATLA bağlantısı kapatıldı ve X erişimi iptal edildi."
-        : "İSPATLA bağlantısı kapatıldı. X erişimi iptal edilemedi; X ayarlarından İSPATLA erişimini kaldırın.", error: !providerRevoked });
+        ? "İSPATLA bağlantısı kapatıldı ve 𝕏 erişimi iptal edildi."
+        : "İSPATLA bağlantısı kapatıldı. 𝕏 erişimi iptal edilemedi; 𝕏 ayarlarından İSPATLA erişimini kaldırın.", error: !providerRevoked });
     } catch (error) {
-      setNotice({ text: error instanceof Error ? error.message : "X bağlantısı kesilemedi.", error: true });
+      setNotice({ text: error instanceof Error ? error.message : "𝕏 bağlantısı kesilemedi.", error: true });
     } finally { setBusy(false); }
   }
 
@@ -180,17 +180,17 @@ export function XConnectionControls({ accountId, initial, policyVersion, copyVer
   }
 
   const connectionMessage = !connection
-    ? "Bu hesap için henüz X bağlantısı yok."
+    ? "Bu hesap için henüz 𝕏 bağlantısı yok."
     : reauthorizationNeeded
-      ? "X erişim izni yenilenmeli. Yeniden bağlanınca hesap ayarlarınız korunur."
-      : connection.connected ? "X hesabınız güvenli biçimde bağlı." : "Bu hesabın X bağlantısı kapalı.";
+      ? "𝕏 erişim izni yenilenmeli. Yeniden bağlanınca hesap ayarlarınız korunur."
+      : connection.connected ? "𝕏 hesabınız güvenli biçimde bağlı." : "Bu hesabın 𝕏 bağlantısı kapalı.";
 
   return (
     <div className="flex flex-col gap-5">
       <Card>
         <CardHeader className="gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="space-y-1.5">
-            <CardTitle className="flex items-center gap-2"><Link2 aria-hidden="true" className="size-4 text-primary" /> X bağlantısı</CardTitle>
+            <CardTitle className="flex items-center gap-2"><Link2 aria-hidden="true" className="size-4 text-primary" /> 𝕏 bağlantısı</CardTitle>
             <CardDescription>{connectionMessage}</CardDescription>
           </div>
           {connected ? (
@@ -199,13 +199,13 @@ export function XConnectionControls({ accountId, initial, policyVersion, copyVer
             </Button>
           ) : (
             <Button type="button" onClick={connect} disabled={busy}>
-              {busy ? <Spinner data-icon="inline-start" /> : <Link2 data-icon="inline-start" aria-hidden="true" />} {reauthorizationNeeded ? "X erişimini yenile" : "X hesabını bağla"}
+              {busy ? <Spinner data-icon="inline-start" /> : <Link2 data-icon="inline-start" aria-hidden="true" />} {reauthorizationNeeded ? "𝕏 erişimini yenile" : "𝕏 hesabını bağla"}
             </Button>
           )}
         </CardHeader>
         <CardContent className="space-y-5">
           {connection?.handle ? <div className="flex flex-wrap items-center gap-2"><Badge variant="secondary">@{connection.handle}</Badge><span className="text-sm text-muted-foreground">Bağlandı: {localDate(connection.connectedAt)}</span></div> : null}
-          {reauthorizationNeeded ? <Alert><AlertCircle aria-hidden="true" /><AlertDescription>Oturumunuz açık. X hesabını yeniden bağlayarak erişimi yenileyin.</AlertDescription></Alert> : null}
+          {reauthorizationNeeded ? <Alert><AlertCircle aria-hidden="true" /><AlertDescription>Oturumunuz açık. 𝕏 hesabını yeniden bağlayarak erişimi yenileyin.</AlertDescription></Alert> : null}
           {connection ? (
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
@@ -218,7 +218,7 @@ export function XConnectionControls({ accountId, initial, policyVersion, copyVer
                 <dt className="text-muted-foreground">Erişim süresi</dt><dd>{localDate(connection.expiresAt)}</dd>
               </dl>
             </div>
-          ) : <p className="text-sm text-muted-foreground">X izinleri yalnız bu sunucuda saklanır. Tarayıcıya erişim anahtarı gönderilmez.</p>}
+          ) : <p className="text-sm text-muted-foreground">𝕏 izinleri yalnız bu sunucuda saklanır. Tarayıcıya erişim anahtarı gönderilmez.</p>}
         </CardContent>
       </Card>
 
@@ -226,7 +226,7 @@ export function XConnectionControls({ accountId, initial, policyVersion, copyVer
         <Card>
           <CardHeader>
             <CardTitle>Otomasyon izinleri</CardTitle>
-            <CardDescription>X hesabını bağlamak otomatik işlem izni vermez. Her eylemi ayrı ayrı seçebilir ve istediğiniz zaman kapatabilirsiniz.</CardDescription>
+            <CardDescription>𝕏 hesabını bağlamak otomatik işlem izni vermez. Her eylemi ayrı ayrı seçebilir ve istediğiniz zaman kapatabilirsiniz.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-5">
             <Alert><CheckCircle2 aria-hidden="true" /><AlertDescription>Otomatik yayın henüz kullanıma açık değil. Otomatik seçeneği etkinleştiğinde bu ekranda ayrıca, eylem başına izin istenecek.</AlertDescription></Alert>
@@ -283,7 +283,7 @@ export function XConnectionControls({ accountId, initial, policyVersion, copyVer
       {notice ? <Alert role="status" aria-live="polite" data-variant={notice.error ? "destructive" : "default"}>
         {notice.error ? <AlertCircle aria-hidden="true" /> : <CheckCircle2 aria-hidden="true" />}<AlertDescription>{notice.text}</AlertDescription>
       </Alert> : null}
-      {connected ? <p className="flex items-center gap-1 text-xs text-muted-foreground"><ExternalLink aria-hidden="true" className="size-3" /> İzinleri sonradan X hesap ayarlarından da iptal edebilirsiniz.</p> : null}
+      {connected ? <p className="flex items-center gap-1 text-xs text-muted-foreground"><ExternalLink aria-hidden="true" className="size-3" /> İzinleri sonradan 𝕏 hesap ayarlarından da iptal edebilirsiniz.</p> : null}
     </div>
   );
 }

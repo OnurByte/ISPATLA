@@ -10,5 +10,5 @@ export const POST = withUser(async (request: Request) => {
     const body = await readJsonBody(request);
     const result = await startXOAuth({ownerUserId:session.user.id,sessionId:session.session.id,returnTo:typeof body.returnTo === 'string' ? body.returnTo : undefined});
     return Response.json(result, {headers:{'cache-control':'no-store'}});
-  } catch { return Response.json({error:'X bağlantısı başlatılamadı; sunucu yapılandırmasını kontrol edin'}, {status:400}); }
+  } catch { return Response.json({error:'𝕏 bağlantısı başlatılamadı; sunucu yapılandırmasını kontrol edin'}, {status:400}); }
 });

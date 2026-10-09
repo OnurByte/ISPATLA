@@ -1,6 +1,6 @@
 import legacyTransportSchema from "../../docs/migrations/legacy-transport-schema.json";
 import { createHash, randomUUID } from "node:crypto";
-import { currentOwnerId } from "./owner-context";
+import { currentOwnerId, runAsOwner } from "./owner-context";
 import { mkdirSync } from "node:fs";
 import { hostname } from "node:os";
 import { dirname, join } from "node:path";
@@ -180,7 +180,7 @@ export type DashboardSummary = {
   openaiConfigured: boolean;
   aiEnabled: boolean;
   aiConfigured: boolean;
-  aiProvider: "api" | "compatible" | "codex";
+  aiProvider: "api" | "compatible" | "codex" | "anthropic" | "chatgpt";
   officialPublisherConfigured: boolean;
   recentPosts: RecentPost[];
   activity: ActivityPoint[];
@@ -248,6 +248,8 @@ export type CategoryDefinition = {
   aiContext: string;
   createdAt: number;
   updatedAt: number;
+  ownerUserId?: string | null;
+  accountId?: number | null;
 };
 
 export function canonicalCategorySlugs(value: unknown): string[] | null {
@@ -282,6 +284,7 @@ export type AccountCategoryInferenceResult = {
 export type AccountCategoryInferenceJob = { id: number; accountId: number; status: string; version: number; updatedAt: number; result: AccountCategoryInferenceResult | null };
 
 export type SourceCategoryConfig = {
+  accountId?: number;
   sourceHandle: string;
   categoryId: number;
   categorySlug: string;
@@ -648,7 +651,7 @@ export type SecretMeta = {
   updatedAt: number;
 };
 
-const DATABASE_PATH =
+let DATABASE_PATH =
   process.env.ISPATLA_DB || join(/* turbopackIgnore: true */ process.cwd(), "state", "ispatla.sqlite3");
 
 const LEGACY_CATEGORY_SLUGS: Record<string, string> = {
@@ -1856,14 +1859,66 @@ function applyMigrations(): void {
       command("COMMIT;");
     } catch (error) { command("ROLLBACK;"); throw error; }
   }
-
+  if (!applied.has(32)) {
+    command("BEGIN IMMEDIATE;");
+    try {
+      addColumn("user_profiles", "x_handle", "TEXT");
+      addColumn("user_profiles", "avatar_url", "TEXT");
+      addColumn("user_profiles", "onboarding_completed", "INTEGER NOT NULL DEFAULT 1");
+      // Existing visibility choices remain authoritative; new profiles choose during onboarding.
+      command(`CREATE UNIQUE INDEX IF NOT EXISTS user_profiles_x_handle_ci_idx ON user_profiles(lower(x_handle)) WHERE x_handle IS NOT NULL;
+        CREATE TABLE IF NOT EXISTS user_profile_x_identity (
+          owner_user_id TEXT PRIMARY KEY,
+          x_user_id TEXT NOT NULL UNIQUE,
+          FOREIGN KEY(owner_user_id) REFERENCES user_profiles(owner_user_id) ON DELETE CASCADE
+        );
+        INSERT INTO schema_migrations(version,applied_at) VALUES(32,unixepoch());`);
+      command("COMMIT;");
+    } catch (error) { command("ROLLBACK;"); throw error; }
+  }
+  if (!applied.has(33)) {
+    command("BEGIN IMMEDIATE;");
+    try {
+      command(`CREATE TABLE IF NOT EXISTS account_sources (
+        account_id INTEGER NOT NULL, source_handle TEXT NOT NULL, enabled INTEGER NOT NULL DEFAULT 1,
+        max_posts INTEGER NOT NULL DEFAULT 20, rights_status TEXT NOT NULL DEFAULT 'unknown', name_override TEXT NOT NULL DEFAULT '',
+        niche TEXT NOT NULL DEFAULT '', topics_json TEXT NOT NULL DEFAULT '[]', tone TEXT NOT NULL DEFAULT '', pinned INTEGER NOT NULL DEFAULT 0,
+        PRIMARY KEY(account_id, source_handle), FOREIGN KEY(account_id) REFERENCES accounts(id) ON DELETE CASCADE,
+        FOREIGN KEY(source_handle) REFERENCES sources(handle) ON DELETE CASCADE
+      );
+      CREATE TABLE IF NOT EXISTS account_source_categories (
+        account_id INTEGER NOT NULL, source_handle TEXT NOT NULL, category_id INTEGER NOT NULL,
+        monitoring_tier TEXT NOT NULL DEFAULT 'C', discovery_weight REAL NOT NULL DEFAULT 1,
+        category_reputation REAL, enabled INTEGER NOT NULL DEFAULT 1, last_evidence_at INTEGER NOT NULL DEFAULT 0,
+        PRIMARY KEY(account_id, source_handle, category_id),
+        FOREIGN KEY(account_id, source_handle) REFERENCES account_sources(account_id, source_handle) ON DELETE CASCADE,
+        FOREIGN KEY(category_id) REFERENCES categories(id) ON DELETE CASCADE
+      );
+      CREATE INDEX IF NOT EXISTS account_source_categories_lookup_idx ON account_source_categories(account_id, source_handle, enabled);
+      INSERT INTO schema_migrations(version,applied_at) VALUES(33,unixepoch());`);
+      command("COMMIT;");
+    } catch (error) { command("ROLLBACK;"); throw error; }
+  }
+  if (!applied.has(34)) {
+    command("BEGIN IMMEDIATE;");
+    try {
+      addColumn("categories", "owner_user_id", "TEXT");
+      addColumn("categories", "account_id", "INTEGER");
+      command(`CREATE INDEX IF NOT EXISTS categories_owner_account_idx ON categories(owner_user_id,account_id);
+        CREATE TRIGGER IF NOT EXISTS delete_account_scoped_categories AFTER DELETE ON accounts
+        BEGIN DELETE FROM categories WHERE account_id=OLD.id AND owner_user_id=OLD.owner_user_id; END;
+        INSERT INTO schema_migrations(version,applied_at) VALUES(34,unixepoch());`);
+      command("COMMIT;");
+    } catch (error) { command("ROLLBACK;"); throw error; }
+  }
 }
 
-export function ensureDatabase(): boolean {
-  if (initialized) return true;
+export function ensureDatabase(path?: string): boolean {
+  if (initialized) return !path || path === DATABASE_PATH;
   if (initializationError) return false;
 
   try {
+    if (path) DATABASE_PATH = path;
     mkdirSync(dirname(/* turbopackIgnore: true */ DATABASE_PATH), { recursive: true });
     database = new DatabaseSync(DATABASE_PATH);
     command("PRAGMA foreign_keys=ON;");
@@ -2515,7 +2570,8 @@ export function recordRun(run: {
 }
 
 export function candidates(limit = 12, now = Math.floor(Date.now() / 1000)): RecentPost[] {
-  const configuredSources = new Set(getSourceCategoryConfigs().filter((item) => item.enabled).map((item) => item.sourceHandle));
+  const configured = currentOwnerId() ? getAccountSourceCategoryConfigs() : getSourceCategoryConfigs();
+  const configuredSources = new Set(configured.filter((item) => item.enabled).map((item) => item.sourceHandle));
   const threshold = opportunityPoolThreshold();
   return selectPosts(`${opportunityWhere(now)} AND score_reason LIKE 'deterministic:%' AND publish_status IN ('not_started','blocked')`, "created_timestamp DESC")
     .filter((post) => configuredSources.has(post.sourceHandle))
@@ -3074,10 +3130,13 @@ function categoryRows(): CategoryDefinition[] {
     verification_mode: string; description: string; positive_examples_json: string; negative_examples_json: string; keywords_json: string;
     excluded_keywords_json: string; seed_handles_json: string; default_formats_json: string; source_policy_json: string;
     risk_policy_json: string; scoring_policy_json: string; publishing_policy_json: string; ai_context: string; created_at: number; updated_at: number;
+    owner_user_id: string | null; account_id: number | null;
   }>(`SELECT id, slug, name, enabled, built_in, base_strategy, cluster_strategy, verification_mode, description,
       positive_examples_json, negative_examples_json, keywords_json, excluded_keywords_json, seed_handles_json, default_formats_json,
-      source_policy_json, risk_policy_json, scoring_policy_json, publishing_policy_json, ai_context, created_at, updated_at
-      FROM categories ORDER BY built_in DESC, slug;`).map((category) => ({
+      source_policy_json, risk_policy_json, scoring_policy_json, publishing_policy_json, ai_context, created_at, updated_at, owner_user_id, account_id
+      FROM categories
+      WHERE owner_user_id IS NULL OR owner_user_id=${sqlString(currentOwnerId() || "__no_owner__")}
+      ORDER BY built_in DESC, name COLLATE NOCASE;`).map((category) => ({
     id: category.id,
     slug: category.slug,
     name: category.name,
@@ -3100,11 +3159,21 @@ function categoryRows(): CategoryDefinition[] {
     aiContext: category.ai_context,
     createdAt: category.created_at,
     updatedAt: category.updated_at,
+    ownerUserId: category.owner_user_id,
+    accountId: category.account_id,
   }));
 }
 
 export function getCategories(): CategoryDefinition[] {
   return categoryRows();
+}
+
+export function getCategoriesForAccount(accountId: number): CategoryDefinition[] {
+  requireOwnedAccount(accountId);
+  const owner = currentOwnerId();
+  if (!owner) throw new Error("authenticated owner context required");
+  return categoryRows().filter((category) => !category.ownerUserId || category.ownerUserId === owner)
+    .filter((category) => category.accountId === null || category.accountId === undefined || category.accountId === accountId);
 }
 
 export function deleteCategory(id: number): boolean {
@@ -3161,7 +3230,8 @@ export function getAccountCategoryConfigs(accountId?: number): AccountCategoryCo
 export function saveAccountCategoryConfig(input: Omit<AccountCategoryConfig, "categorySlug" | "categoryName">): AccountCategoryConfig {
   requireOwnedAccount(input.accountId);
   if (!getAccounts().some((account) => account.id === input.accountId)) throw new Error("account bulunamadı");
-  if (!getCategories().some((category) => category.id === input.categoryId)) throw new Error("category bulunamadı");
+  const category = getCategories().find((item) => item.id === input.categoryId);
+  if (!category || (category.accountId != null && category.accountId !== input.accountId)) throw new Error("category bulunamadı");
   if (input.primary && !input.enabled) throw new Error("primary category etkin olmalı");
   if (!Number.isFinite(input.weight) || input.weight < 0 || input.weight > 10) throw new Error("category weight geçersiz");
   if (!Number.isInteger(input.priority) || input.priority < 0 || input.priority > 100) throw new Error("category priority geçersiz");
@@ -3253,7 +3323,7 @@ export function saveAccountInferenceSuggestions(input: { accountId: number; jobI
     const job = rows<{ version: number; status: string }>(`SELECT version,status FROM account_category_inference_jobs WHERE id=${sqlNumber(input.jobId)} AND owner_user_id=${sqlString(owner)} AND account_id=${sqlNumber(input.accountId)};`)[0];
     if (!job || job.status !== "running") throw new Error("inference job is not claimable");
     for (const suggestion of input.result.suggestions) {
-      if (!getCategories().some((category) => category.id === suggestion.categoryId && category.slug === suggestion.slug)) throw new Error("suggested category is unavailable");
+      if (!getCategoriesForAccount(input.accountId).some((category) => category.id === suggestion.categoryId && category.slug === suggestion.slug)) throw new Error("suggested category is unavailable");
       exec(`INSERT OR IGNORE INTO account_category_inferences(job_id,owner_user_id,account_id,category_id,confidence,evidence_json,inference_version,suggested_at)
         VALUES(${sqlNumber(input.jobId)},${sqlString(owner)},${sqlNumber(input.accountId)},${sqlNumber(suggestion.categoryId)},${sqlNumber(suggestion.confidence)},${sqlString(JSON.stringify(suggestion.evidence))},${sqlNumber(job.version)},${sqlNumber(input.now)});`);
     }
@@ -3273,7 +3343,7 @@ export function acceptAccountCategoryInference(input: { accountId: number; categ
     WHERE owner_user_id=${sqlString(owner)} AND account_id=${sqlNumber(input.accountId)} AND status IN ('ready','insufficient_evidence') ORDER BY version DESC LIMIT 1;`)[0];
   if (!latest) throw new Error("no category suggestions are ready");
   const valid = rows<{ category_id: number }>(`SELECT category_id FROM account_category_inferences WHERE job_id=${sqlNumber(latest.id)} AND owner_user_id=${sqlString(owner)} AND account_id=${sqlNumber(input.accountId)} AND rejected_at IS NULL;`).map((row) => row.category_id);
-  const catalog = new Set(getCategories().filter((category) => category.enabled).map((category) => category.id));
+  const catalog = new Set(getCategoriesForAccount(input.accountId).filter((category) => category.enabled).map((category) => category.id));
   if (!selected.every((id) => catalog.has(id))) throw new Error("selected category is unavailable");
   exec("BEGIN IMMEDIATE;");
   try {
@@ -3333,9 +3403,125 @@ export function getSourceCategoryConfigs(sourceHandle?: string): SourceCategoryC
   }));
 }
 
+export function getAccountSources(accountId: number): SourceConfig[] {
+  requireValidOptionalAccount(accountId);
+  if (!getAccounts().some((account) => account.id === accountId)) throw new Error("account not found");
+  return rows<{ handle: string; canonical_name: string; canonical_enabled: number; canonical_max_posts: number; canonical_rights_status: string; profile_json: string; enabled: number; max_posts: number; rights_status: string; name_override: string; niche: string; topics_json: string; tone: string; pinned: number }>(`
+    SELECT source.handle, source.name AS canonical_name, source.enabled AS canonical_enabled, source.max_posts AS canonical_max_posts,
+      source.rights_status AS canonical_rights_status, source.profile_json, selected.enabled, selected.max_posts, selected.rights_status,
+      selected.name_override, selected.niche, selected.topics_json, selected.tone, selected.pinned
+    FROM account_sources selected JOIN sources source ON source.handle=selected.source_handle
+    WHERE selected.account_id=${sqlNumber(accountId)} ORDER BY selected.name_override COLLATE NOCASE, source.handle;
+  `).map((row) => {
+    const profile = parseObject(row.profile_json) as SourceProfile;
+    let topics: string[] = [];
+    try { const parsed: unknown = JSON.parse(row.topics_json); if (Array.isArray(parsed)) topics = parsed.filter((value): value is string => typeof value === "string"); } catch { topics = []; }
+    return {
+      handle: row.handle,
+      name: row.name_override || row.canonical_name,
+      enabled: Boolean(row.enabled),
+      maxPosts: row.max_posts,
+      rightsStatus: row.rights_status === "cleared" || row.rights_status === "prohibited" ? row.rights_status : "unknown",
+      profile: { ...profile, niche: row.niche || undefined, topics: topics.length ? topics : undefined, tone: row.tone || undefined, pinned: Boolean(row.pinned) },
+    };
+  });
+}
+
+export function addAccountSource(accountId: number, sourceHandle: string): SourceConfig {
+  requireValidOptionalAccount(accountId);
+  const sourceHandleNormalized = sourceHandle.replace(/^@/, "").toLocaleLowerCase("en-US");
+  if (!getStoredSources().some((source) => source.handle === sourceHandleNormalized)) throw new Error("source not found");
+  exec(`INSERT OR IGNORE INTO account_sources(account_id,source_handle,enabled,max_posts,rights_status)
+    SELECT ${sqlNumber(accountId)},handle,enabled,max_posts,rights_status FROM sources WHERE handle=${sqlString(sourceHandleNormalized)};`);
+  const selected = getAccountSources(accountId).find((source) => source.handle === sourceHandleNormalized);
+  if (!selected) throw new Error("source selection failed");
+  return selected;
+}
+
+export function isAccountSourceSelected(accountId: number, sourceHandle: string): boolean {
+  requireValidOptionalAccount(accountId);
+  return criticalRows<{ count: number }>(`SELECT COUNT(*) AS count FROM account_sources WHERE account_id=${sqlNumber(accountId)} AND source_handle=${sqlString(sourceHandle.replace(/^@/, "").toLocaleLowerCase("en-US"))};`)[0]?.count > 0;
+}
+
+export function updateAccountSource(input: { accountId: number; sourceHandle: string; name?: string; enabled?: boolean; maxPosts?: number; rightsStatus?: SourceConfig["rightsStatus"]; niche?: string; topics?: string[]; tone?: string; pinned?: boolean }): SourceConfig {
+  requireValidOptionalAccount(input.accountId);
+  const handle = input.sourceHandle.replace(/^@/, "").toLocaleLowerCase("en-US");
+  if (!isAccountSourceSelected(input.accountId, handle)) throw new Error("source not selected for account");
+  if (input.maxPosts !== undefined && (!Number.isInteger(input.maxPosts) || input.maxPosts < 1 || input.maxPosts > 50)) throw new Error("max posts invalid");
+  if (input.name !== undefined && (!input.name.trim() || input.name.length > 120)) throw new Error("source name invalid");
+  if (input.rightsStatus !== undefined && !["cleared", "unknown", "prohibited"].includes(input.rightsStatus)) throw new Error("source rights invalid");
+  const topics = input.topics?.map((value) => value.trim()).filter(Boolean).slice(0, 30);
+  exec(`UPDATE account_sources SET
+    name_override=${input.name === undefined ? "name_override" : sqlString(input.name.trim())},
+    enabled=${input.enabled === undefined ? "enabled" : sqlBool(input.enabled)},
+    max_posts=${input.maxPosts === undefined ? "max_posts" : sqlNumber(input.maxPosts)},
+    rights_status=${input.rightsStatus === undefined ? "rights_status" : sqlString(input.rightsStatus)},
+    niche=${input.niche === undefined ? "niche" : sqlString(input.niche.trim().slice(0, 120))},
+    topics_json=${topics === undefined ? "topics_json" : sqlString(JSON.stringify(topics))},
+    tone=${input.tone === undefined ? "tone" : sqlString(input.tone.trim().slice(0, 120))},
+    pinned=${input.pinned === undefined ? "pinned" : sqlBool(input.pinned)}
+    WHERE account_id=${sqlNumber(input.accountId)} AND source_handle=${sqlString(handle)};`);
+  const source = getAccountSources(input.accountId).find((item) => item.handle === handle);
+  if (!source) throw new Error("account source update failed");
+  return source;
+}
+
+export function removeAccountSource(accountId: number, sourceHandle: string): void {
+  requireValidOptionalAccount(accountId);
+  const handle = sourceHandle.replace(/^@/, "").toLocaleLowerCase("en-US");
+  exec(`DELETE FROM account_sources WHERE account_id=${sqlNumber(accountId)} AND source_handle=${sqlString(handle)};`);
+}
+
+export function clearAccountSources(accountId: number): void {
+  requireValidOptionalAccount(accountId);
+  exec(`DELETE FROM account_sources WHERE account_id=${sqlNumber(accountId)};`);
+}
+
+export function getAccountSourceCategoryConfigs(accountId?: number): SourceCategoryConfig[] {
+  if (accountId !== undefined) requireValidOptionalAccount(accountId);
+  const ownerAccounts = currentOwnerId() === undefined ? null : getAccounts().map((account) => account.id);
+  if (accountId !== undefined && !getAccounts().some((account) => account.id === accountId)) throw new Error("account not found");
+  const selectedIds = accountId !== undefined ? [accountId] : ownerAccounts;
+  if (selectedIds && selectedIds.length === 0) return [];
+  const where = selectedIds ? `WHERE mapping.account_id IN (${selectedIds.map(sqlNumber).join(",")})` : "";
+  return rows<{ account_id: number; source_handle: string; category_id: number; slug: string; name: string; monitoring_tier: string; discovery_weight: number; category_reputation: number | null; enabled: number; last_evidence_at: number }>(`
+    SELECT mapping.account_id,mapping.source_handle,mapping.category_id,categories.slug,categories.name,mapping.monitoring_tier,
+      mapping.discovery_weight,mapping.category_reputation,mapping.enabled,mapping.last_evidence_at
+    FROM account_source_categories mapping JOIN categories ON categories.id=mapping.category_id ${where}
+    ORDER BY mapping.enabled DESC,mapping.monitoring_tier ASC,categories.slug ASC;
+  `).map((row) => ({ accountId: row.account_id, sourceHandle: row.source_handle, categoryId: row.category_id, categorySlug: row.slug, categoryName: row.name,
+    monitoringTier: row.monitoring_tier === "A" || row.monitoring_tier === "B" ? row.monitoring_tier : "C", discoveryWeight: row.discovery_weight,
+    categoryReputation: row.category_reputation, enabled: Boolean(row.enabled), lastEvidenceAt: row.last_evidence_at }));
+}
+
+export function saveAccountSourceCategoryConfig(input: Omit<SourceCategoryConfig, "categorySlug" | "categoryName"> & { accountId: number }): SourceCategoryConfig {
+  requireValidOptionalAccount(input.accountId);
+  if (!getAccountSources(input.accountId).some((source) => source.handle === input.sourceHandle)) throw new Error("source not selected for account");
+  if (!getAccountCategoryConfigs(input.accountId).some((category) => category.categoryId === input.categoryId && category.enabled)) throw new Error("category not enabled for account");
+  if (!getCategories().some((category) => category.id === input.categoryId)) throw new Error("category not found");
+  if (!["A", "B", "C"].includes(input.monitoringTier)) throw new Error("monitoring tier invalid");
+  if (!Number.isFinite(input.discoveryWeight) || input.discoveryWeight < 0 || input.discoveryWeight > 10) throw new Error("discovery weight invalid");
+  if (input.categoryReputation !== null && (!Number.isFinite(input.categoryReputation) || input.categoryReputation < 0 || input.categoryReputation > 100)) throw new Error("category reputation invalid");
+  if (!Number.isInteger(input.lastEvidenceAt) || input.lastEvidenceAt < 0) throw new Error("last evidence invalid");
+  exec(`INSERT INTO account_source_categories(account_id,source_handle,category_id,monitoring_tier,discovery_weight,category_reputation,enabled,last_evidence_at)
+    VALUES(${sqlNumber(input.accountId)},${sqlString(input.sourceHandle)},${sqlNumber(input.categoryId)},${sqlString(input.monitoringTier)},${sqlNumber(input.discoveryWeight)},
+      ${input.categoryReputation === null ? "NULL" : sqlNumber(input.categoryReputation)},${sqlBool(input.enabled)},${sqlNumber(input.lastEvidenceAt)})
+    ON CONFLICT(account_id,source_handle,category_id) DO UPDATE SET monitoring_tier=excluded.monitoring_tier,discovery_weight=excluded.discovery_weight,
+      category_reputation=excluded.category_reputation,enabled=excluded.enabled,last_evidence_at=excluded.last_evidence_at;`);
+  const result = getAccountSourceCategoryConfigs(input.accountId).find((item) => item.sourceHandle === input.sourceHandle && item.categoryId === input.categoryId);
+  if (!result) throw new Error("account source category update failed");
+  return result;
+}
+
+export function deleteAccountSourceCategoryConfig(accountId: number, sourceHandle: string, categoryId: number): void {
+  requireValidOptionalAccount(accountId);
+  exec(`DELETE FROM account_source_categories WHERE account_id=${sqlNumber(accountId)} AND source_handle=${sqlString(sourceHandle.replace(/^@/, "").toLocaleLowerCase("en-US"))} AND category_id=${sqlNumber(categoryId)};`);
+}
+
 export function saveSourceCategoryConfig(input: Omit<SourceCategoryConfig, "categorySlug" | "categoryName">): SourceCategoryConfig {
   if (!getStoredSources().some((source) => source.handle === input.sourceHandle)) throw new Error("kaynak bulunamadı");
-  if (!getCategories().some((category) => category.id === input.categoryId)) throw new Error("category bulunamadı");
+  const category = getCategories().find((item) => item.id === input.categoryId);
+  if (!category || category.ownerUserId || category.accountId != null) throw new Error("hesaba özel kategoriler ortak kaynaklara eklenemez");
   if (!["A", "B", "C"].includes(input.monitoringTier)) throw new Error("monitoring tier geçersiz");
   if (!Number.isFinite(input.discoveryWeight) || input.discoveryWeight < 0 || input.discoveryWeight > 10) throw new Error("discovery weight geçersiz");
   if (input.categoryReputation !== null && (!Number.isFinite(input.categoryReputation) || input.categoryReputation < 0 || input.categoryReputation > 100)) throw new Error("category reputation geçersiz");
@@ -3375,6 +3561,14 @@ export function saveCategory(input: Omit<CategoryDefinition, "id" | "createdAt" 
   if (!input.builtIn && positiveExamples.length + negativeExamples.length + keywords.length + seedHandles.length === 0) throw new Error("custom category için en az bir tanımlayıcı sinyal gerekli");
   if (input.verificationMode === "none" && (input.baseStrategy === "news" || input.baseStrategy === "politics" || input.baseStrategy === "finance")) throw new Error("factual category doğrulamasız çalışamaz");
   const id = input.id && Number.isInteger(input.id) ? input.id : 0;
+  const ownerId = input.builtIn ? null : (input.ownerUserId ?? currentOwnerId() ?? null);
+  const accountId = input.accountId ?? null;
+  if (!input.builtIn && !ownerId) throw new Error("authenticated owner context required");
+  if (accountId !== null && (!Number.isSafeInteger(accountId) || !getAccounts().some((account) => account.id === accountId && account.ownerUserId === ownerId))) throw new Error("category account owner mismatch");
+  if (id) {
+    const existing = categoryRows().find((category) => category.id === id);
+    if (!existing || (existing.ownerUserId && existing.ownerUserId !== ownerId) || (existing.accountId != null && existing.accountId !== accountId)) throw new Error("category owner mismatch");
+  }
   const fields = `slug=${sqlString(slug)}, name=${sqlString(name)}, enabled=${sqlBool(input.enabled)}, built_in=${sqlBool(input.builtIn)},
     base_strategy=${sqlString(input.baseStrategy)}, cluster_strategy=${sqlString(input.clusterStrategy)}, verification_mode=${sqlString(input.verificationMode)},
     description=${sqlString(description)}, positive_examples_json=${sqlString(JSON.stringify(positiveExamples))}, negative_examples_json=${sqlString(JSON.stringify(negativeExamples))},
@@ -3387,18 +3581,65 @@ export function saveCategory(input: Omit<CategoryDefinition, "id" | "createdAt" 
     slug, name, enabled, built_in, base_strategy, cluster_strategy, verification_mode, description,
     positive_examples_json, negative_examples_json, keywords_json, excluded_keywords_json, seed_handles_json,
     default_formats_json, source_policy_json, risk_policy_json, scoring_policy_json, publishing_policy_json,
-    ai_context, created_at, updated_at
+    ai_context, created_at, updated_at, owner_user_id, account_id
   ) VALUES (
     ${sqlString(slug)}, ${sqlString(name)}, ${sqlBool(input.enabled)}, ${sqlBool(input.builtIn)},
     ${sqlString(input.baseStrategy)}, ${sqlString(input.clusterStrategy)}, ${sqlString(input.verificationMode)}, ${sqlString(description)},
     ${sqlString(JSON.stringify(positiveExamples))}, ${sqlString(JSON.stringify(negativeExamples))}, ${sqlString(JSON.stringify(keywords))},
     ${sqlString(JSON.stringify(excludedKeywords))}, ${sqlString(JSON.stringify(seedHandles))}, ${sqlString(JSON.stringify(defaultFormats.length ? defaultFormats : ["post"]))},
     ${sqlString(JSON.stringify(input.sourcePolicy))}, ${sqlString(JSON.stringify(input.riskPolicy))}, ${sqlString(JSON.stringify(input.scoringPolicy))},
-    ${sqlString(JSON.stringify(input.publishingPolicy))}, ${sqlString(input.aiContext.slice(0, 8_000))}, ${sqlNumber(input.now)}, ${sqlNumber(input.now)}
+    ${sqlString(JSON.stringify(input.publishingPolicy))}, ${sqlString(input.aiContext.slice(0, 8_000))}, ${sqlNumber(input.now)}, ${sqlNumber(input.now)},
+    ${ownerId === null ? "NULL" : sqlString(ownerId)}, ${accountId === null ? "NULL" : sqlNumber(accountId)}
   );`);
   const category = categoryRows().find((item) => id ? item.id === id : item.slug === slug);
   if (!category) throw new Error("category kaydedilemedi");
   return category;
+}
+
+/** Create or update a custom category owned by one of the caller's X accounts. */
+export function saveAccountCategory(input: Omit<CategoryDefinition, "id" | "createdAt" | "updatedAt" | "ownerUserId" | "accountId"> & { id?: number; accountId: number; now: number }): CategoryDefinition {
+  requireOwnedAccount(input.accountId);
+  const ownerUserId = currentOwnerId();
+  if (!ownerUserId) throw new Error("authenticated owner context required");
+  if (input.builtIn) throw new Error("built-in categories are read-only");
+  if (input.id) {
+    const existing = categoryRows().find((category) => category.id === input.id);
+    if (!existing || existing.builtIn || existing.ownerUserId !== ownerUserId || existing.accountId !== input.accountId) throw new Error("category owner/account mismatch");
+  }
+  const prefix = `account-${input.accountId}-`;
+  const slug = input.slug.startsWith(prefix) ? input.slug : `${prefix}${input.slug}`;
+  const category = saveCategory({ ...input, slug, builtIn: false, ownerUserId, accountId: input.accountId });
+  const existingConfig = getAccountCategoryConfigs(input.accountId).find((config) => config.categoryId === category.id);
+  const enabled = category.enabled;
+  const makePrimary = enabled && (!existingConfig || !getAccountCategoryConfigs(input.accountId).some((config) => config.enabled && config.primary));
+  saveAccountCategoryConfig({ accountId: input.accountId, categoryId: category.id, enabled, primary: existingConfig?.primary && enabled || makePrimary,
+    weight: existingConfig?.weight ?? 1, priority: existingConfig?.priority ?? 1, publishThreshold: existingConfig?.publishThreshold ?? null,
+    dailyBudget: existingConfig?.dailyBudget ?? null, styleOverride: existingConfig?.styleOverride ?? {}, aiRouteOverride: existingConfig?.aiRouteOverride ?? {} });
+  return category;
+}
+
+export function deleteAccountCategory(id: number): boolean {
+  const ownerUserId = currentOwnerId();
+  const category = categoryRows().find((item) => item.id === id);
+  if (!ownerUserId || !category || category.builtIn || category.ownerUserId !== ownerUserId || category.accountId == null) return false;
+  requireOwnedAccount(category.accountId);
+  return deleteCategory(id);
+}
+
+export function saveGeneratedAccountCategory(input: { accountId: number; name: string; slug: string; description: string; keywords: string[]; examples: string[]; now: number }): CategoryDefinition {
+  requireOwnedAccount(input.accountId);
+  const ownerId = currentOwnerId();
+  if (!ownerId) throw new Error("authenticated owner context required");
+  const slug = `account-${input.accountId}-${input.slug}`.slice(0, 80).replace(/-+$/u, "");
+  const existing = getCategoriesForAccount(input.accountId).find((category) => category.ownerUserId === ownerId && category.accountId === input.accountId && category.slug === slug);
+  if (existing) return existing;
+  return saveCategory({
+    slug, name: input.name, enabled: true, builtIn: false, ownerUserId: ownerId, accountId: input.accountId,
+    baseStrategy: "generic", clusterStrategy: "topic", verificationMode: "moderate",
+    description: input.description, positiveExamples: input.examples.slice(0, 5), negativeExamples: [],
+    keywords: input.keywords.slice(0, 8), excludedKeywords: [], seedHandles: [], defaultFormats: ["post"],
+    sourcePolicy: {}, riskPolicy: {}, scoringPolicy: {}, publishingPolicy: {}, aiContext: input.description, now: input.now,
+  });
 }
 
 export function getStoredSources(): SourceConfig[] {
@@ -3749,6 +3990,7 @@ export function saveAccount(input: {
   if ("categories" in styleProfile) {
     const categories = canonicalCategorySlugs(styleProfile.categories);
     if (!categories) throw new Error("account kategorileri katalogdan seçilmeli");
+    if (input.id && !categories.every((slug) => getCategoriesForAccount(input.id!).some((category) => category.slug === slug))) throw new Error("account kategorisi başka bir hesaba bağlı");
     styleProfile.categories = categories;
     if (input.id !== undefined) {
       const previous = getAccounts().find((account) => account.id === input.id);
@@ -3819,6 +4061,97 @@ export function deleteAccount(id: number): void {
   exec(`DELETE FROM account_subscription_events WHERE account_id=${sqlNumber(id)};`);
   exec(`DELETE FROM account_subscription_state WHERE account_id=${sqlNumber(id)};`);
   exec(`DELETE FROM accounts WHERE id=${sqlNumber(id)};`);
+}
+
+/** Deletes every row owned by a user and all FK descendants in one transaction. */
+export function deleteOwnerData(ownerUserId: string): void {
+  if (!ownerUserId.trim()) throw new Error("account owner is required");
+  if (!ensureDatabase()) throw new Error(initializationError || "database unavailable");
+  type ForeignKey = { id: number; seq: number; table: string; from: string; to: string };
+  const quote = (value: string) => `"${value.replaceAll('"', '""')}"`;
+  const tables = rows<{ name: string }>("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name;").map((row) => row.name);
+  const columns = new Map<string, Set<string>>();
+  const primary = new Map<string, string[]>();
+  const foreignKeys = new Map<string, ForeignKey[]>();
+  for (const table of tables) {
+    const info = rows<{ name: string; pk: number }>(`PRAGMA table_info(${quote(table)});`);
+    columns.set(table, new Set(info.map((item) => item.name)));
+    primary.set(table, info.filter((item) => item.pk).sort((a, b) => a.pk - b.pk).map((item) => item.name));
+    foreignKeys.set(table, rows<ForeignKey>(`PRAGMA foreign_key_list(${quote(table)});`));
+  }
+  exec("BEGIN IMMEDIATE;");
+  try {
+    const selected = new Map<string, Set<number>>();
+    for (const table of tables) {
+      if (!columns.get(table)?.has("owner_user_id")) continue;
+      try {
+        selected.set(table, new Set(rows<{ __rowid: number }>(`SELECT rowid AS __rowid FROM ${quote(table)} WHERE owner_user_id=${sqlString(ownerUserId)};`).map((row) => row.__rowid)));
+      } catch { /* WITHOUT ROWID tables are expanded through their parent rows below. */ }
+    }
+    let changed = true;
+    while (changed) {
+      changed = false;
+      for (const child of tables) {
+        const groups = new Map<number, ForeignKey[]>();
+        for (const key of foreignKeys.get(child) || []) groups.set(key.id, [...(groups.get(key.id) || []), key]);
+        for (const parts of groups.values()) {
+          const parent = parts[0].table;
+          const parentRows = selected.get(parent);
+          if (!parentRows?.size) continue;
+          const parentKeys = primary.get(parent) || [];
+          const parentValues = new Map<string, Set<string>>();
+          for (const part of parts) {
+            const target = part.to || parentKeys[part.seq];
+            if (!target) continue;
+            const values = rows<{ value: unknown }>(`SELECT ${quote(target)} AS value FROM ${quote(parent)} WHERE rowid IN (${[...parentRows].map(sqlNumber).join(",")});`)
+              .map((row) => row.value).filter((value) => value !== null && value !== undefined).map((value) => typeof value === "number" ? String(value) : String(value));
+            parentValues.set(part.from, new Set(values));
+          }
+          if (!parentValues.size) continue;
+          const predicates = [...parentValues].filter(([column, values]) => columns.get(child)?.has(column) && values.size)
+            .map(([column, values]) => `${quote(column)} IN (${[...values].map((value) => sqlString(value)).join(",")})`);
+          if (predicates.length !== parts.length) continue;
+          try {
+            const ids = rows<{ __rowid: number }>(`SELECT rowid AS __rowid FROM ${quote(child)} WHERE ${predicates.join(" AND ")};`).map((row) => row.__rowid);
+            const target = selected.get(child) || new Set<number>();
+            for (const id of ids) if (!target.has(id)) { target.add(id); changed = true; }
+            selected.set(child, target);
+          } catch { /* WITHOUT ROWID descendants are removed by SQLite FK cascades. */ }
+        }
+      }
+    }
+
+    const order: string[] = [];
+    const visited = new Set<string>();
+    const visit = (table: string) => {
+      if (visited.has(table)) return;
+      visited.add(table);
+      for (const child of tables) if ((foreignKeys.get(child) || []).some((key) => key.table === table)) visit(child);
+      order.push(table);
+    };
+    for (const table of tables) visit(table);
+    for (const table of order) {
+      const ids = [...(selected.get(table) || [])];
+      for (let offset = 0; offset < ids.length; offset += 400) {
+        exec(`DELETE FROM ${quote(table)} WHERE rowid IN (${ids.slice(offset, offset + 400).map(sqlNumber).join(",")});`);
+      }
+    }
+    const scopedPrefix = `owner:${encodeURIComponent(ownerUserId)}:`;
+    for (const table of ["secrets", "app_settings"] as const) {
+      if (hasTable(table)) exec(`DELETE FROM ${quote(table)} WHERE substr(name,1,${sqlNumber(scopedPrefix.length)})=${sqlString(scopedPrefix)};`);
+    }
+    exec("COMMIT;");
+  } catch (error) {
+    exec("ROLLBACK;");
+    throw error;
+  }
+}
+
+/** Disabled users are denied from worker execution too; a missing auth table fails closed. */
+export function isOwnerEnabled(ownerUserId: string): boolean {
+  if (!ownerUserId.trim() || !ensureDatabase() || !hasTable("auth_user_status")) return false;
+  const status = rows<{ status: string }>(`SELECT status FROM auth_user_status WHERE owner_user_id=${sqlString(ownerUserId)} LIMIT 1;`)[0]?.status;
+  return status !== "disabled";
 }
 
 function competitorsFromRows(items: Array<{
@@ -6377,11 +6710,21 @@ export function getDraftVariants(draftId: number): DraftVariantRecord[] {
   }));
 }
 
-export type OwnUserProfile = { username: string; displayName: string; bio: string; visibility: "private" | "public"; createdAt: number; updatedAt: number };
-export type PublicUserProfile = { username: string; displayName: string; bio: string };
+export type OwnUserProfile = { username: string; displayName: string; bio: string; visibility: "private" | "public"; createdAt: number; updatedAt: number; xHandle: string | null; avatarUrl: string | null; onboardingCompleted: boolean; profilePath: string };
+export type PublicUserProfile = { username: string; displayName: string; bio: string; xHandle: string | null; avatarUrl: string | null; profilePath: string };
 
-function profileFromRow(row: { username: string; display_name: string; bio: string; visibility: "private" | "public"; created_at: number; updated_at: number }): OwnUserProfile {
-  return { username: row.username, displayName: row.display_name, bio: row.bio, visibility: row.visibility, createdAt: row.created_at, updatedAt: row.updated_at };
+type UserProfileRow = { username: string; display_name: string; bio: string; visibility: "private" | "public"; created_at: number; updated_at: number; x_handle: string | null; avatar_url: string | null; onboarding_completed: number };
+
+const RESERVED_PUBLIC_PROFILE_PATHS = new Set(["api", "app", "u", "h", "compare", "docs", "forgot-password", "leaderboard", "login", "market", "no-viral-guarantee", "open-source", "privacy", "research", "reset-password", "security", "settings", "signup", "terms", "transparency", "robots.txt", "sitemap.xml", "favicon.ico"]);
+export function profilePathForIdentity(handle: string | null, username: string): string {
+  const normalized = handle?.replace(/^@/, "") ?? "";
+  return normalized && /^[A-Za-z0-9_]{1,15}$/.test(normalized) && !RESERVED_PUBLIC_PROFILE_PATHS.has(normalized.toLowerCase()) && !/^(en|zh-cn|hi|es|fr|ar|bn|pt-br|ru|id|ur|de|ja|sw|mr|te|tr|ta|vi|ko)$/i.test(normalized)
+    ? `/${normalized}` : `/u/${username}`;
+}
+
+function profileFromRow(row: UserProfileRow): OwnUserProfile {
+  const profilePath = profilePathForIdentity(row.x_handle, row.username);
+  return { username: row.username, displayName: row.display_name, bio: row.bio, visibility: row.visibility, createdAt: row.created_at, updatedAt: row.updated_at, xHandle: row.x_handle, avatarUrl: row.avatar_url, onboardingCompleted: row.onboarding_completed === 1, profilePath };
 }
 
 function requireProfileOwner(): string {
@@ -6394,16 +6737,16 @@ export function getOwnUserProfile(now = Math.floor(Date.now() / 1000)): OwnUserP
   const ownerId = requireProfileOwner();
   if (!ensureDatabase()) throw new Error("database unavailable");
   // A server-generated random slug avoids exposing email addresses or predictable account identifiers.
-  let row: { username: string; display_name: string; bio: string; visibility: "private" | "public"; created_at: number; updated_at: number } | undefined;
+  let row: UserProfileRow | undefined;
   for (let attempt = 0; attempt < 3 && !row; attempt++) {
     const username = Buffer.from(globalThis.crypto.getRandomValues(new Uint8Array(18))).toString("base64url");
     if (new Set(username).size < 12) continue;
     try {
-      command(`INSERT INTO user_profiles(owner_user_id,username,created_at,updated_at)
-        VALUES(${sqlString(ownerId)},${sqlString(username)},${sqlNumber(now)},${sqlNumber(now)}) ON CONFLICT(owner_user_id) DO NOTHING;`);
+      command(`INSERT INTO user_profiles(owner_user_id,username,visibility,onboarding_completed,created_at,updated_at)
+        VALUES(${sqlString(ownerId)},${sqlString(username)},'public',0,${sqlNumber(now)},${sqlNumber(now)}) ON CONFLICT(owner_user_id) DO NOTHING;`);
     } catch { /* Retry an astronomically unlikely random slug collision. */ }
-    row = criticalRows<{ username: string; display_name: string; bio: string; visibility: "private" | "public"; created_at: number; updated_at: number }>(
-      `SELECT username,display_name,bio,visibility,created_at,updated_at FROM user_profiles WHERE owner_user_id=${sqlString(ownerId)} LIMIT 1;`,
+    row = criticalRows<UserProfileRow>(
+      `SELECT username,display_name,bio,visibility,created_at,updated_at,x_handle,avatar_url,onboarding_completed FROM user_profiles WHERE owner_user_id=${sqlString(ownerId)} LIMIT 1;`,
     )[0];
   }
   if (!row) throw new Error("profile could not be initialized");
@@ -6415,7 +6758,7 @@ export function saveOwnUserProfile(input: { displayName: string; bio: string; vi
   getOwnUserProfile(input.now);
   if (!ensureDatabase()) throw new Error("database unavailable");
   const now = input.now ?? Math.floor(Date.now() / 1000);
-  command(`UPDATE user_profiles SET display_name=${sqlString(input.displayName)},bio=${sqlString(input.bio)},visibility=${sqlString(input.visibility)},updated_at=${sqlNumber(now)}
+  command(`UPDATE user_profiles SET display_name=${sqlString(input.displayName)},bio=${sqlString(input.bio)},visibility=${sqlString(input.visibility)},onboarding_completed=1,updated_at=${sqlNumber(now)}
     WHERE owner_user_id=${sqlString(ownerId)};`);
   return getOwnUserProfile(now);
 }
@@ -6423,10 +6766,50 @@ export function saveOwnUserProfile(input: { displayName: string; bio: string; vi
 export function getPublicUserProfile(username: string): PublicUserProfile | null {
   if (!ensureDatabase()) throw new Error("database unavailable");
   // Keep this projection explicit and visibility-gated; never return the owner key or private columns.
-  const row = criticalRows<{ username: string; display_name: string; bio: string }>(
-    `SELECT username,display_name,bio FROM user_profiles WHERE username=${sqlString(username)} AND visibility='public' LIMIT 1;`,
+  const row = criticalRows<{ username: string; display_name: string; bio: string; x_handle: string | null; avatar_url: string | null }>(
+    `SELECT username,display_name,bio,x_handle,avatar_url FROM user_profiles WHERE username=${sqlString(username)} AND visibility='public' AND onboarding_completed=1 LIMIT 1;`,
   )[0];
-  return row ? { username: row.username, displayName: row.display_name, bio: row.bio } : null;
+  return row ? { username: row.username, displayName: row.display_name, bio: row.bio, xHandle: row.x_handle, avatarUrl: row.avatar_url, profilePath: profilePathForIdentity(row.x_handle, row.username) } : null;
+}
+
+export function getPublicUserProfileByHandle(handle: string): PublicUserProfile | null {
+  if (!ensureDatabase()) throw new Error("database unavailable");
+  const row = criticalRows<{ username: string; display_name: string; bio: string; x_handle: string; avatar_url: string | null }>(
+    `SELECT username,display_name,bio,x_handle,avatar_url FROM user_profiles WHERE lower(x_handle)=lower(${sqlString(handle)}) AND visibility='public' AND onboarding_completed=1 LIMIT 1;`,
+  )[0];
+  return row ? { username: row.username, displayName: row.display_name, bio: row.bio, xHandle: row.x_handle, avatarUrl: row.avatar_url, profilePath: profilePathForIdentity(row.x_handle, row.username) } : null;
+}
+
+export function getProfileAvatarAccess(xUserId: string, ownerUserId?: string): boolean {
+  if (!ensureDatabase()) return false;
+  const owner = ownerUserId ? ` OR profile.owner_user_id=${sqlString(ownerUserId)}` : "";
+  return criticalRows<{ allowed: number }>(`SELECT 1 AS allowed FROM user_profiles profile JOIN user_profile_x_identity identity ON identity.owner_user_id=profile.owner_user_id
+    WHERE identity.x_user_id=${sqlString(xUserId)} AND (profile.visibility='public' AND profile.onboarding_completed=1${owner}) LIMIT 1;`).length > 0;
+}
+
+export function syncUserProfileFromX(input: { ownerUserId: string; xUserId: string; handle: string; displayName: string; bio: string; avatarUrl: string | null; now?: number }): void {
+  if (!ensureDatabase()) throw new Error("database unavailable");
+  const handle = input.handle.replace(/^@/, "");
+  if (!input.ownerUserId || !/^\d{1,32}$/.test(input.xUserId) || !/^[A-Za-z0-9_]{1,15}$/.test(handle)) throw new Error("verified X profile identity is invalid");
+  if (input.avatarUrl !== null && input.avatarUrl !== `/api/profile/avatar/${input.xUserId}`) throw new Error("X avatar must use the local profile proxy");
+  const now = input.now ?? Math.floor(Date.now() / 1000);
+  runAsOwner(input.ownerUserId, () => getOwnUserProfile(now));
+  const row = criticalRows<{ owner_user_id: string; x_user_id: string | null }>(`SELECT profile.owner_user_id,identity.x_user_id FROM user_profiles profile LEFT JOIN user_profile_x_identity identity ON identity.owner_user_id=profile.owner_user_id WHERE profile.owner_user_id=${sqlString(input.ownerUserId)} LIMIT 1;`)[0];
+  if (!row) throw new Error("profile could not be initialized");
+  // The first verified account owns the public identity; subsequent connections cannot replace it.
+  if (row.x_user_id && row.x_user_id !== input.xUserId) return;
+  if (!row.x_user_id) {
+    const used = criticalRows<{ owner_user_id: string }>(`SELECT owner_user_id FROM user_profile_x_identity WHERE x_user_id=${sqlString(input.xUserId)} LIMIT 1;`)[0];
+    if (used && used.owner_user_id !== input.ownerUserId) return;
+    command(`INSERT INTO user_profile_x_identity(owner_user_id,x_user_id) VALUES(${sqlString(input.ownerUserId)},${sqlString(input.xUserId)}) ON CONFLICT(owner_user_id) DO NOTHING;`);
+  }
+  try {
+    command(`UPDATE user_profiles SET x_handle=${sqlString(handle)},display_name=${sqlString(input.displayName.slice(0, 80))},bio=${sqlString(input.bio.slice(0, 500))},avatar_url=COALESCE(${input.avatarUrl === null ? "NULL" : sqlString(input.avatarUrl)},avatar_url),updated_at=${sqlNumber(now)}
+      WHERE owner_user_id=${sqlString(input.ownerUserId)} AND EXISTS (SELECT 1 FROM user_profile_x_identity WHERE owner_user_id=${sqlString(input.ownerUserId)} AND x_user_id=${sqlString(input.xUserId)});`);
+  } catch (error) {
+    if (String(error).includes("UNIQUE constraint failed")) return;
+    throw error;
+  }
 }
 
 export type HitShareMetrics = { views: number | null; likes: number | null; replies: number | null; reposts: number | null; quotes: number | null };
@@ -6516,13 +6899,13 @@ export function listOwnHitShares(): OwnHitShare[] {
 
 export function createOwnHitShare(remotePostId: string, now = Math.floor(Date.now() / 1000)): OwnHitShare {
   const ownerId = requireProfileOwner();
-  if (!/^\d{1,32}$/.test(remotePostId)) throw new Error("geçerli bir X gönderi kimliği gerekli");
+  if (!/^\d{1,32}$/.test(remotePostId)) throw new Error("geçerli bir 𝕏 gönderi kimliği gerekli");
   if (!Number.isSafeInteger(now) || now < 0) throw new Error("paylaşım zamanı geçersiz");
   if (!ensureDatabase()) throw new Error("database unavailable");
   command("BEGIN IMMEDIATE;");
   try {
     const hit = hitEvidenceRows(ownerId, remotePostId).map(mapHitEvidence).find((item) => item?.remotePostId === remotePostId);
-    if (!hit) throw new Error("resmi X verisiyle doğrulanmış kendi gönderisi bulunamadı");
+    if (!hit) throw new Error("resmi 𝕏 verisiyle doğrulanmış kendi gönderisi bulunamadı");
     const existing = criticalRows<{ public_id: string; remote_post_id: string; created_at: number; revoked_at: number | null; leaderboard_opt_in: number }>(
       `SELECT public_id,remote_post_id,created_at,revoked_at,leaderboard_opt_in FROM hit_shares WHERE owner_user_id=${sqlString(ownerId)} AND remote_post_id=${sqlString(remotePostId)} AND revoked_at IS NULL LIMIT 1;`,
     )[0];
@@ -6531,7 +6914,7 @@ export function createOwnHitShare(remotePostId: string, now = Math.floor(Date.no
       return { publicId: existing.public_id, remotePostId: existing.remote_post_id, createdAt: existing.created_at, revokedAt: existing.revoked_at, leaderboardOptIn: existing.leaderboard_opt_in === 1 };
     }
     const candidate = hitEvidenceRows(ownerId, remotePostId).find((row) => mapHitEvidence(row)?.remotePostId === remotePostId);
-    if (!candidate) throw new Error("resmi X verisiyle doğrulanmış kendi gönderisi bulunamadı");
+    if (!candidate) throw new Error("resmi 𝕏 verisiyle doğrulanmış kendi gönderisi bulunamadı");
     let publicId = "";
     for (let attempt = 0; attempt < 3; attempt++) {
       publicId = Buffer.from(globalThis.crypto.getRandomValues(new Uint8Array(24))).toString("base64url");

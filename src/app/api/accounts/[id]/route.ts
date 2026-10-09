@@ -3,7 +3,6 @@ import { currentOwnerId } from "@/server/owner-context";
 import { NextResponse } from "next/server";
 import { canonicalCategorySlugs, deleteAccount, getAccounts, saveAccount, writingSkillIds } from "@/server/db";
 import { guardMutation, readJsonBody } from "@/server/api-guard";
-import { resolveIdeology } from "@/server/ideologies";
 import { revokeXAccount } from "@/server/x-oauth";
 import { validateStyleProfilePatch } from "@/components/style-profile-json";
 
@@ -27,7 +26,6 @@ async function PATCHHandler(request: Request, context: { params: Promise<{ id: s
       } catch (error) {
         return NextResponse.json({ error: error instanceof Error ? error.message : "styleProfile geçersiz" }, { status: 422 });
       }
-      if ("ideology" in styleProfile && !resolveIdeology(styleProfile.ideology)) return NextResponse.json({ error: "ideoloji katalogdan seçilmeli" }, { status: 422 });
       if ("categories" in styleProfile && !canonicalCategorySlugs(styleProfile.categories)) return NextResponse.json({ error: "account kategorileri katalogdan seçilmeli" }, { status: 422 });
       if ("writingSkillIds" in styleProfile && !writingSkillIds(styleProfile.writingSkillIds)) return NextResponse.json({ error: "writing skill seçimi geçersiz" }, { status: 422 });
     }

@@ -118,6 +118,7 @@ describe("Better Auth DB-backed sessions", () => {
     const sessionCookie = setCookies.find((value) => value.includes("session_token")) || "";
     expect(sessionCookie.toLowerCase()).toContain("httponly");
     expect(sessionCookie.toLowerCase()).toContain("samesite=lax");
+    expect(sessionCookie.toLowerCase()).toContain("path=/");
 
     const session1 = await runtime.handler(request("/get-session", undefined, cookie1));
     const session2 = await runtime.handler(request("/get-session", undefined, cookie2));
@@ -145,7 +146,19 @@ describe("Better Auth DB-backed sessions", () => {
 
     expect((await runtime.handler(request("/sign-out", {}, cookie1))).status).toBe(200);
     expect(await (await runtime.handler(request("/get-session", undefined, cookie1))).json()).toBeNull();
+    expect((await runtime.handler(new Request("http://localhost:3000/api/auth/sign-out", {
+      method: "POST", headers: { origin: "http://localhost:3000", cookie: cookie1 },
+    }))).status).toBe(200);
     expect((await runtime.handler(request("/get-session", undefined, cookie2))).status).toBe(200);
+
+    runtime.disableUser(signupSession2.user.id, Math.floor(Date.now() / 1000));
+    expect(runtime.isUserDisabled(signupSession2.user.id)).toBe(true);
+    expect(await (await runtime.handler(request("/get-session", undefined, cookie2))).json()).toBeNull();
+    const reactivatedLogin = await runtime.handler(request("/sign-in/email", { email: "two@example.test", password: "correct-horse-battery-2" }));
+    expect(reactivatedLogin.status).toBe(200);
+    const reactivatedCookie = cookieHeader(reactivatedLogin);
+    expect(runtime.isUserDisabled(signupSession2.user.id)).toBe(false);
+    expect((await runtime.handler(request("/get-session", undefined, reactivatedCookie))).status).toBe(200);
 
     const resetRequest = await runtime.handler(request("/request-password-reset", { email: "two@example.test", redirectTo: "http://localhost:3000/login" }));
     expect(resetRequest.status).toBe(200);

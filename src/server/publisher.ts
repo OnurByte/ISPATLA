@@ -18,9 +18,9 @@ export class OfficialXPublisher {
   constructor(readonly client: OfficialXClient = new OfficialXClient()) {}
 
   health(account: Account): { ok: boolean; reason: string } {
-    if (!account.ownerUserId) return { ok: false, reason: "X account owner is not bound" };
+    if (!account.ownerUserId) return { ok: false, reason: "𝕏 account owner is not bound" };
     const state = getXAccountAuthState(account.id, account.ownerUserId);
-    if (!state?.connected) return { ok: false, reason: "X account requires connection or reauthorization" };
+    if (!state?.connected) return { ok: false, reason: "𝕏 account requires connection or reauthorization" };
     return { ok: true, reason: "" };
   }
 
@@ -36,7 +36,7 @@ export class OfficialXPublisher {
   }
 
   async publishPost(input: PublishInput): Promise<PublishReceipt> {
-    if (input.credentials.xUserId.length === 0) throw new Error("authenticated X identity is required");
+    if (input.credentials.xUserId.length === 0) throw new Error("authenticated 𝕏 identity is required");
     let mediaIds: string[] | undefined;
     if (input.mediaPath) {
       const lower = input.mediaPath.toLowerCase();
@@ -73,12 +73,12 @@ const publisher = new OfficialXPublisher();
 /** Resolve the X identity only from the account's persisted OAuth binding. */
 export async function withOfficialAccount<T>(account: Account, work: (credential: XCredential) => Promise<T>): Promise<T> {
   const ownerUserId = account.ownerUserId;
-  if (!ownerUserId) throw new Error("X account has no authenticated owner binding");
+  if (!ownerUserId) throw new Error("𝕏 account has no authenticated owner binding");
   const callerOwner = currentOwnerId();
-  if (callerOwner && callerOwner !== ownerUserId) throw new Error("X account is outside the authenticated owner context");
+  if (callerOwner && callerOwner !== ownerUserId) throw new Error("𝕏 account is outside the authenticated owner context");
   return runAsOwner(ownerUserId, async () => {
     const state = getXAccountAuthState(account.id, ownerUserId);
-    if (!state?.connected) throw new Error("X account requires reauthorization");
+    if (!state?.connected) throw new Error("𝕏 account requires reauthorization");
     return refreshXToken<T>({ accountId: account.id, ownerUserId }, work);
   });
 }

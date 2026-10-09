@@ -61,7 +61,7 @@ function MetricCard({ icon: Icon, label, value, detail, href }: { icon: typeof A
   return href ? <Link href={href} aria-label={`${label} listesini aç`}>{card}</Link> : card;
 }
 
-export function Dashboard({ initial }: { initial: DashboardView }) {
+export function Dashboard({ initial, canRunScan }: { initial: DashboardView; canRunScan: boolean }) {
   const [summary, setSummary] = useState(initial);
   const [isPending, startTransition] = useTransition();
 
@@ -81,7 +81,7 @@ export function Dashboard({ initial }: { initial: DashboardView }) {
 
   const latestStatus = summary.lastRun?.status || "bekliyor";
   const docs = [
-    ["X algorithm news account analysis", "x-algorithm-news-account-analysis.md"],
+    ["𝕏 algorithm news account analysis", "x-algorithm-news-account-analysis.md"],
     ["XPatla site algorithm research", "xpatla-site-algoritma-arastirmasi-2026-08-21.md"],
     ["Research map", "docs/RESEARCH-MAP.md"],
   ];
@@ -104,9 +104,9 @@ export function Dashboard({ initial }: { initial: DashboardView }) {
             <Button variant="outline" onClick={refresh} disabled={isPending}>
               {isPending ? <Spinner data-icon="inline-start" /> : <RefreshCw data-icon="inline-start" aria-hidden="true" />} Yenile
             </Button>
-            <Button onClick={runScan} disabled={isPending}>
+            {canRunScan ? <Button onClick={runScan} disabled={isPending}>
               <Activity data-icon="inline-start" aria-hidden="true" /> Şimdi tara
-            </Button>
+            </Button> : null}
           </div>
         </header>
 
@@ -125,7 +125,7 @@ export function Dashboard({ initial }: { initial: DashboardView }) {
           <MetricCard icon={Sparkles} label="Senin için fırsatlar" value={summary.opportunities} detail="Kaynak ve uygunluk kanıtını incele" href="/app/opportunities" />
           <MetricCard icon={Send} label="Yayın sonuçların" value={summary.publishedConfirmed} detail="Yayın makbuzu doğrulandı; performans metrikleri ayrıca gözlenir" href="/app/analytics" />
           <MetricCard icon={Bot} label="AI sağlayıcın" value={!summary.aiEnabled ? "Kapalı" : summary.aiConfigured ? "Yapılandırıldı" : "Bağlantı gerekli"} detail="Kendi anahtarını yönet ve bağlantıyı test et" href="/app/settings/keys" />
-          <MetricCard icon={ShieldCheck} label="Bağlı X hesapların" value={summary.officialX.connectedAccounts} detail="Bağlantı, konular ve izinlerini yönet" href="/app/accounts" />
+          <MetricCard icon={ShieldCheck} label="Bağlı 𝕏 hesapların" value={summary.officialX.connectedAccounts} detail="Bağlantı, konular ve izinlerini yönet" href="/app/accounts" />
         </section>
         <Card><CardHeader><CardTitle>Taslakların</CardTitle><CardDescription>Son üç taslağın. Düzenlemek ve yayına hazırlamak için taslak masanı aç.</CardDescription></CardHeader><CardContent className="space-y-4">
           {summary.recentDrafts.length ? <ul className="divide-y">{summary.recentDrafts.map((draft) => <li key={draft.id} className="py-3"><Link href="/app/drafts" className="line-clamp-2 text-sm leading-6 hover:underline">{draft.text}</Link></li>)}</ul> : <p className="text-sm text-muted-foreground">Henüz taslağın yok. Bir fırsat seçebilir veya kendi fikrinden başlayabilirsin.</p>}
@@ -169,14 +169,14 @@ export function Dashboard({ initial }: { initial: DashboardView }) {
             <CardContent className="flex flex-col gap-4">
               <div className="flex flex-wrap items-center justify-between gap-4"><span className="flex items-center gap-2 text-sm"><TimerReset className="size-4 text-muted-foreground" aria-hidden="true" /> Radar</span><Badge variant={summary.automationRuntime.healthy ? "default" : "outline"}>{summary.automationRuntime.healthy ? `${summary.automationRuntime.owner} heartbeat ${summary.automationRuntime.lagSeconds} sn önce` : "çalışmıyor · heartbeat yok"}</Badge></div>
               <Separator />
-              <div className="flex items-center justify-between gap-4"><span className="flex items-center gap-2 text-sm"><Bot className="size-4 text-muted-foreground" aria-hidden="true" /> {summary.aiProvider === "codex" ? "Codex" : summary.aiProvider === "compatible" ? "Özel AI endpoint" : "OpenAI Responses"}</span><Badge variant={!summary.aiEnabled ? "secondary" : summary.aiConfigured ? "default" : "destructive"}>{!summary.aiEnabled ? "kapalı" : summary.aiConfigured ? "hazır" : summary.aiProvider === "codex" ? "login yok" : "key / endpoint yok"}</Badge></div>
-              <div className="flex items-center justify-between gap-4"><span className="flex items-center gap-2 text-sm"><Send className="size-4 text-muted-foreground" aria-hidden="true" /> Official X grant</span><Badge variant={summary.officialX.postWriteReadyAccounts ? "default" : "secondary"}>{summary.officialX.postWriteReadyAccounts} write hazır</Badge></div>
+              <div className="flex items-center justify-between gap-4"><span className="flex items-center gap-2 text-sm"><Bot className="size-4 text-muted-foreground" aria-hidden="true" /> {summary.aiProvider === "codex" ? "Codex" : summary.aiProvider === "compatible" ? "Özel AI endpoint" : summary.aiProvider === "chatgpt" ? "ChatGPT planı" : summary.aiProvider === "anthropic" ? "Claude API" : "OpenAI Responses"}</span><Badge variant={!summary.aiEnabled ? "secondary" : summary.aiConfigured ? "default" : "destructive"}>{!summary.aiEnabled ? "kapalı" : summary.aiConfigured ? "hazır" : summary.aiProvider === "codex" ? "login yok" : "key / endpoint yok"}</Badge></div>
+              <div className="flex items-center justify-between gap-4"><span className="flex items-center gap-2 text-sm"><Send className="size-4 text-muted-foreground" aria-hidden="true" /> Official 𝕏 grant</span><Badge variant={summary.officialX.postWriteReadyAccounts ? "default" : "secondary"}>{summary.officialX.postWriteReadyAccounts} write hazır</Badge></div>
               <div className="flex items-center justify-between gap-4"><span className="flex items-center gap-2 text-sm"><ShieldCheck className="size-4 text-muted-foreground" aria-hidden="true" /> Publisher yapılandırması</span><Badge variant={summary.officialPublisherConfigured ? "default" : "destructive"}>{summary.officialPublisherConfigured ? "sunucu hazır" : "sunucu yapılandırması eksik"}</Badge></div>
               <div className="flex items-center justify-between gap-4"><span className="flex items-center gap-2 text-sm"><ShieldCheck className="size-4 text-muted-foreground" aria-hidden="true" /> Açık Auto post izni</span><Badge variant={summary.officialX.autoConsentedPostAccounts ? "default" : "secondary"}>{summary.officialX.autoConsentedPostAccounts} hesap · {summary.officialX.connectedAccounts} bağlı</Badge></div>
               <div className="flex items-center justify-between gap-4"><span className="flex items-center gap-2 text-sm"><ShieldCheck className="size-4 text-muted-foreground" aria-hidden="true" /> Yayın politikası</span><Badge variant="secondary">≥70 · 6/gün</Badge></div>
               <Alert>
                 <ShieldCheck aria-hidden="true" />
-                <AlertDescription>Otomatik taslak için bağlı X hesabı, tweet.write yetkisi ve güncel açık post izni gerekir. Her gönderim anında bağlantı, izin ve yayın politikası yeniden denetlenir.</AlertDescription>
+                <AlertDescription>Otomatik taslak için bağlı 𝕏 hesabı, tweet.write yetkisi ve güncel açık post izni gerekir. Her gönderim anında bağlantı, izin ve yayın politikası yeniden denetlenir.</AlertDescription>
               </Alert>
             </CardContent>
           </Card>
@@ -216,7 +216,7 @@ export function Dashboard({ initial }: { initial: DashboardView }) {
                 </a>
               ))}
               <Separator />
-              <div className="flex flex-col gap-2 text-sm"><span className="flex items-center gap-2 font-medium"><CheckCircle2 className="size-4" aria-hidden="true" /> Ürün döngüsü</span><span className="text-xs leading-5 text-muted-foreground">Style profile, Market fırsatı, generation, quality/uncertainty/rights gate, Official X publication and feedback reconciliation.</span></div>
+              <div className="flex flex-col gap-2 text-sm"><span className="flex items-center gap-2 font-medium"><CheckCircle2 className="size-4" aria-hidden="true" /> Ürün döngüsü</span><span className="text-xs leading-5 text-muted-foreground">Style profile, Market fırsatı, generation, quality/uncertainty/rights gate, Official 𝕏 publication and feedback reconciliation.</span></div>
               {summary.lastRun && <div className="flex items-center justify-between gap-4 text-xs text-muted-foreground"><span>Son run</span><span className="tabular-nums">{summary.lastRun.postsNew} yeni / {summary.lastRun.postsSeen} görüldü</span></div>}
               <a
                 className={buttonVariants({ variant: "link", size: "sm", className: "w-fit px-0" })}
