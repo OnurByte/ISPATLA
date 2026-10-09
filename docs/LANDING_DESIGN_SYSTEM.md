@@ -1,6 +1,6 @@
 # The Signal Press landing design system
 
-This visual direction is implemented on the landing and shared through the site theme. The original brand symbol and locally shipped wordmark font remain unchanged. See [the evidence register](SIGNAL_PRESS_STATUS.md) for verified boundaries.
+This visual direction is implemented on the landing and shared through the site theme. The original brand symbol remains, while Libron is the locally served site and wordmark font. See [the evidence register](SIGNAL_PRESS_STATUS.md) for verified boundaries.
 
 ## Art direction
 
@@ -20,7 +20,7 @@ image or font service.
 | Rejected | `#BC453D` | Rejected state, with text label |
 | Verified | `#477865` | Verified state, with text label |
 
-Editorial headings use Georgia with a Times New Roman fallback. Interface text uses the existing sans stack; the brand wordmark retains Ispatla Brand. Measurement labels and code use the existing monospace stack. No third-party font is loaded at runtime.
+Libron is the only site font for interface text, editorial headings, the brand wordmark, measurement labels and code. Font files are served locally under the SIL Open Font License; no third-party font service is loaded at runtime.
 
 ## Page narrative
 

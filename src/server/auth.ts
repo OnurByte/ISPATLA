@@ -246,7 +246,7 @@ function authOptions(db: SqliteHandle, env: Record<string, string | undefined>, 
       },
     },
     session: {
-      expiresIn: 60 * 60 * 24 * 7,
+      expiresIn: 60 * 60 * 24 * 60,
       updateAge: 60 * 60 * 24,
       freshAge: 5 * 60,
       cookieCache: { enabled: false },

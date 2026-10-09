@@ -119,6 +119,7 @@ describe("Better Auth DB-backed sessions", () => {
     expect(sessionCookie.toLowerCase()).toContain("httponly");
     expect(sessionCookie.toLowerCase()).toContain("samesite=lax");
     expect(sessionCookie.toLowerCase()).toContain("path=/");
+    expect(sessionCookie.toLowerCase()).toContain("max-age=5184000");
 
     const session1 = await runtime.handler(request("/get-session", undefined, cookie1));
     const session2 = await runtime.handler(request("/get-session", undefined, cookie2));
