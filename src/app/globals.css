@@ -5,15 +5,39 @@
 @custom-variant dark (&:is(.dark *));
 
 @font-face {
-  font-family: "Ispatla Brand";
-  src: url("/fonts/schibsted-grotesk-brand.ttf") format("truetype");
+  font-family: "Libron";
+  src: url("/fonts/libron-regular.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Libron";
+  src: url("/fonts/libron-bold.woff2") format("woff2");
   font-style: normal;
   font-weight: 700;
   font-display: swap;
 }
 
+@font-face {
+  font-family: "Libron";
+  src: url("/fonts/libron-italic.woff2") format("woff2");
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Libron";
+  src: url("/fonts/libron-bold-italic.woff2") format("woff2");
+  font-style: italic;
+  font-weight: 700;
+  font-display: swap;
+}
+
 .brand-wordmark {
-  font-family: "Ispatla Brand", ui-sans-serif, system-ui, sans-serif;
+  font-family: "Libron";
 }
 
 @theme inline {
@@ -61,8 +85,8 @@
 }
 
 :root {
-  --font-sans-family: Geist, Inter, ui-sans-serif, system-ui, sans-serif, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji";
-  --font-mono-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  --font-sans-family: "Libron";
+  --font-mono-family: "Libron";
   --background: #f0ede5;
   --foreground: #16191e;
   --card: #faf8f1;
@@ -153,7 +177,7 @@
 [data-slot="sidebar-menu-button"]:active svg { transform: scale(0.96); }
 
 /* Editorial character is shared; dense records retain the interface font. */
-main h1, main h2 { font-family: Georgia, "Times New Roman", serif; font-weight: 400; }
+main h1, main h2 { font-family: "Libron"; font-weight: 400; }
 [data-slot="card"] { box-shadow: 2px 2px 0 color-mix(in srgb, var(--foreground) 12%, transparent); }
 pre, code, [data-slot="badge"] { font-family: var(--font-mono-family); }
 

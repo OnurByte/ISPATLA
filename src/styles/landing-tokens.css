@@ -22,8 +22,7 @@
   --press-verified: #93edc1;
 }
 
-.signal-press .press-serif { font-family: Georgia, "Times New Roman", serif; }
-.signal-press .press-mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.signal-press .press-serif, .signal-press .press-mono { font-family: "Libron"; }
 .signal-press .press-paper-grain {
   background-image: radial-gradient(#16191e 0.55px, transparent 0.55px);
   background-size: 7px 7px;

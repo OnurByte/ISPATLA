@@ -5,7 +5,7 @@ import { landingAlternates } from "../src/i18n/metadata";
 import { proxy } from "../src/proxy";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { PublicHeader } from "../src/components/public-header";
+import { PublicHeaderContent } from "../src/components/public-header";
 import { LocaleSwitcher } from "../src/i18n/locale-switcher";
 
 test("all locale choices carry flags and the themed Select names its current language accessibly", () => {
@@ -102,12 +102,17 @@ test("proxy rewrites localized pages, protects localized app routes, and leaves 
 
 test("public product-tour navigation shares the brand and preserves every locale", () => {
   for (const locale of LOCALES) {
-    const markup = renderToStaticMarkup(createElement(PublicHeader, { locale, current: "docs" }));
+    const markup = renderToStaticMarkup(createElement(PublicHeaderContent, { locale, current: "docs", authenticated: false }));
     expect(markup).toContain("ispatla.tr");
     expect(markup).toContain("/brand/ispatla-symbol.png");
+    expect(markup).toContain(`href="${localizePath(locale, "/")}"`);
     for (const route of ["/docs", "/login", "/signup"]) expect(markup).toContain(`href="${localizePath(locale, route)}"`);
     const tourLink = markup.match(/<a\b[^>]*>/g)?.find((tag) => tag.includes(`href="${localizePath(locale, "/docs")}"`));
     expect(tourLink).toContain('aria-current="page"');
     expect(markup).toContain('data-slot="select-trigger"');
+    const authenticatedMarkup = renderToStaticMarkup(createElement(PublicHeaderContent, { locale, authenticated: true }));
+    expect(authenticatedMarkup).toContain(dictionaries[locale].nav.dashboard);
+    expect(authenticatedMarkup).not.toContain(dictionaries[locale].nav.signOut);
+    expect(authenticatedMarkup).not.toContain(`href="${localizePath(locale, "/signup")}"`);
   }
 });

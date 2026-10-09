@@ -13,8 +13,7 @@ Public accents are cobalt: blue-600 for actions, blue-700 for light-background
 emphasis, blue-300 for dark-background emphasis. The creator card uses blue-950
 with white/blue-100 text. Color supplements a status label rather than replacing it.
 
-Editorial headings use Georgia; the original brand symbol and wordmark font remain unchanged. Interface text uses the existing sans stack. Dense record IDs
-and code use the existing monospace stack. Public content width is 72–80rem;
+Libron is the only site font for interface text, editorial headings, the brand wordmark, dense record IDs and code; the original brand symbol remains unchanged. Public content width is 72–80rem;
 text paragraphs are bounded at 46rem. Horizontal page padding is 20px, rising to
 32px. Action targets are at least 44px tall. Navigation wraps at narrow widths.
 

@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { headers } from "next/headers";
 import { ChevronRight } from "lucide-react";
-import { AppShell, SignOutButton } from "@/components/app-shell";
+import { AppShell } from "@/components/app-shell";
+import { SignOutButton } from "@/components/sign-out-button";
 import { AccountLifecycleControls } from "@/components/account-lifecycle-controls";
 import { PageHeading } from "@/components/page-heading";
 import { DEFAULT_LOCALE, isLocale, localizePath } from "@/i18n/config";

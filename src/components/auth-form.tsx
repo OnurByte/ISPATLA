@@ -1,12 +1,12 @@
 "use client"
 
 import Link from "next/link"
-import { useRouter } from "next/navigation"
 import { useState, type FormEvent } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { DEFAULT_LOCALE, localizePath, type Locale } from "@/i18n/config"
+import { announceSessionChange } from "@/components/auth-session-sync"
 
 type AuthFormMode = "login" | "signup" | "forgot" | "reset"
 
@@ -23,7 +23,6 @@ function responseError(data: unknown): string {
 }
 
 export function AuthForm({ mode, token, locale = DEFAULT_LOCALE, xLoginEnabled = false, xLoginError = false }: { mode: AuthFormMode; token?: string; locale?: Locale; xLoginEnabled?: boolean; xLoginError?: boolean }) {
-  const router = useRouter()
   const path = (href: string) => localizePath(locale, href)
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
@@ -40,7 +39,7 @@ export function AuthForm({ mode, token, locale = DEFAULT_LOCALE, xLoginEnabled =
         method: "POST",
         credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ provider: "twitter", callbackURL, errorCallbackURL }),
+        body: JSON.stringify({ provider: "twitter", callbackURL, errorCallbackURL, rememberMe: true }),
       })
       const data = await response.json().catch(() => null) as { url?: unknown } | null
       if (!response.ok || typeof data?.url !== "string") throw new Error("𝕏 ile devam edilemedi. E-posta ile giriş yapabilir veya yeniden deneyebilirsin.")
@@ -69,7 +68,7 @@ export function AuthForm({ mode, token, locale = DEFAULT_LOCALE, xLoginEnabled =
       ? { email, redirectTo: `${window.location.origin}${path("/reset-password")}` }
       : mode === "reset"
         ? { token, newPassword: password }
-        : { email, password, ...(mode === "signup" ? { name: email.split("@")[0] } : {}) }
+        : { email, password, rememberMe: true, ...(mode === "signup" ? { name: email.split("@")[0] } : {}) }
 
     try {
       const response = await fetch(endpoint, {
@@ -82,8 +81,8 @@ export function AuthForm({ mode, token, locale = DEFAULT_LOCALE, xLoginEnabled =
       if (!response.ok) throw new Error(responseError(data))
 
       if (mode === "login" || mode === "signup") {
-        router.replace(path("/app"))
-        router.refresh()
+        announceSessionChange()
+        window.location.assign(path("/app"))
       } else if (mode === "forgot") {
         setMessage("Bu adres için bir hesap varsa sıfırlama bağlantısı gönderildi.")
       } else {

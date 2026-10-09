@@ -3,13 +3,47 @@
 import { Dialog } from "@base-ui/react/dialog";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Search, ArrowUp, ArrowDown, CornerDownLeft, X } from "lucide-react";
+import { Search, ArrowUp, ArrowDown, CornerDownLeft, X, Gauge, Users, BarChart3, Tag, FileKey2, Trophy, Sparkles, Settings2, UserRound, ShieldCheck, KeyRound, CalendarClock, BookOpen, FileText, LockKeyhole, Globe2, type LucideIcon } from "lucide-react";
 import { DEFAULT_LOCALE, localizePath, type Locale } from "@/i18n/config";
 import { getDictionary } from "@/i18n/dictionaries";
 import { Button } from "@/components/ui/button";
 import { SEARCH_PAGE_PATHS } from "@/generated/search-routes";
 
-type SearchRoute = { href: string; label: string; group: string; keywords: string };
+type SearchRoute = { href: string; label: string; group: string; keywords: string; description: string; icon: LucideIcon };
+
+const PAGE_DETAILS: Record<string, { icon: LucideIcon; en: string; tr: string }> = {
+  home: { icon: Gauge, en: "Return to the public home page.", tr: "Ana sayfaya dön." },
+  app: { icon: Gauge, en: "Review your workspace at a glance.", tr: "Çalışma alanının genel görünümünü incele." },
+  accounts: { icon: Users, en: "Connect and manage your 𝕏 accounts.", tr: "𝕏 hesaplarını bağla ve yönet." },
+  analytics: { icon: BarChart3, en: "Review publishing and account metrics.", tr: "Yayın ve hesap metriklerini incele." },
+  categories: { icon: Tag, en: "Organize the topics used in your workspace.", tr: "Çalışma alanındaki konu kategorilerini düzenle." },
+  drafts: { icon: FileText, en: "Create and edit posts before publishing.", tr: "Yayınlamadan önce gönderileri oluştur ve düzenle." },
+  evaluation: { icon: Trophy, en: "Compare model quality with your own content.", tr: "Modellerin kalitesini kendi içeriklerinle karşılaştır." },
+  onboarding: { icon: Sparkles, en: "Finish connecting your accounts and preferences.", tr: "Hesap bağlantılarını ve tercihlerini tamamla." },
+  opportunities: { icon: Sparkles, en: "Find sourced topics worth responding to.", tr: "Yanıt vermeye değer, kaynaklı konuları bul." },
+  queue: { icon: CalendarClock, en: "Review posts scheduled for publication.", tr: "Yayınlanmak üzere sıraya alınan gönderileri incele." },
+  settings: { icon: Settings2, en: "Manage your workspace preferences.", tr: "Çalışma alanı tercihlerini yönet." },
+  appearance: { icon: Settings2, en: "Choose your theme and accent color.", tr: "Tema ve vurgu rengini seç." },
+  automation: { icon: CalendarClock, en: "Set up recurring workspace tasks.", tr: "Tekrarlanan çalışma alanı görevlerini ayarla." },
+  keys: { icon: KeyRound, en: "Connect AI providers and manage model access.", tr: "Yapay zekâ sağlayıcılarını bağla ve model erişimini yönet." },
+  profile: { icon: UserRound, en: "Edit your public profile and sharing details.", tr: "Herkese açık profilini ve paylaşım bilgilerini düzenle." },
+  security: { icon: ShieldCheck, en: "Manage sign-in and account security.", tr: "Oturum açma ve hesap güvenliğini yönet." },
+  style: { icon: Sparkles, en: "Tune the writing voice for your drafts.", tr: "Taslaklarının yazım tarzını belirle." },
+  sources: { icon: Globe2, en: "Review the sources connected to your accounts.", tr: "Hesaplarına bağlı kaynakları incele." },
+  docs: { icon: BookOpen, en: "Read product guides and setup instructions.", tr: "Ürün kılavuzlarını ve kurulum yönergelerini oku." },
+  "forgot-password": { icon: LockKeyhole, en: "Request a password reset link.", tr: "Şifre sıfırlama bağlantısı iste." },
+  leaderboard: { icon: Trophy, en: "Browse verified posts and their results.", tr: "Doğrulanmış gönderileri ve sonuçlarını incele." },
+  login: { icon: UserRound, en: "Sign in to your account.", tr: "Hesabına giriş yap." },
+  market: { icon: BarChart3, en: "Explore current market signals.", tr: "Güncel pazar sinyallerini keşfet." },
+  "no-viral-guarantee": { icon: FileText, en: "Learn what the product does not promise.", tr: "Ürünün hangi sonuçları garanti etmediğini öğren." },
+  "open-source": { icon: FileKey2, en: "Review the project and its source code.", tr: "Projeyi ve kaynak kodunu incele." },
+  privacy: { icon: ShieldCheck, en: "Read how account and usage data is handled.", tr: "Hesap ve kullanım verilerinin nasıl işlendiğini oku." },
+  "research/xpatla-consumer-complaints-2026": { icon: FileText, en: "Read the 𝕏Patla consumer complaint research.", tr: "𝕏Patla tüketici şikâyetleri araştırmasını oku." },
+  "reset-password": { icon: LockKeyhole, en: "Choose a new password for your account.", tr: "Hesabın için yeni bir şifre belirle." },
+  signup: { icon: UserRound, en: "Create your Ispatla account.", tr: "Ispatla hesabını oluştur." },
+  terms: { icon: FileText, en: "Read the service terms.", tr: "Hizmet koşullarını oku." },
+  transparency: { icon: ShieldCheck, en: "Review product transparency information.", tr: "Ürün şeffaflığı bilgilerini incele." },
+};
 
 const SEARCH_TERMS: Record<string, string> = {
   app: "workspace çalışma alanı panel dashboard",
@@ -30,13 +64,16 @@ export function getSidebarSearchRoutes(locale: Locale): SearchRoute[] {
     const dictionary = nav as unknown as Record<string, string>;
     const label = href === "/"
       ? landing.brand
+      : href === "/app"
+        ? nav.dashboard
       : segment === "keys"
         ? locale === "tr" ? "Yapay zekâ sağlayıcıları" : "AI providers"
         : segment === "onboarding"
           ? locale === "tr" ? "Kurulum" : "Setup"
           : dictionary[segment] || segment.split("-").map((part) => part[0]?.toLocaleUpperCase() + part.slice(1)).join(" ");
     const group = href.startsWith("/app/settings") ? nav.settings : href.startsWith("/app") ? nav.primary : locale === "tr" ? "Sayfalar" : "Pages";
-    return { href, label, group, keywords: `${href.replaceAll("/", " ")} ${SEARCH_TERMS[segment] || ""}` };
+    const detail = PAGE_DETAILS[href === "/research/xpatla-consumer-complaints-2026" ? "research/xpatla-consumer-complaints-2026" : segment] ?? { icon: FileText, en: `Open ${label}.`, tr: `${label} sayfasını aç.` };
+    return { href, label, group, keywords: `${href.replaceAll("/", " ")} ${SEARCH_TERMS[segment] || ""}`, icon: detail.icon, description: locale === "tr" ? detail.tr : locale === "en" ? detail.en : `${label} · ${group}` };
   });
 }
 
@@ -98,8 +135,8 @@ export function SidebarSearch({ locale = DEFAULT_LOCALE }: { locale?: Locale }) 
   }, [active, flat, locale, open, openSearch, router]);
 
   return <Dialog.Root open={open} onOpenChange={setOpen}>
-    <Dialog.Trigger render={<Button variant="outline" className="mx-3 mb-1 h-9 justify-between border-sidebar-border bg-sidebar px-3 text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground" aria-label={`${copy.search} (⌘K)`} />}>
-      <span className="flex items-center gap-2"><Search aria-hidden="true" className="size-4" />{copy.search}</span><kbd className="rounded border px-1.5 py-0.5 text-[10px]">⌘K</kbd>
+    <Dialog.Trigger render={<Button variant="outline" className="mx-3 mb-1 h-9 justify-between border-sidebar-border bg-sidebar px-3 text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground group-data-[collapsible=icon]:mx-1 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0" aria-label={`${copy.search} (⌘K)`} />}>
+      <span className="flex items-center gap-2 group-data-[collapsible=icon]:gap-0"><Search aria-hidden="true" className="size-4" /><span className="group-data-[collapsible=icon]:hidden">{copy.search}</span></span><kbd className="rounded border px-1.5 py-0.5 text-[10px] group-data-[collapsible=icon]:hidden">⌘K</kbd>
     </Dialog.Trigger>
     <Dialog.Portal>
       <Dialog.Backdrop className="fixed inset-0 z-50 bg-black/40 backdrop-blur-[2px]" />
@@ -114,8 +151,8 @@ export function SidebarSearch({ locale = DEFAULT_LOCALE }: { locale?: Locale }) 
         <div id="sidebar-search-results" className="max-h-[min(60vh,28rem)] overflow-y-auto p-2" role="listbox" aria-label={copy.search}>
           {routes.length === 0 ? <p className="px-3 py-8 text-center text-sm text-muted-foreground">{copy.noResults}</p> : Object.entries(groups).map(([group, entries]) => <section key={group} aria-label={group} className="py-1">
             <p className="px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{group}</p>
-            {entries.map((route) => { const index = flat.indexOf(route); const selected = index === active; return <button key={route.href} id={optionId(route.href)} type="button" role="option" aria-selected={selected} onMouseEnter={() => setActive(index)} onClick={() => { setOpen(false); router.push(localizePath(locale, route.href)); }} className={`flex w-full items-center justify-between rounded-md px-3 py-2.5 text-left text-sm ${selected ? "bg-accent text-accent-foreground" : "text-foreground hover:bg-accent/60"}`}>
-              <span>{route.label}</span>{selected ? <span className="flex items-center gap-1 text-[11px] text-muted-foreground"><CornerDownLeft className="size-3" />{copy.navigate}</span> : null}
+            {entries.map((route) => { const index = flat.indexOf(route); const selected = index === active; const Icon = route.icon; return <button key={route.href} id={optionId(route.href)} type="button" role="option" aria-selected={selected} onMouseEnter={() => setActive(index)} onClick={() => { setOpen(false); router.push(localizePath(locale, route.href)); }} className={`flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-left text-sm ${selected ? "bg-accent text-accent-foreground" : "text-foreground hover:bg-accent/60"}`}>
+              <Icon aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" /><span className="min-w-0 flex-1"><span className="block truncate font-medium">{route.label}</span><span className="block truncate text-xs text-muted-foreground">{route.description}</span></span>{selected ? <span className="flex shrink-0 items-center gap-1 text-[11px] text-muted-foreground"><CornerDownLeft className="size-3" />{copy.navigate}</span> : null}
             </button>; })}
           </section>)}
         </div>

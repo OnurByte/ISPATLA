@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { AuthSessionSync } from "@/components/auth-session-sync";
 import { ThemeProvider } from "@/components/theme-provider";
 import { DEFAULT_LOCALE, isLocale, LOCALE_CONFIG } from "@/i18n/config";
 import { getDictionary } from "@/i18n/dictionaries";
@@ -24,6 +25,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
       <body className="min-h-full">
         <ThemeProvider>
           <TooltipProvider>
+            <AuthSessionSync />
             {locale !== DEFAULT_LOCALE && notice && <aside className="border-b bg-muted/60 px-4 py-2 text-center text-xs text-muted-foreground" lang={locale} dir={direction}>{notice}</aside>}
             {children}
           </TooltipProvider>
