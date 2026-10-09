@@ -34,7 +34,7 @@ test("growth demo periods produce different finite plots and the campaign offers
   }
 });
 
-test("all twenty languages have complete public pages and synthetic growth markup", () => {
+test("all twenty languages have complete public pages without the synthetic growth badge", () => {
   expect(Object.keys(publicEvidenceCopy).sort()).toEqual([...LOCALES].sort());
   for (const locale of LOCALES) {
     const copy = getSignalPressCopy(locale);
@@ -50,7 +50,7 @@ test("all twenty languages have complete public pages and synthetic growth marku
     expect(copy.examples.map((example) => example.score)).toEqual([72, 18, 64]);
     const markup = renderToStaticMarkup(createElement(GrowthScene, { locale, copy }));
     expect(markup).toContain('id="growth-scene-title"');
-    expect(markup).toContain(copy.synthetic);
+    expect(markup).not.toContain(copy.synthetic);
     expect(markup).not.toContain("SuperX");
     expect(markup).not.toContain("competitor-comparison");
   }
