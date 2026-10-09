@@ -21,17 +21,17 @@ test("provides localized onboarding copy in every supported locale", () => {
 
 describe("onboarding access and progress", () => {
   test("keeps onboarding revisitable and permits linked setup destinations", () => {
-    expect(getOnboardingRedirect(true, "/app/onboarding", "tr")).toBeNull();
-    expect(getOnboardingRedirect(false, "/app/onboarding", "tr")).toBeNull();
-    for (const route of ["/app/accounts", "/app/settings/keys", "/app/settings/appearance"]) {
+    expect(getOnboardingRedirect(true, "/onboarding", "tr")).toBeNull();
+    expect(getOnboardingRedirect(false, "/onboarding", "tr")).toBeNull();
+    for (const route of ["/accounts", "/settings/keys", "/settings/appearance"]) {
       expect(getOnboardingRedirect(false, route, "tr")).toBeNull();
     }
   });
 
   test("sends incomplete profiles away from core workspace routes in their locale", () => {
-    expect(getOnboardingRedirect(false, "/app", "tr")).toBe("/tr/app/onboarding");
-    expect(getOnboardingRedirect(false, "/app/drafts", "en")).toBe("/en/app/onboarding");
-    expect(getOnboardingRedirect(true, "/app/drafts", "tr")).toBeNull();
+    expect(getOnboardingRedirect(false, "/dashboard", "tr")).toBe("/onboarding");
+    expect(getOnboardingRedirect(false, "/drafts", "en")).toBe("/en/onboarding");
+    expect(getOnboardingRedirect(true, "/drafts", "tr")).toBeNull();
   });
 
   test("restores a valid setup step and rejects invalid local progress", () => {
@@ -42,7 +42,7 @@ describe("onboarding access and progress", () => {
 });
 
 describe("sidebar search routes", () => {
-  test("discovers every static page from the App Router tree", () => {
+  test("discovers every static sidebar page from the App Router tree", () => {
     const appRoot = resolve(import.meta.dir, "../src/app");
     const discovered: string[] = [];
     const visit = (directory: string) => {
@@ -59,46 +59,47 @@ describe("sidebar search routes", () => {
     visit(appRoot);
 
     const indexed = new Set(getSidebarSearchRoutes("tr").map((route) => route.href));
-    expect(discovered.sort()).toEqual([...indexed].sort());
+    expect(discovered.filter((route) => route !== "/settings/profile").sort()).toEqual([...indexed].sort());
+    expect(indexed.has("/leaderboard")).toBe(true);
   });
 
   test("provides searchable localized labels and key routes in every supported locale", () => {
     for (const locale of LOCALES) {
       const routes = getSidebarSearchRoutes(locale);
       expect(routes.length).toBeGreaterThan(8);
-      expect(routes.some((route) => route.href === "/app/onboarding")).toBe(true);
-      expect(routes.some((route) => route.href === "/app/settings/keys")).toBe(true);
+      expect(routes.some((route) => route.href === "/onboarding")).toBe(true);
+      expect(routes.some((route) => route.href === "/settings/keys")).toBe(true);
       expect(routes.every((route) => route.label.length > 0 && route.group.length > 0)).toBe(true);
     }
   });
 
   test("matches route keywords and hides unrelated results", () => {
     const routes = getSidebarSearchRoutes("tr");
-    expect(filterSidebarSearchRoutes(routes, "chatgpt").map((route) => route.href)).toContain("/app/settings/keys");
-    expect(filterSidebarSearchRoutes(routes, "sources").map((route) => route.href)).toContain("/app/sources");
-    expect(filterSidebarSearchRoutes(routes, "otomasyon").map((route) => route.href)).toContain("/app/settings/automation");
+    expect(filterSidebarSearchRoutes(routes, "chatgpt").map((route) => route.href)).toContain("/settings/keys");
+    expect(filterSidebarSearchRoutes(routes, "sources").map((route) => route.href)).toContain("/sources");
+    expect(filterSidebarSearchRoutes(routes, "otomasyon").map((route) => route.href)).toContain("/settings/automation");
     expect(filterSidebarSearchRoutes(routes, "no-such-page")).toEqual([]);
   });
 
   test("includes every settings screen and finds it by common Turkish terms", () => {
     const routes = getSidebarSearchRoutes("tr");
-    const settings = routes.filter((route) => route.href.startsWith("/app/settings"));
+    const settings = routes.filter((route) => route.href.startsWith("/settings"));
+    expect(routes.find((route) => route.href === "/profile")?.group).toBe(getDictionary("tr").nav.profile);
     expect(settings.map((route) => route.href).sort()).toEqual([
-      "/app/settings",
-      "/app/settings/appearance",
-      "/app/settings/automation",
-      "/app/settings/keys",
-      "/app/settings/profile",
-      "/app/settings/security",
-      "/app/settings/style",
+      "/settings",
+      "/settings/appearance",
+      "/settings/automation",
+      "/settings/keys",
+      "/settings/security",
+      "/settings/style",
     ]);
     for (const [query, href] of [
-      ["tema", "/app/settings/appearance"],
-      ["yazı stili", "/app/settings/style"],
-      ["profil", "/app/settings/profile"],
-      ["şifre", "/app/settings/security"],
-      ["hesap sil", "/app/settings"],
-      ["claude", "/app/settings/keys"],
+      ["tema", "/settings/appearance"],
+      ["yazı stili", "/settings/style"],
+      ["profil", "/profile"],
+      ["şifre", "/settings/security"],
+      ["hesap sil", "/settings"],
+      ["claude", "/settings/keys"],
     ]) {
       expect(filterSidebarSearchRoutes(routes, query).map((route) => route.href)).toContain(href);
     }

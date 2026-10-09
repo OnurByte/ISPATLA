@@ -44,7 +44,7 @@ export function persistAppearancePreference(storage: Pick<Storage, "setItem">, k
   try { storage.setItem(key, value); return true; } catch { return false; }
 }
 
-export function ThemeProvider({ children }: { children: React.ReactNode }) {
+export function ThemeProvider({ children, forceSystemTheme = false }: { children: React.ReactNode; forceSystemTheme?: boolean }) {
   const [theme, setThemeState] = React.useState<Theme>("system");
   const [motion, setMotionState] = React.useState<MotionPreference>("system");
   const [accent, setAccentState] = React.useState<AccentColor>("blue");
@@ -59,19 +59,21 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     setMotionState(stored.motion);
     setAccentState(stored.accent);
     setStorageAvailable(stored.storageAvailable);
-  }, []);
+  }, [forceSystemTheme]);
+
+  const effectiveTheme = forceSystemTheme ? "system" : theme;
 
   React.useEffect(() => {
     const apply = () => {
-      const dark = theme === "dark" || (theme === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+      const dark = effectiveTheme === "dark" || (effectiveTheme === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
       document.documentElement.classList.toggle("dark", dark);
     };
     apply();
-    if (theme !== "system") return;
+    if (effectiveTheme !== "system") return;
     const media = window.matchMedia("(prefers-color-scheme: dark)");
     media.addEventListener("change", apply);
     return () => media.removeEventListener("change", apply);
-  }, [theme]);
+  }, [effectiveTheme]);
 
   React.useEffect(() => {
     document.documentElement.dataset.accent = accent;
@@ -81,7 +83,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     const image = new Image();
     const drawFavicon = () => {
       if (!image.complete || !image.naturalWidth || cancelled) return;
-      const dark = isDarkAppearance(theme, media.matches);
+      const dark = isDarkAppearance(effectiveTheme, media.matches);
       if (cancelled) return;
       const canvas = document.createElement("canvas");
       canvas.width = canvas.height = 64;
@@ -111,10 +113,10 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       observer.observe(document.head, { childList: true });
     };
     image.onload = drawFavicon;
-    if (theme === "system") media.addEventListener("change", drawFavicon);
+    if (effectiveTheme === "system") media.addEventListener("change", drawFavicon);
     image.src = "/brand/ispatla-symbol.png";
     return () => { cancelled = true; observer?.disconnect(); media.removeEventListener("change", drawFavicon); };
-  }, [accent, theme]);
+  }, [accent, effectiveTheme]);
 
   React.useEffect(() => {
     document.documentElement.dataset.motion = motion;
@@ -140,7 +142,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     persist("ispatla-accent", next);
   }
 
-  return <ThemeContext.Provider value={{ theme, setTheme, motion, setMotion, accent, setAccent, storageAvailable }}>{children}</ThemeContext.Provider>;
+  return <ThemeContext.Provider value={{ theme: effectiveTheme, setTheme, motion, setMotion, accent, setAccent, storageAvailable }}>{children}</ThemeContext.Provider>;
 }
 
 export function useTheme(): ThemeContextValue {

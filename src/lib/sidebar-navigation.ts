@@ -1,5 +1,5 @@
 export function isSidebarRouteActive(pathname: string, href: string) {
-  return href === "/app" ? pathname === href : pathname === href || pathname.startsWith(`${href}/`);
+  return href === "/dashboard" ? pathname === href : pathname === href || pathname.startsWith(`${href}/`);
 }
 
 export function isSidebarItemActive(pathname: string, href: string, childHrefs: string[] = []) {

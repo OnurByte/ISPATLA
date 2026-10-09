@@ -21,7 +21,7 @@ test("growth demo periods produce different finite plots and the campaign offers
   expect(Object.keys(EXCUSE_CAMPAIGN).sort()).toEqual([...LOCALES].sort());
   for (const locale of LOCALES) {
     const campaign = EXCUSE_CAMPAIGN[locale];
-    const markup = renderToStaticMarkup(createElement(ExcuseBurner, { locale }));
+    const markup = renderToStaticMarkup(createElement(ExcuseBurner, { locale, startHref: `/${locale}/signup` }));
     expect(markup).toContain(campaign.title);
     expect(markup).toContain(`lang="${locale}"`);
     expect(markup).not.toContain("Kanıt odası");

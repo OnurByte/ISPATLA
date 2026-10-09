@@ -219,7 +219,7 @@ export class OfficialXClient {
   }
 
   async getOwnProfile(credentials: OfficialXCredentials): Promise<Record<string, unknown>> {
-    const result = await this.json(credentials, "/users/me?user.fields=description,name,username,profile_image_url,public_metrics");
+    const result = await this.json(credentials, "/users/me?user.fields=description,name,username,profile_image_url,public_metrics,protected");
     return result.data && typeof result.data === "object" ? result.data as Record<string, unknown> : {};
   }
 

@@ -59,7 +59,7 @@ function AccountPicker({ accounts, selected, onChange }: { accounts: Account[]; 
     return (
       <Empty className="min-h-28 border border-dashed p-4">
         <EmptyHeader><EmptyTitle>Aktif hesap yok</EmptyTitle><EmptyDescription>Batch üretmek için önce bir yayın hesabı eşle.</EmptyDescription></EmptyHeader>
-        <EmptyContent><Link href="/app/accounts" className={buttonVariants({ variant: "outline", size: "sm" })}>Hesap ekle</Link></EmptyContent>
+        <EmptyContent><Link href="/accounts" className={buttonVariants({ variant: "outline", size: "sm" })}>Hesap ekle</Link></EmptyContent>
       </Empty>
     );
   }

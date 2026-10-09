@@ -16,12 +16,13 @@ test("X connection routes require real sessions, enforce owner boundaries, and k
           ...(body===undefined?{}:{body:JSON.stringify(body)}),
         });
         const context = (id) => ({params:Promise.resolve({id:String(id)})});
-        const [authRoute,startRoute,connectionRoute,consentRoute,testRoute] = await Promise.all([
+        const [authRoute,startRoute,connectionRoute,consentRoute,testRoute,xAccountsRoute] = await Promise.all([
           import("./src/app/api/auth/[...all]/route.ts"),
           import("./src/app/api/x/oauth/start/route.ts"),
           import("./src/app/api/accounts/[id]/connection/route.ts"),
           import("./src/app/api/accounts/[id]/consent/route.ts"),
           import("./src/app/api/accounts/[id]/test/route.ts"),
+          import("./src/app/api/x/accounts/route.ts"),
         ]);
         const {connectXAccount,getXCredential} = await import("./src/server/x-oauth-store.ts");
         const {X_POLICY_VERSION,X_CONSENT_COPY_VERSION} = await import("./src/server/x-policy.ts");
@@ -37,6 +38,11 @@ test("X connection routes require real sessions, enforce owner boundaries, and k
         const a=await signup("x-owner@example.test","correct-horse-battery-a");
         const b=await signup("x-other@example.test","correct-horse-battery-b");
         const account=connectXAccount({ownerUserId:a.id,xUserId:"101010",handle:"owner_fixture",displayName:"Owner Fixture",accessToken:"fixture-access-token",refreshToken:"fixture-refresh-token",expiresAt:9999999999,scopes:["tweet.read","tweet.write","users.read","media.write","offline.access"]});
+        const secondary=connectXAccount({ownerUserId:a.id,xUserId:"202020",handle:"renamed_other",displayName:"Other Fixture",accessToken:"secondary-access-token",refreshToken:"secondary-refresh-token",expiresAt:9999999999,scopes:["tweet.read","tweet.write","users.read","media.write","offline.access"]});
+        const xAccounts=await xAccountsRoute.GET(request("/api/x/accounts","GET",{cookie:a.cookie}));
+        const listedAccounts=(await xAccounts.json()).accounts;
+        assert.equal(listedAccounts.find((item)=>item.id===account.accountId).matchesProfile,true);
+        assert.equal(listedAccounts.find((item)=>item.id===secondary.accountId).matchesProfile,false);
         const getState=(cookie)=>connectionRoute.GET(request("/api/accounts/"+account.accountId+"/connection","GET",{cookie}),context(account.accountId));
         const anonState=await getState(undefined);
         const ownerState=await getState(a.cookie);
@@ -69,8 +75,8 @@ test("X connection routes require real sessions, enforce owner boundaries, and k
         delete process.env.X_OAUTH_CLIENT_ID;
         delete process.env.X_OAUTH_REDIRECT_URI;
 
-        const anonymousStart=await startRoute.POST(request("/api/x/oauth/start","POST",{body:{returnTo:"/app/accounts"}}));
-        const ownerStart=await startRoute.POST(request("/api/x/oauth/start","POST",{cookie:a.cookie,body:{returnTo:"/app/accounts"}}));
+        const anonymousStart=await startRoute.POST(request("/api/x/oauth/start","POST",{body:{returnTo:"/accounts"}}));
+        const ownerStart=await startRoute.POST(request("/api/x/oauth/start","POST",{cookie:a.cookie,body:{returnTo:"/accounts"}}));
         assert.equal(anonymousStart.status,401);
         assert.equal(ownerStart.status,400); // no configured X client; no provider call is made
 
@@ -88,7 +94,7 @@ test("X connection routes require real sessions, enforce owner boundaries, and k
         assert.equal(disconnect.status,200);
         assert.deepEqual(await disconnect.json(),{disconnected:true,providerRevoked:false});
         assert.equal(getXCredential(account.accountId,a.id).accessToken,"");
-        console.log(JSON.stringify({owner:ownerState.status,anonymous:anonState.status,crossUser:otherState.status,start:[anonymousStart.status,ownerStart.status],consent:[anonConsent.status,hostileConsent.status,ownerConsent.status,staleConsent.status,crossConsent.status],disconnect:disconnect.status,metadataRedacted:true}));
+        console.log(JSON.stringify({owner:ownerState.status,anonymous:anonState.status,crossUser:otherState.status,start:[anonymousStart.status,ownerStart.status],consent:[anonConsent.status,hostileConsent.status,ownerConsent.status,staleConsent.status,crossConsent.status],disconnect:disconnect.status,metadataRedacted:true,profileIdentityMatched:true}));
       `],
       cwd: process.cwd(),
       env: {
@@ -100,7 +106,7 @@ test("X connection routes require real sessions, enforce owner boundaries, and k
     });
     expect(result.exitCode, new TextDecoder().decode(result.stderr)).toBe(0);
     expect(JSON.parse(new TextDecoder().decode(result.stdout))).toEqual({
-      owner: 200, anonymous: 401, crossUser: 404, start: [401, 400], consent: [401, 403, 200, 409, 404], disconnect: 200, metadataRedacted: true,
+      owner: 200, anonymous: 401, crossUser: 404, start: [401, 400], consent: [401, 403, 200, 409, 404], disconnect: 200, metadataRedacted: true, profileIdentityMatched: true,
     });
   } finally { rmSync(directory, { recursive: true, force: true }); }
 });

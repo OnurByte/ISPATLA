@@ -10,6 +10,6 @@ export const GET = withUser(async (request: Request) => {
     return Response.redirect(new URL(result.returnTo, process.env.BETTER_AUTH_URL || request.url),303);
   } catch {
     // Codes, state and provider payloads must never enter logs or response bodies.
-    return Response.redirect(new URL('/app/accounts?connection=failed',process.env.BETTER_AUTH_URL || request.url),303);
+    return Response.redirect(new URL('/accounts?connection=failed',process.env.BETTER_AUTH_URL || request.url),303);
   }
 });

@@ -224,7 +224,7 @@ function requireConnectedCredential(credential: XCredential | null): XCredential
 }
 
 export function connectXAccount(input: {
-  ownerUserId: string; xUserId: string; handle: string; displayName?: string; bio?: string; avatarUrl?: string | null; accessToken: string; refreshToken: string;
+  ownerUserId: string; xUserId: string; handle: string; displayName?: string; bio?: string; protected?: boolean | null; avatarUrl?: string | null; accessToken: string; refreshToken: string;
   expiresAt: number; scopes: string[]; now?: number; databasePath?: string; encryptionEnv?: Record<string, string | undefined>;
 }): { accountId: number; handle: string; displayName: string; connectedAt: number } {
   if (!/^[0-9]+$/.test(input.xUserId) || !input.accessToken || !input.refreshToken) throw new Error("invalid 𝕏 account grant");
@@ -286,7 +286,7 @@ export function connectXAccount(input: {
     throw error;
   } finally { db.close(); }
   syncUserProfileFromX({ ownerUserId: input.ownerUserId, xUserId: input.xUserId, handle, displayName,
-    bio: input.bio || "", avatarUrl: input.avatarUrl ?? null, now });
+    bio: input.bio || "", protected: input.protected, avatarUrl: input.avatarUrl ?? null, now });
   return connected!;
 }
 

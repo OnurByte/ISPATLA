@@ -161,13 +161,14 @@ describe("security boundaries", () => {
     });
   });
 
-  test("keeps public pages reachable and redirects app pages without a session cookie", () => {
+  test("keeps public pages reachable and redirects private pages without a session cookie", () => {
     expect(proxy(new Request("http://localhost/"))).toMatchObject({ status: 200 });
     expect(proxy(new Request("http://localhost/login"))).toMatchObject({ status: 200 });
-    expect(proxy(new Request("http://localhost/app"))).toMatchObject({ status: 307 });
-    expect(proxy(new Request("http://localhost/app/accounts"))).toMatchObject({ status: 307 });
+    expect(proxy(new Request("http://localhost/dashboard"))).toMatchObject({ status: 307 });
+    expect(proxy(new Request("http://localhost/settings/profile"))).toMatchObject({ status: 307 });
+    expect(proxy(new Request("http://localhost/app"))).toMatchObject({ status: 200 });
     // Cookie presence skips only the fast redirect; request/page auth validates it.
-    expect(proxy(new Request("http://localhost/app", { headers: { cookie: "better-auth.session_token=forged" } }))).toMatchObject({ status: 200 });
+    expect(proxy(new Request("http://localhost/dashboard", { headers: { cookie: "better-auth.session_token=forged" } }))).toMatchObject({ status: 200 });
   });
 
   test("bounds inbound JSON bodies and rejects non-object payloads", async () => {

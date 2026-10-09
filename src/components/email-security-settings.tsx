@@ -19,7 +19,7 @@ export function EmailSecuritySettings({ email, emailVerified, xLoginEnabled = fa
         method: "POST",
         credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, callbackURL: "/app/settings/security" }),
+        body: JSON.stringify({ email, callbackURL: "/settings/security" }),
       })
       if (!response.ok) throw new Error("Doğrulama bağlantısı gönderilemedi. Biraz sonra yeniden dene.")
       setMessage("Doğrulama bağlantısını gönderdik. Gelen kutunu kontrol et.")
@@ -38,7 +38,7 @@ export function EmailSecuritySettings({ email, emailVerified, xLoginEnabled = fa
         method: "POST",
         credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ provider: "twitter", callbackURL: "/app/settings/security", errorCallbackURL: "/app/settings/security?x_error=1" }),
+        body: JSON.stringify({ provider: "twitter", callbackURL: "/settings/security", errorCallbackURL: "/settings/security?x_error=1" }),
       })
       const data = await response.json().catch(() => null) as { url?: unknown } | null
       if (!response.ok || typeof data?.url !== "string") throw new Error("𝕏 kimliği bağlanamadı. Yeniden giriş yapıp tekrar dene.")

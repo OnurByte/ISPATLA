@@ -10,7 +10,7 @@ import { normalizeEmailAddress, validateEmailQuality, type EmailQualityResult } 
 import { assertXAccountOwner, connectXAccount, initializeXOAuthStore } from "./x-oauth-store";
 import { cacheSelectedProfileAvatar, deleteProfileAvatar } from "./profile-avatar";
 
-type XLoginGrant = { xUserId: string; handle: string; displayName: string; bio: string; avatarSource: string | null; accessToken: string; refreshToken: string; expiresAt: number; scopes: string[] };
+type XLoginGrant = { xUserId: string; handle: string; displayName: string; bio: string; protected: boolean | null; avatarSource: string | null; accessToken: string; refreshToken: string; expiresAt: number; scopes: string[] };
 const xLoginGrantContext = new AsyncLocalStorage<{ grant: XLoginGrant | null; ownerUserId?: string }>();
 const X_PUBLISHING_SCOPES = ["tweet.read", "tweet.write", "users.read", "users.email", "media.write", "offline.access"] as const;
 
@@ -84,12 +84,12 @@ function twitterSignInProvider(env: Record<string, string | undefined>): BetterA
       try {
         const accessToken = tokens.accessToken;
         if (!accessToken) return null;
-        const response = await fetch("https://api.x.com/2/users/me?user.fields=confirmed_email,description,profile_image_url", {
+        const response = await fetch("https://api.x.com/2/users/me?user.fields=confirmed_email,description,profile_image_url,protected", {
           headers: { authorization: `Bearer ${accessToken}` },
           signal: AbortSignal.timeout(5_000),
         });
         if (!response.ok) return null;
-        const profile = await response.json() as { data?: { id?: unknown; name?: unknown; username?: unknown; confirmed_email?: unknown; description?: unknown; profile_image_url?: unknown } };
+        const profile = await response.json() as { data?: { id?: unknown; name?: unknown; username?: unknown; confirmed_email?: unknown; description?: unknown; profile_image_url?: unknown; protected?: unknown } };
         const user = profile.data;
         if (typeof user?.id !== "string" || typeof user.name !== "string" || typeof user.username !== "string" || typeof user.confirmed_email !== "string" || !user.confirmed_email.includes("@")) return null;
         const scopes = tokens.scopes || [];
@@ -102,6 +102,7 @@ function twitterSignInProvider(env: Record<string, string | undefined>): BetterA
           handle: user.username,
           displayName: user.name,
           bio: typeof user.description === "string" ? user.description : "",
+          protected: typeof user.protected === "boolean" ? user.protected : null,
           avatarSource: typeof user.profile_image_url === "string" ? user.profile_image_url : null,
           accessToken,
           refreshToken: tokens.refreshToken,

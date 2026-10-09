@@ -40,7 +40,7 @@ const scopes = [...oauth.X_OAUTH_SCOPES];
 describe("X OAuth PKCE and credential lifecycle", () => {
   test("binds one-time PKCE state to the app user/session and encrypts renewable tokens", async () => {
     expect(database.ensureDatabase()).toBe(true);
-    const started = await oauth.startXOAuth({ ownerUserId: "user-a", sessionId: "session-a", returnTo: "/app/accounts?connected=1", env });
+    const started = await oauth.startXOAuth({ ownerUserId: "user-a", sessionId: "session-a", returnTo: "/tr/onboarding?step=x", env });
     const authorize = new URL(started.authorizationUrl);
     expect(authorize.origin + authorize.pathname).toBe("https://x.com/i/oauth2/authorize");
     expect(authorize.searchParams.get("scope")?.split(" ")).toEqual(scopes);
@@ -51,7 +51,7 @@ describe("X OAuth PKCE and credential lifecycle", () => {
     const fetcher = (async (input: RequestInfo | URL) => {
       const url = String(input); calls.push(url);
       if (url.endsWith("/2/oauth2/token")) return Response.json({ access_token: "access-secret", refresh_token: "refresh-secret", expires_in: 7200, scope: scopes.join(" ") });
-      if (url.includes("/2/users/me")) return Response.json({ data: { id: "123456", username: "fixture_user", name: "Fixture User", description: "Manual X bio", profile_image_url: "https://pbs.twimg.com/profile_images/123456/avatar.png" } });
+      if (url.includes("/2/users/me")) return Response.json({ data: { id: "123456", username: "fixture_user", name: "Fixture User", description: "Manual X bio", profile_image_url: "https://pbs.twimg.com/profile_images/123456/avatar.png", protected: false } });
       if (url.startsWith("https://pbs.twimg.com/")) return new Response(Buffer.from([0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a]), { headers: { "content-type": "image/png" } });
       throw new Error("unexpected fixture request");
     }) as unknown as typeof fetch;
@@ -59,10 +59,10 @@ describe("X OAuth PKCE and credential lifecycle", () => {
     await expect(oauth.completeXOAuth({ request: callback, ownerUserId: "user-a", sessionId: "other-session", env, fetcher })).rejects.toThrow("expired or already used");
     expect(calls).toHaveLength(0);
     const connected = await oauth.completeXOAuth({ request: callback, ownerUserId: "user-a", sessionId: "session-a", env, fetcher });
-    expect(connected).toMatchObject({ handle: "fixture_user", returnTo: "/app/accounts?connected=1" });
-    expect(calls).toEqual(["https://api.x.com/2/oauth2/token", "https://api.x.com/2/users/me?user.fields=name,username,description,profile_image_url", "https://pbs.twimg.com/profile_images/123456/avatar.png"]);
+    expect(connected).toMatchObject({ handle: "fixture_user", returnTo: "/tr/onboarding?step=x" });
+    expect(calls).toEqual(["https://api.x.com/2/oauth2/token", "https://api.x.com/2/users/me?user.fields=name,username,description,profile_image_url,protected", "https://pbs.twimg.com/profile_images/123456/avatar.png"]);
     const { runAsOwner } = await import("../src/server/owner-context");
-    expect(runAsOwner("user-a", () => database.getOwnUserProfile())).toMatchObject({ xHandle: "fixture_user", displayName: "Fixture User", bio: "Manual X bio", avatarUrl: "/api/profile/avatar/123456" });
+    expect(runAsOwner("user-a", () => database.getOwnUserProfile())).toMatchObject({ xHandle: "fixture_user", displayName: "Fixture User", bio: "Manual X bio", visibility: "public", avatarUrl: "/api/profile/avatar/123456" });
     const secondIdentity = store.connectXAccount({ ownerUserId: "user-a", xUserId: "654321", handle: "second2", displayName: "Second", accessToken: "second-access", refreshToken: "second-refresh", expiresAt: 9999999999, scopes, now: 149 });
     const { cacheSelectedProfileAvatar } = await import("../src/server/profile-avatar");
     let secondaryImageFetched = false;
@@ -108,10 +108,11 @@ describe("X OAuth PKCE and credential lifecycle", () => {
     const originalFetch = globalThis.fetch;
     const savedEnv = { clientId: process.env.X_OAUTH_CLIENT_ID, redirect: process.env.X_OAUTH_REDIRECT_URI };
     let profileReads = 0;
+    let profileProtected = true;
     let imageFetches = 0;
     OfficialXClient.prototype.getOwnProfile = async (credential) => {
       profileReads++;
-      return { id: credential.xUserId === "777001" ? "999999" : credential.xUserId, username: "Verified_User", name: "Verified name", description: "Verified biography", profile_image_url: "https://pbs.twimg.com/profile_images/777000/avatar.png" };
+      return { id: credential.xUserId === "777001" ? "999999" : credential.xUserId, username: "Verified_User", name: "Verified name", description: "Verified biography", protected: profileProtected, profile_image_url: "https://pbs.twimg.com/profile_images/777000/avatar.png" };
     };
     process.env.X_OAUTH_CLIENT_ID = "fixture-client";
     process.env.X_OAUTH_REDIRECT_URI = "http://localhost:3000/api/x/oauth/callback";
@@ -125,9 +126,10 @@ describe("X OAuth PKCE and credential lifecycle", () => {
     try {
       const loaded = await runAsOwner("backfill-owner", () => loadOwnUserProfileFromX());
       expect(loaded).toMatchObject({ xHandle: "Verified_User", displayName: "Verified name", bio: "Verified biography", avatarUrl: "/api/profile/avatar/777000", visibility: "private", onboardingCompleted: true });
-      expect(await runAsOwner("backfill-owner", () => loadOwnUserProfileFromX())).toMatchObject({ xHandle: "Verified_User" });
-      expect(profileReads).toBe(1);
-      expect(imageFetches).toBe(1);
+      profileProtected = false;
+      expect(await runAsOwner("backfill-owner", () => loadOwnUserProfileFromX())).toMatchObject({ xHandle: "Verified_User", visibility: "public" });
+      expect(profileReads).toBe(2);
+      expect(imageFetches).toBe(2);
 
       store.connectXAccount({ ownerUserId: "backfill-mismatch", xUserId: "777001", handle: "mismatch", accessToken: "mismatch-access", refreshToken: "mismatch-refresh", expiresAt: now + 3600, scopes, now });
       const mismatchDb = new Database(process.env.ISPATLA_DB!);
@@ -137,8 +139,8 @@ describe("X OAuth PKCE and credential lifecycle", () => {
       } finally { mismatchDb.close(); }
       const mismatch = await runAsOwner("backfill-mismatch", () => loadOwnUserProfileFromX());
       expect(mismatch.xHandle).toBeNull();
-      expect(profileReads).toBe(2);
-      expect(imageFetches).toBe(1);
+      expect(profileReads).toBe(3);
+      expect(imageFetches).toBe(2);
     } finally {
       OfficialXClient.prototype.getOwnProfile = profileMethod;
       globalThis.fetch = originalFetch;

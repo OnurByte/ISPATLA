@@ -309,7 +309,7 @@ export function AccountsPage({ initial, categories, connections, policyVersion, 
               {inference?.contentLanguage && inference.contentLanguage !== "unknown" ? <p className="text-sm text-muted-foreground">İçerik dili önerisi: {inference.contentLanguage}</p> : null}
               {draft.id && <div className="flex flex-wrap gap-2">{inference && (inference.suggestions.length > 0 || selectedSuggestions.length > 0) ? <Button type="button" onClick={acceptSuggestions} disabled={inferencePending}><Save data-icon="inline-start" aria-hidden="true" /> Konularımı kullan</Button> : null}<Button type="button" variant="outline" onClick={() => void loadInference(draft.id!, true, true)} disabled={inferencePending}><RefreshCw data-icon="inline-start" aria-hidden="true" /> Yeniden öner</Button></div>}
               {inferenceMessage ? <p role="status" className="text-sm text-muted-foreground">{inferenceMessage}</p> : null}
-              {inferenceAccepted ? <Link className="text-sm font-medium text-primary underline-offset-4 hover:underline" href="/app/opportunities">İlk fırsatını gör</Link> : null}
+              {inferenceAccepted ? <Link className="text-sm font-medium text-primary underline-offset-4 hover:underline" href="/opportunities">İlk fırsatını gör</Link> : null}
             </CardContent>
           </Card> : null}
           <div className="flex flex-wrap items-center gap-2 text-sm"><Badge variant="secondary">@{draft.handle}</Badge><span className="text-muted-foreground">{draft.displayName}</span></div>
