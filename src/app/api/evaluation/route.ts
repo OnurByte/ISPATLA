@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { withUser } from "@/server/request-auth";
 import { currentOwnerId } from "@/server/owner-context";
-import { getAccounts } from "@/server/db";
+import { getPostgresAccounts } from "@/server/postgres-accounts";
 import {
   adjudicateEvaluationPrediction,
   getEvaluationPrediction,
@@ -21,28 +21,33 @@ export const runtime = "nodejs";
 
 const labels = new Set<OutcomeLabel>(["hit", "miss", "late_hit", "wrong_account", "wrong_format", "policy_block", "publisher_failure", "cannibalization"]);
 
-function GETHandler(request: Request) {
-  const accounts = getAccounts().map(({ id, handle, displayName }) => ({ id: String(id), handle, displayName }));
+async function GETHandler(request: Request) {
+  const owner = currentOwnerId();
+  if (!owner) return NextResponse.json({ error: "Oturum gerekli" }, { status: 401 });
+  const accounts = (await getPostgresAccounts(owner)).map(({ id, handle, displayName }) => ({ id: String(id), handle, displayName }));
   const requestedAccount = new URL(request.url).searchParams.get("accountId");
   const accountId = requestedAccount || accounts[0]?.id;
   if (!accountId) return NextResponse.json({ accounts, selectedAccountId: null, models: [], predictions: [], calibration: null, replays: [] }, { headers: { "cache-control": "no-store" } });
-  try { requireEvaluationAccount(accountId); } catch (error) {
+  try { await requireEvaluationAccount(accountId); } catch (error) {
     if (error instanceof Error && error.message.includes("evaluation account not found")) return NextResponse.json({ error: "evaluation account not found for owner" }, { status: 404 });
     throw error;
   }
 
   const requestedModel = new URL(request.url).searchParams.get("modelKey") || undefined;
   if (requestedModel && requestedModel.length > 200) return NextResponse.json({ error: "modelKey is too long" }, { status: 400 });
-  const allPredictions = listEvaluationPredictions(accountId, requestedModel, 500);
-  const labeled = listEvaluationLabels(undefined, requestedModel, accountId);
-  const due = listDueUnresolvedPredictions(Math.floor(Date.now() / 1000), 500, { accountId, modelKey: requestedModel });
+  const [allPredictions, labeled, due, allModels, profile] = await Promise.all([
+    listEvaluationPredictions(accountId, requestedModel, 500),
+    listEvaluationLabels(undefined, requestedModel, accountId),
+    listDueUnresolvedPredictions(Math.floor(Date.now() / 1000), 500, { accountId, modelKey: requestedModel }),
+    listEvaluationPredictions(accountId, undefined, 500),
+    requestedModel ? latestCalibrationProfile(JSON.stringify([accountId, requestedModel])) : null,
+  ]);
   const predictions = new Map<string, { prediction: EvaluationPrediction; label: OutcomeLabel | null }>();
   for (const prediction of allPredictions) predictions.set(prediction.id, { prediction, label: null });
   for (const item of labeled) predictions.set(item.prediction.id, { prediction: item.prediction, label: item.label });
   for (const prediction of due) if (!predictions.has(prediction.id)) predictions.set(prediction.id, { prediction, label: null });
-  const models = [...new Set(listEvaluationPredictions(accountId, undefined, 500).map((prediction) => prediction.modelKey))].sort();
-  const profile = requestedModel ? latestCalibrationProfile(JSON.stringify([accountId, requestedModel])) : null;
-  const rows = [...predictions.values()].map(({ prediction, label }) => ({
+  const models = [...new Set(allModels.map((prediction) => prediction.modelKey))].sort();
+  const rows = await Promise.all([...predictions.values()].map(async ({ prediction, label }) => ({
     id: prediction.id,
     accountId: prediction.accountId,
     candidateId: prediction.candidateId,
@@ -60,14 +65,14 @@ function GETHandler(request: Request) {
     resolveBy: prediction.resolveBy,
     due: prediction.resolveBy <= Math.floor(Date.now() / 1000),
     label,
-    outcomes: listEvaluationOutcomes(prediction.id).map((outcome) => ({
+    outcomes: (await listEvaluationOutcomes(prediction.id)).map((outcome) => ({
       observedAt: outcome.observedAt,
       capturedAt: outcome.capturedAt,
       metrics: outcome.metrics,
       censored: outcome.censored,
       source: outcome.source,
     })),
-  })).sort((a, b) => b.createdAt - a.createdAt).slice(0, 500);
+  }))).then((items) => items.sort((a, b) => b.createdAt - a.createdAt).slice(0, 500));
 
   return NextResponse.json({
     accounts,
@@ -77,7 +82,7 @@ function GETHandler(request: Request) {
     models,
     predictions: rows,
     calibration: profile ? { status: profile.status, sampleCount: profile.sampleCount, mapping: profile.mapping } : null,
-    replays: listEvaluationReplays(accountId, requestedModel, 100),
+    replays: await listEvaluationReplays(accountId, requestedModel, 100),
   }, { headers: { "cache-control": "no-store" } });
 }
 
@@ -100,23 +105,23 @@ async function POSTHandler(request: Request) {
       if (typeof body.predictionId !== "string" || body.predictionId.length > 100 || typeof body.label !== "string" || !labels.has(body.label as OutcomeLabel)) {
         return NextResponse.json({ error: "predictionId and a supported label are required" }, { status: 400 });
       }
-      const prediction = getEvaluationPrediction(body.predictionId);
+      const prediction = await getEvaluationPrediction(body.predictionId);
       if (!prediction) return NextResponse.json({ error: "prediction not found for owner" }, { status: 404 });
-      requireEvaluationAccount(prediction.accountId);
-      if (listEvaluationLabels(undefined, undefined, prediction.accountId).some((item) => item.prediction.id === prediction.id)) {
+      await requireEvaluationAccount(prediction.accountId);
+      if ((await listEvaluationLabels(undefined, undefined, prediction.accountId)).some((item) => item.prediction.id === prediction.id)) {
         return NextResponse.json({ error: "prediction already has an immutable label" }, { status: 409 });
       }
-      adjudicateEvaluationPrediction({ predictionId: prediction.id, label: body.label as OutcomeLabel, reviewerRef: owner, labeledAt: Math.floor(Date.now() / 1000) });
+      await adjudicateEvaluationPrediction({ predictionId: prediction.id, label: body.label as OutcomeLabel, reviewerRef: owner, labeledAt: Math.floor(Date.now() / 1000) });
       return NextResponse.json({ labeled: true }, { headers: { "cache-control": "no-store" } });
     }
     if (body.action === "replay") {
       if (typeof body.accountId !== "string" || !/^\d+$/.test(body.accountId) || typeof body.modelKey !== "string" || !body.modelKey.trim() || body.modelKey.length > 200) {
         return NextResponse.json({ error: "accountId and modelKey are required" }, { status: 400 });
       }
-      requireEvaluationAccount(body.accountId);
+      await requireEvaluationAccount(body.accountId);
       const now = Math.floor(Date.now() / 1000);
-      const calibration = calibrateStoredModel({ accountId: body.accountId, modelKey: body.modelKey, now });
-      const holdout = evaluateStoredHoldout({ accountId: body.accountId, modelKey: body.modelKey, now });
+      const calibration = await calibrateStoredModel({ accountId: body.accountId, modelKey: body.modelKey, now });
+      const holdout = await evaluateStoredHoldout({ accountId: body.accountId, modelKey: body.modelKey, now });
       return NextResponse.json({ calibration, holdout }, { headers: { "cache-control": "no-store" } });
     }
     return NextResponse.json({ error: "Unsupported evaluation action" }, { status: 400 });

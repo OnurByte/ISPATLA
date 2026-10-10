@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { selectedDraft } from "@/components/drafts-page";
-import type { DraftRecord } from "@/server/db";
+import type { DraftRecord } from "@/server/db-types";
 
 const drafts = [
   { id: 4 },

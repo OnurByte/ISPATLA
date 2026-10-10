@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Ban, Play, RefreshCw, RotateCcw } from "lucide-react";
-import type { AutomationJob, PublicationIntent } from "@/server/db";
+import type { AutomationJob, PublicationIntent } from "@/server/db-types";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";

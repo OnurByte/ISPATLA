@@ -1,6 +1,9 @@
 import { OfficialXClient } from "./official-x";
 import { withOfficialAccount } from "./publisher";
-import { getAccounts, type Account, type RecentPost } from "./db";
+import type { Account, RecentPost } from "./db-types";
+import { getPostgresDb } from "./postgres";
+import { accounts } from "./postgres-schema";
+import { getPostgresAccounts } from "./postgres-accounts";
 import { currentOwnerId, runAsOwner } from "./owner-context";
 import type { AccountFitDecision } from "./account-fit";
 import {
@@ -35,14 +38,14 @@ function median(values: number[]): number | null {
 }
 
 /** Persist the existing decision score and every account-level allow/reject/skip. */
-export function recordShadowDecision(input: ShadowDecision): EvaluationPrediction {
+export async function recordShadowDecision(input: ShadowDecision): Promise<EvaluationPrediction> {
   const owner = currentOwnerId();
   if (!owner || input.account.ownerUserId !== owner) throw new Error("shadow decision requires the account owner context");
   const category = input.category || "unclassified";
   const modelKey = `${MODEL_VERSION}:${category}`;
   const leakageGroup = input.post.clusterKey || input.post.externalId;
   const split = splitLeakageGroup(leakageGroup);
-  const history = listEvaluationLabels(undefined, undefined, String(input.account.id))
+  const history = (await listEvaluationLabels(undefined, undefined, String(input.account.id)))
     .map(({ prediction }) => prediction)
     .filter((prediction) => prediction.modelKey === modelKey && prediction.category === category
       && prediction.split !== "holdout" && prediction.leakageGroup !== leakageGroup)
@@ -105,19 +108,19 @@ function epoch(value: unknown): number | null {
 
 /** Collect confirmed account-publication metrics; source observations stay separate. */
 export async function collectDueShadowOutcomes(now = Math.floor(Date.now() / 1000), client = new OfficialXClient()): Promise<{ checked: number; collected: number; unresolved: number; failed: number }> {
-  const owners = [...new Set(getAccounts().map((account) => account.ownerUserId).filter((owner): owner is string => Boolean(owner)))];
+  const owners = (await getPostgresDb().selectDistinct({ owner: accounts.ownerUserId }).from(accounts)).map(({ owner }) => owner);
   const result = { checked: 0, collected: 0, unresolved: 0, failed: 0 };
   let providerReads = 0;
   for (const owner of owners) await runAsOwner(owner, async () => {
-    const due = listDuePublicationOutcomes(now, 500);
+    const due = await listDuePublicationOutcomes(now, 500);
     if (!due.length) return;
-    const accounts = getAccounts();
+    const ownedAccounts = await getPostgresAccounts(owner);
     const followersByAccount = new Map<number, OfficialFollowerEvidence|null>();
     result.checked += due.length;
     for (const { prediction, accountId, remoteReceipt, remoteUrl, observationWindow } of due) {
       if (providerReads >= 20) { result.unresolved += 1; continue; }
       providerReads += 1;
-      const account = accounts.find((item) => item.id === accountId && item.ownerUserId === owner);
+      const account = ownedAccounts.find((item) => item.id === accountId && item.ownerUserId === owner);
       if (!account) { result.unresolved += 1; continue; }
       try {
         const id = remoteId(remoteReceipt, remoteUrl);
@@ -152,7 +155,7 @@ export async function collectDueShadowOutcomes(now = Math.floor(Date.now() / 100
           reposts: field("retweet_count") ?? field("repost_count"), quotes: field("quote_count"),
         };
         const censored = METRICS.filter((metric) => metrics[metric] === null);
-        appendObservedOutcome({
+        await appendObservedOutcome({
           predictionId: prediction.id, capturedAt: now, observedAt: now, metrics, censored, followersEvidence:followersByAccount.get(account.id) ?? null,
           source: "official_x_api", provenanceRef: `official_x:${account.id}:${id}:published_at=${observedAt}`,
         });

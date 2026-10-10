@@ -37,22 +37,14 @@
  */
 
 import { createHash } from "node:crypto";
-import {
-  getJevCacheEntry,
-  getSetting,
-  recordJevScoreRows,
-  recordUsageEvent,
-  saveJevCacheEntry,
-  type JevScoreEntry,
-} from "./db";
 import { isAllowedJevEndpoint } from "./security";
-import { secretOrEnv } from "./vault";
 
 export const JEV_MODES = ["off", "shadow", "on"] as const;
 export type JevMode = (typeof JEV_MODES)[number];
 
 export const JEV_PROVIDERS = ["typesafe", "vercel", "openrouter"] as const;
 export type JevProvider = (typeof JEV_PROVIDERS)[number];
+type JevScoreEntry = { subjectId: string; questionKey: string; score: number };
 
 export const JEV_DIAGNOSTICS = [
   "disabled",
@@ -278,22 +270,6 @@ function isRedirectError(error: unknown): boolean {
 
 // --- settings --------------------------------------------------------------
 
-function isMode(value: string): value is JevMode {
-  return (JEV_MODES as readonly string[]).includes(value);
-}
-
-function isProvider(value: string): value is JevProvider {
-  return (JEV_PROVIDERS as readonly string[]).includes(value);
-}
-
-function setting(name: string, fallback: string): string {
-  try {
-    return getSetting(name, fallback);
-  } catch {
-    return fallback;
-  }
-}
-
 /**
  * A model name is treated as an alias when it says "latest" or carries no version
  * digit at all; an alias can change under a cached answer, so it gets the short
@@ -311,24 +287,13 @@ export function defaultCacheTtlSeconds(model: string): number {
 }
 
 export function getJevSettings(): JevSettings {
-  const stored = setting(JEV_MODE_SETTING, "").trim();
-  const environment = String(process.env.ISPATLA_JEV_MODE || "").trim();
-  const candidate = stored || environment;
-  const timeout = Number(setting(JEV_TIMEOUT_SETTING, String(JEV_DEFAULT_TIMEOUT_MS)));
-  const provider = setting(JEV_PROVIDER_SETTING, "typesafe").trim();
-  const defaultModel = provider === "openrouter" ? JEV_OPENROUTER_MODEL : JEV_DEFAULT_MODEL;
-  const model = setting(JEV_MODEL_SETTING, defaultModel).trim() || defaultModel;
-  const storedTtl = setting(JEV_CACHE_TTL_SETTING, "").trim();
-  const ttl = storedTtl ? Number(storedTtl) : defaultCacheTtlSeconds(model);
   return {
-    mode: isMode(candidate) ? candidate : "off",
-    model,
-    provider: isProvider(provider) ? provider : "typesafe",
-    baseUrl: setting(JEV_BASE_URL_SETTING, JEV_DEFAULT_BASE_URL).trim() || JEV_DEFAULT_BASE_URL,
-    timeoutMs: Number.isFinite(timeout)
-      ? Math.min(JEV_MAX_TIMEOUT_MS, Math.max(JEV_MIN_TIMEOUT_MS, Math.round(timeout)))
-      : JEV_DEFAULT_TIMEOUT_MS,
-    cacheTtlSeconds: Number.isFinite(ttl) && ttl >= 0 ? Math.round(ttl) : defaultCacheTtlSeconds(model),
+    mode: "off",
+    model: JEV_DEFAULT_MODEL,
+    provider: "typesafe",
+    baseUrl: JEV_DEFAULT_BASE_URL,
+    timeoutMs: JEV_DEFAULT_TIMEOUT_MS,
+    cacheTtlSeconds: defaultCacheTtlSeconds(JEV_DEFAULT_MODEL),
   };
 }
 
@@ -337,16 +302,12 @@ export function jevMode(): JevMode {
 }
 
 function apiKey(): string | null {
-  try {
-    const provider = getJevSettings().provider;
-    return provider === "openrouter" ? secretOrEnv("openrouter_api_key", "OPENROUTER_API_KEY") : secretOrEnv("jev_api_key", "JEV_API_KEY");
-  } catch {
-    return null;
-  }
+  return null;
 }
 
 export function jevConfigured(settings = getJevSettings()): boolean {
-  return settings.mode !== "off" && Boolean(apiKey());
+  void settings;
+  return false;
 }
 
 /** POST {base}/v1/systemone — '/systemone' alone when the base already ends in '/v1'. */
@@ -688,31 +649,12 @@ function diagnosticForError(error: unknown): JevDiagnostic {
 type CachedScores = { scores: Record<string, number>; facetScores: Record<string, Record<string, number>> };
 
 function readCache(requestHash: string, ttlSeconds: number, now: number): (CachedScores & { reportedModel?: string }) | null {
-  if (ttlSeconds <= 0) return null;
-  try {
-    const row = getJevCacheEntry(requestHash, now - ttlSeconds);
-    if (!row) return null;
-    const parsed = record(JSON.parse(row.scoresJson));
-    const scores = record(parsed.scores) as Record<string, number>;
-    const facetScores = record(parsed.facetScores) as Record<string, Record<string, number>>;
-    if (!Object.keys(scores).length) return null;
-    return { scores, facetScores, reportedModel: row.reportedModel || undefined };
-  } catch {
-    return null;
-  }
+  void requestHash; void ttlSeconds; void now;
+  return null;
 }
 
 function writeCache(requestHash: string, parsed: ParsedAnswers, now: number): void {
-  try {
-    saveJevCacheEntry(
-      requestHash,
-      JSON.stringify({ scores: parsed.scores, facetScores: parsed.facetScores }),
-      parsed.reportedModel || "",
-      now,
-    );
-  } catch {
-    // A cache write failure is never fatal for a completed evaluation.
-  }
+  void requestHash; void parsed; void now;
 }
 
 // --- entry point -----------------------------------------------------------
@@ -832,44 +774,6 @@ export function recordJevScores(args: {
   result: JevResult;
   now?: number;
 }): number {
-  const now = args.now ?? Math.floor(Date.now() / 1000);
-  let written = 0;
-  try {
-    written = recordJevScoreRows({
-      subjectKind: args.subjectKind,
-      entries: args.entries,
-      mode: args.result.mode,
-      model: args.result.reportedModel || "",
-      latencyMs: args.result.latencyMs,
-      requestHash: args.result.requestHash,
-      diagnostics: args.result.diagnostics,
-      now,
-    });
-  } catch {
-    // Ledger writes are observational only.
-  }
-  try {
-    recordUsageEvent({
-      kind: "score:jev",
-      provider: "jev",
-      model: args.result.reportedModel || getJevSettings().model,
-      units: 1,
-      estimatedUsd: args.result.cacheHit || args.result.degraded ? 0 : JEV_ESTIMATED_USD,
-      metadata: {
-        mode: args.result.mode,
-        degraded: args.result.degraded,
-        cacheHit: args.result.cacheHit,
-        diagnostics: args.result.diagnostics,
-        latencyMs: args.result.latencyMs,
-        requestHash: args.result.requestHash,
-        inputTokens: args.result.usage.input_tokens ?? 0,
-        outputTokens: args.result.usage.output_tokens ?? 0,
-        subjects: args.entries.length,
-      },
-      now,
-    });
-  } catch {
-    // Usage accounting must never turn a completed evaluation into a failure.
-  }
-  return written;
+  void args;
+  return 0;
 }

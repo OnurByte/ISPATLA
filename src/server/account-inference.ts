@@ -1,8 +1,15 @@
-import { getAccounts, getCategoriesForAccount, getOwnAccountInference, isOwnerEnabled, saveAccountInferenceJob, saveAccountInferenceSuggestions, saveGeneratedAccountCategory, type Account } from "./db";
+import { and, desc, eq, inArray, isNull, or } from "drizzle-orm";
+import { getPostgresDb } from "./postgres";
+import { accounts, accountCategories, accountCategoryInferenceJobs, accountCategoryInferences, categories } from "./postgres-schema";
+import { getPostgresAccount, getPostgresCategoriesForAccount, getPostgresCategoryConfigs, savePostgresAccountCategory } from "./postgres-accounts";
 import { withOfficialAccount } from "./publisher";
 import { OfficialXClient } from "./official-x";
-import { runAsOwner } from "./owner-context";
-import { getXAccountAuthState } from "./x-oauth-store";
+import { currentOwnerId, runAsOwner } from "./owner-context";
+import { getPostgresXAccountAuthState } from "./postgres-x-oauth";
+import { isAuthenticatedUserDisabled } from "./auth";
+
+type AccountCategoryInferenceResult = InferenceResult;
+type AccountCategoryInferenceJob = { id: number; accountId: number; status: string; version: number; updatedAt: number; result: AccountCategoryInferenceResult | null };
 
 export type InferenceCategory = { id: number; slug: string; name: string; keywords: string[]; description: string };
 export type InferenceResult = {
@@ -12,7 +19,165 @@ export type InferenceResult = {
 };
 export type AccountInferenceSweepResult = { attempted: number; completed: number; skipped: number; failed: number };
 
+export function normalizeCategoryInferenceSelection(categoryIds: unknown, weights: unknown): { categoryIds: number[]; weights: Record<string, number> } {
+  if (!Array.isArray(categoryIds) || categoryIds.some((value) => !Number.isSafeInteger(value) || Number(value) < 1)) throw new Error("Kategori seçimi geçersiz");
+  const selected = [...new Set(categoryIds as number[])].slice(0, 12);
+  const weightMap = weights && typeof weights === "object" && !Array.isArray(weights)
+    ? Object.fromEntries(Object.entries(weights).map(([id, value]) => [id, Number(value)])) : {};
+  for (const [id, weight] of Object.entries(weightMap)) {
+    if (selected.includes(Number(id)) && (!Number.isFinite(weight) || weight < 0 || weight > 10)) throw new Error("category weight is invalid");
+  }
+  return { categoryIds: selected, weights: weightMap };
+}
+
 const REQUIRED_INFERENCE_SCOPES = ["tweet.read", "users.read"] as const;
+
+function inferenceOwner(): string {
+  const current = currentOwnerId();
+  if (!current) throw new Error("authenticated owner context required");
+  return current;
+}
+
+function unpackJob(row: typeof accountCategoryInferenceJobs.$inferSelect): AccountCategoryInferenceJob {
+  return { id: row.id, accountId: row.accountId, status: row.status, version: row.version, updatedAt: row.updatedAt,
+    result: row.resultJson ? JSON.parse(row.resultJson) as InferenceResult : null };
+}
+
+export async function getOwnAccountInference(accountId: number) {
+  const owner = inferenceOwner();
+  if (!await getPostgresAccount(owner, accountId)) throw new Error("owned X account not found");
+  const [job] = await getPostgresDb().select().from(accountCategoryInferenceJobs).where(and(
+    eq(accountCategoryInferenceJobs.ownerUserId, owner), eq(accountCategoryInferenceJobs.accountId, accountId)))
+    .orderBy(desc(accountCategoryInferenceJobs.version)).limit(1);
+  if (!job?.resultJson) return null;
+  const result = JSON.parse(job.resultJson) as InferenceResult;
+  const pending = await getPostgresDb().select().from(accountCategoryInferences).where(and(
+    eq(accountCategoryInferences.jobId, job.id), eq(accountCategoryInferences.ownerUserId, owner),
+    eq(accountCategoryInferences.accountId, accountId), isNull(accountCategoryInferences.acceptedAt),
+    isNull(accountCategoryInferences.rejectedAt)));
+  result.suggestions = result.suggestions.filter((item) => pending.some((row) => row.categoryId === item.categoryId)).map((item) => {
+    const row = pending.find((candidate) => candidate.categoryId === item.categoryId)!;
+    return { ...item, confidence: row.confidence, evidence: JSON.parse(row.evidenceJson) as string[] };
+  });
+  return { status: job.status, result, jobId: job.id, updatedAt: job.updatedAt };
+}
+
+async function saveAccountInferenceJob(input: { accountId: number; status: "running" | "failed"; now: number; regenerate?: boolean; jobId?: number }) {
+  const owner = inferenceOwner();
+  if (!Number.isSafeInteger(input.now) || input.now < 0) throw new Error("inference timestamp is invalid");
+  const db = getPostgresDb();
+  if (input.jobId) {
+    const [row] = await db.update(accountCategoryInferenceJobs).set({ status: input.status, updatedAt: input.now })
+      .where(and(eq(accountCategoryInferenceJobs.id, input.jobId), eq(accountCategoryInferenceJobs.ownerUserId, owner), eq(accountCategoryInferenceJobs.accountId, input.accountId))).returning();
+    if (!row) throw new Error("inference job not found");
+    return { ...unpackJob(row), claimed: true };
+  }
+  return db.transaction(async (tx) => {
+    const [account] = await tx.select({ id: accounts.id }).from(accounts).where(and(eq(accounts.id, input.accountId), eq(accounts.ownerUserId, owner))).for("update");
+    if (!account) throw new Error("owned X account not found");
+    const [latest] = await tx.select().from(accountCategoryInferenceJobs).where(and(eq(accountCategoryInferenceJobs.ownerUserId, owner), eq(accountCategoryInferenceJobs.accountId, input.accountId))).orderBy(desc(accountCategoryInferenceJobs.version)).limit(1);
+    if (!input.regenerate && latest && ["ready", "insufficient_evidence"].includes(latest.status)) return { ...unpackJob(latest), claimed: false };
+    if (!input.regenerate && latest?.status === "running" && latest.updatedAt > input.now - 300) return { ...unpackJob(latest), claimed: false };
+    const [created] = await tx.insert(accountCategoryInferenceJobs).values({ ownerUserId: owner, accountId: input.accountId,
+      version: (latest?.version || 0) + 1, status: "running", resultJson: null, createdAt: input.now, updatedAt: input.now }).returning();
+    return { ...unpackJob(created), claimed: true };
+  });
+}
+
+async function saveAccountInferenceSuggestions(input: { accountId: number; jobId: number; result: InferenceResult; now: number }) {
+  const owner = inferenceOwner();
+  await getPostgresDb().transaction(async (tx) => {
+    const [job] = await tx.select().from(accountCategoryInferenceJobs).where(and(eq(accountCategoryInferenceJobs.id, input.jobId),
+      eq(accountCategoryInferenceJobs.ownerUserId, owner), eq(accountCategoryInferenceJobs.accountId, input.accountId))).for("update");
+    if (!job || job.status !== "running") throw new Error("inference job is not claimable");
+    const categoryRows = await tx.select().from(categories).where(and(or(isNull(categories.ownerUserId), eq(categories.ownerUserId, owner)),
+      or(isNull(categories.accountId), eq(categories.accountId, input.accountId))));
+    for (const suggestion of input.result.suggestions) {
+      if (!categoryRows.some((category) => category.id === suggestion.categoryId && category.slug === suggestion.slug)) throw new Error("suggested category is unavailable");
+      await tx.insert(accountCategoryInferences).values({ jobId: input.jobId, ownerUserId: owner, accountId: input.accountId,
+        categoryId: suggestion.categoryId, confidence: suggestion.confidence, evidenceJson: JSON.stringify(suggestion.evidence),
+        inferenceVersion: job.version, suggestedAt: input.now }).onConflictDoNothing();
+    }
+    await tx.update(accountCategoryInferenceJobs).set({ status: input.result.status, resultJson: JSON.stringify(input.result), updatedAt: input.now })
+      .where(and(eq(accountCategoryInferenceJobs.id, input.jobId), eq(accountCategoryInferenceJobs.ownerUserId, owner), eq(accountCategoryInferenceJobs.accountId, input.accountId)));
+  });
+}
+
+/** Accepts only categories from the latest owner-scoped inference and keeps manual primary choices intact. */
+export async function acceptAccountCategoryInference(input: {
+  accountId: number; categoryIds: number[]; weights?: Record<string, number>; now: number;
+}) {
+  const owner = inferenceOwner();
+  if (!Number.isSafeInteger(input.accountId) || input.accountId < 1 || !Number.isSafeInteger(input.now) || input.now < 0) throw new Error("account inference input is invalid");
+  const selected = [...new Set(input.categoryIds)].slice(0, 12);
+  if (selected.some((id) => !Number.isSafeInteger(id) || id < 1)) throw new Error("category selection is invalid");
+  for (const [id, weight] of Object.entries(input.weights || {})) {
+    if (selected.includes(Number(id)) && (!Number.isFinite(weight) || weight < 0 || weight > 10)) throw new Error("category weight is invalid");
+  }
+  const db = getPostgresDb();
+  await db.transaction(async (tx) => {
+    const [account] = await tx.select().from(accounts).where(and(eq(accounts.id, input.accountId), eq(accounts.ownerUserId, owner))).for("update");
+    if (!account) throw new Error("owned X account not found");
+    const [latest] = await tx.select().from(accountCategoryInferenceJobs).where(and(
+      eq(accountCategoryInferenceJobs.ownerUserId, owner), eq(accountCategoryInferenceJobs.accountId, input.accountId),
+      inArray(accountCategoryInferenceJobs.status, ["ready", "insufficient_evidence"])))
+      .orderBy(desc(accountCategoryInferenceJobs.version)).limit(1);
+    if (!latest) throw new Error("no category suggestions are ready");
+    const valid = await tx.select({ categoryId: accountCategoryInferences.categoryId }).from(accountCategoryInferences).where(and(
+      eq(accountCategoryInferences.jobId, latest.id), eq(accountCategoryInferences.ownerUserId, owner),
+      eq(accountCategoryInferences.accountId, input.accountId), isNull(accountCategoryInferences.rejectedAt)));
+    const validIds = new Set(valid.map((row) => row.categoryId));
+    const catalog = await tx.select().from(categories).where(and(eq(categories.enabled, 1),
+      or(isNull(categories.ownerUserId), eq(categories.ownerUserId, owner)), or(isNull(categories.accountId), eq(categories.accountId, input.accountId))));
+    const availableIds = new Set(catalog.map((row) => row.id));
+    if (!selected.every((id) => availableIds.has(id))) throw new Error("selected category is unavailable");
+    const [primary] = await tx.select().from(accountCategories).where(and(eq(accountCategories.accountId, input.accountId), eq(accountCategories.isPrimary, 1))).limit(1);
+    const preservePrimary = Boolean(primary && (primary.source !== "inferred" || primary.userModifiedAt !== null));
+    if (!preservePrimary) await tx.update(accountCategories).set({ isPrimary: 0 }).where(and(eq(accountCategories.accountId, input.accountId),
+      eq(accountCategories.source, "inferred"), isNull(accountCategories.userModifiedAt)));
+    let primaryAssigned = preservePrimary;
+    for (let index = 0; index < selected.length; index += 1) {
+      const categoryId = selected[index]!;
+      const [existing] = await tx.select().from(accountCategories).where(and(eq(accountCategories.accountId, input.accountId), eq(accountCategories.categoryId, categoryId))).limit(1);
+      const inferred = validIds.has(categoryId);
+      const weight = Number(input.weights?.[String(categoryId)] ?? 1);
+      const makePrimary = !primaryAssigned && (!existing || (existing.source === "inferred" && existing.userModifiedAt === null));
+      if (!existing) {
+        await tx.insert(accountCategories).values({ accountId: input.accountId, categoryId, enabled: 1, isPrimary: makePrimary ? 1 : 0,
+          weight, priority: selected.length - index, source: inferred ? "inferred" : "manual", userModifiedAt: inferred ? null : input.now,
+          styleOverrideJson: "{}", aiRouteOverrideJson: "{}" });
+      } else if (existing.source === "inferred" && existing.userModifiedAt === null) {
+        await tx.update(accountCategories).set({ isPrimary: makePrimary || (preservePrimary && primary?.categoryId === categoryId) ? 1 : 0,
+          priority: selected.length - index, weight }).where(and(eq(accountCategories.accountId, input.accountId), eq(accountCategories.categoryId, categoryId),
+          eq(accountCategories.source, "inferred"), isNull(accountCategories.userModifiedAt)));
+      }
+      if (makePrimary) primaryAssigned = true;
+      await tx.update(accountCategoryInferences).set({ acceptedAt: input.now }).where(and(eq(accountCategoryInferences.jobId, latest.id),
+        eq(accountCategoryInferences.categoryId, categoryId), eq(accountCategoryInferences.ownerUserId, owner), eq(accountCategoryInferences.accountId, input.accountId), isNull(accountCategoryInferences.acceptedAt)));
+    }
+    for (const categoryId of validIds) {
+      if (selected.includes(categoryId)) continue;
+      await tx.update(accountCategoryInferences).set({ rejectedAt: input.now }).where(and(eq(accountCategoryInferences.jobId, latest.id),
+        eq(accountCategoryInferences.categoryId, categoryId), eq(accountCategoryInferences.ownerUserId, owner), eq(accountCategoryInferences.accountId, input.accountId), isNull(accountCategoryInferences.rejectedAt)));
+    }
+    const style = account.styleProfileJson ? JSON.parse(account.styleProfileJson) as Record<string, unknown> : {};
+    if (!style.contentLocale && latest.resultJson) {
+      const language = (JSON.parse(latest.resultJson) as InferenceResult).contentLanguage;
+      if (language !== "unknown") style.contentLocale = language;
+    }
+    const selectedCategories = catalog.filter((item) => selected.includes(item.id));
+    const selectedSlugs = selectedCategories.map((item) => item.slug);
+    style.categories = Array.isArray(style.categories)
+      ? [...new Set([...style.categories.map(String), ...selectedSlugs])].slice(0, 12)
+      : selectedSlugs;
+    if (!Array.isArray(style.preferredFormats)) {
+      style.preferredFormats = [...new Set(selectedCategories.flatMap((item) => JSON.parse(item.defaultFormatsJson) as string[]))].slice(0, 4);
+    }
+    await tx.update(accounts).set({ styleProfileJson: JSON.stringify(style), updatedAt: input.now })
+      .where(and(eq(accounts.id, input.accountId), eq(accounts.ownerUserId, owner)));
+  });
+  return getPostgresCategoryConfigs(owner, input.accountId);
+}
 
 const LANGUAGE_WORDS: Record<string, Set<string>> = {
   en: new Set(["the", "and", "for", "with", "from", "this", "that", "is", "are", "on", "of", "to", "in", "my", "your"]),
@@ -91,12 +256,13 @@ export function discoverAccountTopic(input: { bio: string; posts: string[] }): {
 
 /** Runs one durable, owner/account-scoped inference job; completed retries return the same snapshot. */
 export async function runAccountCategoryInference(input: { accountId: number; now?: number; regenerate?: boolean; client?: OfficialXClient }): Promise<InferenceResult> {
-  const account = getAccounts().find((item) => item.id === input.accountId);
-  if (!account?.ownerUserId || !isOwnerEnabled(account.ownerUserId)) throw new Error("owned X account not found or owner disabled");
+  const owner = inferenceOwner();
+  const account = await getPostgresAccount(owner, input.accountId);
+  if (!account?.ownerUserId || await isAuthenticatedUserDisabled(account.ownerUserId)) throw new Error("owned X account not found or owner disabled");
   const now = input.now ?? Math.floor(Date.now() / 1000);
-  const previous = getOwnAccountInference(account.id);
+  const previous = await getOwnAccountInference(account.id);
   if (!input.regenerate && previous && ["ready", "insufficient_evidence"].includes(previous.status)) return previous.result;
-  const job = saveAccountInferenceJob({ accountId: account.id, status: "running", now, regenerate: input.regenerate === true });
+  const job = await saveAccountInferenceJob({ accountId: account.id, status: "running", now, regenerate: input.regenerate === true });
   if (!job.claimed) {
     if (job.result) return job.result;
     throw new Error("account inference is already running");
@@ -110,29 +276,32 @@ export async function runAccountCategoryInference(input: { accountId: number; no
       const [profile, posts] = await Promise.all([client.getOwnProfile(credential), client.getOwnTimeline(credential, 100)]);
       return { profile, posts };
     });
+    const styleProfile = account.styleProfile as Record<string, unknown>;
     const result = inferAccountCategories({
       handle: account.handle,
       displayName: account.displayName,
-      bio: [profile.description, account.styleProfile.bio, account.styleProfile.niche].filter((value): value is string => typeof value === "string").join(" "),
+      bio: [profile.description, styleProfile.bio, styleProfile.niche].filter((value): value is string => typeof value === "string").join(" "),
       posts,
-      catalog: getCategoriesForAccount(account.id).filter((category) => category.enabled).map((category) => ({ id: category.id, slug: category.slug, name: category.name, keywords: category.keywords, description: category.description })),
+      catalog: (await getPostgresCategoriesForAccount(owner, account.id)).filter((category) => category.enabled).map((category) => ({ id: category.id, slug: category.slug, name: category.name, keywords: category.keywords, description: category.description })),
     });
     if (result.suggestions.length === 0) {
-      const topic = discoverAccountTopic({ bio: [profile.description, account.styleProfile.bio, account.styleProfile.niche].filter((value): value is string => typeof value === "string").join(" "), posts });
+      const topic = discoverAccountTopic({ bio: [profile.description, styleProfile.bio, styleProfile.niche].filter((value): value is string => typeof value === "string").join(" "), posts });
       if (topic) {
-        const category = saveGeneratedAccountCategory({
-          accountId: account.id, name: topic.name, slug: topic.slug,
-          description: `Hesap biyografisi ve gönderilerinde tekrar eden “${topic.name}” konusu.`,
-          keywords: topic.keywords, examples: topic.evidence, now,
+        const category = await savePostgresAccountCategory(owner, account.id, {
+          slug: topic.slug, name: topic.name, enabled: true, builtIn: false, baseStrategy: "generic", clusterStrategy: "topic",
+          verificationMode: "moderate", description: `Hesap biyografisi ve gönderilerinde tekrar eden “${topic.name}” konusu.`,
+          positiveExamples: topic.evidence, negativeExamples: [], keywords: topic.keywords, excludedKeywords: [], seedHandles: [],
+          defaultFormats: ["post"], sourcePolicy: {}, riskPolicy: {}, scoringPolicy: {}, publishingPolicy: {},
+          aiContext: "", now,
         });
         result.suggestions = [{ categoryId: category.id, slug: category.slug, name: category.name, confidence: 0.68, evidence: topic.evidence.map((item) => item.slice(0, 80)) }];
         result.status = "ready";
       }
     }
-    saveAccountInferenceSuggestions({ accountId: account.id, jobId: job.id, result, now });
+    await saveAccountInferenceSuggestions({ accountId: account.id, jobId: job.id, result, now });
     return result;
   } catch (error) {
-    saveAccountInferenceJob({ accountId: account.id, status: "failed", now, jobId: job.id });
+    await saveAccountInferenceJob({ accountId: account.id, status: "failed", now, jobId: job.id });
     throw error;
   }
 }
@@ -144,17 +313,21 @@ export async function runPendingAccountCategoryInferences(input: {
   const now = input.now ?? Math.floor(Date.now() / 1000);
   const limit = Math.max(1, Math.min(20, Math.floor(input.limit ?? 5)));
   const result: AccountInferenceSweepResult = { attempted: 0, completed: 0, skipped: 0, failed: 0 };
-  const ownedAccounts = getAccounts().filter((account): account is Account & { ownerUserId: string } => Boolean(account.ownerUserId));
-  result.skipped += ownedAccounts.filter((account) => !isOwnerEnabled(account.ownerUserId)).length;
-  const accounts = ownedAccounts.filter((account) => isOwnerEnabled(account.ownerUserId));
+  const ownedRows = await getPostgresDb().select().from(accounts);
+  const enabledOwners = new Set<string>();
+  for (const account of ownedRows) if (!await isAuthenticatedUserDisabled(account.ownerUserId)) enabledOwners.add(account.ownerUserId);
+  result.skipped += ownedRows.filter((account) => !enabledOwners.has(account.ownerUserId)).length;
+  const eligibleAccounts = ownedRows.filter((account) => enabledOwners.has(account.ownerUserId));
 
-  for (const account of accounts) {
+  for (const row of eligibleAccounts) {
     if (result.attempted >= limit) break;
+    const account = await getPostgresAccount(row.ownerUserId, row.id);
+    if (!account) continue;
     try {
       const outcome = await runAsOwner(account.ownerUserId, async () => {
-        const grant = getXAccountAuthState(account.id, account.ownerUserId);
+        const grant = await getPostgresXAccountAuthState(account.id, account.ownerUserId);
         if (!grant?.connected || !REQUIRED_INFERENCE_SCOPES.every((scope) => grant.scopes.includes(scope))) return "skipped" as const;
-        const previous = getOwnAccountInference(account.id);
+        const previous = await getOwnAccountInference(account.id);
         if (previous && ["ready", "insufficient_evidence"].includes(previous.status)) return "skipped" as const;
         result.attempted += 1;
         try {

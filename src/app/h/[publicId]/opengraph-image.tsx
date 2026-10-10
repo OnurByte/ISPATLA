@@ -14,7 +14,7 @@ function metric(value: number | null): string {
 
 export default async function OpenGraphImage({ params }: { params: Promise<{ publicId: string }> }) {
   const { publicId } = await params;
-  const share = readPublicXPostShare(publicId);
+  const share = await readPublicXPostShare(publicId);
   if (!share) return new Response("Not found", { status: 404 });
 
   return new ImageResponse(

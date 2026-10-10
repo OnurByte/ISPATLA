@@ -1,7 +1,7 @@
 import { withUser } from "@/server/request-auth";
 import { NextResponse } from "next/server";
 import { guardMutation, readJsonBody } from "@/server/api-guard";
-import { removeSecret, saveSecret, vaultReady } from "@/server/vault";
+import { deletePostgresSecret, encryptPostgresSecret, postgresVaultReady, savePostgresSecret } from "@/server/postgres-settings";
 
 export const runtime = "nodejs";
 
@@ -25,9 +25,9 @@ async function PUTHandler(request: Request, context: { params: Promise<{ name: s
   }
   const value = typeof body.value === "string" ? body.value.trim() : "";
   if (!value) return NextResponse.json({ error: "secret değeri gerekli" }, { status: 400 });
-  if (!vaultReady()) return NextResponse.json({ error: "secret_storage_unavailable", message: "Güvenli anahtar kasası bu sunucuda henüz hazır değil." }, { status: 503 });
+  if (!postgresVaultReady()) return NextResponse.json({ error: "secret_storage_unavailable", message: "Güvenli anahtar kasası bu sunucuda henüz hazır değil." }, { status: 503 });
   try {
-    saveSecret(name, provider, value);
+    await savePostgresSecret(name, provider, encryptPostgresSecret(value));
     return NextResponse.json({ ok: true, name, masked: "••••••••••••" });
   } catch {
     return NextResponse.json({ error: "secret_storage_unavailable", message: "Güvenli anahtar kasası şu anda kullanılamıyor." }, { status: 503 });
@@ -39,7 +39,7 @@ async function DELETEHandler(request: Request, context: { params: Promise<{ name
   if (denied) return denied;
   const name = (await context.params).name;
   if (!KNOWN_KEYS.has(name)) return NextResponse.json({ error: "bilinmeyen secret" }, { status: 404 });
-  removeSecret(name);
+  await deletePostgresSecret(name);
   return NextResponse.json({ ok: true });
 }
 

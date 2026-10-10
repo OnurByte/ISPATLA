@@ -1,17 +1,17 @@
 import { withUser } from "@/server/request-auth";
 import { NextResponse } from "next/server";
-import type { Account } from "@/server/db";
-import { getAccounts } from "@/server/db";
 import { guardMutation } from "@/server/api-guard";
+import { currentOwnerId } from "@/server/owner-context";
+import { getPostgresAccounts } from "@/server/postgres-accounts";
 
 export const runtime = "nodejs";
 
-function GETHandler() {
-  const accounts = getAccounts().map((account) => publicAccount(account));
+async function GETHandler() {
+  const accounts = (await getPostgresAccounts(currentOwnerId()!)).map((account) => publicAccount(account));
   return NextResponse.json(accounts, { headers: { "cache-control": "no-store" } });
 }
 
-function publicAccount(account: Account) {
+function publicAccount(account: Awaited<ReturnType<typeof getPostgresAccounts>>[number]) {
   return {
     id: account.id,
     accountKey: account.accountKey,

@@ -1,6 +1,6 @@
 # Fırsat puanlama — ilgililik duyarlı tazelik
 
-Saf fonksiyonlar `src/server/scoring.ts`; tek okuma noktası `db.ts opportunityScoreForPost()`.
+Saf fonksiyonlar `src/server/scoring.ts`; PostgreSQL fırsat deposu skorları bu fonksiyonlarla hesaplar.
 İlgililik (`relevance`, 0–100) Jev toplu sıralamasının posta yazdığı değerdir
 (`observed_posts.relevance_score`), yalnız `jev_mode = "on"` iken karara girer.
 

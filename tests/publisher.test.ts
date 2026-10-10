@@ -9,7 +9,7 @@ test('official publisher requires explicit credentials and capability evidence',
    return Response.json({data:{id:'123',text:'hello'}});
  });
  const publisher=new OfficialXPublisher(client);
- expect(publisher.health(account).ok).toBe(false);
+ expect((await publisher.health({ ...account, ownerUserId: null })).ok).toBe(false);
  expect(publisher.capabilities()).toEqual({post:false,repost:false,reply:false,media:false,quote:'unknown'});
  expect(publisher.capabilities(['tweet.write','tweet.read','media.write'])).toEqual({post:true,repost:true,reply:true,media:true,quote:'unknown'});
  await expect(publish({account,credentials:{accessToken:'fixture-only',xUserId:'42'},text:'hello'},publisher)).resolves.toEqual({id:'123',text:'hello',ok:true,transport:'official_x'});

@@ -4,13 +4,13 @@ import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, ArrowRight, Check, ExternalLink, Sparkles } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, Sparkles } from "lucide-react";
 import { BrandLogo } from "@/components/brand-logo";
 import { AppearanceSettings } from "@/components/appearance-settings";
 import { XConnectButton } from "@/components/x-connection-controls";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import type { OwnUserProfile } from "@/server/db";
+import type { OwnUserProfile } from "@/server/db-types";
 import { localizePath, type Locale } from "@/i18n/config";
 import { getDictionary } from "@/i18n/dictionaries";
 
@@ -33,7 +33,6 @@ export function OnboardingProfile({ initial, locale }: { initial: OwnUserProfile
   const profile = initial;
   const [profileSaved, setProfileSaved] = useState(initial.onboardingCompleted === true);
   const [xConnected, setXConnected] = useState(false);
-  const [aiReady, setAiReady] = useState(false);
   const [step, setStep] = useState<Step>("profile");
   const [message, setMessage] = useState("");
   const [pending, setPending] = useState(false);
@@ -43,18 +42,11 @@ export function OnboardingProfile({ initial, locale }: { initial: OwnUserProfile
     try { savedStep = onboardingStepFromStorage(window.localStorage.getItem("ispatla-onboarding-step")); }
     catch { /* private browsing can deny storage; onboarding remains available at the first step */ }
     const loadStatus = async () => {
-      const [accountsResponse, aiResponse] = await Promise.all([
-        fetch("/api/x/accounts", { cache: "no-store" }),
-        fetch("/api/settings/ai", { cache: "no-store" }),
-      ]);
+      const accountsResponse = await fetch("/api/x/accounts", { cache: "no-store" });
       const connected = accountsResponse.ok && ((await accountsResponse.json()) as { accounts?: { matchesProfile?: boolean }[] }).accounts?.some((account) => account.matchesProfile === true) === true;
       setXConnected(connected);
       // Stored wizard progress is only a convenience and cannot bypass the required X connection.
       setStep(connected || savedStep === "profile" ? savedStep : "x");
-      if (aiResponse.ok) {
-        const body = await aiResponse.json() as { configured?: boolean; chatgpt?: { connected?: boolean } };
-        setAiReady(body.configured === true || body.chatgpt?.connected === true);
-      }
     };
     void loadStatus().catch(() => { setXConnected(false); setStep("x"); });
   }, []);
@@ -89,7 +81,7 @@ export function OnboardingProfile({ initial, locale }: { initial: OwnUserProfile
   }
 
   const currentIndex = STEP_ORDER.indexOf(step);
-  const completed: Record<Step, boolean> = { profile: profileSaved, x: xConnected, ai: aiReady, appearance: true };
+  const completed: Record<Step, boolean> = { profile: profileSaved, x: xConnected, ai: false, appearance: true };
   const goNext = () => {
     if (step === "x") { void completeOnboarding(); return; }
     selectStep(STEP_ORDER[Math.min(currentIndex + 1, STEP_ORDER.length - 1)]);
@@ -115,7 +107,7 @@ export function OnboardingProfile({ initial, locale }: { initial: OwnUserProfile
 
       {step === "x" && <Card><CardHeader><CardTitle>{copy.xTitle}</CardTitle><CardDescription>{copy.xDescription}</CardDescription></CardHeader><CardContent className="flex flex-col gap-4"><div className="flex items-center gap-3 rounded-md border p-4"><span className={`size-2.5 rounded-full ${xConnected ? "bg-emerald-500" : "bg-muted-foreground/50"}`} /><p className="text-sm">{xConnected ? copy.xConnected : copy.xNotConnected}</p></div>{message && <p role="alert" className="text-sm text-destructive">{message}</p>}<div className="flex flex-wrap justify-between gap-3"><Button variant="outline" onClick={goBack}><ArrowLeft data-icon="inline-start" aria-hidden="true" />{copy.back}</Button><div className="flex flex-wrap items-center gap-2">{!xConnected && <XConnectButton returnTo={localizePath(locale, "/onboarding?step=x")} size="sm" />}<Button onClick={goNext} disabled={!xConnected || pending}>{pending ? copy.saving : copy.continue}<ArrowRight data-icon="inline-end" aria-hidden="true" /></Button></div></div></CardContent></Card>}
 
-      {step === "ai" && <Card><CardHeader><CardTitle>{copy.aiTitle}</CardTitle><CardDescription>{copy.aiDescription}</CardDescription></CardHeader><CardContent className="flex flex-col gap-4"><div className="flex items-center gap-3 rounded-md border p-4"><Sparkles aria-hidden="true" className="size-4 text-muted-foreground" /><p className="text-sm">{aiReady ? copy.aiReady : copy.aiNotReady}</p></div><div className="flex flex-wrap justify-between gap-3"><Button variant="outline" onClick={goBack}><ArrowLeft data-icon="inline-start" aria-hidden="true" />{copy.back}</Button><div className="flex gap-2"><Button variant="outline" render={<Link href={localizePath(locale, "/settings/keys")} />}>{copy.manageProviders}<ExternalLink data-icon="inline-end" aria-hidden="true" /></Button><Button onClick={goNext}>{copy.continue}<ArrowRight data-icon="inline-end" aria-hidden="true" /></Button></div></div></CardContent></Card>}
+      {step === "ai" && <Card><CardHeader><CardTitle>{copy.aiTitle}</CardTitle><CardDescription>{copy.aiDescription}</CardDescription></CardHeader><CardContent className="flex flex-col gap-4"><div className="flex items-center gap-3 rounded-md border p-4"><Sparkles aria-hidden="true" className="size-4 text-muted-foreground" /><p className="text-sm">AI sağlayıcı ayarları PostgreSQL&apos;e henüz taşınmadı.</p></div><div className="flex flex-wrap justify-between gap-3"><Button variant="outline" onClick={goBack}><ArrowLeft data-icon="inline-start" aria-hidden="true" />{copy.back}</Button><Button onClick={goNext}>{copy.continue}<ArrowRight data-icon="inline-end" aria-hidden="true" /></Button></div></CardContent></Card>}
 
       {step === "appearance" && <div className="flex flex-col gap-4"><AppearanceSettings locale={locale} /><div className="flex justify-between"><Button variant="outline" onClick={goBack}><ArrowLeft data-icon="inline-start" aria-hidden="true" />{copy.back}</Button><Button onClick={() => { router.push(localizePath(locale, "/dashboard")); router.refresh(); }}>{copy.openWorkspace}<ArrowRight data-icon="inline-end" aria-hidden="true" /></Button></div></div>}
     </div>

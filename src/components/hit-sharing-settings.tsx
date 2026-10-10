@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import type { OwnHitShare, ShareableXPost } from "@/server/db";
+import type { OwnHitShare, ShareableXPost } from "@/server/db-types";
 
 type HitSharingData = { posts: ShareableXPost[]; shares: OwnHitShare[] };
 

@@ -1,4 +1,4 @@
-import type { PublicUserProfile } from "@/server/db";
+import type { PublicUserProfile } from "@/server/db-types";
 import Image from "next/image";
 
 export function PublicProfileView({ profile }: { profile: PublicUserProfile }) {

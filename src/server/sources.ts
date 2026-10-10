@@ -1,19 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import {
-  getSetting,
-  getCategories,
-  getStoredSources,
-  deleteSource,
-  recordSourceRestorations,
-  resetSourceRegistry,
-  sourceHasLatestEvent,
-  saveSourceCategoryConfig,
-  setSetting,
-  upsertSource,
-  type SourceConfig,
-  type SourceProfile,
-} from "./db";
+import type { SourceConfig, SourceProfile } from "./db-types";
 
 type RawSource = {
   handle?: unknown;
@@ -87,100 +74,6 @@ function readConfiguredSources(): SourceConfig[] {
   } catch {
     return [];
   }
-}
-
-export function bootstrapSources(now = Math.floor(Date.now() / 1000)): number {
-  syncConfiguredSourcePool(now);
-  if (getSetting("sources_seed_v1", "") === "done") return 0;
-  const stored = new Map(getStoredSources().map((source) => [source.handle, source]));
-  const seedHandles = new Set(readConfiguredSources().map((source) => source.handle));
-  let inserted = 0;
-  for (const seed of readConfiguredSources()) {
-    const current = stored.get(seed.handle);
-    if (current) {
-      if (!current.profile.origin) {
-        upsertSource({ ...current, profile: { ...current.profile, ...seed.profile, origin: "seed" } }, now);
-      }
-      continue;
-    }
-    upsertSource(seed, now);
-    inserted += 1;
-  }
-  for (const current of stored.values()) {
-    if (current.profile.origin || seedHandles.has(current.handle)) continue;
-    upsertSource({
-      ...current,
-      profile: { ...current.profile, origin: "manual", status: "active", pinned: true },
-    }, now);
-  }
-  bootstrapCategorySeeds(now);
-  setSetting("sources_seed_v1", "done", now);
-  return inserted;
-}
-
-function syncConfiguredSourcePool(now: number): void {
-  const isSynced = getSetting("sources_ai_pool_v3", "") === "done";
-  const configured = readConfiguredSources();
-  if (!configured.length) return;
-  const configuredHandles = new Set(configured.map((source) => source.handle));
-  const categorySeeds = new Set(getCategories().flatMap((category) => category.seedHandles));
-
-  for (const current of getStoredSources()) {
-    const origin = current.profile.origin;
-    const discovered = !configuredHandles.has(current.handle) && (origin === "discovered" || (current.profile.status === "candidate" && !origin));
-    const obsoleteSeed = origin === "seed" && !configuredHandles.has(current.handle) && !categorySeeds.has(current.handle);
-    if (discovered || obsoleteSeed) deleteSource(current.handle);
-  }
-
-  if (isSynced) return;
-
-  const stored = new Map(getStoredSources().map((source) => [source.handle, source]));
-  for (const seed of configured) {
-    const current = stored.get(seed.handle);
-    if (!current) {
-      if (!sourceHasLatestEvent(seed.handle, "deleted")) upsertSource(seed, now);
-    } else if (current.profile.status === "candidate" && current.profile.origin !== "manual") {
-      upsertSource({ ...seed, profile: { ...current.profile, ...seed.profile } }, now);
-    }
-  }
-  setSetting("sources_ai_pool_v3", "done", now);
-}
-
-function bootstrapCategorySeeds(now: number): void {
-  const sources = new Map(getStoredSources().map((source) => [source.handle, source]));
-  for (const category of getCategories()) {
-    for (const value of category.seedHandles) {
-      const handle = asHandle(value);
-      if (!handle) continue;
-      if (!sources.has(handle)) {
-        const source: SourceConfig = {
-          handle, name: handle, enabled: true, maxPosts: 20, rightsStatus: "unknown",
-          profile: { origin: "seed", status: "active", pinned: false },
-        };
-        upsertSource(source, now);
-        sources.set(handle, source);
-      }
-      saveSourceCategoryConfig({ sourceHandle: handle, categoryId: category.id, monitoringTier: "B", discoveryWeight: 1, categoryReputation: null, enabled: true, lastEvidenceAt: now });
-    }
-  }
-}
-
-export function loadSources(): SourceConfig[] {
-  bootstrapSources();
-  const stored = getStoredSources();
-  return stored.length > 0 ? stored : readConfiguredSources();
-}
-
-export function resetSources(now = Math.floor(Date.now() / 1000)): SourceConfig[] {
-  resetSourceRegistry();
-  bootstrapSources(now);
-  const sources = loadSources();
-  recordSourceRestorations(sources.map((source) => source.handle), now);
-  return sources;
-}
-
-export function enabledSources(): SourceConfig[] {
-  return loadSources().filter((source) => source.enabled && source.profile.status !== "candidate");
 }
 
 function record(value: unknown): Record<string, unknown> {
@@ -268,4 +161,10 @@ export function nextSourceState(
     // ponytail: automatic deletion stays off until slop/no-content evidence is persisted across scans.
     deleteReady: false,
   };
+}
+
+
+export function isDefinitiveMissingSourceError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error || "");
+  return /\b404\b|not found|does not exist/iu.test(message);
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { Account, WritingStyleSettings } from "@/server/db";
+import type { Account, WritingStyleSettings } from "@/server/db-types";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";

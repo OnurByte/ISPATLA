@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Inbox, Plus, Save, Send, Sparkles, Trash2 } from "lucide-react";
-import type { Account, DraftRecord } from "@/server/db";
+import type { PgDraft as DraftRecord } from "@/server/postgres-drafts";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -29,6 +29,7 @@ type DraftForm = {
   score: number;
   evaluation: DraftRecord["evaluation"];
 };
+type Account = { id: number; handle: string; displayName: string; enabled: boolean; defaultAccount: boolean; styleProfile: Record<string, unknown> };
 
 type DraftRevision = { id: number; draftId: number; revision: number; accountId: number | null; format: string; text: string; createdAt: number };
 
@@ -49,7 +50,7 @@ function asForm(draft?: DraftRecord): DraftForm {
       };
 }
 
-export function selectedDraft(drafts: DraftRecord[], selectedDraftId?: number): DraftRecord | undefined {
+export function selectedDraft<T extends { id: number }>(drafts: T[], selectedDraftId?: number): T | undefined {
   return drafts.find((draft) => draft.id === selectedDraftId) || drafts[0];
 }
 

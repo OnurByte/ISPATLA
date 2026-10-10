@@ -1,19 +1,6 @@
 import { expect, test } from "bun:test";
-import { mkdtempSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 import { chooseAccountFit, isQuietHour, quietHoursConfiguration } from "../src/server/account-fit";
-import type { Account, AccountCategoryConfig } from "../src/server/db";
-
-function isolated(script: string): string {
-  const directory = mkdtempSync(join(tmpdir(), "ispatla-format-history-"));
-  try {
-    const result = Bun.spawnSync({ cmd: [process.execPath, "-e", script], cwd: process.cwd(),
-      env: { ...process.env, ISPATLA_DB: join(directory, "state.sqlite3"), ISPATLA_SECRET_KEY: "format-history-test-key", ISPATLA_TOKEN_KEY_CURRENT: "format-history-token-key" }, stdout: "pipe", stderr: "pipe" });
-    expect(result.exitCode, new TextDecoder().decode(result.stderr)).toBe(0);
-    return new TextDecoder().decode(result.stdout).trim();
-  } finally { rmSync(directory, { recursive: true, force: true }); }
-}
+import type { Account, AccountCategoryConfig } from "../src/server/db-types";
 
 const account = (id: number, capabilities: string[], withVoice = true): Account => ({
   id, ownerUserId: "owner", accountKey: `a${id}`, handle: `a${id}`, displayName: `A${id}`,
@@ -116,35 +103,4 @@ test("best local hour needs five official non-null-view outcomes and excludes qu
   expect(result.timing.recommendedLocalHour).toBe(13);
   expect(result.timing.bestTimeSamples).toBe(5);
   expect(result.timing.bestTimeReason).toBe("best_confirmed_official_views_by_local_hour");
-});
-
-test("format recommendations ignore high legacy source feedback and use only mature official account outcomes", () => {
-  const result = JSON.parse(isolated(`
-    import { runAsOwner } from "./src/server/owner-context.ts";
-    import { ensureDatabase, recordFeedbackSnapshot, recordPublishAttempt, saveAccount } from "./src/server/db.ts";
-    import { appendObservedOutcome, recordEvaluationPrediction } from "./src/server/evaluation-store.ts";
-    import { formatHistoryEvidence } from "./src/server/draft-evaluator.ts";
-    if (!ensureDatabase()) throw new Error("db unavailable");
-    const now = Math.floor(Date.now() / 1000);
-    runAsOwner("format-owner", () => {
-      const account = saveAccount({ accountKey:"format-account",handle:"format",displayName:"Format",enabled:true,defaultAccount:true,automationMode:"manual",dailyLimit:20,capabilities:["post","repost"],now });
-      for (let i=0;i<5;i++) {
-        const externalId = "legacy-source-" + i;
-        recordPublishAttempt({ externalId, accountId:account.id, status:"confirmed", reason:"legacy-only", receipt:"", now:now-20_000+i });
-        recordFeedbackSnapshot({ externalId, accountId:account.id, likes:1000, replies:1000, reposts:1000, quotes:1000, views:1, milestone:"legacy", now:now-19_000+i });
-      }
-      const legacyOnly = formatHistoryEvidence(account.id,"news",["post","repost"]);
-      const publishedAt = now - 15*86400;
-      for (let i=0;i<5;i++) {
-        const createdAt = now - 20*86400;
-        const prediction = recordEvaluationPrediction({ accountId:String(account.id), candidateId:"official-source-"+i+":decision:"+createdAt, leakageGroup:"official-source-"+i, modelKey:"decision-score-v1:news", rawScore:80, selectorVersion:"decision-score-v1", action:"repost", category:"news", format:"repost", riskTier:"unknown", features:{ decision:"eligible", sourceCandidateId:"official-source-"+i }, createdAt, resolveBy:createdAt+14*86400 });
-        appendObservedOutcome({ predictionId:prediction.id, capturedAt:now, observedAt:now, metrics:{views:100,likes:10,replies:5,reposts:2,quotes:3}, source:"official_x_api", provenanceRef:"official_x:"+account.id+":"+(9000+i)+":published_at="+publishedAt });
-      }
-      console.log(JSON.stringify({ legacyOnly, official:formatHistoryEvidence(account.id,"news",["post","repost"]) }));
-    });
-  `));
-  expect(result.legacyOnly.post).toEqual({ samples: 0, engagementRate: null });
-  expect(result.legacyOnly.repost).toEqual({ samples: 0, engagementRate: null });
-  expect(result.official.repost).toEqual({ samples: 5, engagementRate: 0.2 });
-  expect(result.official.post).toEqual({ samples: 0, engagementRate: null });
 });

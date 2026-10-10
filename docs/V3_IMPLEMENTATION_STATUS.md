@@ -4,6 +4,28 @@ Contract: [ISPATLA_MASTER_PLAN_V3.md](ISPATLA_MASTER_PLAN_V3.md). The full V3
 scope remains the active goal. A local gate or a phase exit does not mean launch
 acceptance is complete.
 
+## Supabase/PostgreSQL cutover (2026-10-10)
+
+SQLite runtime, driver, type shim, database files and demo seeder have been
+removed. Runtime persistence now uses Drizzle ORM with `pg` against Supabase.
+The connected project has nine applied migrations and 86 `ispatla_app` tables;
+they are empty because no legacy data was copied. Local migration version
+prefixes now match the nine remote history entries. Historical SQLite checks below
+describe the old runtime and are not PostgreSQL or production proof. Manual
+source scans now read and score bounded owner-selected sources, but the former
+draft/evaluation pipeline and scheduled source monitoring remain disabled. Queue
+and publication approvals persist in PostgreSQL; outbound X writes remain
+fail-closed until their full policy and evaluation gates are ready. Supabase is
+active and its SQL connector works, but the `DATABASE_URL` values in `.env` and
+`.env.production` are malformed: they lack username, password, `@`, numeric port,
+and database path, so the app receives `ERR_INVALID_URL`. The Supabase Connect
+panel's complete Transaction Pooler URI is required; public REST keys are not DB
+credentials. A current direct grant check shows `anon` and `authenticated` have
+no `USAGE` on `ispatla_app` or table privileges. Supabase's table-list tool still
+reports RLS disabled on all 95 app/auth tables; add RLS and policies before
+granting/exposing these schemas through the Data API. The Vercel environment read
+is denied for the currently connected scope.
+
 ## Working tree and baseline
 
 Work continues on `codex/ispatla-v3`. Existing source-reset changes in config,
@@ -38,18 +60,18 @@ fixed; the warnings remain. Pure scoring output is frozen in
 | 15 Account fit/AI routing | Shadow core implemented | Per-account suitability and format recommendations carry evidence, fatigue, quiet-hours, best-hour, and capability/rights gates; recommendation risk stays unknown and consent false. Scheduler timing, full purpose routing, and live publisher acceptance remain. |
 | 16 EIR shadow evaluator | Partial | Baselines use owner-scoped mature official X outcomes only. Untrained residuals stay null and mode remains cold-start even with samples. Full trained account-relative residual/challenger model and live outcome journey remain. |
 | 17 Calibration | Local core verified | Calibration and holdout count each leakage group once; contradictory labels are excluded. Tied-score isotonic fit, calibration-only fitting, holdout-only Brier/log-loss/ECE/reliability and nullable insufficient evidence remain. Live label collection, maturity scheduler and complete product acceptance remain. |
-| 18 Missed-hit observatory | Partial | Candidate decisions/reasons and immutable human classifications are visible with observed outcomes in `/app/evaluation`; challenger and policy replay plus historical backlog remain. |
-| 19 Holdout/exploration | Shadow intake integrated | Every observed candidate in the current source scan plus the selected existing pool records owner/account reject/skip/eligible reasons before Jev/publishing. Stable model keys, leakage groups and unknown propensity are preserved. Historical backlog, challenger replay and manual exploration remain. |
-| 20 Earned autonomy | Local send guard integrated | Exact owner/account/action/category scope requires 30 linked confirmed human snapshots with eligible low-risk evidence recorded before approval. Proposal/confirmation/demotion APIs and both send gates exist; the SQL marker checks current consent, X identity/token version, accepted model pin, and current incident labels/audits inside the write transaction. Production risk remains unknown and cannot promote; complete classification and promotion/recovery UI remain. |
+| 18 Missed-hit observatory | Partial; PostgreSQL port incomplete | Historical candidate decisions/reasons and immutable human classifications are documented by the former runtime. The PostgreSQL source scan currently stores bounded observations only; candidate evaluation and reason persistence are not yet connected. |
+| 19 Holdout/exploration | Shadow intake not yet wired to PostgreSQL scan | Evaluation primitives remain, but the current scan does not record owner/account reject/skip/eligible decisions before Jev/publishing. Historical backlog, challenger replay and manual exploration remain. |
+| 20 Earned autonomy | PostgreSQL evidence store; send disabled | Proposal, confirmation, and demotion APIs use owner-scoped PostgreSQL state. Confirmation locks and revalidates the enabled account/category mapping and evidence in one transaction. The outbound send path remains fail-closed pending full pipeline and live database/provider verification. |
 | 21 OSS release | Local partial | AGPL-3.0-or-later license, contributor/security/conduct/architecture/changelog docs, issue forms, .env.example and disposable demo adapters exist. Real local demo login/draft page HTTP smoke passes with official requests disabled. A source snapshot install passes; real committed clone, GitHub security/labels setup and remote release remain. |
 
 ## Proof boundaries
 
-`tests/phase0-runtime.test.ts` starts a real finite worker against a disposable
-SQLite file with all scheduled provider tasks disabled, observes its live
-heartbeat, then verifies normal exit and lock release. This proves local worker
-startup/lifecycle; it does not prove the configured live DB, provider, domain,
-production deployment or X publishing.
+`tests/phase0-runtime.test.ts` records historical evidence from a real finite
+worker against a disposable SQLite file with scheduled provider tasks disabled.
+That old-runtime check is retained as provenance; it does not prove the current
+PostgreSQL worker, configured live DB, provider, domain, production deployment
+or X publishing.
 
 Phase 0 metrical evidence preserves canonical nested metrics and null missingness
 in raw/snapshots. Legacy scoring columns still use numeric lower bounds; full

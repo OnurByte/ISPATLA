@@ -3,8 +3,8 @@ import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { isIP } from "node:net";
 import { createRemoteJWKSet, jwtVerify, type JWTVerifyGetKey } from "jose";
 import { currentOwnerId, runAsOwner } from "./owner-context";
-import { getSecretCiphertext, getSetting, setSetting } from "./db";
-import { readSecret, removeSecret, saveSecret, vaultReady } from "./vault";
+import { decryptPostgresSecret, getPostgresSecret, getPostgresSetting, setPostgresSetting } from "./postgres-settings";
+import { removePostgresSecret, savePostgresSecretValue, vaultReady } from "./vault";
 
 const AUTH_ENDPOINT = "https://auth.openai.com/api/accounts/authorize";
 const TOKEN_ENDPOINT = "https://auth.openai.com/api/accounts/oauth/token";
@@ -66,9 +66,9 @@ function assertLocalPlanUsage(): void {
   if (process.env.NODE_ENV === "production") throw new Error("ChatGPT plan connections are not enabled for hosted production use");
 }
 
-function credentials(): Credential | null {
-  ownerId();
-  const raw = readSecret(CONNECTION_SECRET);
+async function credentials(owner = ownerId()): Promise<Credential | null> {
+  const stored = await getPostgresSecret(CONNECTION_SECRET, owner);
+  const raw = stored ? decryptPostgresSecret(stored.ciphertext) : null;
   if (!raw) return null;
   const value = JSON.parse(raw) as Partial<Credential>;
   if (typeof value.clientId !== "string" || typeof value.subject !== "string"
@@ -89,8 +89,8 @@ function credentials(): Credential | null {
   };
 }
 
-function saveCredentials(value: Credential): void {
-  saveSecret(CONNECTION_SECRET, "ChatGPT plan usage", JSON.stringify(value));
+async function saveCredentials(value: Credential): Promise<void> {
+  await savePostgresSecretValue(CONNECTION_SECRET, "ChatGPT plan usage", JSON.stringify(value));
 }
 
 function assertScopes(scopes: string[]): void {
@@ -156,11 +156,11 @@ export async function verifyChatGPTIdToken(
 
 async function hostId(): Promise<string> {
   if (!hostIdPromise) {
-    const pending = Promise.resolve().then(() => {
-      const saved = runAsOwner("system:chatgpt-plan-usage", () => getSetting(HOST_ID_SETTING));
+    const pending = Promise.resolve().then(async () => {
+      const saved = await getPostgresSetting(HOST_ID_SETTING, "", "system:chatgpt-plan-usage");
       if (saved.startsWith("urn:uuid:")) return saved;
       const next = `urn:uuid:${randomUUID()}`;
-      runAsOwner("system:chatgpt-plan-usage", () => setSetting(HOST_ID_SETTING, next, Math.floor(Date.now() / 1000)));
+      await setPostgresSetting(HOST_ID_SETTING, next, Math.floor(Date.now() / 1000), "system:chatgpt-plan-usage");
       return next;
     });
     hostIdPromise = pending.catch((error) => {
@@ -213,7 +213,7 @@ async function completeCallback(flow: PendingFlow, url: URL): Promise<void> {
   const identity = await verifyChatGPTIdToken(tokenBody.id_token, { clientId, nonce: flow.nonce });
   if (flow.priorSubject && identity.subject !== flow.priorSubject) throw new Error("The ChatGPT account did not match the connected account");
   if (generation(flow.ownerId) !== flow.generation) throw new Error("ChatGPT connection was disconnected before authorization finished");
-  runAsOwner(flow.ownerId, () => saveCredentials({
+  await runAsOwner(flow.ownerId, () => saveCredentials({
     clientId,
     email: identity.email,
     subject: identity.subject,
@@ -230,7 +230,7 @@ export async function beginChatGPTConnection(hostname: string): Promise<{ author
   if (!vaultReady()) throw new Error("ISPATLA_SECRET_KEY must be configured before connecting ChatGPT");
   const userId = ownerId();
   if (pendingStateByOwner.has(userId)) throw new Error("A ChatGPT connection is already waiting for authorization");
-  const saved = credentials();
+  const saved = await credentials();
   const flowGeneration = generation(userId);
   const state = randomValue();
   const starting = `starting:${state}`;
@@ -318,8 +318,8 @@ export async function beginChatGPTConnection(hostname: string): Promise<{ author
   return { authorizationUrl: chatGPTAuthorizationUrl({ clientId: flow.clientId, callbackUri, hostId: stableHostId, state, nonce, verifier, priorIdToken: saved?.idToken }), expiresAt };
 }
 
-export function getChatGPTConnectionStatus(): { connected: boolean; email: string | null; expiresAt: number | null; scopes: string[] } {
-  const value = credentials();
+export async function getChatGPTConnectionStatus(): Promise<{ connected: boolean; email: string | null; expiresAt: number | null; scopes: string[] }> {
+  const value = await credentials();
   if (!value) return { connected: false, email: null, expiresAt: null, scopes: [] };
   return { connected: true, email: value.email, expiresAt: value.expiresAt, scopes: value.scopes };
 }
@@ -327,7 +327,7 @@ export function getChatGPTConnectionStatus(): { connected: boolean; email: strin
 async function refreshCredentials(userId: string): Promise<string> {
   assertLocalPlanUsage();
   const requestGeneration = generation(userId);
-  const current = runAsOwner(userId, credentials);
+  const current = await credentials(userId);
   if (!current) throw new Error("ChatGPT account is not connected");
   assertScopes(current.scopes);
   if (current.expiresAt > Date.now() + 60_000) return current.accessToken;
@@ -340,7 +340,7 @@ async function refreshCredentials(userId: string): Promise<string> {
   const tokenBody = await response.json().catch(() => null) as Record<string, unknown> | null;
   if (!response.ok || !tokenBody || typeof tokenBody.access_token !== "string" || typeof tokenBody.refresh_token !== "string"
     || typeof tokenBody.expires_in !== "number" || !Number.isFinite(tokenBody.expires_in) || tokenBody.expires_in < 60 || tokenBody.expires_in > 86_400) {
-    if (response.status === 400 && tokenBody?.error === "invalid_grant" && generation(userId) === requestGeneration) runAsOwner(userId, () => removeSecret(CONNECTION_SECRET));
+    if (response.status === 400 && tokenBody?.error === "invalid_grant" && generation(userId) === requestGeneration) await removePostgresSecret(CONNECTION_SECRET);
     throw new Error("ChatGPT access token refresh failed");
   }
   const expiresIn = tokenBody.expires_in as number;
@@ -348,7 +348,7 @@ async function refreshCredentials(userId: string): Promise<string> {
   assertScopes(scopes);
   if (generation(userId) !== requestGeneration) throw new Error("ChatGPT connection was disconnected while refreshing credentials");
   const next = { ...current, accessToken: tokenBody.access_token, refreshToken: tokenBody.refresh_token, expiresAt: Date.now() + expiresIn * 1000, scopes };
-  runAsOwner(userId, () => saveCredentials(next));
+  await runAsOwner(userId, () => saveCredentials(next));
   if (generation(userId) !== requestGeneration) throw new Error("ChatGPT connection was disconnected while refreshing credentials");
   return next.accessToken;
 }
@@ -368,21 +368,21 @@ export async function getChatGPTPlanContext(): Promise<{ accessToken: string; ho
   assertLocalPlanUsage();
   const userId = ownerId();
   const requestGeneration = generation(userId);
-  const value = credentials();
+  const value = await credentials();
   if (!value) throw new Error("ChatGPT account is not connected");
   assertScopes(value.scopes);
   const accessToken = await getChatGPTAccessToken();
   const stableHostId = await hostId();
   if (generation(userId) !== requestGeneration) throw new Error("ChatGPT connection was disconnected while preparing the request");
-  const current = runAsOwner(userId, credentials);
+  const current = await credentials(userId);
   if (!current) throw new Error("ChatGPT account is not connected");
   assertScopes(current.scopes);
   return { accessToken, hostId: stableHostId, scopes: current.scopes };
 }
 
 /** Opaque owner-scoped fingerprint for invalidating model capability checks after reconnect. */
-export function getChatGPTCredentialFingerprint(): string | null {
-  const value = credentials();
+export async function getChatGPTCredentialFingerprint(): Promise<string | null> {
+  const value = await credentials();
   return value ? createHash("sha256").update(`${value.clientId}\0${value.subject}\0${value.idToken}`).digest("hex") : null;
 }
 
@@ -392,10 +392,10 @@ export async function disconnectChatGPT(): Promise<{ revoked: boolean }> {
   const pendingState = pendingStateByOwner.get(userId);
   const pendingFlow = pendingState ? pendingByState.get(pendingState) : undefined;
   if (pendingFlow) finishFlow(pendingFlow.state, pendingFlow);
-  const hadStoredCredentials = Boolean(runAsOwner(userId, () => getSecretCiphertext(CONNECTION_SECRET)));
+  const hadStoredCredentials = Boolean(await getPostgresSecret(CONNECTION_SECRET, userId));
   let value: Credential | null = null;
-  try { value = runAsOwner(userId, credentials); } catch { /* Clear malformed local state as well. */ }
-  runAsOwner(userId, () => removeSecret(CONNECTION_SECRET));
+  try { value = await credentials(userId); } catch { /* Clear malformed local state as well. */ }
+  await removePostgresSecret(CONNECTION_SECRET);
   if (!value) return { revoked: !hadStoredCredentials };
   let revoked = false;
   try {

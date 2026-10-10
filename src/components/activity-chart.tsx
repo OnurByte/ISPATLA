@@ -9,7 +9,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import type { ActivityPoint } from "@/server/db";
+import type { ActivityPoint } from "@/server/db-types";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 
 export function ActivityChart({ data }: { data: ActivityPoint[] }) {

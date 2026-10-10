@@ -14,7 +14,7 @@ import { FIXTURE_NOW, FIXTURE_RELEVANCE, OPPORTUNITY_FIXTURE } from "../tests/fi
 
 const NOW = FIXTURE_NOW;
 
-/** Mirrors db.ts scoreEvidenceFor() for the `deterministic:` reasons scorePost emits. */
+/** Mirrors scoreEvidenceFor() for the `deterministic:` reasons scorePost emits. */
 function evidenceOf(reason: string, score: number): { momentum: number; risk: number } {
   const separator = reason.indexOf(":");
   const kind = separator >= 0 ? reason.slice(0, separator) : reason;
@@ -33,7 +33,7 @@ function evidenceOf(reason: string, score: number): { momentum: number; risk: nu
 const scored = OPPORTUNITY_FIXTURE.map((post) => {
   const { score, reason } = scorePost({ ...post, now: NOW });
   const { momentum, risk: reasonRisk } = evidenceOf(reason, score);
-  // db.ts opportunityScoreForPost() forces risk 100 for sensitive posts.
+  // Sensitive posts always receive risk 100.
   const risk = post.sensitive ? 100 : reasonRisk;
   const freshness = opportunityFreshness(post.createdTimestamp, NOW);
   return {
@@ -58,12 +58,12 @@ const scored = OPPORTUNITY_FIXTURE.map((post) => {
   };
 });
 
-// db.ts recentOpportunities(): threshold 70, then opportunityScore DESC, createdTimestamp DESC.
+// Opportunity ordering: threshold 70, then score DESC, createdTimestamp DESC.
 const ranked = [...scored].sort(
   (left, right) => right.opportunityScore - left.opportunityScore || right.ageSeconds - left.ageSeconds,
 );
 const pool = ranked.filter((item) => item.opportunityScore >= 70);
-// pipeline.ts: selectDiverseCandidates(candidates(24), 6).
+// Select diverse candidates from the top 24.
 const selectedIds = new Set(selectDiverseCandidates(pool.slice(0, 24), 6).map((item) => item.externalId));
 
 // version 2: the same chain over the relevance-aware score (jev_mode "on"). Every

@@ -29,7 +29,6 @@ if [[ ! -e "$env_file" ]]; then
 # Ispatla user worker. Secret değerlerini yalnız burada tut (chmod 600).
 # Değer yazılan satırın başındaki # işaretini kaldır.
 # ISPATLA_SECRET_KEY=
-# ISPATLA_DB=$repo_dir/state/ispatla.sqlite3
 # ISPATLA_WORKER_TICK_MS=15000
 # AI_COMPATIBLE_API_KEY=
 # OPENAI_API_KEY=

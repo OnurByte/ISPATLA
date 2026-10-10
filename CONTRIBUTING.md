@@ -3,13 +3,10 @@
 İSPATLA is licensed under AGPL-3.0-or-later. See LICENSE. Existing third-party
 packages retain their own licenses.
 
-Use Node.js 22.5+ and Bun. Start with `bun install --frozen-lockfile`, then
-`bun run demo`. Demo uses a disposable SQLite database, synthetic sources and
-local login `demo@example.test` / `demo-password-123456`. It needs no X or AI
-credentials. Stop it with Ctrl+C. The normal app uses the environment described
-in README; never point demo seeds at a real database.
+Use Node.js 22.5+ and Bun. Start with `bun install --frozen-lockfile`, configure
+the PostgreSQL environment described in README, then run `bun run dev`.
 
-Before submitting a change run `bun test`, `bun run lint`, `bun run typecheck`,
+Before submitting a change run `bun test --isolate`, `bun run lint`, `bun run typecheck`,
 and `bun run build`. Preserve nullable metrics, owner scopes and publication
 receipt lineage. Test provider boundaries with injected fixture clients; a
 fixture receipt is not a live publication. Do not include tokens, cookies,

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowDown, ArrowUp, BadgeCheck, RefreshCw, Save, Trash2, UserRound } from "lucide-react";
-import type { Account, CategoryDefinition } from "@/server/db";
+import type { Account, CategoryDefinition } from "@/server/db-types";
 import type { InferenceResult } from "@/server/account-inference";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";

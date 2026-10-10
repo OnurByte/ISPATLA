@@ -1,10 +1,9 @@
-import { withUser } from "@/server/request-auth";
 import { NextResponse } from "next/server";
+import { withUser } from "@/server/request-auth";
 import { createManualDraftBatch } from "@/server/manual-drafts";
 import { guardMutation, readJsonBody } from "@/server/api-guard";
 
 export const runtime = "nodejs";
-
 async function POSTHandler(request: Request) {
   const denied = guardMutation(request);
   if (denied) return denied;
@@ -24,5 +23,4 @@ async function POSTHandler(request: Request) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "manuel batch oluşturulamadı" }, { status: 400 });
   }
 }
-
 export const POST = withUser(POSTHandler);

@@ -23,7 +23,7 @@ in `src/lib/landing-measurement.ts`.
 The client entry point is `trackLandingEvent(event, page)` from that module.
 Events are `landing_view`, `demo_start`, `demo_complete`, `signup_click`,
 `github_click`, `open_source_docs`. The comparison section was removed by user request; `/open-source` is a separate manifesto page. The API stores only
-day/event/page/source-category counters in existing SQLite. It does not persist
+day/event/page/source-category counters in Supabase PostgreSQL. It does not persist
 IP, user agent, cookies, user IDs, raw referrer URLs, query strings or a visitor
 identifier. The browser reduces `document.referrer` to `direct`, `x`, `github` or
 `other` and sends only that allowlisted category; raw referrer URLs never leave

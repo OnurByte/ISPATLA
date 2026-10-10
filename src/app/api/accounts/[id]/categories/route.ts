@@ -1,7 +1,9 @@
 import { withUser } from "@/server/request-auth";
 import { NextResponse } from "next/server";
-import { acceptAccountCategoryInference, getAccountCategoryConfigs, saveAccountCategoryConfig } from "@/server/db";
 import { guardMutation, readJsonBody } from "@/server/api-guard";
+import { currentOwnerId } from "@/server/owner-context";
+import { getPostgresCategoryConfigs, savePostgresCategoryConfig } from "@/server/postgres-accounts";
+import { acceptAccountCategoryInference, normalizeCategoryInferenceSelection } from "@/server/account-inference";
 
 export const runtime = "nodejs";
 
@@ -11,7 +13,8 @@ function object(value: unknown): Record<string, unknown> {
 
 async function GETHandler(_request: Request, context: { params: Promise<{ id: string }> }) {
   const accountId = Number((await context.params).id);
-  return NextResponse.json(getAccountCategoryConfigs(accountId));
+  try { return NextResponse.json(await getPostgresCategoryConfigs(currentOwnerId()!, accountId)); }
+  catch { return NextResponse.json({ error: "account bulunamadı" }, { status: 404 }); }
 }
 
 async function PUTHandler(request: Request, context: { params: Promise<{ id: string }> }) {
@@ -21,7 +24,7 @@ async function PUTHandler(request: Request, context: { params: Promise<{ id: str
   try {
     const body = await readJsonBody(request);
     const categoryId = Number(body.categoryId);
-    return NextResponse.json(saveAccountCategoryConfig({
+    return NextResponse.json(await savePostgresCategoryConfig(currentOwnerId()!, {
       accountId,
       categoryId,
       enabled: body.enabled !== false,
@@ -44,12 +47,12 @@ async function POSTHandler(request: Request, context: { params: Promise<{ id: st
   const accountId = Number((await context.params).id);
   try {
     const body = await readJsonBody(request);
-    if (!Array.isArray(body.categoryIds) || body.categoryIds.some((value) => !Number.isSafeInteger(value) || Number(value) < 1)) {
+    if (!Number.isSafeInteger(accountId) || accountId < 1) {
       return NextResponse.json({ error: "Kategori seçimi geçersiz" }, { status: 400 });
     }
-    const weights = object(body.weights);
-    return NextResponse.json(acceptAccountCategoryInference({ accountId, categoryIds: body.categoryIds.map(Number),
-      weights: Object.fromEntries(Object.entries(weights).map(([id, weight]) => [id, Number(weight)])), now: Math.floor(Date.now() / 1000) }));
+    const selection = normalizeCategoryInferenceSelection(body.categoryIds, body.weights);
+    const accepted = await acceptAccountCategoryInference({ accountId, ...selection, now: Math.floor(Date.now() / 1000) });
+    return NextResponse.json(accepted);
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Öneriler kaydedilemedi" }, { status: 400 });
   }

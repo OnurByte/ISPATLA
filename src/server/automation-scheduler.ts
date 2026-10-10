@@ -1,16 +1,10 @@
-import {
-  getAutomationSchedules,
-  recordAutomationLog,
-  updateAutomationTaskRun,
-  type AutomationTaskId,
-  type AutomationTaskStatus,
-} from "./db";
-import { checkSourceLiveness, publishingEnabled, reconcilePending, refreshConfirmedFeedback, scanOnce } from "./pipeline";
 import { reconcileAutomationJobs, runDueAutomationJobs } from "./queue-service";
 import { reconcilePublicationIntents, runApprovedPublicationIntents } from "./publication-service";
 import { runDueMonitors } from "./monitoring";
-import { collectDueShadowOutcomes } from "./shadow-evaluation";
 import { runPendingAccountCategoryInferences } from "./account-inference";
+import { getPostgresDb } from "./postgres";
+import { automationLogs } from "./postgres-schema";
+import { getPostgresAutomationSchedules, getPostgresSetting, setPostgresSetting, type AutomationTaskId, type AutomationTaskStatus } from "./postgres-settings";
 
 function due(task: { enabled: boolean; nextRunAt: number }, now: number): boolean {
   return task.enabled && task.nextRunAt <= now;
@@ -18,7 +12,7 @@ function due(task: { enabled: boolean; nextRunAt: number }, now: number): boolea
 
 export type AutomationTaskOutcome = {
   id: string;
-  status: AutomationTaskStatus;
+  status: AutomationTaskStatus | "partial" | "skipped";
   durationMs: number;
   /** Compact per-task counters for the worker's one-line tick log. */
   counts: Record<string, number>;
@@ -54,7 +48,7 @@ function countsOf(taskId: string, details: Record<string, unknown>): Record<stri
 }
 
 export async function runScheduledAutomationTasks(now = Math.floor(Date.now() / 1000)): Promise<AutomationTickResult> {
-  const schedules = getAutomationSchedules(now);
+  const schedules = await getPostgresAutomationSchedules(now);
   const tasks: AutomationTaskOutcome[] = [];
   let failed = 0;
   let partial = 0;
@@ -62,8 +56,8 @@ export async function runScheduledAutomationTasks(now = Math.floor(Date.now() / 
     if (!due(task, now)) continue;
     const startedAt = Math.floor(Date.now() / 1000);
     const startedMs = Date.now();
-    recordAutomationLog({ taskId: task.id, status: "running", startedAt, message: `${task.id} başladı` });
-    let status: AutomationTaskStatus = "success";
+    await recordAutomationLog({ taskId: task.id, status: "running", startedAt, message: `${task.id} başladı` });
+    let status: AutomationTaskStatus | "partial" | "skipped" = "success";
     let message = `${task.id} tamamlandı`;
     let details: Record<string, unknown> = {};
     try {
@@ -72,17 +66,15 @@ export async function runScheduledAutomationTasks(now = Math.floor(Date.now() / 
         status = result.failed > 0 ? "partial" : result.skipped > 0 && result.attempted === result.skipped ? "skipped" : "success";
         details = result;
       } else if (task.id === "source_scan") {
-        const result = await scanOnce();
-        status = result.status === "ok" ? "success" : result.status === "partial" ? "partial" : "skipped";
-        message = result.errors.join(" | ") || message;
-        details = { sources: result.sourceCount, postsSeen: result.postsSeen, postsNew: result.postsNew, postsScored: result.postsScored };
+        status = "skipped";
+        message = "Kaynak taraması PostgreSQL taşıması tamamlanana kadar kapalı";
       } else if (task.id === "source_liveness") {
-        const result = await checkSourceLiveness(startedAt);
-        status = result.unreachable > 0 ? "partial" : "success";
-        details = result;
+        status = "skipped";
+        message = "Kaynak sağlık kontrolü PostgreSQL taşıması tamamlanana kadar kapalı";
       } else if (task.id === "queue_worker") {
         // publishing_paused / automation_paused stop dispatching; the pool keeps filling.
-        const publishing = publishingEnabled();
+        const publishing = await getPostgresSetting("publishing_paused", "0") !== "1"
+          && await getPostgresSetting("automation_paused", "0") !== "1";
         const result = publishing ? await runDueAutomationJobs(startedAt) : [];
         const intents = publishing ? await runApprovedPublicationIntents() : [];
         status = result.some((job) => !job.ok) || intents.some((intent) => !intent.ok) ? "partial" : "success";
@@ -93,12 +85,9 @@ export async function runScheduledAutomationTasks(now = Math.floor(Date.now() / 
         details = result;
         if (result.failed > 0) message = `${result.failed} hesap için kategori analizi tamamlanamadı`;
       } else {
-        const confirmed = await reconcilePending() + await reconcilePublicationIntents() + await reconcileAutomationJobs(20, { now: () => startedAt });
-        const errors: string[] = [];
-        await refreshConfirmedFeedback(startedAt, errors);
-        const shadowOutcomes = await collectDueShadowOutcomes(startedAt);
-        status = errors.length || shadowOutcomes.failed > 0 ? "partial" : "success";
-        details = { confirmed, errors, shadowOutcomes };
+        const confirmed = await reconcilePublicationIntents() + await reconcileAutomationJobs(20, { now: () => startedAt });
+        details = { confirmed };
+        message = `${confirmed} yayın PostgreSQL kanıtıyla uzlaştırıldı`;
       }
     } catch (error) {
       status = "failed";
@@ -107,9 +96,17 @@ export async function runScheduledAutomationTasks(now = Math.floor(Date.now() / 
     const finishedAt = Math.floor(Date.now() / 1000);
     if (status === "failed") failed += 1;
     if (status === "partial") partial += 1;
-    updateAutomationTaskRun(task.id as AutomationTaskId, status, finishedAt);
-    recordAutomationLog({ taskId: task.id, status, startedAt, finishedAt, message, details });
+    const schedules = await getPostgresAutomationSchedules(finishedAt);
+    await setPostgresSetting("automation_schedules", JSON.stringify(schedules.map((item) => item.id === task.id
+      ? { ...item, lastRunAt: finishedAt, lastStatus: status === "partial" ? "failed" : status === "skipped" ? "never" : status, nextRunAt: finishedAt + item.intervalSeconds, updatedAt: finishedAt }
+      : item)), finishedAt);
+    await recordAutomationLog({ taskId: task.id, status, startedAt, finishedAt, message, details });
     tasks.push({ id: task.id, status, durationMs: Math.max(0, Date.now() - startedMs), counts: countsOf(task.id, details) });
   }
   return { failed, partial, ran: tasks.length, tasks };
+}
+
+async function recordAutomationLog(input: { taskId: AutomationTaskId; status: string; startedAt: number; finishedAt?: number | null; message?: string; details?: Record<string, unknown> }) {
+  await getPostgresDb().insert(automationLogs).values({ taskId: input.taskId, status: input.status, startedAt: input.startedAt,
+    finishedAt: input.finishedAt ?? null, message: input.message || "", detailsJson: JSON.stringify(input.details || {}) });
 }

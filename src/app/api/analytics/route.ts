@@ -1,14 +1,22 @@
 import { withUser } from "@/server/request-auth";
+import { currentOwnerId } from "@/server/owner-context";
+import { getPostgresAnalytics, parseAnalyticsParams } from "@/server/postgres-analytics";
 import { NextResponse } from "next/server";
-import { getAiSettings, isAiEnabled } from "@/server/ai";
-import { getAnalytics } from "@/server/db";
 
 export const runtime = "nodejs";
 
-function GETHandler() {
-  const analytics = getAnalytics();
-  const settings = getAiSettings();
-  return NextResponse.json({ ...analytics, ai: { enabled: isAiEnabled(), provider: settings.provider, model: settings.model } });
+async function GETHandler(request: Request) {
+  const input = parseAnalyticsParams(new URL(request.url).searchParams);
+  if (!input) return NextResponse.json({ error: "accountId veya rangeDays geçersiz" }, { status: 400 });
+  const owner = currentOwnerId();
+  if (!owner) return NextResponse.json({ error: "Oturum gerekli" }, { status: 401 });
+  try {
+    const analytics = await getPostgresAnalytics(owner, input);
+    if (!analytics) return NextResponse.json({ error: "Hesap bulunamadı" }, { status: 404 });
+    return NextResponse.json(analytics);
+  } catch {
+    return NextResponse.json({ error: "PostgreSQL analitiği şu anda kullanılamıyor" }, { status: 503 });
+  }
 }
 
 export const GET = withUser(GETHandler);

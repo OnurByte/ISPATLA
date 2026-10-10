@@ -1,8 +1,8 @@
 import { withUser } from "@/server/request-auth";
 import { NextResponse } from "next/server";
-import { deleteAccountCategory, getCategories, getCategoriesForAccount, saveAccountCategory, saveCategory, type CategoryDefinition } from "@/server/db";
 import { guardMutation, readJsonBody } from "@/server/api-guard";
 import { currentOwnerId } from "@/server/owner-context";
+import { deletePostgresAccountCategory, getPostgresCategory, savePostgresAccountCategory, type PgCategory } from "@/server/postgres-accounts";
 
 export const runtime = "nodejs";
 
@@ -22,11 +22,11 @@ async function PATCHHandler(request: Request, context: { params: Promise<{ id: s
   try { body = await readJsonBody(request); } catch { return NextResponse.json({ error: "geçersiz JSON gövdesi" }, { status: 400 }); }
   const accountId = Number(body.accountId);
   if (!Number.isSafeInteger(accountId) || accountId < 1) return NextResponse.json({ error: "owned accountId gerekli" }, { status: 400 });
-  let current: CategoryDefinition | undefined;
-  try { current = getCategoriesForAccount(accountId).find((category) => category.id === id); } catch { return NextResponse.json({ error: "category bulunamadı" }, { status: 404 }); }
+  let current: PgCategory | null;
+  try { current = await getPostgresCategory(currentOwnerId()!, accountId, id); } catch { return NextResponse.json({ error: "category bulunamadı" }, { status: 404 }); }
   if (!current) return NextResponse.json({ error: "category bulunamadı" }, { status: 404 });
   const operator = Boolean(currentOwnerId() && currentOwnerId() === process.env.ISPATLA_OPERATOR_USER_ID);
-  if (current.builtIn && !operator) return NextResponse.json({ error: "hazır kategoriler salt okunur" }, { status: 403 });
+  if (current.builtIn) return NextResponse.json({ error: operator ? "hazır kategori düzenleme PostgreSQL sürümünde henüz kullanılamıyor" : "hazır kategoriler salt okunur" }, { status: operator ? 503 : 403 });
   try {
     const updated = {
       id,
@@ -34,9 +34,9 @@ async function PATCHHandler(request: Request, context: { params: Promise<{ id: s
       name: String(body.name ?? current.name),
       enabled: body.enabled === undefined ? current.enabled : body.enabled === true,
       builtIn: current.builtIn,
-      baseStrategy: String(body.baseStrategy ?? current.baseStrategy) as CategoryDefinition["baseStrategy"],
-      clusterStrategy: String(body.clusterStrategy ?? current.clusterStrategy) as CategoryDefinition["clusterStrategy"],
-      verificationMode: String(body.verificationMode ?? current.verificationMode) as CategoryDefinition["verificationMode"],
+      baseStrategy: String(body.baseStrategy ?? current.baseStrategy) as PgCategory["baseStrategy"],
+      clusterStrategy: String(body.clusterStrategy ?? current.clusterStrategy) as PgCategory["clusterStrategy"],
+      verificationMode: String(body.verificationMode ?? current.verificationMode) as PgCategory["verificationMode"],
       description: String(body.description ?? current.description),
       positiveExamples: strings(body.positiveExamples, current.positiveExamples),
       negativeExamples: strings(body.negativeExamples, current.negativeExamples),
@@ -52,8 +52,8 @@ async function PATCHHandler(request: Request, context: { params: Promise<{ id: s
       ownerUserId: current.ownerUserId,
       accountId: current.accountId,
       now: Math.floor(Date.now() / 1000),
-    } as Omit<CategoryDefinition, "createdAt" | "updatedAt"> & { now: number };
-    return NextResponse.json(current.builtIn ? saveCategory(updated) : saveAccountCategory({ ...updated, accountId }));
+    } as Omit<PgCategory, "createdAt" | "updatedAt" | "ownerUserId" | "accountId"> & { id: number; now: number };
+    return NextResponse.json(await savePostgresAccountCategory(currentOwnerId()!, accountId, updated));
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "category güncellenemedi" }, { status: 400 });
   }
@@ -63,11 +63,8 @@ async function DELETEHandler(request: Request, context: { params: Promise<{ id: 
   const denied = guardMutation(request);
   if (denied) return denied;
   const id = Number((await context.params).id);
-  const current = getCategories().find((category) => category.id === id);
-  if (!current) return NextResponse.json({ error: "category bulunamadı" }, { status: 404 });
-  if (current.builtIn) return NextResponse.json({ error: "hazır kategoriler silinemez" }, { status: 403 });
   try {
-    if (!deleteAccountCategory(id)) return NextResponse.json({ error: "category bulunamadı" }, { status: 404 });
+    if (!await deletePostgresAccountCategory(currentOwnerId()!, id)) return NextResponse.json({ error: "category bulunamadı" }, { status: 404 });
     return NextResponse.json({ ok: true });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "category silinemedi" }, { status: 400 });

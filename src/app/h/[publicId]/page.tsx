@@ -16,7 +16,7 @@ function displayTime(value: number): string {
 
 export async function generateMetadata({ params }: { params: Promise<{ publicId: string }> }): Promise<Metadata> {
   const { publicId } = await params;
-  const share = readPublicXPostShare(publicId);
+  const share = await readPublicXPostShare(publicId);
   if (!share) return { title: "Paylaşım bulunamadı · İSPATLA", robots: { index: false, follow: false } };
   const title = `@${share.accountHandle} · resmi 𝕏 gözlemi`;
   const description = share.text.slice(0, 180);
@@ -30,7 +30,7 @@ export async function generateMetadata({ params }: { params: Promise<{ publicId:
 
 export default async function SharedObservedPostPage({ params }: { params: Promise<{ publicId: string }> }) {
   const { publicId } = await params;
-  const share = readPublicXPostShare(publicId);
+  const share = await readPublicXPostShare(publicId);
   if (!share) notFound();
 
   const locale = await requestPublicLocale();
