@@ -2,6 +2,8 @@ import { ImageResponse } from "next/og";
 import { readPublicXPostShare } from "@/server/hit-sharing";
 import { ogFontsForText } from "@/server/og-fonts";
 import { compactOfficialMetric } from "@/lib/social-sharing";
+import { requestPublicLocale } from "@/components/public-header";
+import { socialCopy } from "@/i18n/social-copy";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -15,19 +17,21 @@ export default async function OpenGraphImage({ params }: { params: Promise<{ pub
   const share = await readPublicXPostShare(publicId);
   if (!share) return new Response("Not found", { status: 404, headers: { "Cache-Control": "no-store" } });
 
+  const locale = await requestPublicLocale();
+  const words = socialCopy[locale];
   const text = share.text.slice(0, 200);
-  const fonts = await ogFontsForText(text + " " + share.accountHandle + " Resmî X gözlemi");
+  const fonts = await ogFontsForText(text + " " + share.accountHandle + " " + words.observation);
   const metrics = [
-    ["Görüntülenme", share.metrics.views],
-    ["Beğeni", share.metrics.likes],
-    ["Yanıt", share.metrics.replies],
-    ["Repost", share.metrics.reposts],
+    [words.views, share.metrics.views],
+    [words.likes, share.metrics.likes],
+    [words.replies, share.metrics.replies],
+    [words.reposts, share.metrics.reposts],
   ] as const;
 
   return new ImageResponse(
     <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", justifyContent: "space-between", padding: "40px 58px", borderTop: "18px solid #315BF5", background: "#F0EDE5", color: "#16191E", fontFamily: fonts.map(f => f.name).join(", ") }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 23, letterSpacing: 2 }}>
-        <span>ISPATLA</span><span style={{ color: "#315BF5" }}>RESMÎ X API GÖZLEMİ</span>
+        <span>ISPATLA</span><span style={{ color: "#315BF5" }}>{words.observation}</span>
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 19, padding: "25px 30px", border: "1px solid #D4D2CA", borderRadius: 18, background: "#FFFFFF" }}>
         <div style={{ fontSize: 27, color: "#315BF5" }}>@{share.accountHandle}</div>
@@ -42,7 +46,7 @@ export default async function OpenGraphImage({ params }: { params: Promise<{ pub
         </div>
       </div>
       <div style={{ display: "flex", justifyContent: "space-between", fontSize: 18, color: "#52605D" }}>
-        <span>Yalnızca resmî gözlem · Hit sınıflandırması değildir</span>
+        <span>{words.disclaimer.slice(0, 105)}</span>
         <span>{new Date(share.observedAt * 1000).toISOString().slice(0, 10)} UTC</span>
       </div>
     </div>,
