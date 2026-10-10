@@ -97,18 +97,39 @@ test("proxy canonicalizes the default locale, remembers language choice, protect
   const localized = proxy(new Request("http://localhost:3000/ar/privacy?from=mail"));
   expect(localized.headers.get("x-middleware-rewrite")).toBe("http://localhost:3000/privacy?from=mail");
   expect(localized.headers.get("x-middleware-request-x-ispatla-locale")).toBe("ar");
+  expect(localized.headers.get("set-cookie")).toContain("ispatla-locale=ar");
 
   const protectedPage = proxy(new Request("http://localhost:3000/en/settings/profile"));
   expect(protectedPage.status).toBe(307);
-  expect(protectedPage.headers.get("location")).toBe("http://localhost:3000/en/login");
+  expect(protectedPage.headers.get("location")).toBe("http://localhost:3000/en/login?next=%2Fsettings%2Fprofile");
+
+  const protectedDashboard = proxy(new Request("http://localhost:3000/dashboard?tab=recent"));
+  expect(protectedDashboard.headers.get("location")).toBe("http://localhost:3000/login?next=%2Fdashboard%3Ftab%3Drecent");
+  const validSessionRoute = proxy(new Request("http://localhost:3000/dashboard", { headers: { cookie: "better-auth.session_token=present" } }));
+  expect(validSessionRoute.status).toBe(200);
+  expect(validSessionRoute.headers.get("location")).toBeNull();
+  expect(validSessionRoute.headers.get("x-middleware-rewrite")).toBeNull();
+  const localizedDashboard = proxy(new Request("http://localhost:3000/en/dashboard", { headers: { cookie: "better-auth.session_token=present" } }));
+  expect(localizedDashboard.headers.get("x-middleware-rewrite")).toBe("http://localhost:3000/dashboard");
+  const unsupportedLegacyDashboard = proxy(new Request("http://localhost:3000/app/dashboard"));
+  expect(unsupportedLegacyDashboard.status).toBe(200);
+  expect(unsupportedLegacyDashboard.headers.get("location")).toBeNull();
+  const publicDynamicPages = ["/username", "/h/012345678901234567890123", "/u/012345678901234567890123"];
+  for (const path of publicDynamicPages) expect(proxy(new Request(`http://localhost:3000${path}`)).status, path).toBe(200);
 
   const callback = proxy(new Request("http://localhost:3000/api/auth/callback/x"));
   expect(callback.headers.get("x-middleware-rewrite")).toBeNull();
   expect(callback.headers.get("location")).toBeNull();
 
   const unknownNestedRoute = proxy(new Request("http://localhost:3000/fr/this-route/does-not-exist"));
-  expect(unknownNestedRoute.status).toBe(307);
-  expect(unknownNestedRoute.headers.get("location")).toBe("http://localhost:3000/fr/");
+  expect(unknownNestedRoute.status).toBe(200);
+  expect(unknownNestedRoute.headers.get("location")).toBeNull();
+  expect(unknownNestedRoute.headers.get("x-middleware-rewrite")).toBe("http://localhost:3000/this-route/does-not-exist");
+  for (const path of ["/dashboard/unknown", "/settings/unknown"]) {
+    const unknownPrivateChild = proxy(new Request(`http://localhost:3000${path}`));
+    expect(unknownPrivateChild.status, path).toBe(200);
+    expect(unknownPrivateChild.headers.get("location"), path).toBeNull();
+  }
 
   const selectedLanguage = proxy(new Request("http://localhost:3000/privacy", { headers: { "accept-language": "ja-JP,en;q=0.8", cookie: "ispatla-locale=fr" } }));
   expect(selectedLanguage.headers.get("x-middleware-request-x-ispatla-locale")).toBe("fr");
@@ -133,6 +154,7 @@ test("public product-tour navigation shares the brand and preserves every locale
     expect(markup).not.toContain('data-slot="select-trigger"');
     const authenticatedMarkup = renderToStaticMarkup(createElement(PublicHeaderContent, { locale, authenticated: true }));
     expect(authenticatedMarkup).toContain(dictionaries[locale].nav.dashboard);
+    expect(authenticatedMarkup).toContain(`href="${localizePath(locale, "/dashboard")}"`);
     expect(authenticatedMarkup).not.toContain(dictionaries[locale].nav.signOut);
     expect(authenticatedMarkup).not.toContain(`href="${localizePath(locale, "/signup")}"`);
   }
