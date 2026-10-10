@@ -70,7 +70,7 @@ export function EmailSecuritySettings({ email, emailVerified, xLoginEnabled = fa
       <h2 id="x-identity-title" className="font-semibold">Giriş yöntemleri</h2>
       <p className="mt-1 text-sm text-muted-foreground">𝕏 kimliğini hesabına bağla. Bu, yayın izni veya 𝕏 hesabı analizi bağlantısı oluşturmaz.</p>
     </div>
-    {xLoginError && <p className="text-sm text-destructive" role="alert">𝕏 kimliği bağlanamadı. Doğrulanmış e-posta paylaşımı gerekli olabilir.</p>}
+    {xLoginError && <p className="text-sm text-destructive" role="alert">𝕏 kimliği bağlanamadı. Yeniden dene veya uygulama bağlantı izinlerini kontrol et.</p>}
     {xError && <p className="text-sm text-destructive" role="alert">{xError}</p>}
     <Button type="button" variant="outline" onClick={() => void linkXIdentity()} disabled={xPending}>
       {xPending ? "𝕏’e yönlendiriliyor…" : "𝕏 ile giriş kimliği bağla"}
