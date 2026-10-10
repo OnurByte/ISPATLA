@@ -1,5 +1,5 @@
 export const LOCALES = ["en", "zh-CN", "hi", "es", "fr", "ar", "bn", "pt-BR", "ru", "id", "ur", "de", "ja", "sw", "mr", "te", "tr", "ta", "vi", "ko"] as const;
-export const DEFAULT_LOCALE = "tr" as const;
+export const DEFAULT_LOCALE = "en" as const;
 export type Locale = (typeof LOCALES)[number];
 
 export const LOCALE_CONFIG: Record<Locale, { label: string; nativeName: string; flag: string; dir: "ltr" | "rtl" }> = {
@@ -61,8 +61,8 @@ export function stripLocalePrefix(pathname: string): string {
   return stripped ? `/${stripped}` : "/";
 }
 
-export function localizePath(locale: Locale, pathname: string): string {
-  const path = stripLocalePrefix(pathname);
-  if (locale === DEFAULT_LOCALE) return path;
-  return `/${locale}${path === "/" ? "" : path}`;
+export function localizePath(_locale: Locale, pathname: string): string {
+  const suffixIndex = pathname.search(/[?#]/);
+  const path = suffixIndex < 0 ? pathname : pathname.slice(0, suffixIndex);
+  return `${stripLocalePrefix(path)}${suffixIndex < 0 ? "" : pathname.slice(suffixIndex)}`;
 }

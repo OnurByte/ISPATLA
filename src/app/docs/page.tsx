@@ -4,6 +4,7 @@ import { requestPublicLocale } from "@/components/public-header";
 import { LOCALE_CONFIG, localizePath } from "@/i18n/config";
 import { docsCopy } from "@/i18n/docs-copy";
 import { publicMetadata } from "@/i18n/public-metadata";
+import { VPrism } from "@/components/block/v-prism";
 
 export async function generateMetadata() {
   const locale = await requestPublicLocale();
@@ -31,5 +32,8 @@ export default async function DocsPage() {
       <Link className="inline-flex min-h-11 items-center underline" href={`${localizePath(locale, "/")}#signal-detector`}>{copy.explore}</Link>
       <Link className="block min-h-11 py-3 underline" href={localizePath(locale, "/open-source")}>{copy.openSource}</Link>
     </aside>
+    <section aria-label={copy.openSource} className="relative col-span-full h-64 overflow-hidden rounded-lg border bg-black sm:h-80">
+      <VPrism className="absolute inset-0" />
+    </section>
   </PublicPage>;
 }

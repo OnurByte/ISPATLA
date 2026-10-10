@@ -11,12 +11,17 @@ export async function generateMetadata({ params }: { params: Promise<{ handle: s
   const { handle } = await params;
   const profile = await findPublicProfileByPath(handle);
   if (!profile) return { robots: { index: false, follow: false } };
-  const title = `${profile.displayName || "Profil"}${profile.xHandle ? ` (@${profile.xHandle})` : ""} · ispatla.tr`;
+  const title = `${profile.displayName || "Profile"}${profile.xHandle ? ` (@${profile.xHandle})` : ""} · ispatla.tr`;
+  const description = profile.bio || title;
+  const url = `${PUBLIC_ORIGIN}${profile.profilePath}`;
+  const images = profile.avatarUrl ? [{ url: `${PUBLIC_ORIGIN}${profile.avatarUrl}`, width: 400, height: 400, alt: title }] : [];
   return {
     title,
-    description: profile.bio || title,
-    alternates: { canonical: `${PUBLIC_ORIGIN}${profile.profilePath}` },
+    description,
+    alternates: { canonical: url },
     robots: { index: true, follow: true },
+    openGraph: { title, description, url, type: "profile", siteName: "İSPATLA", images },
+    twitter: { card: "summary", title, description, images: images.map((image) => image.url) },
   };
 }
 

@@ -1,6 +1,24 @@
-import {PublicPage,PublicSection} from "@/components/public-page";
-export const metadata={title:"Güvenlik · İSPATLA"};
-export default function SecurityPage(){return <PublicPage title="Yetki ayrı. Kanıt ayrı." summary="Oturum, 𝕏 bağlantısı, yayın izni ve uzaktaki yayın sonucu birbirinden bağımsız kontrol edilir.">
- <div className="space-y-10"><PublicSection title="Hesap sınırı"><p>Özel taslaklar, işler, kullanım ve 𝕏 bağlantısı oturum sahibine bağlıdır. Bir hesabın kimliğini elle yazmak, o hesap adına yayın yetkisi vermez.</p><p>𝕏 tokenları şifreli saklanır ve arayüze verilmez. Bağlantıyı kaldırmak yerel token kullanımını ve yenilemeyi durdurur; 𝕏 tarafındaki iptalin sonucu ayrıca gösterilir.</p></PublicSection><PublicSection title="Gönderim sınırı"><p>Güncel izin, hesap/konu/eylem durdurma ayarları ve yayın geçmişi gönderimden hemen önce tekrar kontrol edilir. Aynı gönderim için kalıcı bir gönderim işareti tutulur. Belirsiz bir uzak sonuç otomatik tekrar gönderilmez.</p><p>Otomatik beğeni ve DM yoktur. Yanıt için hedef yazarın bağlı hesabı çağırdığına dair resmi kanıt gerekir. Bilinmeyen yayın yetkisi kapalı kalır.</p></PublicSection><PublicSection title="Güvenlik bildirimi"><p>Bir açıklık bulursan önce proje bakımcısından özel bir bildirim kanalı iste. Token, oturum cookie’si, özel taslak veya çalışır saldırı ayrıntılarını herkese açık issue’ya ekleme.</p><p>Etkilenen sürümü, beklenen yetki sınırını ve kişisel veri içermeyen yerel yeniden üretim adımlarını paylaş. Yerel fixture sonucu ile gerçek uzaktaki sonucu açıkça ayır. Depodaki SECURITY dosyası bildirim sürecini açıklar.</p></PublicSection></div>
- <aside className="h-fit border-s-2 border-primary ps-5 text-sm leading-7 text-muted-foreground"><p className="font-semibold text-foreground">İnceleme durumu</p><p className="mt-3">Bu sürüm geliştirme aşamasındadır. Yerel test ve build kanıtı; canlı 𝕏, e-posta teslimi ve üretim dağıtımının doğrulaması ayrı tutulur.</p></aside>
- </PublicPage>;}
+import { PublicPage, PublicSection } from "@/components/public-page";
+
+const title = "Security · ISPATLA";
+const description = "ISPATLA’s boundaries for sessions, X connections, publishing permissions, token security, and vulnerability reports.";
+
+export const metadata = {
+  title,
+  description,
+  alternates: { canonical: "https://ispatla.tr/security" },
+  robots: { index: true, follow: true },
+  openGraph: { title, description, url: "https://ispatla.tr/security", locale: "en_US", type: "website" },
+  twitter: { card: "summary", title, description },
+};
+
+export default function SecurityPage() {
+  return <PublicPage title="Authorization is separate from evidence." summary="Sessions, X connections, publishing permission, and remote publishing results are checked independently.">
+    <div className="space-y-10" lang="en">
+      <PublicSection title="Account boundary"><p>Private drafts, jobs, usage, and X connections belong to the signed-in account. Typing an account’s identity manually does not grant permission to publish for it.</p><p>X tokens are stored encrypted and are not returned to the interface. Removing a connection stops local token use and refresh; the result of revocation on X is shown separately.</p></PublicSection>
+      <PublicSection title="Submission boundary"><p>Current permission, account/topic/action stop settings, and publishing history are checked again immediately before submission. A persistent submission marker is kept for each post. An uncertain remote result is not automatically submitted again.</p><p>There is no automatic liking or direct messaging. A reply requires official evidence that the target author invoked the connected account. Unknown publishing permission remains disabled.</p></PublicSection>
+      <PublicSection title="Report a vulnerability"><p>If you find a vulnerability, first ask the project maintainer for a private reporting channel. Do not include tokens, session cookies, private drafts, or working exploit details in a public issue.</p><p>Share the affected version, expected authorization boundary, and local reproduction steps without personal data. Clearly distinguish a local fixture result from a real remote result. The SECURITY file in the repository describes the reporting process.</p></PublicSection>
+    </div>
+    <aside lang="en" className="h-fit border-s-2 border-primary ps-5 text-sm leading-7 text-muted-foreground"><p className="font-semibold text-foreground">Review status</p><p className="mt-3">This version is in development. Local test and build evidence is separate from verification of live X, email delivery, and production deployment.</p></aside>
+  </PublicPage>;
+}

@@ -1,8 +1,7 @@
-import Link from "next/link";
 import type { ReactNode } from "react";
 import { PublicPage, PublicSection } from "@/components/public-page";
 import type { EvidenceState } from "@/content/comparisons/evidence";
-import { localizePath, type Locale } from "@/i18n/config";
+import type { Locale } from "@/i18n/config";
 import { publicEvidenceCopy } from "@/i18n/public-evidence-copy";
 
 const states: Record<Locale, Record<EvidenceState, string>> = {
@@ -12,9 +11,8 @@ const states: Record<Locale, Record<EvidenceState, string>> = {
 
 export type EvidenceSection = { title: string; body: ReactNode };
 
-export function PublicEvidencePage({ locale, path, title, summary, sections, aside }: { locale: Locale; path: string; title: string; summary: string; sections: EvidenceSection[]; aside?: ReactNode }) {
+export function PublicEvidencePage({ locale, title, summary, sections, aside }: { locale: Locale; title: string; summary: string; sections: EvidenceSection[]; aside?: ReactNode }) {
   const copy = publicEvidenceCopy[locale].common;
-  const languageTarget: Locale = locale === "en" ? "tr" : "en";
   return <PublicPage title={title} summary={summary}>
     <div className="space-y-10">
       {sections.map((section) => <PublicSection key={section.title} title={section.title}>{section.body}</PublicSection>)}
@@ -22,7 +20,6 @@ export function PublicEvidencePage({ locale, path, title, summary, sections, asi
     </div>
     <aside className="h-fit space-y-5 rounded-sm border border-foreground/20 bg-muted/20 p-5 text-sm leading-6">
       {aside ?? <><h2 className="font-semibold">{copy.method}</h2><p className="text-muted-foreground">{copy.methodText}</p></>}
-      <p><Link className="underline underline-offset-4" href={localizePath(languageTarget, path)}>{copy.languageLink}</Link></p>
     </aside>
   </PublicPage>;
 }

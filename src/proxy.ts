@@ -10,21 +10,16 @@ const PRIVATE_PAGES = new Set(["/accounts", "/analytics", "/categories", "/dashb
  */
 export function proxy(request: Request): NextResponse {
   const url = new URL(request.url);
+  if (url.pathname === "/api" || url.pathname.startsWith("/api/") || url.pathname.startsWith("/_next/") || /\.[^/]+$/.test(url.pathname)) return NextResponse.next();
   const firstSegment = url.pathname.split("/")[1] || "";
   const localeCookie = request.headers.get("cookie")?.split(";").map((item) => item.trim()).find((item) => item.startsWith("ispatla-locale="))?.slice("ispatla-locale=".length);
   const cookieLocale = localeCookie || "";
-  const locale = isLocale(firstSegment) ? firstSegment
-    : isLocale(cookieLocale) ? cookieLocale
-      : localeFromAcceptLanguage(request.headers.get("accept-language")) || DEFAULT_LOCALE;
   const hasLocalePrefix = isLocale(firstSegment);
-  const appPath = hasLocalePrefix ? url.pathname.slice(locale.length + 1) || "/" : url.pathname;
-  if (url.pathname === "/api" || url.pathname.startsWith("/api/")) return NextResponse.next();
-
-  if (firstSegment === DEFAULT_LOCALE) {
-    const canonicalUrl = new URL(url);
-    canonicalUrl.pathname = appPath;
-    const response = NextResponse.redirect(canonicalUrl);
-    response.cookies.set("ispatla-locale", DEFAULT_LOCALE, {
+  const appPath = hasLocalePrefix ? url.pathname.slice(firstSegment.length + 1) || "/" : url.pathname;
+  if (hasLocalePrefix) {
+    url.pathname = appPath;
+    const response = NextResponse.redirect(url, 308);
+    response.cookies.set("ispatla-locale", firstSegment, {
       path: "/",
       maxAge: 60 * 60 * 24 * 365,
       sameSite: "lax",
@@ -33,29 +28,20 @@ export function proxy(request: Request): NextResponse {
     return response;
   }
 
+  const locale = PRIVATE_PAGES.has(appPath) && isLocale(cookieLocale) ? cookieLocale
+    : localeFromAcceptLanguage(request.headers.get("accept-language")) || DEFAULT_LOCALE;
   if (PRIVATE_PAGES.has(appPath) && !getSessionCookie(request)) {
-    const loginUrl = new URL(`${hasLocalePrefix ? `/${locale}` : ""}/login`, url);
+    const loginUrl = new URL("/login", url);
     loginUrl.searchParams.set("next", `${appPath}${url.search}`);
     return NextResponse.redirect(loginUrl);
   }
 
-  // OAuth/API callback URLs remain flat. Localized page URLs are rewritten internally,
-  // while the selected locale is passed to server components through a trusted header.
+  // The saved locale applies to clean URLs and is passed to server components through a trusted header.
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set("x-ispatla-locale", locale);
   requestHeaders.set("x-ispatla-route", appPath);
   requestHeaders.set("x-ispatla-search", url.search);
-  if (!hasLocalePrefix) return NextResponse.next({ request: { headers: requestHeaders } });
-
-  url.pathname = appPath;
-  const response = NextResponse.rewrite(url, { request: { headers: requestHeaders } });
-  response.cookies.set("ispatla-locale", locale, {
-    path: "/",
-    maxAge: 60 * 60 * 24 * 365,
-    sameSite: "lax",
-    secure: url.protocol === "https:",
-  });
-  return response;
+  return NextResponse.next({ request: { headers: requestHeaders } });
 }
 
 export const config = {

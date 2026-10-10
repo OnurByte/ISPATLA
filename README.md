@@ -54,13 +54,17 @@ Supabase PostgreSQL bağlantısı uygulamada Supabase'in veritabanı kök sertif
 
 ## Resmi X bağlantısı
 
-X Developer Console'da callback adresini tam eşleşmeyle kaydedin:
+X Developer Console'da her iki callback adresini de tam eşleşmeyle kaydedin:
 
 ```text
 X_OAUTH_CLIENT_ID=<uygulama client ID>
 X_OAUTH_CLIENT_SECRET=<sunucu client secret>
 X_OAUTH_REDIRECT_URI=http://localhost:3000/api/x/oauth/callback
 ```
+
+“𝕏 ile giriş yap” Better Auth callback'ini kullanır; X uygulamasının callback/redirect URI listesine ayrıca `http://localhost:3000/api/auth/callback/twitter` (üretimde `https://ispatla.tr/api/auth/callback/twitter`) ekleyin. `X_OAUTH_REDIRECT_URI` yalnız `/accounts` içindeki hesap bağlama akışında kullanılır.
+
+Bu uygulama sunucu tarafında `X_OAUTH_CLIENT_SECRET` ile token alır; Developer Console'da OAuth 2.0 etkin ve App type **Web App / confidential client** olmalıdır. X'in OAuth 2.0 PKCE ayarlarında üretim callback'ini tam eşleşmeyle kaydedin. `Single Page App` ve `Native App` client secret kullanamayan public client türleridir.
 
 Üretimde uygulama origin'i ve callback HTTPS olmalıdır. `/app/accounts` içindeki
 “X hesabı bağla” akışı gerçek kullanıcı kimliğini `/2/users/me` üzerinden çözer;

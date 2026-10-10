@@ -49,6 +49,7 @@ function twitterSignInProvider(env: Record<string, string | undefined>): BetterA
   return { twitter: {
     clientId,
     clientSecret,
+    redirectURI: `${env.BETTER_AUTH_URL || (env.NODE_ENV === "production" ? "" : "http://localhost:3000")}/api/auth/callback/twitter`,
     disableDefaultScope: true,
     scope: [...X_PUBLISHING_SCOPES],
     getUserInfo: async (tokens) => {

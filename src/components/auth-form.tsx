@@ -22,7 +22,13 @@ function responseError(data: unknown): string {
   return "İşlem tamamlanamadı. Bilgilerini kontrol edip yeniden dene."
 }
 
-export function AuthForm({ mode, token, locale = DEFAULT_LOCALE, next = "/dashboard", xLoginEnabled = false, xLoginError = false }: { mode: AuthFormMode; token?: string; locale?: Locale; next?: string; xLoginEnabled?: boolean; xLoginError?: boolean }) {
+function xLoginErrorMessage(error: boolean | string): string {
+  if (error === "email_not_found") return "𝕏 doğrulanmış e-posta paylaşmadı. E-posta ile devam et veya 𝕏 uygulamasında e-posta iznini kontrol et."
+  if (error === "unable_to_get_user_info") return "𝕏 profil bilgisi veya gerekli bağlantı izinleri alınamadı. İzinleri kontrol edip yeniden dene ya da e-posta ile devam et."
+  return "𝕏 girişi tamamlanamadı. Yeniden dene veya e-posta ile devam et."
+}
+
+export function AuthForm({ mode, token, locale = DEFAULT_LOCALE, next = "/dashboard", xLoginEnabled = false, xLoginError = false }: { mode: AuthFormMode; token?: string; locale?: Locale; next?: string; xLoginEnabled?: boolean; xLoginError?: boolean | string }) {
   const path = (href: string) => localizePath(locale, href)
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
@@ -109,7 +115,7 @@ export function AuthForm({ mode, token, locale = DEFAULT_LOCALE, next = "/dashbo
             𝕏 ile giriş yap
           </Button>
           {!xLoginEnabled && <p id="x-login-unavailable" className="text-xs text-muted-foreground">Bu kurulumda 𝕏 girişi henüz etkin değil.</p>}
-          {xLoginError && <p className="text-sm text-destructive" role="alert">𝕏 girişinde doğrulanmış e-posta alınamadı veya bağlantı tamamlanmadı. E-posta ile devam et ya da 𝕏 hesabında e-posta iznini kontrol et.</p>}
+          {xLoginError && <p className="text-sm text-destructive" role="alert">{xLoginErrorMessage(xLoginError)}</p>}
         </div>}
         <form className="mt-6 space-y-4" onSubmit={submit}>
           {fields && <div className="space-y-2">

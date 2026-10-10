@@ -28,9 +28,10 @@ describe("onboarding access and progress", () => {
     }
   });
 
-  test("sends incomplete profiles away from core workspace routes in their locale", () => {
+  test("sends incomplete profiles to clean onboarding URLs for every locale", () => {
     expect(getOnboardingRedirect(false, "/dashboard", "tr")).toBe("/onboarding");
-    expect(getOnboardingRedirect(false, "/drafts", "en")).toBe("/en/onboarding");
+    expect(getOnboardingRedirect(false, "/drafts", "en")).toBe("/onboarding");
+    for (const locale of LOCALES) expect(getOnboardingRedirect(false, "/drafts", locale)).toBe("/onboarding");
     expect(getOnboardingRedirect(true, "/drafts", "tr")).toBeNull();
   });
 

@@ -1,8 +1,29 @@
-import {PublicPage,PublicSection} from "@/components/public-page";
-import {requestPublicLocale} from "@/components/public-header";
-import {measurementPrivacy} from "@/i18n/measurement-privacy";
-export const metadata={title:"Gizlilik · İSPATLA"};
-export default async function PrivacyPage(){const locale=await requestPublicLocale();const measurement=measurementPrivacy[locale];return <PublicPage title="Verinin yolu görünür olsun." summary="Bu sayfa mevcut sürümün veri akışını açıklar. Kullandığın kurulumun işletmecisi, barındırma ve saklama koşullarını ayrıca belirtmelidir.">
- <div className="space-y-10"><section lang={locale}><PublicSection title={measurement[0]}><p>{measurement[1]}</p></PublicSection></section><PublicSection title="Oturum ve özel çalışma alanı"><p>Uygulama e-posta, parola doğrulama bilgisi ve oturum kayıtlarını tutar. Özel çalışma alanında hesap ayarları, taslaklar, revizyonlar, yayın işleri, makbuzlar ve değerlendirme kayıtları bulunur. Bunlar oturum sahibinin kapsamındadır.</p><p>Oturum cookie’si girişin sürekliliği için kullanılır. Çıkış yapmak oturumu iptal eder. E-posta doğrulama ve parola sıfırlama mesajları, kurulumda seçilen e-posta sağlayıcısına teslim edilir.</p></PublicSection><PublicSection title="𝕏 ve kaynak verileri"><p>Kaynak radarında seçili herkese açık 𝕏 postları, bağlantıları ve mevcut ölçümleri saklanır. Bu kaynak gözlemleri ortak araştırma verisidir. Kaynak posttaki eksik bir ölçüm, uydurulmuş bir değerle doldurulmaz.</p><p>𝕏 hesabını bağladığında resmi kullanıcı kimliği, izin kapsamları ve şifreli tokenlar kaydedilir. Tokenlar istemciye gösterilmez. İzinler ve bağlantı kaldırma işlemi hesap ayarlarından yönetilir.</p></PublicSection><PublicSection title="Paylaşım profili"><p>Bağlı 𝕏 hesabından görünen ad, bio, kullanıcı adı ve profil fotoğrafı alınır. Görünürlük, hesabın 𝕏 üzerindeki gizli veya herkese açık durumuyla eşitlenir; bu bilgiler Ispatla’dan düzenlenemez. Fotoğraf bu kurulumun altyapısında saklanır. Profil tamamlandıktan sonra 𝕏 profilin gizliyse Ispatla sayfan da gizli kalır. Profilini paylaşmak özel taslaklarını veya paylaşılmamış gönderilerini yayımlamaz.</p></PublicSection><PublicSection title="Harici hizmetler"><p>Kaynak okumaları yapılandırılmış 𝕏 okuyucusuna; bağlantı, yayın ve doğrulama istekleri resmi 𝕏 API’sine gider. AI taslak üretimi kullanıldığında seçilen sağlayıcıya kaynak bağlamı, hesap stili ve görev verisi gönderilebilir. Sağlayıcı seçimi ve anahtar kullanımı hesap/kurulum ayarlarına bağlıdır.</p><p>Yerel demo sentetik veri kullanır ve resmi 𝕏 isteklerini kapatır. Demo veritabanı oturum sona erdiğinde kaldırılır.</p></PublicSection><PublicSection title="Saklama ve talepler"><p>Kurulumun veritabanı ve yedekleri işletmecinin kontrolündedir. Bu sürüm tüm hesap verileri için bir self-servis dışa aktarma veya silme ekranı sunmaz. Saklama, erişim ve hesap verilerine ilişkin talepler için kendi kurulumunun işletmecisine başvur.</p><p>Tokenları, oturum bilgilerini veya özel taslakları herkese açık destek kanallarında paylaşma.</p></PublicSection></div>
- <aside className="h-fit rounded-lg border p-5 text-sm leading-7 text-muted-foreground"><p className="font-semibold text-foreground">Bağlantı ve yayın izni</p><p className="mt-3">𝕏 OAuth izni ile otomasyon tercihi ayrı kayıtlardır. Her eylemin iznini inceleyebilir ve kapatabilirsin.</p></aside>
- </PublicPage>;}
+import { PublicPage, PublicSection } from "@/components/public-page";
+import { measurementPrivacy } from "@/i18n/measurement-privacy";
+
+const title = "Privacy · ISPATLA";
+const description = "How ISPATLA handles data flows, sessions, X connections, profile visibility, and data retention.";
+
+export const metadata = {
+  title,
+  description,
+  alternates: { canonical: "https://ispatla.tr/privacy" },
+  robots: { index: true, follow: true },
+  openGraph: { title, description, url: "https://ispatla.tr/privacy", locale: "en_US", type: "website" },
+  twitter: { card: "summary", title, description },
+};
+
+export default async function PrivacyPage() {
+  const measurement = measurementPrivacy.en;
+  return <PublicPage title="See where your data goes." summary="This page describes the current version’s data flows. The operator of your installation should separately explain its hosting and retention conditions.">
+    <div className="space-y-10" lang="en">
+      <PublicSection title={measurement[0]}><p>{measurement[1]}</p></PublicSection>
+      <PublicSection title="Sessions and private workspace"><p>The application stores email, password-verification information, and session records. The private workspace contains account settings, drafts, revisions, publishing jobs, receipts, and evaluation records. These belong to the signed-in account.</p><p>The session cookie keeps you signed in. Signing out revokes the session. Email verification and password-reset messages are delivered through the email provider selected for the installation.</p></PublicSection>
+      <PublicSection title="X and source data"><p>The source radar stores selected public X posts, their links, and the metrics currently available. These source observations are shared research data. A metric missing from a source post is never filled with an invented value.</p><p>When you connect an X account, its official user ID, permission scopes, and encrypted tokens are stored. Tokens are not shown to clients. You can manage permissions and remove the connection in account settings.</p></PublicSection>
+      <PublicSection title="Shared profile"><p>The connected X account supplies your display name, bio, username, and profile photo. Visibility follows whether the X account is private or public, and you cannot edit these details in ISPATLA. The profile photo is stored by this installation. After your profile is complete, if your X profile is private, your ISPATLA page also stays private. Sharing your profile does not publish private drafts or unpublished posts.</p></PublicSection>
+      <PublicSection title="External services"><p>Source reads go through the configured X reader; connection, publishing, and verification requests go to the official X API. When AI draft generation is used, source context, account style, and task data may be sent to the selected provider. Provider selection and key use depend on account and installation settings.</p><p>The local demo uses synthetic data and disables official X requests. Its demo database is removed when the session ends.</p></PublicSection>
+      <PublicSection title="Retention and requests"><p>The installation operator controls the database and backups. This version does not provide a self-service export or deletion screen for all account data. Contact the operator of your installation about retention, access, or account-data requests.</p><p>Do not share tokens, session details, or private drafts in public support channels.</p></PublicSection>
+    </div>
+    <aside lang="en" className="h-fit rounded-lg border p-5 text-sm leading-7 text-muted-foreground"><p className="font-semibold text-foreground">Connection and publishing permission</p><p className="mt-3">X OAuth permission and automation preferences are recorded separately. You can review and revoke each permission.</p></aside>
+  </PublicPage>;
+}

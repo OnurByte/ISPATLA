@@ -105,7 +105,7 @@ export async function startPostgresXOAuth(input: {
   const scopes = [...POSTGRES_X_OAUTH_SCOPES];
   await getPostgresDb().execute(sql`INSERT INTO ispatla_app.x_oauth_transactions
       (id, owner_user_id, session_hash, state_hash, encrypted_code_verifier, requested_scopes, return_to, expires_at, created_at)
-     VALUES (${randomUUID()},${input.ownerUserId},${hash(input.sessionId)},${hash(state)},${seal(verifier, env).value},${scopes}::text[],${returnPath(input.returnTo)},${expiresAt},${nowSeconds(input.now)})`);
+     VALUES (${randomUUID()},${input.ownerUserId},${hash(input.sessionId)},${hash(state)},${seal(verifier, env).value},${sql.param(scopes)}::text[],${returnPath(input.returnTo)},${expiresAt},${nowSeconds(input.now)})`);
   const challenge = createHash("sha256").update(verifier).digest("base64url");
   const url = new URL(AUTHORIZATION_ENDPOINT);
   url.search = new URLSearchParams({ response_type: "code", client_id: oauth.clientId, redirect_uri: oauth.redirectUri,
@@ -208,7 +208,7 @@ async function storeXGrant(input: {
        WHERE ispatla_app.x_oauth_accounts.owner_user_id=EXCLUDED.owner_user_id`) as unknown as RawResult;
     if (mappingSaved.rowCount !== 1) throw new Error("𝕏 account is already connected to another user");
     const credentialSaved = await tx.execute(sql`INSERT INTO ispatla_app.x_oauth_credentials(account_id,owner_user_id,encrypted_access_token,encrypted_refresh_token,encryption_key_id,access_expires_at,scopes,token_version,refreshed_at,created_at,updated_at)
-       VALUES(${accountId},${input.ownerUserId},${access.value},${refresh.value},${access.keyId},${input.expiresAt},${[...new Set(input.scopes)]}::text[],1,${now},${now},${now})
+       VALUES(${accountId},${input.ownerUserId},${access.value},${refresh.value},${access.keyId},${input.expiresAt},${sql.param([...new Set(input.scopes)])}::text[],1,${now},${now},${now})
        ON CONFLICT(account_id) DO UPDATE SET encrypted_access_token=EXCLUDED.encrypted_access_token,encrypted_refresh_token=EXCLUDED.encrypted_refresh_token,
        encryption_key_id=EXCLUDED.encryption_key_id,access_expires_at=EXCLUDED.access_expires_at,scopes=EXCLUDED.scopes,
        token_version=ispatla_app.x_oauth_credentials.token_version+1,refreshed_at=EXCLUDED.refreshed_at,revoked_at=NULL,refresh_lease_id=NULL,refresh_lease_until=0,updated_at=EXCLUDED.updated_at
@@ -382,7 +382,7 @@ export async function withPostgresXTokenRefresh<T>(input: {
       if (POSTGRES_X_OAUTH_SCOPES.some((scope) => !refreshed.scopes.includes(scope))) throw new Error("required 𝕏 permissions are missing");
       const access = seal(refreshed.accessToken), refresh = seal(refreshed.refreshToken);
       const saved = await getPostgresDb().execute(sql`UPDATE ispatla_app.x_oauth_credentials SET encrypted_access_token=${access.value},encrypted_refresh_token=${refresh.value},
-        encryption_key_id=${access.keyId},access_expires_at=${refreshed.expiresAt},scopes=${[...new Set(refreshed.scopes)]}::text[],token_version=token_version+1,refreshed_at=${now()},updated_at=${now()},
+        encryption_key_id=${access.keyId},access_expires_at=${refreshed.expiresAt},scopes=${sql.param([...new Set(refreshed.scopes)])}::text[],token_version=token_version+1,refreshed_at=${now()},updated_at=${now()},
         refresh_lease_id=NULL,refresh_lease_until=0 WHERE account_id=${input.accountId} AND owner_user_id=${input.ownerUserId} AND token_version=${current.version} AND refresh_lease_id=${leaseId} AND revoked_at IS NULL`) as unknown as RawResult;
       if (saved.rowCount) await getPostgresDb().execute(sql`UPDATE ispatla_app.x_oauth_accounts SET auth_state='connected',last_auth_error='',last_health_at=${now()}
         WHERE account_id=${input.accountId} AND owner_user_id=${input.ownerUserId} AND auth_state<>'revoked'`);

@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { usePathname } from "next/navigation";
 
 export type Theme = "light" | "dark" | "system";
 export type MotionPreference = "system" | "reduce";
@@ -44,7 +45,8 @@ export function persistAppearancePreference(storage: Pick<Storage, "setItem">, k
   try { storage.setItem(key, value); return true; } catch { return false; }
 }
 
-export function ThemeProvider({ children, forceSystemTheme = false }: { children: React.ReactNode; forceSystemTheme?: boolean }) {
+export function ThemeProvider({ children }: { children: React.ReactNode }) {
+  const forceSystemTheme = usePathname() === "/";
   const [theme, setThemeState] = React.useState<Theme>("system");
   const [motion, setMotionState] = React.useState<MotionPreference>("system");
   const [accent, setAccentState] = React.useState<AccentColor>("blue");

@@ -8,8 +8,7 @@ export function LocaleSwitcher({ locale, className = "" }: { locale: Locale; cla
   function changeLocale(next: string | null) {
     if (!next || !(LOCALES as readonly string[]).includes(next)) return;
     document.cookie = `ispatla-locale=${next}; Path=/; Max-Age=31536000; SameSite=Lax${window.location.protocol === "https:" ? "; Secure" : ""}`;
-    const target = localizePath(next as Locale, window.location.pathname) + window.location.search + window.location.hash;
-    window.location.assign(target);
+    window.location.assign(localizePath(next as Locale, `${window.location.pathname}${window.location.search}${window.location.hash}`));
   }
 
   const selected = LOCALE_CONFIG[locale];

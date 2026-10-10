@@ -5,7 +5,16 @@ import { getLeaderboard } from "@/server/leaderboard";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
-export const metadata = { title: "Doğrulanmış hitler · İSPATLA", description: "Kendi geçmişine göre yükselen, resmi 𝕏 verileriyle doğrulanmış sonuçlar." };
+const title = "Verified post performance · ISPATLA";
+const description = "Official X observations ranked by each account’s own history, with participation controlled by each account.";
+export const metadata = {
+  title,
+  description,
+  alternates: { canonical: "https://ispatla.tr/leaderboard" },
+  robots: { index: true, follow: true },
+  openGraph: { title, description, url: "https://ispatla.tr/leaderboard", siteName: "ISPATLA — The Signal Press", locale: "en_US", type: "website" },
+  twitter: { card: "summary", title, description },
+};
 
 export default async function LeaderboardPage({ searchParams }: { searchParams: Promise<{ tab?: string | string[] }> }) {
   const locale = await requestPublicLocale();

@@ -1,7 +1,3 @@
-import { LOCALES, localizePath, type Locale } from "./config";
-
-export function landingAlternates(locale: Locale): { canonical: string; languages: Record<string, string> } {
-  const languages: Record<string, string> = Object.fromEntries(LOCALES.map((code) => [code, localizePath(code, "/")]));
-  languages["x-default"] = "/";
-  return { canonical: localizePath(locale, "/"), languages };
+export function landingAlternates(): { canonical: string } {
+  return { canonical: "/" };
 }
