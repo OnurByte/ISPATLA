@@ -12,3 +12,10 @@ test("all twenty translations have self canonical URLs and reciprocal sitemap al
   expect(publicMetadata("en", "/docs", "Docs", "Setup").alternates?.canonical).toBe("https://ispatla.tr/en/docs");
   expect(robots().rules).toMatchObject({ disallow: expect.arrayContaining(["/api/", "/dashboard", "/en/dashboard", "/reset-password"]) });
 });
+
+test("public OG route is crawlable while other APIs remain private", () => {
+  const rules = robots().rules;
+  if (Array.isArray(rules)) throw new Error("Expected a single robots rule");
+  expect(rules.allow).toContain("/api/og");
+  expect(rules.disallow).toContain("/api/");
+});

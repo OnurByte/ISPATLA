@@ -2,6 +2,8 @@ import { PublicHeader, requestPublicLocale } from "@/components/public-header";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { readPublicXPostShare } from "@/server/hit-sharing";
+import { publicShareUrl, publicSocialImageUrl } from "@/lib/social-sharing";
+import { ShareActions } from "@/components/share-actions";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -18,13 +20,21 @@ export async function generateMetadata({ params }: { params: Promise<{ publicId:
   const { publicId } = await params;
   const share = await readPublicXPostShare(publicId);
   if (!share) return { title: "Paylaşım bulunamadı · İSPATLA", robots: { index: false, follow: false } };
-  const title = `@${share.accountHandle} · resmi 𝕏 gözlemi`;
-  const description = share.text.slice(0, 180);
+  const path = "/h/" + publicId;
+  const url = publicShareUrl(path);
+  const image = publicSocialImageUrl(path);
+  const title = "@" + share.accountHandle + " · resmî X API gözlemi";
+  const description = share.text.slice(0, 180) || "Resmî X API üzerinden gözlenmiş gönderi metrikleri.";
   return {
-    title,
-    description,
-    openGraph: { title, description, type: "article", url: `/h/${publicId}`, siteName: "İSPATLA", publishedTime: new Date(share.publishedAt * 1000).toISOString(), modifiedTime: new Date(share.observedAt * 1000).toISOString() },
-    twitter: { card: "summary_large_image", title, description },
+    title, description,
+    alternates: { canonical: url },
+    openGraph: {
+      title, description, type: "article", url, siteName: "İSPATLA",
+      publishedTime: new Date(share.publishedAt * 1000).toISOString(),
+      modifiedTime: new Date(share.observedAt * 1000).toISOString(),
+      images: [{ url: image, width: 1200, height: 630, alt: "Resmî X API gözlemi · İSPATLA" }],
+    },
+    twitter: { card: "summary_large_image", title, description, images: [image] },
   };
 }
 
@@ -54,7 +64,8 @@ export default async function SharedObservedPostPage({ params }: { params: Promi
           ))}
         </dl>
       </section>
-      <p className="text-xs leading-5 text-muted-foreground">Bu kart yalnızca 𝕏 API&apos;sinden alınan gözlem değerlerini gösterir. Başarı veya “hit” sınıflandırması içermez.</p>
+      <section className="border-t border-border pt-5" aria-label="Paylaşım"><h2 className="mb-3 text-lg font-semibold">Bu gözlemi paylaş</h2><ShareActions url={publicShareUrl("/h/" + publicId)} text={"@" + share.accountHandle + " · Resmî X gözlemi"} imageUrl={publicSocialImageUrl("/h/" + publicId)} /></section>
+      <p className="text-xs leading-5 text-muted-foreground">Bu kart yalnızca 𝕏 API&apos;sinden alınan gözlem değerlerini gösterir. Başarı veya “hit” sınıflandırması içermez. Bağlantı iptal edilse de sosyal platformların eski önizleme önbellekleri kalabilir.</p>
     </article>
   </main></>;
 }

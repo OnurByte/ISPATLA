@@ -6,12 +6,15 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { DEFAULT_LOCALE, isLocale, LOCALE_CONFIG } from "@/i18n/config";
 import { getDictionary } from "@/i18n/dictionaries";
 import { getAuth, isAuthenticatedUserDisabled } from "@/server/auth";
+import { PUBLIC_ORIGIN } from "@/i18n/public-metadata";
+import { SITE_ICON_METADATA } from "@/lib/site-icons";
 import "./globals.css";
 
 export const metadata: Metadata = {
+  metadataBase: new URL(PUBLIC_ORIGIN),
   title: "Ispatla — 𝕏 intelligence desk",
   description: "𝕏 sinyallerini izle, yayın kararını kanıtla ve sonucu doğrula.",
-  icons: { icon: "/brand/ispatla-favicon.png" },
+  icons: SITE_ICON_METADATA,
 };
 
 export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

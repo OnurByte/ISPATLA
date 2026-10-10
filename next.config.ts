@@ -8,6 +8,9 @@ const nextConfig: NextConfig = {
     // Next 16's CLI checker currently emits output that this installed Next build cannot parse with TypeScript 5.9.
     useTypeScriptCli: false,
   },
+  async redirects() {
+    return [{ source: "/favicon.ico", destination: "/brand/ispatla-favicon.png?v=20261011", permanent: false }];
+  },
   async headers() {
     return [
       {
