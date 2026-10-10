@@ -14,10 +14,10 @@ Scope: active public X observation pages (/h), public X-linked profiles, leaderb
 ## Phase 1 — foundation (this PR)
 
 - [x] Absolute metadataBase and explicit OG crawler allowance for /api/og while preserving API restrictions.
-- [ ] Public /h share metadata with canonical URL, OG image, Twitter summary_large_image and accurate official-observation wording.
-- [ ] Dynamic public profile and leaderboard social cards with local multi-script fonts.
-- [ ] Share actions (X, Facebook, WhatsApp, Telegram, copy link, download image) on voluntary public share pages.
-- [ ] Tests for URL encodings, image metadata, scripts, null metrics and robots.
+- [x] Public /h share metadata with canonical URL, OG image, Twitter summary_large_image and accurate official-observation wording.
+- [x] Dynamic public profile and leaderboard social cards with local multi-script fonts.
+- [x] Share actions (X, Facebook, WhatsApp, Telegram, copy link, download image) on voluntary public share pages.
+- [x] Tests for URL encodings, image metadata, scripts, null metrics and robots.
 
 ## Phase 2 — preview lab
 
