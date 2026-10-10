@@ -7,29 +7,23 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { DEFAULT_LOCALE, localizePath, type Locale } from "@/i18n/config"
 import { announceSessionChange } from "@/components/auth-session-sync"
+import { authCopy } from "@/i18n/auth-copy"
+import { getDictionary } from "@/i18n/dictionaries"
 
 type AuthFormMode = "login" | "signup" | "forgot" | "reset"
 
-const copy: Record<AuthFormMode, { title: string; description: string; button: string }> = {
-  login: { title: "Giriş yap", description: "Fırsatlarına, taslaklarına ve sonuçlarına devam et.", button: "Giriş yap" },
-  signup: { title: "Hesap oluştur", description: "Hesabını oluştur ve sana uygun fırsatları keşfet.", button: "Hesap oluştur" },
-  forgot: { title: "Şifreni sıfırla", description: "Sıfırlama bağlantısını e-posta adresine gönderelim.", button: "Bağlantı gönder" },
-  reset: { title: "Yeni şifre belirle", description: "Hesabın için yeni bir şifre seç.", button: "Şifreyi güncelle" },
+function responseError(data: unknown, fallback: string): string {
+  // API errors may not be translated; use the localized fallback unless a local
+  // translation exists. Do not expose raw provider responses as UI translations.
+  if (data && typeof data === "object" && "code" in data && data.code === "INVALID_EMAIL") return fallback;
+  return fallback;
 }
 
-function responseError(data: unknown): string {
-  if (data && typeof data === "object" && "message" in data && typeof data.message === "string") return data.message
-  return "İşlem tamamlanamadı. Bilgilerini kontrol edip yeniden dene."
-}
-
-function xLoginErrorMessage(error: boolean | string): string {
-  if (error === "email_not_found") return "𝕏 doğrulanmış e-posta paylaşmadı. E-posta ile devam et veya 𝕏 uygulamasında e-posta iznini kontrol et."
-  if (error === "unable_to_get_user_info") return "𝕏 profil bilgisi veya gerekli bağlantı izinleri alınamadı. İzinleri kontrol edip yeniden dene ya da e-posta ile devam et."
-  return "𝕏 girişi tamamlanamadı. Yeniden dene veya e-posta ile devam et."
-}
 
 export function AuthForm({ mode, token, locale = DEFAULT_LOCALE, next = "/dashboard", xLoginEnabled = false, xLoginError = false }: { mode: AuthFormMode; token?: string; locale?: Locale; next?: string; xLoginEnabled?: boolean; xLoginError?: boolean | string }) {
   const path = (href: string) => localizePath(locale, href)
+  const words = authCopy[locale]
+  const navigation = getDictionary(locale).nav
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [message, setMessage] = useState("")
@@ -48,12 +42,12 @@ export function AuthForm({ mode, token, locale = DEFAULT_LOCALE, next = "/dashbo
         body: JSON.stringify({ provider: "twitter", callbackURL: mode === "login" ? next : callbackURL, errorCallbackURL, rememberMe: true }),
       })
       const data = await response.json().catch(() => null) as { url?: unknown } | null
-      if (!response.ok || typeof data?.url !== "string") throw new Error("𝕏 ile devam edilemedi. E-posta ile giriş yapabilir veya yeniden deneyebilirsin.")
+      if (!response.ok || typeof data?.url !== "string") throw new Error(words.xContinueError)
       const target = new URL(data.url)
-      if (target.origin !== "https://x.com" || target.pathname !== "/i/oauth2/authorize") throw new Error("𝕏 giriş bağlantısı doğrulanamadı.")
+      if (target.origin !== "https://x.com" || target.pathname !== "/i/oauth2/authorize") throw new Error(words.xBadUrl)
       window.location.assign(target.href)
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "𝕏 ile devam edilemedi. Yeniden dene.")
+      setError(caught instanceof Error ? caught.message : words.xContinueError)
       setPending(false)
     }
   }
@@ -84,26 +78,31 @@ export function AuthForm({ mode, token, locale = DEFAULT_LOCALE, next = "/dashbo
         body: JSON.stringify(body),
       })
       const data: unknown = await response.json().catch(() => null)
-      if (!response.ok) throw new Error(responseError(data))
+      if (!response.ok) throw new Error(responseError(data, words.genericError))
 
       if (mode === "login" || mode === "signup") {
         announceSessionChange()
         window.location.assign(next)
       } else if (mode === "forgot") {
-        setMessage("Bu adres için bir hesap varsa sıfırlama bağlantısı gönderildi.")
+        setMessage(words.resetSent)
       } else {
-        setMessage("Şifren güncellendi. Giriş yapabilirsin.")
+        setMessage(words.passwordUpdated)
         setPassword("")
       }
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "İşlem tamamlanamadı. Yeniden dene.")
+      setError(caught instanceof Error ? caught.message : words.genericError)
     } finally {
       setPending(false)
     }
   }
 
   const fields = mode === "login" || mode === "signup" || mode === "forgot"
-  const heading = copy[mode]
+  const heading = {
+    login: { title: navigation.login, description: words.loginDesc, button: navigation.login },
+    signup: { title: navigation.start, description: words.signupDesc, button: navigation.start },
+    forgot: { title: words.forgotTitle, description: words.forgotDesc, button: words.forgotButton },
+    reset: { title: words.resetTitle, description: words.resetDesc, button: words.resetButton },
+  }[mode]
 
   return (
     <main className="mx-auto flex min-h-[70vh] w-full max-w-md items-center px-4 py-8 sm:py-12">
@@ -112,32 +111,32 @@ export function AuthForm({ mode, token, locale = DEFAULT_LOCALE, next = "/dashbo
         <p className="mt-2 text-sm text-muted-foreground">{heading.description}</p>
         {(mode === "login" || mode === "signup") && <div className="mt-6 space-y-2">
           <Button type="button" variant="outline" className="w-full" disabled={pending || !xLoginEnabled} aria-describedby={!xLoginEnabled ? "x-login-unavailable" : undefined} onClick={() => void continueWithX("/api/auth/sign-in/social", next, path(mode === "signup" ? "/signup" : "/login") + "?x_error=1" + (mode === "login" ? `&next=${encodeURIComponent(next)}` : ""))}>
-            𝕏 ile giriş yap
+            {words.withX}
           </Button>
-          {!xLoginEnabled && <p id="x-login-unavailable" className="text-xs text-muted-foreground">Bu kurulumda 𝕏 girişi henüz etkin değil.</p>}
-          {xLoginError && <p className="text-sm text-destructive" role="alert">{xLoginErrorMessage(xLoginError)}</p>}
+          {!xLoginEnabled && <p id="x-login-unavailable" className="text-xs text-muted-foreground">{words.xUnavailable}</p>}
+          {xLoginError && <p className="text-sm text-destructive" role="alert">{xLoginError === "email_not_found" ? words.xEmailMissing : xLoginError === "unable_to_get_user_info" ? words.xProfileMissing : words.xFailure}</p>}
         </div>}
         <form className="mt-6 space-y-4" onSubmit={submit}>
           {fields && <div className="space-y-2">
-            <Label htmlFor="email">E-posta</Label>
+            <Label htmlFor="email">{words.email}</Label>
             <Input id="email" name="email" type="email" autoComplete="email" required value={email} onChange={(event) => setEmail(event.target.value)} disabled={pending} />
           </div>}
           {(mode === "login" || mode === "signup" || mode === "reset") && <div className="space-y-2">
-            <Label htmlFor="password">{mode === "reset" ? "Yeni şifre" : "Şifre"}</Label>
+            <Label htmlFor="password">{mode === "reset" ? words.newPassword : words.password}</Label>
             <Input id="password" name="password" type="password" autoComplete={mode === "login" ? "current-password" : mode === "signup" ? "new-password" : "new-password"} minLength={12} maxLength={128} required value={password} onChange={(event) => setPassword(event.target.value)} disabled={pending} />
-            {mode !== "login" && <p className="text-xs text-muted-foreground">En az 12 karakter.</p>}
+            {mode !== "login" && <p className="text-xs text-muted-foreground">{words.minLength}</p>}
           </div>}
           {error && <p className="text-sm text-destructive" role="alert">{error}</p>}
           {message && <p className="text-sm text-muted-foreground" role="status">{message}</p>}
           <Button className="w-full" type="submit" disabled={pending || (mode === "reset" && !token)}>
-            {pending ? "Lütfen bekle…" : heading.button}
+            {pending ? words.wait : heading.button}
           </Button>
         </form>
-        <nav className="mt-5 flex flex-wrap gap-x-4 gap-y-2 text-sm text-muted-foreground" aria-label="Hesap bağlantıları">
-          {mode !== "login" && <Link className="underline underline-offset-4" href={path("/login")}>Giriş yap</Link>}
-          {mode !== "signup" && <Link className="underline underline-offset-4" href={path("/signup")}>Hesap oluştur</Link>}
-          {mode !== "forgot" && mode !== "reset" && <Link className="underline underline-offset-4" href={path("/forgot-password")}>Şifremi unuttum</Link>}
-          {mode === "reset" && !token && <p className="w-full text-destructive">Sıfırlama bağlantısı geçersiz veya eksik. Yeni bir bağlantı iste.</p>}
+        <nav className="mt-5 flex flex-wrap gap-x-4 gap-y-2 text-sm text-muted-foreground" aria-label={words.links}>
+          {mode !== "login" && <Link className="underline underline-offset-4" href={path("/login")}>{navigation.login}</Link>}
+          {mode !== "signup" && <Link className="underline underline-offset-4" href={path("/signup")}>{navigation.start}</Link>}
+          {mode !== "forgot" && mode !== "reset" && <Link className="underline underline-offset-4" href={path("/forgot-password")}>{words.forgotLink}</Link>}
+          {mode === "reset" && !token && <p className="w-full text-destructive">{words.missingToken}</p>}
         </nav>
       </section>
     </main>
