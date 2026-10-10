@@ -5,6 +5,7 @@ import { getLeaderboard } from "@/server/leaderboard";
 import type { Metadata } from "next";
 import { ShareActions } from "@/components/share-actions";
 import { publicShareUrl, publicSocialImageUrl } from "@/lib/social-sharing";
+import { socialCopy } from "@/i18n/social-copy";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -23,5 +24,5 @@ export default async function LeaderboardPage({ searchParams }: { searchParams: 
   let authenticated = false;
   try { authenticated = Boolean(await getOptionalPageUser()); } catch { /* The public ranking remains available if session lookup is unavailable. */ }
   const board = await getLeaderboard();
-  return <>{authenticated ? null : <PublicHeader locale={locale} authenticated={false} />}<div className="mx-auto w-full max-w-4xl px-4 pt-7"><ShareActions url={publicShareUrl("/leaderboard")} text="İSPATLA · Resmî X verileriyle doğrulanmış sonuçlar" imageUrl={publicSocialImageUrl("/leaderboard")} /></div><LeaderboardContent locale={locale} tab={tab} board={board} /></>;
+  return <>{authenticated ? null : <PublicHeader locale={locale} authenticated={false} />}<div className="mx-auto w-full max-w-4xl px-4 pt-7"><ShareActions url={publicShareUrl("/leaderboard")} text={"İSPATLA · " + socialCopy[locale].observation} locale={locale} imageUrl={publicSocialImageUrl("/leaderboard")} /></div><LeaderboardContent locale={locale} tab={tab} board={board} /></>;
 }

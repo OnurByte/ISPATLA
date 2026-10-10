@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import type { OwnHitShare, ShareableXPost } from "@/server/db-types";
 import { ShareActions } from "@/components/share-actions";
 import { publicShareUrl, publicSocialImageUrl } from "@/lib/social-sharing";
+import type { Locale } from "@/i18n/config";
 
 type HitSharingData = { posts: ShareableXPost[]; shares: OwnHitShare[] };
 
@@ -15,7 +16,7 @@ function metric(value: number | null): string {
   return value === null ? "sunulmadı" : new Intl.NumberFormat("tr-TR").format(value);
 }
 
-export function HitSharingSettings({ initial }: { initial: HitSharingData }) {
+export function HitSharingSettings({ initial, locale }: { initial: HitSharingData; locale: Locale }) {
   const [data, setData] = useState(initial);
   const [pending, setPending] = useState<string | null>(null);
   const [message, setMessage] = useState("");
@@ -81,7 +82,7 @@ export function HitSharingSettings({ initial }: { initial: HitSharingData }) {
           {share ? <p className="text-sm text-muted-foreground">Bu gönderi için paylaşım açık. Bağlantıyı aşağıdan yönetebilirsin.</p> : <Button type="button" size="sm" className="self-start" onClick={() => void createShare(post.remotePostId)} disabled={pending !== null}>{pending === post.remotePostId ? "Oluşturuluyor…" : "Paylaşılabilir kart oluştur"}</Button>}
         </article>;
       })}
-      {activeShares.length > 0 && <section className="flex flex-col gap-2 border-t pt-4" aria-labelledby="active-hit-shares-title"><h3 id="active-hit-shares-title" className="text-sm font-semibold">Açık paylaşım bağlantıları</h3>{activeShares.map((share) => <div key={share.publicId} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border p-3 text-sm"><a className="break-all underline underline-offset-4" href={`/h/${share.publicId}`} target="_blank" rel="noreferrer">/h/{share.publicId}</a><ShareActions url={publicShareUrl("/h/" + share.publicId)} text="Resmî X gözlemim · İSPATLA" imageUrl={publicSocialImageUrl("/h/" + share.publicId)} /><Button type="button" size="sm" variant="outline" aria-pressed={share.leaderboardOptIn} onClick={() => void toggleLeaderboard(share)} disabled={pending !== null}>{share.leaderboardOptIn ? "Sıralamadan çıkar" : "Sıralamaya katıl"}</Button><Button type="button" size="sm" variant="destructive" onClick={() => void revokeShare(share.publicId)} disabled={pending !== null}>{pending === share.publicId ? "Kapatılıyor…" : "Paylaşımı kapat"}</Button></div>)}</section>}
+      {activeShares.length > 0 && <section className="flex flex-col gap-2 border-t pt-4" aria-labelledby="active-hit-shares-title"><h3 id="active-hit-shares-title" className="text-sm font-semibold">Açık paylaşım bağlantıları</h3>{activeShares.map((share) => <div key={share.publicId} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border p-3 text-sm"><a className="break-all underline underline-offset-4" href={`/h/${share.publicId}`} target="_blank" rel="noreferrer">/h/{share.publicId}</a><ShareActions url={publicShareUrl("/h/" + share.publicId)} text="Resmî X gözlemim · İSPATLA" locale={locale} imageUrl={publicSocialImageUrl("/h/" + share.publicId)} /><Button type="button" size="sm" variant="outline" aria-pressed={share.leaderboardOptIn} onClick={() => void toggleLeaderboard(share)} disabled={pending !== null}>{share.leaderboardOptIn ? "Sıralamadan çıkar" : "Sıralamaya katıl"}</Button><Button type="button" size="sm" variant="destructive" onClick={() => void revokeShare(share.publicId)} disabled={pending !== null}>{pending === share.publicId ? "Kapatılıyor…" : "Paylaşımı kapat"}</Button></div>)}</section>}
       <Link href="/leaderboard" className="self-start text-sm underline underline-offset-4">Kanıt eşikleri ve hit sıralaması</Link>
       {message && <p role="status" className="text-sm text-muted-foreground">{message}</p>}
       <p className="text-xs text-muted-foreground">Kartta yalnızca onaylanmış gönderi metni, 𝕏 bağlantısı, yayın/gözlem zamanı ve 𝕏 API&apos;sinin sunduğu sayılar yer alır. Sıralamaya katılım ayrı ve varsayılan olarak kapalıdır. Katılınca kendi geçmişinle karşılaştırma katı ve örnek sayısı görünür. Hesap ve gelişim sıralaması, paylaşılmamış düşük sonuçlar dahil hesabın tüm uygun resmi gözlemlerini kullanır; özel geçmiş metinleri ve gönderi kimlikleri açıklanmaz. Bağlantıyı kapatınca ISPATLA üzerindeki public sayfa ve görsel erişimi kaldırılır; diğer platformlar daha önce aldığı önizlemeyi bir süre saklayabilir.</p>
