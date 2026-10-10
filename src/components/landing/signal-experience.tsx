@@ -18,6 +18,7 @@ export function splitRevision(before: string, after: string) {
 export function SignalExperience({ copy, startHref }: { copy: SignalPressCopy; startHref: string }) {
   const [selected, setSelected] = useState(copy.examples[0].id);
   const started = useRef(false);
+  const completed = useRef(false);
   const example = copy.examples.find((item) => item.id === selected) ?? copy.examples[0];
   const diff = splitRevision(example.draft, example.revised);
 
@@ -41,7 +42,7 @@ export function SignalExperience({ copy, startHref }: { copy: SignalPressCopy; s
             <div className="press-mono flex size-24 flex-col items-center justify-center rounded-full border-2 border-dashed border-[#315bf5] text-center text-[#315bf5]" aria-label={`${copy.fit}: ${example.score}/100`}><strong className="text-3xl">{example.score}</strong><span className="text-[9px] uppercase">/100</span></div>
             <div><p className="press-mono text-xs uppercase tracking-widest">{copy.fit} · {example.verdict === "reject" ? copy.rejected : copy.accepted}</p><p className="mt-2 text-sm leading-6">{example.reason}</p></div>
           </div>
-          <a href="#writing-room" className="mt-7 inline-flex min-h-11 items-center border-b-2 border-[#315bf5] text-sm font-bold text-[#315bf5]">{copy.inspect} ↓</a>
+          <a href="#writing-room" onClick={() => { if (started.current && !completed.current) { completed.current = true; trackLandingEvent("demo_complete", "/"); } }} className="mt-7 inline-flex min-h-11 items-center border-b-2 border-[#315bf5] text-sm font-bold text-[#315bf5]">{copy.inspect} ↓</a>
           <span aria-hidden="true" className="press-paper-grain pointer-events-none absolute -end-2 -top-2 size-14 opacity-10" />
         </article>
       </div>

@@ -1,3 +1,5 @@
+import { GoogleAnalytics } from "@/components/google-analytics";
+import { googleMeasurementId } from "@/lib/google-analytics";
 import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -28,12 +30,14 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
       forceSystemTheme = !session || await isAuthenticatedUserDisabled(session.user.id);
     } catch { forceSystemTheme = true; }
   }
+  const measurementId = googleMeasurementId(process.env.ISPATLA_GA_MEASUREMENT_ID);
   return (
     <html lang={locale} dir={direction} className="h-full antialiased" suppressHydrationWarning>
       <body className="min-h-full">
         <ThemeProvider forceSystemTheme={forceSystemTheme}>
           <TooltipProvider>
             <AuthSessionSync />
+            {measurementId && <GoogleAnalytics measurementId={measurementId} />}
             {locale !== DEFAULT_LOCALE && notice && <aside className="border-b bg-muted/60 px-4 py-2 text-center text-xs text-muted-foreground" lang={locale} dir={direction}>{notice}</aside>}
             {children}
           </TooltipProvider>

@@ -1,3 +1,5 @@
+export const metadata = { robots: { index: false, follow: true } };
+
 import { AuthForm } from "@/components/auth-form"
 import { PublicHeader, requestPublicLocale } from "@/components/public-header"
 

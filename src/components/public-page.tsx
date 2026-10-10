@@ -3,13 +3,15 @@ import type { ReactNode } from "react";
 import { PublicHeader, requestPublicLocale } from "@/components/public-header";
 import { localizePath } from "@/i18n/config";
 import { getDictionary } from "@/i18n/dictionaries";
+import { getSignalPressCopy } from "@/i18n/signal-press";
 import { BrandLogo } from "@/components/brand-logo";
 
 export async function PublicPage({ title, summary, children, current }: { title: string; summary: string; children: ReactNode; current?: "docs" }) {
   const locale = await requestPublicLocale();
   const { nav, landing } = getDictionary(locale);
+  const press = getSignalPressCopy(locale);
   const path = (href: string) => localizePath(locale, href);
-  const links = [["/docs", nav.tour], ["/security", landing.security], ["/privacy", landing.privacy], ["/terms", landing.terms]] as const;
+  const links = [["/docs", nav.tour], ["/open-source", press.code], ["/transparency", press.transparency], ["/no-viral-guarantee", press.antiTitle], ["/research/xpatla-consumer-complaints-2026", press.research], ["/leaderboard", nav.leaderboard], ["/security", landing.security], ["/privacy", landing.privacy], ["/terms", landing.terms]] as const;
   return <div className="min-h-screen bg-background text-foreground">
     <PublicHeader locale={locale} current={current} />
     <main className="mx-auto max-w-7xl px-5 pb-16 pt-10 sm:px-8 sm:pt-16">

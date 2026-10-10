@@ -129,7 +129,8 @@ export async function getPostgresPublicHitShare(publicId:string):Promise<PublicH
     JOIN ispatla_app.evaluation_outcome_revisions outcome ON outcome.owner_user_id=hit.owner_user_id AND outcome.prediction_id=prediction.id AND outcome.source='official_x_api'
       AND outcome.id=(SELECT latest.id FROM ispatla_app.evaluation_outcome_revisions latest WHERE latest.owner_user_id=hit.owner_user_id AND latest.prediction_id=prediction.id
       AND latest.source='official_x_api' ORDER BY latest.captured_at DESC,latest.id DESC LIMIT 1)
-    WHERE hit.public_id=${publicId} AND hit.revoked_at IS NULL AND (intent.remote_post_id='' OR hit.remote_post_id=intent.remote_post_id)
+    WHERE hit.public_id=${publicId} AND hit.revoked_at IS NULL
+      AND NOT EXISTS (SELECT 1 FROM ispatla_auth.auth_user_status status WHERE status.owner_user_id=hit.owner_user_id AND status.status='disabled') AND (intent.remote_post_id='' OR hit.remote_post_id=intent.remote_post_id)
       AND prediction.action='post' AND prediction.created_at<=intent.requested_at AND (prediction.features_json::jsonb->>'decision')='eligible'
       AND outcome.provenance_ref LIKE ('official_x:' || account.id || ':' || hit.remote_post_id || ':published_at=%')
       AND (outcome.views IS NOT NULL OR outcome.likes IS NOT NULL OR outcome.replies IS NOT NULL OR outcome.reposts IS NOT NULL OR outcome.quotes IS NOT NULL) LIMIT 1`);
@@ -137,8 +138,9 @@ export async function getPostgresPublicHitShare(publicId:string):Promise<PublicH
   return post?{...post,publicId,verification:"official_x_api"}:null;
 }
 export async function getPostgresLeaderboardEvidence():Promise<LeaderboardEvidence[]>{
-  const shares=(await getPostgresDb().execute(sql`SELECT owner_user_id,account_id,remote_post_id,public_id,prediction_id FROM ispatla_app.hit_shares
-    WHERE revoked_at IS NULL AND leaderboard_opt_in=1 ORDER BY created_at DESC,id DESC LIMIT 500`)).rows as Array<{owner_user_id:string;account_id:number;remote_post_id:string;public_id:string;prediction_id:string}>;
+  const shares=(await getPostgresDb().execute(sql`SELECT owner_user_id,account_id,remote_post_id,public_id,prediction_id FROM ispatla_app.hit_shares hit
+    WHERE revoked_at IS NULL AND leaderboard_opt_in=1
+      AND NOT EXISTS (SELECT 1 FROM ispatla_auth.auth_user_status status WHERE status.owner_user_id=hit.owner_user_id AND status.status='disabled') ORDER BY created_at DESC,id DESC LIMIT 500`)).rows as Array<{owner_user_id:string;account_id:number;remote_post_id:string;public_id:string;prediction_id:string}>;
   const result:LeaderboardEvidence[]=[];
   for(const owner of new Set(shares.map(s=>s.owner_user_id))){
     const excluded=(await getPostgresDb().execute(sql`SELECT account_id,remote_post_id FROM ispatla_app.hit_evidence_exclusions WHERE owner_user_id=${owner}`)).rows as Array<{account_id:number;remote_post_id:string}>;
