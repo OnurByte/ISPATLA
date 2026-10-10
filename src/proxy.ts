@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { getSessionCookie } from "better-auth/cookies";
-import { SEARCH_PAGE_PATHS } from "@/generated/search-routes";
 import { DEFAULT_LOCALE, isLocale, localeFromAcceptLanguage } from "@/i18n/config";
+
+const PRIVATE_PAGES = new Set(["/accounts", "/analytics", "/categories", "/dashboard", "/drafts", "/evaluation", "/onboarding", "/opportunities", "/profile", "/queue", "/settings", "/settings/appearance", "/settings/automation", "/settings/keys", "/settings/profile", "/settings/security", "/settings/style", "/sources"]);
 
 /**
  * Fast sign-in redirect only. Pages and API handlers verify the DB session and
@@ -32,16 +33,10 @@ export function proxy(request: Request): NextResponse {
     return response;
   }
 
-  const knownPage = (SEARCH_PAGE_PATHS as readonly string[]).includes(appPath) || appPath === "/settings/profile"
-    || appPath === "/app" || appPath.startsWith("/app/") || /^\/u\/[A-Za-z0-9_-]{24}$/.test(appPath);
-  const singleSegmentProfile = /^\/[^/]+$/.test(appPath);
-  if (!knownPage && !singleSegmentProfile && !/\.[^/]+$/.test(appPath)) {
-    return NextResponse.redirect(new URL(`${hasLocalePrefix ? `/${locale}` : ""}/`, url));
-  }
-
-  const privateRoots = ["/dashboard", "/accounts", "/analytics", "/categories", "/drafts", "/evaluation", "/onboarding", "/opportunities", "/queue", "/settings", "/sources", "/profile"];
-  if (privateRoots.some((path) => appPath === path || appPath.startsWith(`${path}/`)) && !getSessionCookie(request)) {
-    return NextResponse.redirect(new URL(`${hasLocalePrefix ? `/${locale}` : ""}/login`, url));
+  if (PRIVATE_PAGES.has(appPath) && !getSessionCookie(request)) {
+    const loginUrl = new URL(`${hasLocalePrefix ? `/${locale}` : ""}/login`, url);
+    loginUrl.searchParams.set("next", `${appPath}${url.search}`);
+    return NextResponse.redirect(loginUrl);
   }
 
   // OAuth/API callback URLs remain flat. Localized page URLs are rewritten internally,
@@ -49,10 +44,18 @@ export function proxy(request: Request): NextResponse {
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set("x-ispatla-locale", locale);
   requestHeaders.set("x-ispatla-route", appPath);
+  requestHeaders.set("x-ispatla-search", url.search);
   if (!hasLocalePrefix) return NextResponse.next({ request: { headers: requestHeaders } });
 
   url.pathname = appPath;
-  return NextResponse.rewrite(url, { request: { headers: requestHeaders } });
+  const response = NextResponse.rewrite(url, { request: { headers: requestHeaders } });
+  response.cookies.set("ispatla-locale", locale, {
+    path: "/",
+    maxAge: 60 * 60 * 24 * 365,
+    sameSite: "lax",
+    secure: url.protocol === "https:",
+  });
+  return response;
 }
 
 export const config = {

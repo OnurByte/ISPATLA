@@ -22,7 +22,7 @@ function responseError(data: unknown): string {
   return "İşlem tamamlanamadı. Bilgilerini kontrol edip yeniden dene."
 }
 
-export function AuthForm({ mode, token, locale = DEFAULT_LOCALE, xLoginEnabled = false, xLoginError = false }: { mode: AuthFormMode; token?: string; locale?: Locale; xLoginEnabled?: boolean; xLoginError?: boolean }) {
+export function AuthForm({ mode, token, locale = DEFAULT_LOCALE, next = "/dashboard", xLoginEnabled = false, xLoginError = false }: { mode: AuthFormMode; token?: string; locale?: Locale; next?: string; xLoginEnabled?: boolean; xLoginError?: boolean }) {
   const path = (href: string) => localizePath(locale, href)
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
@@ -39,7 +39,7 @@ export function AuthForm({ mode, token, locale = DEFAULT_LOCALE, xLoginEnabled =
         method: "POST",
         credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ provider: "twitter", callbackURL, errorCallbackURL, rememberMe: true }),
+        body: JSON.stringify({ provider: "twitter", callbackURL: mode === "login" ? next : callbackURL, errorCallbackURL, rememberMe: true }),
       })
       const data = await response.json().catch(() => null) as { url?: unknown } | null
       if (!response.ok || typeof data?.url !== "string") throw new Error("𝕏 ile devam edilemedi. E-posta ile giriş yapabilir veya yeniden deneyebilirsin.")
@@ -82,7 +82,7 @@ export function AuthForm({ mode, token, locale = DEFAULT_LOCALE, xLoginEnabled =
 
       if (mode === "login" || mode === "signup") {
         announceSessionChange()
-        window.location.assign(path("/dashboard"))
+        window.location.assign(next)
       } else if (mode === "forgot") {
         setMessage("Bu adres için bir hesap varsa sıfırlama bağlantısı gönderildi.")
       } else {
@@ -105,7 +105,7 @@ export function AuthForm({ mode, token, locale = DEFAULT_LOCALE, xLoginEnabled =
         <h1 id="auth-title" className="text-2xl font-semibold tracking-tight">{heading.title}</h1>
         <p className="mt-2 text-sm text-muted-foreground">{heading.description}</p>
         {(mode === "login" || mode === "signup") && <div className="mt-6 space-y-2">
-          <Button type="button" variant="outline" className="w-full" disabled={pending || !xLoginEnabled} aria-describedby={!xLoginEnabled ? "x-login-unavailable" : undefined} onClick={() => void continueWithX("/api/auth/sign-in/social", path("/dashboard"), path(mode === "signup" ? "/signup" : "/login") + "?x_error=1")}>
+          <Button type="button" variant="outline" className="w-full" disabled={pending || !xLoginEnabled} aria-describedby={!xLoginEnabled ? "x-login-unavailable" : undefined} onClick={() => void continueWithX("/api/auth/sign-in/social", next, path(mode === "signup" ? "/signup" : "/login") + "?x_error=1" + (mode === "login" ? `&next=${encodeURIComponent(next)}` : ""))}>
             𝕏 ile giriş yap
           </Button>
           {!xLoginEnabled && <p id="x-login-unavailable" className="text-xs text-muted-foreground">Bu kurulumda 𝕏 girişi henüz etkin değil.</p>}
