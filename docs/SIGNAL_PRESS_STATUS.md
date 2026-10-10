@@ -9,7 +9,7 @@ files and local checks in this checkout; it is not a production deployment repor
 
 | Phase | Acceptance scope | Status and remaining evidence |
 |---|---|---|
-| P0 Product identity | Editorial hero, tokens, open-source manifesto, labelled synthetic examples, mobile/reduced motion, full 20-locale copy and SEO | Design direction and all-20-locale setup docs/SEO metadata are implemented. Landing and synthetic demo are implemented. 120 localized routes were checked over live HTTP for headings, canonicals and all language alternates. Keyboard selection and original logo font were checked in the browser. Theme toggle was verified with distinct light/dark computed backgrounds; the 320px layout has no horizontal overflow. |
+| P0 Product identity | Editorial hero, tokens, open-source manifesto, labelled synthetic examples, mobile/reduced motion and full 20-locale copy | Design direction, localized landing copy and locale-aware metadata are implemented. Language is selected by cookie or `Accept-Language` on flat paths; each public path has one canonical URL and sitemap entry. The same URL cannot provide 20 separately addressable language variants, and crawlers may not retain or request each visitor language, so independent indexing of every translation is not guaranteed. Earlier checks of locale-prefixed URLs are historical and do not verify SEO behavior under the flat-path strategy. Landing and synthetic demo are implemented. Keyboard selection and original logo font were checked in the browser. Theme toggle was verified with distinct light/dark computed backgrounds; the 320px layout has no horizontal overflow. |
 | P1 Interactive experience | Source → decision → draft → proof demo, keyboard operation, performance | Source selection, score/reason changes and revision diff are implemented; keyboard source selection was verified. All proof states explicitly retain synthetic qualification. |
 | P2 Competitive intelligence | Xpatla research with dated evidence, state labels and corrections; comparison removed | Research protocol and dated starting snapshot documented. Sources need rechecking at publication; The Xpatla research dossier is implemented in all 20 locales with allegations separated from established evidence. |
 | P3 Transparency and launch | Product state, campaigns, shareable materials, accurate claims | Launch copy and original campaign assets are prepared. Transparency routes are implemented. External publication was not requested. |
@@ -58,7 +58,7 @@ them as separate totals and timing distributions, not attributed conversion.
 ## Local verification (9 October 2026)
 
 - Full suite: 389 tests passed, no failures (75 files).
-- Live HTTP: 120 localized public pages return headings, canonical URLs and 21 language alternates.
+- Live HTTP checks from the earlier locale-prefixed URL strategy are historical; they do not establish current flat-path canonical, sitemap or crawler-language behavior.
 - BrandLogo has no diff from the original component; the original locally shipped brand font remains in use.
 - Landing scroll behavior is smooth in the browser; OS and stored reduced-motion overrides remain authoritative.
 - Leaderboard uses AppShell for authenticated sessions and PublicHeader for anonymous visitors; five leaderboard tests passed. Authenticated browser proof still requires a signed-in session.

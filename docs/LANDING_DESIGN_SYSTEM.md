@@ -42,13 +42,20 @@ Libron is the only site font for interface text, editorial headings, the brand w
 
 ## Localization and search
 
-Ship complete landing copy and SEO metadata in all 20 required locales; do not
-fall back to Turkish or English for an untranslated locale. Each localized page
-needs its translated title, description, canonical URL and reciprocal hreflang
-links. Keep structured data factual and localized, and never add Review or
-aggregate-rating data without eligible evidence. Comparison pages cite dated
-sources in every locale where exposed. Verify sitemap and robots coverage for all
-20 locales, and test RTL rendering for Arabic and Urdu.
+Ship complete landing copy in all 20 required locales; do not fall back to
+Turkish or English for an untranslated locale. Select the interface language
+from the saved language cookie, then `Accept-Language`, with Turkish as the
+fallback; language codes do not appear in page URLs. Each public path has one
+stable canonical URL and one sitemap entry. Page title, description and social
+metadata may follow the selected language, but the same URL does not create 20
+separately addressable search variants. Do not emit locale-specific `hreflang`
+destinations for these cookie/header variants or claim that every translation is
+independently indexable. Search crawlers may not retain a visitor's language
+cookie or consistently request each language, so indexing can favor only the
+representation they observe. Keep structured data factual and localized, and
+never add Review or aggregate-rating data without eligible evidence. Comparison
+pages cite dated sources in every locale where exposed. Verify sitemap and robots
+coverage for the flat paths, and test RTL rendering for Arabic and Urdu.
 
 ## Interaction and accessibility
 

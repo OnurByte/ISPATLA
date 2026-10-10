@@ -61,8 +61,6 @@ export function stripLocalePrefix(pathname: string): string {
   return stripped ? `/${stripped}` : "/";
 }
 
-export function localizePath(locale: Locale, pathname: string): string {
-  const path = stripLocalePrefix(pathname);
-  if (locale === DEFAULT_LOCALE) return path;
-  return `/${locale}${path === "/" ? "" : path}`;
+export function localizePath(_locale: Locale, pathname: string): string {
+  return stripLocalePrefix(pathname);
 }

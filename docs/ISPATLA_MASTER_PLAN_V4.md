@@ -535,14 +535,7 @@ Türkçe, ürünün mevcut kimliği nedeniyle korunacaktır.
 
 Next.js App Router ile uyumlu, `next-intl` gibi olgun bir i18n çözümü değerlendir.
 
-Önerilen URL:
-
-- `/tr`
-- `/en`
-- `/es`
-- `/de`
-
-Dil kodu olmayan mevcut linkler uyumlu yönlendirmelerle çalışmaya devam etmeli.
+Dil kodu URL'ye eklenmez; sayfalar mevcut düz yollarında kalır (`/`, `/docs`, `/open-source`). Arayüz dili önce kullanıcının kaydettiği dil çerezinden, yoksa `Accept-Language` başlığından seçilir; eşleşme yoksa Türkçe kullanılır. Dil seçicisinde yapılan tercih çerezde saklanır. Aynı yol farklı ziyaretçilerde farklı dilde gösterilebilir.
 
 Çeviri dosyaları namespace mantığında düzenlenmeli:
 
@@ -580,8 +573,10 @@ Dil tespiti güvenilir değilse kullanıcı tercihi öncelikli olmalı.
 - Font fallback ve karakter desteği.
 - Pseudo-localization testleri.
 - Eksik anahtar tespiti.
-- SEO hreflang/canonical.
-- Locale bazlı metadata.
+- Her düz yol için sabit canonical URL ve sitemap kaydı.
+- Seçilen arayüz dilinde sayfa başlığı, açıklaması ve sosyal paylaşım metadata'sı.
+- Dil varyantları ayrı URL olmadığı için locale bazlı hreflang veya her dil için ayrı sitemap URL'si yayımlanmaz.
+- SEO sınırı: Arama motorları cookie ve `Accept-Language` tercihlerini kullanıcılar gibi tutarlı biçimde izlemeyebilir. Bu nedenle tek düz URL, 20 dil sürümünün ayrı ayrı taranıp indeksleneceğini garanti etmez; ayrı indekslenebilir dil sürümleri hedeflenirse URL stratejisi ayrıca değiştirilmelidir.
 - Ekran okuyucu kontrolleri.
 
 Makine çevirisi taslak olarak kullanılabilir ancak yayın kalitesinde çevirilerin kontrol edilmesi gerekir.
