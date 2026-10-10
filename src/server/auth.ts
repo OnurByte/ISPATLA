@@ -12,7 +12,7 @@ import { assertPostgresXAccountOwner, connectPostgresXAccount } from "./postgres
 
 type XLoginGrant = { xUserId: string; handle: string; displayName: string; bio: string; protected: boolean | null; avatarSource: string | null; accessToken: string; refreshToken: string; expiresAt: number; scopes: string[] };
 const xLoginGrantContext = new AsyncLocalStorage<{ grant: XLoginGrant | null; ownerUserId?: string }>();
-const X_PUBLISHING_SCOPES = ["tweet.read", "tweet.write", "users.read", "users.email", "media.write", "offline.access"] as const;
+const X_PUBLISHING_SCOPES = ["tweet.read", "tweet.write", "users.read", "media.write", "offline.access"] as const;
 
 type AuthInstance = ReturnType<typeof betterAuth<BetterAuthOptions>>;
 
@@ -55,14 +55,14 @@ function twitterSignInProvider(env: Record<string, string | undefined>): BetterA
       try {
         const accessToken = tokens.accessToken;
         if (!accessToken) return null;
-        const response = await fetch("https://api.x.com/2/users/me?user.fields=confirmed_email,description,profile_image_url,protected", {
+        const response = await fetch("https://api.x.com/2/users/me?user.fields=description,profile_image_url,protected", {
           headers: { authorization: `Bearer ${accessToken}` },
           signal: AbortSignal.timeout(5_000),
         });
         if (!response.ok) return null;
-        const profile = await response.json() as { data?: { id?: unknown; name?: unknown; username?: unknown; confirmed_email?: unknown; description?: unknown; profile_image_url?: unknown; protected?: unknown } };
+        const profile = await response.json() as { data?: { id?: unknown; name?: unknown; username?: unknown; description?: unknown; profile_image_url?: unknown; protected?: unknown } };
         const user = profile.data;
-        if (typeof user?.id !== "string" || typeof user.name !== "string" || typeof user.username !== "string" || typeof user.confirmed_email !== "string" || !user.confirmed_email.includes("@")) return null;
+        if (typeof user?.id !== "string" || typeof user.name !== "string" || typeof user.username !== "string") return null;
         const scopes = tokens.scopes || [];
         const context = xLoginGrantContext.getStore();
         if (!context || !tokens.refreshToken || !tokens.accessTokenExpiresAt || !Number.isFinite(tokens.accessTokenExpiresAt.getTime())
@@ -81,8 +81,8 @@ function twitterSignInProvider(env: Record<string, string | undefined>): BetterA
           scopes,
         };
         return {
-          user: { name: user.name, email: user.confirmed_email, emailVerified: true },
-          data: { data: { id: user.id, name: user.name, username: user.username, email: user.confirmed_email } },
+          user: { name: user.name, email: `x-${user.id}@users.ispatla.invalid`, emailVerified: true },
+          data: { data: { id: user.id, name: user.name, username: user.username, email: `x-${user.id}@users.ispatla.invalid` } },
         };
       } catch {
         return null;
