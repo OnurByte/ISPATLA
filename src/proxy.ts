@@ -20,11 +20,11 @@ export function proxy(request: Request): NextResponse {
   const appPath = hasLocalePrefix ? url.pathname.slice(locale.length + 1) || "/" : url.pathname;
   if (url.pathname === "/api" || url.pathname.startsWith("/api/")) return NextResponse.next();
 
-  if (firstSegment === DEFAULT_LOCALE) {
+  if (hasLocalePrefix) {
     const canonicalUrl = new URL(url);
     canonicalUrl.pathname = appPath;
-    const response = NextResponse.redirect(canonicalUrl);
-    response.cookies.set("ispatla-locale", DEFAULT_LOCALE, {
+    const response = NextResponse.redirect(canonicalUrl, 308);
+    response.cookies.set("ispatla-locale", locale, {
       path: "/",
       maxAge: 60 * 60 * 24 * 365,
       sameSite: "lax",
@@ -34,28 +34,17 @@ export function proxy(request: Request): NextResponse {
   }
 
   if (PRIVATE_PAGES.has(appPath) && !getSessionCookie(request)) {
-    const loginUrl = new URL(`${hasLocalePrefix ? `/${locale}` : ""}/login`, url);
+    const loginUrl = new URL("/login", url);
     loginUrl.searchParams.set("next", `${appPath}${url.search}`);
     return NextResponse.redirect(loginUrl);
   }
 
-  // OAuth/API callback URLs remain flat. Localized page URLs are rewritten internally,
-  // while the selected locale is passed to server components through a trusted header.
+  // The selected locale travels in trusted request headers; URLs stay canonical.
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set("x-ispatla-locale", locale);
   requestHeaders.set("x-ispatla-route", appPath);
   requestHeaders.set("x-ispatla-search", url.search);
-  if (!hasLocalePrefix) return NextResponse.next({ request: { headers: requestHeaders } });
-
-  url.pathname = appPath;
-  const response = NextResponse.rewrite(url, { request: { headers: requestHeaders } });
-  response.cookies.set("ispatla-locale", locale, {
-    path: "/",
-    maxAge: 60 * 60 * 24 * 365,
-    sameSite: "lax",
-    secure: url.protocol === "https:",
-  });
-  return response;
+  return NextResponse.next({ request: { headers: requestHeaders } });
 }
 
 export const config = {

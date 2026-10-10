@@ -1,6 +1,7 @@
 import { PublicHeader, requestPublicLocale } from "@/components/public-header";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
+import { PUBLIC_ORIGIN } from "@/i18n/public-metadata";
 import { readPublicXPostShare } from "@/server/hit-sharing";
 
 export const dynamic = "force-dynamic";
@@ -23,7 +24,9 @@ export async function generateMetadata({ params }: { params: Promise<{ publicId:
   return {
     title,
     description,
-    openGraph: { title, description, type: "article", url: `/h/${publicId}`, siteName: "İSPATLA", publishedTime: new Date(share.publishedAt * 1000).toISOString(), modifiedTime: new Date(share.observedAt * 1000).toISOString() },
+    alternates: { canonical: `${PUBLIC_ORIGIN}/h/${publicId}` },
+    robots: { index: true, follow: true },
+    openGraph: { title, description, type: "article", url: `${PUBLIC_ORIGIN}/h/${publicId}`, siteName: "İSPATLA", publishedTime: new Date(share.publishedAt * 1000).toISOString(), modifiedTime: new Date(share.observedAt * 1000).toISOString() },
     twitter: { card: "summary_large_image", title, description },
   };
 }

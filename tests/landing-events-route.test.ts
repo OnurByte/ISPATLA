@@ -19,4 +19,6 @@ test("measurement HTTP boundary rejects foreign origins, extra fields and stream
   expect(calls[1]?.sql).toContain("ON CONFLICT(day,event,page,bucket,source)");
   expect(calls[1]?.values?.slice(1)).toEqual(["demo_start", "/", "x"]);
   expect(JSON.stringify(calls)).not.toContain("private");
+  expect((await POST(request({ event: "signup_complete", page: "/signup", source: "google" }))).status).toBe(204);
+  expect(calls[3]?.values?.slice(1)).toEqual(["signup_complete", "/signup", "google"]);
 });

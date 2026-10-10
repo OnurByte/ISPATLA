@@ -1,3 +1,4 @@
+import { publicMetadata } from "@/i18n/public-metadata";
 import { LeaderboardContent, getLeaderboardTab } from "@/components/leaderboard-content";
 import { PublicHeader, requestPublicLocale } from "@/components/public-header";
 import { getOptionalPageUser } from "@/server/page-auth";
@@ -5,7 +6,7 @@ import { getLeaderboard } from "@/server/leaderboard";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
-export const metadata = { title: "Doğrulanmış hitler · İSPATLA", description: "Kendi geçmişine göre yükselen, resmi 𝕏 verileriyle doğrulanmış sonuçlar." };
+export const metadata = publicMetadata("tr", "/leaderboard", "Doğrulanmış hitler · İSPATLA", "Kendi geçmişine göre yükselen, resmi 𝕏 verileriyle doğrulanmış sonuçlar.");
 
 export default async function LeaderboardPage({ searchParams }: { searchParams: Promise<{ tab?: string | string[] }> }) {
   const locale = await requestPublicLocale();

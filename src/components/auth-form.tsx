@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { DEFAULT_LOCALE, localizePath, type Locale } from "@/i18n/config"
 import { announceSessionChange } from "@/components/auth-session-sync"
+import { trackLandingEvent } from "@/lib/landing-measurement"
 
 type AuthFormMode = "login" | "signup" | "forgot" | "reset"
 
@@ -87,6 +88,7 @@ export function AuthForm({ mode, token, locale = DEFAULT_LOCALE, next = "/dashbo
       if (!response.ok) throw new Error(responseError(data))
 
       if (mode === "login" || mode === "signup") {
+        if (mode === "signup" && data && typeof data === "object" && "user" in data && data.user && typeof data.user === "object" && "id" in data.user && typeof data.user.id === "string") trackLandingEvent("signup_complete", "/signup")
         announceSessionChange()
         window.location.assign(next)
       } else if (mode === "forgot") {
