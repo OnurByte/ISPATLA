@@ -13,5 +13,5 @@ export default async function PublicProfilePage({ params }: { params: Promise<{ 
   if (profile.xHandle) redirect(profile.profilePath);
 
   const locale = await requestPublicLocale();
-  return <><PublicHeader locale={locale} /><PublicProfileView profile={profile} /></>;
+  return <><PublicHeader locale={locale} /><PublicProfileView profile={profile} locale={locale} /></>;
 }

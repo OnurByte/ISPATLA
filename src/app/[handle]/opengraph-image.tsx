@@ -1,6 +1,8 @@
 import { ImageResponse } from "next/og";
 import { findPublicProfileByPath } from "@/server/public-profile";
 import { ogFontsForText } from "@/server/og-fonts";
+import { requestOpenGraphLocale } from "@/i18n/og-locale";
+import { socialCopy } from "@/i18n/social-copy";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -13,9 +15,11 @@ export default async function ProfileImage({ params }: { params: Promise<{ handl
   const { handle } = await params;
   const profile = await findPublicProfileByPath(handle);
   if (!profile) return new Response("Not found", { status: 404, headers: { "Cache-Control": "no-store" } });
-  const name = (profile.displayName || "İSPATLA profili").slice(0, 90);
-  const bio = (profile.bio || "Herkese açık İSPATLA profili").slice(0, 200);
-  const account = profile.xHandle ? "@" + profile.xHandle : "Herkese açık profil";
+  const locale = await requestOpenGraphLocale();
+  const words = socialCopy[locale];
+  const name = (profile.displayName || words.unnamed).slice(0, 90);
+  const bio = (profile.bio || words.noBio).slice(0, 200);
+  const account = profile.xHandle ? "@" + profile.xHandle : words.profile;
   const fonts = await ogFontsForText(name + " " + bio + " " + account);
 
   return new ImageResponse(
@@ -29,7 +33,7 @@ export default async function ProfileImage({ params }: { params: Promise<{ handl
         <div style={{ fontSize: 25, lineHeight: 1.3, maxHeight: 115, color: "#52605D", overflow: "hidden" }}>{bio}</div>
       </div>
       <div style={{ display: "flex", justifyContent: "space-between", borderTop: "2px solid #C7C5BC", paddingTop: 20, fontSize: 20 }}>
-        <span>Herkese açık profil</span><span>ispatla.tr</span>
+        <span>{words.profile}</span><span>ispatla.tr</span>
       </div>
     </div>,
     { ...size, fonts, headers: { "Cache-Control": "no-store, max-age=0" } },
