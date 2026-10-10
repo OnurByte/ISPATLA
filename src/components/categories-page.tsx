@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Pencil, Plus, Save, Trash2 } from "lucide-react";
-import type { Account, CategoryDefinition } from "@/server/db";
+import type { Account, CategoryDefinition } from "@/server/db-types";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";

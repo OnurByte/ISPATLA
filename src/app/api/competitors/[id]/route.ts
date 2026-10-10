@@ -1,6 +1,7 @@
 import { withUser } from "@/server/request-auth";
 import { NextResponse } from "next/server";
-import { deleteCompetitor, getCompetitors, saveCompetitor } from "@/server/db";
+import { currentOwnerId } from "@/server/owner-context";
+import { deletePostgresCompetitor, getPostgresCompetitors, savePostgresCompetitor } from "@/server/postgres-sources-market";
 import { guardMutation, readJsonBody } from "@/server/api-guard";
 
 export const runtime = "nodejs";
@@ -9,11 +10,12 @@ async function PATCHHandler(request: Request, context: { params: Promise<{ id: s
   const denied = guardMutation(request);
   if (denied) return denied;
   const id = Number((await context.params).id);
-  const current = getCompetitors().find((competitor) => competitor.id === id);
+  const owner = currentOwnerId()!;
+  const current = (await getPostgresCompetitors(owner)).find((competitor) => competitor.id === id);
   if (!current) return NextResponse.json({ error: "rakip bulunamadı" }, { status: 404 });
   try {
     const body = await readJsonBody(request);
-    return NextResponse.json(saveCompetitor({
+    return NextResponse.json(await savePostgresCompetitor(owner, {
       handle: String(body.handle ?? current.handle),
       name: String(body.name ?? current.name).slice(0, 120),
       category: String(body.category ?? current.category).slice(0, 240),
@@ -29,8 +31,7 @@ async function DELETEHandler(request: Request, context: { params: Promise<{ id: 
   const denied = guardMutation(request);
   if (denied) return denied;
   const id = Number((await context.params).id);
-  if (!getCompetitors().some((competitor) => competitor.id === id)) return NextResponse.json({ error: "rakip bulunamadı" }, { status: 404 });
-  deleteCompetitor(id);
+  if (!await deletePostgresCompetitor(currentOwnerId()!, id)) return NextResponse.json({ error: "rakip bulunamadı" }, { status: 404 });
   return NextResponse.json({ ok: true });
 }
 

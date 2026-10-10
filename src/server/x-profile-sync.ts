@@ -1,21 +1,27 @@
+import { sql } from "drizzle-orm";
 import { currentOwnerId } from "./owner-context";
-import { getAccounts, getOwnUserProfile, getOwnUserProfileXUserId, syncUserProfileFromX, type OwnUserProfile } from "./db";
+import { getPostgresDb } from "./postgres";
+import { getPostgresOwnUserProfile } from "./postgres-profile-dashboard";
+import { getPostgresAccounts } from "./postgres-accounts";
 import { OfficialXClient } from "./official-x";
-import { getXAccountAuthState } from "./x-oauth-store";
+import { getPostgresXAccountAuthState, getPostgresOwnUserProfileXUserId } from "./postgres-x-oauth";
 import { withOfficialAccount } from "./publisher";
-import { cacheSelectedProfileAvatar } from "./profile-avatar";
 
-export async function loadOwnUserProfileFromX(): Promise<OwnUserProfile> {
-  const profile = getOwnUserProfile();
+export type SyncedOwnUserProfile = {
+  username: string; displayName: string; bio: string; visibility: "private" | "public"; createdAt: number; updatedAt: number;
+  xHandle: string | null; avatarUrl: string | null; onboardingCompleted: boolean; profilePath: string;
+};
+
+export async function loadOwnUserProfileFromX(): Promise<SyncedOwnUserProfile> {
   const ownerUserId = currentOwnerId();
+  const profile = await getPostgresOwnUserProfile();
   if (!ownerUserId) return profile;
-  const boundXUserId = getOwnUserProfileXUserId();
+  const boundXUserId = await getPostgresOwnUserProfileXUserId(ownerUserId);
   const client = new OfficialXClient();
-  const accounts = getAccounts().filter((account) => account.ownerUserId === ownerUserId && account.enabled)
-    .sort((a, b) => Number(b.defaultAccount) - Number(a.defaultAccount));
+  const accounts = (await getPostgresAccounts(ownerUserId)).filter((account) => account.enabled);
 
   for (const account of accounts) {
-    const authState = getXAccountAuthState(account.id, ownerUserId);
+    const authState = await getPostgresXAccountAuthState(account.id, ownerUserId);
     if (!authState?.connected || (boundXUserId && authState.xUserId !== boundXUserId)) continue;
     try {
       return await withOfficialAccount(account, async (credential) => {
@@ -25,12 +31,11 @@ export async function loadOwnUserProfileFromX(): Promise<OwnUserProfile> {
         const displayName = typeof remote.name === "string" ? remote.name : handle;
         const bio = typeof remote.description === "string" ? remote.description : "";
         const protectedAccount = typeof remote.protected === "boolean" ? remote.protected : null;
-        syncUserProfileFromX({ ownerUserId, xUserId: credential.xUserId, handle, displayName, bio, protected: protectedAccount, avatarUrl: null });
-        if (typeof remote.profile_image_url === "string") {
-          try { await cacheSelectedProfileAvatar({ ownerUserId, xUserId: credential.xUserId, handle, displayName, bio, protected: protectedAccount, avatarUrl: remote.profile_image_url }); }
-          catch { /* Avatar availability does not affect the profile import. */ }
-        }
-        return getOwnUserProfile();
+        await getPostgresDb().execute(sql`UPDATE ispatla_app.user_profiles
+          SET x_handle=${handle},display_name=${displayName.slice(0,80)},bio=${bio.slice(0,500)},
+          visibility=CASE WHEN ${protectedAccount}::boolean IS NULL THEN visibility WHEN ${protectedAccount} THEN 'private' ELSE 'public' END,
+          updated_at=${Math.floor(Date.now()/1000)} WHERE owner_user_id=${ownerUserId}`);
+        return getPostgresOwnUserProfile();
       });
     } catch { return profile; }
   }

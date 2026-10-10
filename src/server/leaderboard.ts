@@ -1,5 +1,5 @@
-import { listQualifiedLeaderboardEvidence, type LeaderboardEvidence } from "@/server/db";
-import { ensureEvaluationStore } from "@/server/evaluation-store";
+import { getPostgresLeaderboardEvidence } from "@/server/postgres-hit-sharing";
+import type { LeaderboardEvidence } from "@/server/db-types";
 
 export const LEADERBOARD_MIN_BASELINE = 5;
 export const LEADERBOARD_TABS = ["week", "month", "accounts", "improvement"] as const;
@@ -87,7 +87,6 @@ export function rankLeaderboardEvidence(evidence: LeaderboardEvidence[], now: nu
   return { week: hits(7), month: hits(30), accounts: sorted(accounts), improvement };
 }
 
-export function getLeaderboard(now = Math.floor(Date.now() / 1000)): Leaderboard {
-  ensureEvaluationStore();
-  return rankLeaderboardEvidence(listQualifiedLeaderboardEvidence(), now);
+export async function getLeaderboard(now = Math.floor(Date.now() / 1000)): Promise<Leaderboard> {
+  return rankLeaderboardEvidence(await getPostgresLeaderboardEvidence(), now);
 }

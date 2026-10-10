@@ -1,6 +1,6 @@
 import Image from "next/image";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import type { OwnUserProfile } from "@/server/db";
+import type { OwnUserProfile } from "@/server/db-types";
 import { PUBLIC_ORIGIN } from "@/i18n/public-metadata";
 
 export function ProfileSettings({ initial: profile }: { initial: OwnUserProfile }) {

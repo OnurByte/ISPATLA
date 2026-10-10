@@ -1,12 +1,13 @@
 import { readFile, stat } from "node:fs/promises";
-import type { Account } from "./db";
 import { OfficialXClient, OfficialXError, type OfficialXCredentials, type OfficialXPostReceipt } from "./official-x";
-import { getXAccountAuthState, type XCredential } from "./x-oauth-store";
 import { refreshXToken } from "./x-oauth";
-import { currentOwnerId, runAsOwner } from "./owner-context";
+import { getPostgresXAccountAuthState, type PostgresXCredential } from "./postgres-x-oauth";
+import { currentOwnerId } from "./owner-context";
+
+type OwnedAccount = { id: number; ownerUserId?: string | null; handle: string };
 
 export type PublishInput = {
-  account: Account;
+  account: OwnedAccount;
   credentials: OfficialXCredentials;
   text: string;
   mediaPath?: string;
@@ -17,9 +18,9 @@ export type PublisherCapabilities = { post: boolean; repost: boolean; reply: boo
 export class OfficialXPublisher {
   constructor(readonly client: OfficialXClient = new OfficialXClient()) {}
 
-  health(account: Account): { ok: boolean; reason: string } {
+  async health(account: OwnedAccount): Promise<{ ok: boolean; reason: string }> {
     if (!account.ownerUserId) return { ok: false, reason: "𝕏 account owner is not bound" };
-    const state = getXAccountAuthState(account.id, account.ownerUserId);
+    const state = await getPostgresXAccountAuthState(account.id, account.ownerUserId);
     if (!state?.connected) return { ok: false, reason: "𝕏 account requires connection or reauthorization" };
     return { ok: true, reason: "" };
   }
@@ -71,22 +72,20 @@ export class OfficialXPublisher {
 const publisher = new OfficialXPublisher();
 
 /** Resolve the X identity only from the account's persisted OAuth binding. */
-export async function withOfficialAccount<T>(account: Account, work: (credential: XCredential) => Promise<T>): Promise<T> {
+export async function withOfficialAccount<T>(account: OwnedAccount, work: (credential: PostgresXCredential) => Promise<T>): Promise<T> {
   const ownerUserId = account.ownerUserId;
   if (!ownerUserId) throw new Error("𝕏 account has no authenticated owner binding");
   const callerOwner = currentOwnerId();
   if (callerOwner && callerOwner !== ownerUserId) throw new Error("𝕏 account is outside the authenticated owner context");
-  return runAsOwner(ownerUserId, async () => {
-    const state = getXAccountAuthState(account.id, ownerUserId);
-    if (!state?.connected) throw new Error("𝕏 account requires reauthorization");
-    return refreshXToken<T>({ accountId: account.id, ownerUserId }, work);
-  });
+  const state = await getPostgresXAccountAuthState(account.id, ownerUserId);
+  if (!state?.connected) throw new Error("𝕏 account requires reauthorization");
+  return refreshXToken<T>({ accountId: account.id, ownerUserId }, work);
 }
 
 export function publish(input: PublishInput, selectedPublisher: OfficialXPublisher = publisher): Promise<PublishReceipt> {
   return selectedPublisher.publishPost(input);
 }
 
-export function publisherHealth(account: Account): ReturnType<OfficialXPublisher["health"]> {
+export function publisherHealth(account: OwnedAccount): ReturnType<OfficialXPublisher["health"]> {
   return publisher.health(account);
 }

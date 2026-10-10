@@ -6,7 +6,7 @@ export const publicEvidenceCopyLocal: PartialEvidenceCopy = {
     pages: {
       openSource: { title: "Açık kaynak: kodu incele, kendin çalıştır", description: "ISPATLA'nın AGPL-3.0-or-later lisansı, yerel demo yolu ve bilinen sınırları.", summary: "Kaynak kodunu, lisansı ve yerel demo yolunu doğrudan incele. Açık kod; ücretsiz sunucu, hazır üretim hizmeti veya kusursuz güvenlik vaadi değildir.", sections: [
         { heading: "Lisans ve kaynak", body: "Ana uygulama deposu herkese açıktır ve AGPL-3.0-or-later lisansını kullanır. Tam lisans metnini LICENSE dosyasından okuyun; üçüncü taraf paketler kendi lisanslarına tabidir." },
-        { heading: "Yerel demo", body: "README, Node.js 22.5+ ve Bun ile yerel kurulumu ve kimlik bilgisi gerektirmeyen sentetik `bun run demo` akışını belgeliyor. Demo dış sisteme bağlanmaz; örnek fiş gerçek yayın kanıtı değildir." },
+        { heading: "Yerel kurulum", body: "README, Node.js 22.5+ ve Bun ile yerel kurulumu PostgreSQL bağlantısı gereksinimiyle belgeliyor. Hazır sentetik demo verisi sunulmuyor." },
         { heading: "Maliyetler", body: "Kod lisansının ücreti yoktur. Sunucu/barındırma, 𝕏 API erişimi ve AI sağlayıcı kullanımı ayrıca maliyet yaratabilir; ücretler sağlayıcıya göre değişir." },
         { heading: "Açık kaynak sınırları", body: "Açık kod her kurulumun güvenli, güncel veya doğru yapılandırılmış olduğunu; destek, SLA veya kesintisiz 𝕏 erişimi bulunduğunu garanti etmez. Canlı sağlayıcı çalışması ayrıca doğrulanmalıdır." },
         { heading: "Katkı ve düzeltme", body: "Katkı, güvenlik bildirimi ve düzeltme yolları depoda açıklanır. Hata veya yeni kaynak için herkese açık GitHub kaydını kullanın." },
@@ -39,7 +39,7 @@ export const publicEvidenceCopyLocal: PartialEvidenceCopy = {
     pages: {
       openSource: { title: "اوپن سورس: کوڈ دیکھیں اور خود چلائیں", description: "ISPATLA کا AGPL-3.0-or-later لائسنس، مقامی ڈیمو اور معلوم حدود۔", summary: "کوڈ، لائسنس اور مقامی ڈیمو کا راستہ دیکھیں۔ اوپن سورس مفت سرور یا کامل حفاظت کی ضمانت نہیں۔", sections: [
         { heading: "لائسنس اور سورس", body: "اصل ایپ کا ذخیرہ عوامی ہے اور AGPL-3.0-or-later استعمال کرتا ہے۔ مکمل لائسنس LICENSE میں ہے؛ تیسرے فریق کے پیکجز کے الگ لائسنس ہیں۔" },
-        { heading: "مقامی ڈیمو", body: "README، Node.js 22.5+ اور Bun کے ساتھ مقامی سیٹ اپ اور بے اسناد مصنوعی `bun run demo` بتاتا ہے۔ ڈیمو کسی بیرونی نظام سے نہیں جڑتا؛ نمونہ رسید حقیقی اشاعت کا ثبوت نہیں۔" },
+        { heading: "مقامی تنصیب", body: "README، Node.js 22.5+ اور Bun کے ساتھ مقامی تنصیب کے لیے PostgreSQL کنکشن کی ضرورت بتاتا ہے۔ تیار مصنوعی ڈیمو ڈیٹا فراہم نہیں کیا جاتا۔" },
         { heading: "اخراجات", body: "سورس لائسنس کی فیس نہیں۔ سرور/میزبانی، 𝕏 API اور AI فراہم کنندہ کے اخراجات الگ ہو سکتے ہیں اور فراہم کنندہ کے لحاظ سے بدلتے ہیں۔" },
         { heading: "اوپن سورس کی حدود", body: "کھلا کوڈ ہر تنصیب کی حفاظت، تازگی یا درست ترتیب؛ معاونت، SLA یا 𝕏 تک مسلسل رسائی کی ضمانت نہیں۔ براہ راست فراہم کنندہ کا استعمال الگ جانچیں۔" },
         { heading: "تعاون اور تصحیح", body: "تعاون، سیکیورٹی رپورٹ اور تصحیح کے طریقے ذخیرے میں درج ہیں۔ غلطی یا نیا ماخذ عوامی GitHub ریکارڈ میں شامل کریں۔" },
@@ -72,7 +72,7 @@ export const publicEvidenceCopyLocal: PartialEvidenceCopy = {
     pages: {
       openSource: { title: "Open Source: Code prüfen und selbst betreiben", description: "Ispatlas AGPL-3.0-or-later-Lizenz, lokaler Demo-Weg und bekannte Grenzen.", summary: "Prüfen Sie Quellcode, Lizenz und lokale Demo direkt. Open Source verspricht weder kostenloses Hosting noch perfekte Sicherheit.", sections: [
         { heading: "Lizenz und Quellcode", body: "Das Hauptanwendungs-Repository ist öffentlich und steht unter AGPL-3.0-or-later. Den Lizenztext finden Sie in LICENSE; Drittanbieterpakete haben eigene Lizenzen." },
-        { heading: "Lokale Demo", body: "Die README beschreibt lokalen Betrieb mit Node.js 22.5+ und Bun sowie eine synthetische Demo `bun run demo` ohne Zugangsdaten. Sie verbindet sich nicht mit externen Diensten; der Beispielbeleg ist kein Veröffentlichungsnachweis." },
+        { heading: "Lokale Einrichtung", body: "Die README beschreibt die lokale Einrichtung mit Node.js 22.5+ und Bun und nennt PostgreSQL als Voraussetzung. Es werden keine synthetischen Demodaten bereitgestellt." },
         { heading: "Kosten", body: "Für die Quellcode-Lizenz fällt keine Gebühr an. Server/Hosting, 𝕏-API-Zugang und KI-Anbieter können zusätzliche Kosten verursachen." },
         { heading: "Grenzen von Open Source", body: "Offener Code garantiert weder Sicherheit, Aktualität und korrekte Konfiguration jeder Installation noch Support, SLA oder dauerhaften 𝕏-Zugang. Live-Anbieterzugriff muss separat geprüft werden." },
         { heading: "Beiträge und Korrekturen", body: "Hinweise zu Beiträgen, Sicherheitsmeldungen und Korrekturen stehen im Repository. Melden Sie Fehler und Quellen über den öffentlichen GitHub-Eintrag." },
@@ -105,7 +105,7 @@ export const publicEvidenceCopyLocal: PartialEvidenceCopy = {
     pages: {
       openSource: { title: "オープンソース：コードを確認して自分で運用", description: "Ispatla の AGPL-3.0-or-later ライセンス、ローカルデモ、既知の制限。", summary: "ソース、ライセンス、ローカルデモの手順を確認できます。オープンソースは無料ホスティングや完全な安全性を保証しません。", sections: [
         { heading: "ライセンスとソース", body: "主要アプリのリポジトリは公開され、AGPL-3.0-or-later で提供されています。LICENSE で全文を確認してください。サードパーティのパッケージには個別のライセンスがあります。" },
-        { heading: "ローカルデモ", body: "README は Node.js 22.5 以降と Bun によるローカル構成、および認証情報不要の合成デモ `bun run demo` を記載しています。外部システムには接続せず、サンプルの記録は実際の投稿証明ではありません。" },
+        { heading: "ローカル設定", body: "README は Node.js 22.5 以降と Bun によるローカル設定を説明し、PostgreSQL 接続が必要だと記載しています。合成デモデータは提供していません。" },
         { heading: "費用", body: "ソースライセンス料はありません。サーバー/ホスティング、𝕏 API、AI プロバイダーには別途費用が発生する場合があります。" },
         { heading: "オープンソースの限界", body: "公開コードは全環境の安全性、更新、正しい設定、サポート、SLA、𝕏 への継続アクセスを保証しません。実プロバイダー接続は別途確認が必要です。" },
         { heading: "貢献と訂正", body: "貢献、セキュリティ報告、訂正の方法はリポジトリにあります。誤りや新しい出典は公開 GitHub 記録に追加してください。" },
@@ -138,7 +138,7 @@ export const publicEvidenceCopyLocal: PartialEvidenceCopy = {
     pages: {
       openSource: { title: "Chanzo wazi: kagua msimbo na uendeshe mwenyewe", description: "Leseni ya AGPL-3.0-or-later ya Ispatla, demo ya ndani na mipaka inayojulikana.", summary: "Kagua msimbo, leseni na hatua za demo ya ndani. Chanzo wazi hakiahidi seva ya bure au usalama kamili.", sections: [
         { heading: "Leseni na msimbo", body: "Hazina kuu ya programu iko wazi kwa umma na ina leseni ya AGPL-3.0-or-later. Soma LICENSE; vifurushi vya wengine vina leseni zao." },
-        { heading: "Demo ya ndani", body: "README inaeleza usanidi wa ndani kwa Node.js 22.5+ na Bun, pamoja na demo ya kubuni `bun run demo` bila sifa za kuingia. Haiunganishi mifumo ya nje; stakabadhi ya mfano si ushahidi wa chapisho halisi." },
+        { heading: "Usanidi wa ndani", body: "README inaeleza usanidi wa ndani kwa Node.js 22.5+ na Bun na hitaji la muunganisho wa PostgreSQL. Data ya demo ya kubuni haijatolewa." },
         { heading: "Gharama", body: "Hakuna ada ya leseni ya msimbo. Seva/hosting, 𝕏 API na huduma za AI zinaweza kuwa na gharama tofauti kulingana na mtoa huduma." },
         { heading: "Mipaka ya chanzo wazi", body: "Msimbo wazi hauhakikishi usalama, usasishaji au usanidi sahihi wa kila usakinishaji, usaidizi, SLA, au ufikiaji endelevu wa 𝕏. Jaribu muunganisho wa mtoa huduma kivyake." },
         { heading: "Michango na marekebisho", body: "Maelekezo ya michango, taarifa za usalama na marekebisho yako kwenye hazina. Tumia rekodi ya GitHub ya umma kuwasilisha hitilafu au chanzo." },
@@ -171,7 +171,7 @@ export const publicEvidenceCopyLocal: PartialEvidenceCopy = {
     pages: {
       openSource: { title: "मुक्त स्रोत: कोड तपासा आणि स्वतः चालवा", description: "ISPATLA चा AGPL-3.0-or-later परवाना, स्थानिक डेमो आणि ज्ञात मर्यादा.", summary: "स्रोत कोड, परवाना आणि स्थानिक डेमोची पद्धत तपासा. मुक्त स्रोत मोफत सर्व्हर किंवा पूर्ण सुरक्षिततेची हमी देत नाही.", sections: [
         { heading: "परवाना आणि स्रोत", body: "मुख्य अॅपचे रेपॉझिटरी सार्वजनिक असून AGPL-3.0-or-later परवान्याखाली आहे. LICENSE मधील मजकूर वाचा; तृतीय-पक्ष पॅकेजचे परवाने स्वतंत्र आहेत." },
-        { heading: "स्थानिक डेमो", body: "README मध्ये Node.js 22.5+ आणि Bun सह स्थानिक सेटअप तसेच ओळखपत्रांशिवाय कृत्रिम `bun run demo` आहे. डेमो बाह्य प्रणालीशी जोडत नाही; नमुना पावती प्रत्यक्ष पोस्टचा पुरावा नाही." },
+        { heading: "स्थानिक सेटअप", body: "README मध्ये Node.js 22.5+ आणि Bun सह स्थानिक सेटअप व PostgreSQL कनेक्शनची गरज स्पष्ट केली आहे. कृत्रिम डेमो डेटा दिलेला नाही." },
         { heading: "खर्च", body: "स्रोत परवान्यासाठी शुल्क नाही. सर्व्हर/होस्टिंग, 𝕏 API आणि AI सेवा स्वतंत्र खर्च करू शकतात." },
         { heading: "मुक्त स्रोताच्या मर्यादा", body: "मुक्त कोड प्रत्येक स्थापनेची सुरक्षा, अद्ययावत स्थिती किंवा योग्य मांडणी; सहाय्य, SLA किंवा 𝕏 ची सतत उपलब्धता यांची हमी देत नाही. प्रत्यक्ष सेवा स्वतंत्रपणे तपासा." },
         { heading: "योगदान आणि दुरुस्ती", body: "योगदान, सुरक्षा अहवाल आणि दुरुस्तीची माहिती रेपॉझिटरीत आहे. त्रुटी किंवा नवा स्रोत सार्वजनिक GitHub नोंदीत द्या." },
@@ -204,7 +204,7 @@ export const publicEvidenceCopyLocal: PartialEvidenceCopy = {
     pages: {
       openSource: { title: "ఓపెన్ సోర్స్: కోడ్‌ను పరిశీలించి మీరే నడపండి", description: "ISPATLA AGPL-3.0-or-later లైసెన్స్, స్థానిక డెమో, తెలిసిన పరిమితులు.", summary: "సోర్స్ కోడ్, లైసెన్స్, స్థానిక డెమో విధానాన్ని పరిశీలించండి. ఓపెన్ సోర్స్ ఉచిత సర్వర్ లేదా సంపూర్ణ భద్రతకు హామీ కాదు.", sections: [
         { heading: "లైసెన్స్ మరియు సోర్స్", body: "ప్రధాన యాప్ రిపోజిటరీ పబ్లిక్‌గా ఉంది; AGPL-3.0-or-later లైసెన్స్ కలిగి ఉంది. పూర్తి లైసెన్స్ LICENSEలో ఉంది; మూడవ పక్ష ప్యాకేజీలకు వేరు లైసెన్సులు ఉంటాయి." },
-        { heading: "స్థానిక డెమో", body: "README Node.js 22.5+ మరియు Bunతో స్థానిక సెటప్, ఆధారాలు అవసరం లేని సింథటిక్ `bun run demo`ను వివరిస్తుంది. ఇది బాహ్య సిస్టమ్‌కు కనెక్ట్ కాదు; నమూనా రసీదు నిజ ప్రచురణకు ఆధారం కాదు." },
+        { heading: "స్థానిక సెటప్", body: "README Node.js 22.5+ మరియు Bunతో స్థానిక సెటప్‌ను వివరిస్తూ PostgreSQL కనెక్షన్ అవసరమని చెబుతుంది. సింథటిక్ డెమో డేటా అందుబాటులో లేదు." },
         { heading: "ఖర్చులు", body: "సోర్స్ లైసెన్స్‌కు ఫీజు లేదు. సర్వర్/హోస్టింగ్, 𝕏 API, AI ప్రొవైడర్‌కు వేరుగా ఖర్చులు ఉండవచ్చు." },
         { heading: "ఓపెన్ సోర్స్ పరిమితులు", body: "ఓపెన్ కోడ్ ప్రతి ఇన్‌స్టాలేషన్ భద్రత, తాజాదనం, సరైన కాన్ఫిగరేషన్; మద్దతు, SLA లేదా నిరంతర 𝕏 యాక్సెస్‌కు హామీ ఇవ్వదు. లైవ్ ప్రొవైడర్ వినియోగాన్ని విడిగా పరీక్షించాలి." },
         { heading: "సహకారం మరియు సవరణలు", body: "సహకారం, భద్రతా నివేదికలు, సవరణల మార్గాలు రిపోజిటరీలో ఉన్నాయి. తప్పు లేదా కొత్త మూలాన్ని పబ్లిక్ GitHub రికార్డులో సమర్పించండి." },
@@ -237,7 +237,7 @@ export const publicEvidenceCopyLocal: PartialEvidenceCopy = {
     pages: {
       openSource: { title: "திறந்த மூலக் குறியீடு: ஆய்ந்து நீங்களே இயக்குங்கள்", description: "ISPATLA-வின் AGPL-3.0-or-later உரிமம், உள்ளூர் டெமோ, அறிந்த வரம்புகள்.", summary: "மூலக் குறியீடு, உரிமம், உள்ளூர் டெமோ வழியை நேரடியாகப் பாருங்கள். திறந்த மூலம் இலவச சர்வர் அல்லது முழுப் பாதுகாப்பை உறுதி செய்யாது.", sections: [
         { heading: "உரிமமும் மூலமும்", body: "முதன்மை பயன்பாட்டு களஞ்சியம் பொதுவானது; AGPL-3.0-or-later உரிமத்தில் உள்ளது. LICENSE-இல் முழு உரிமத்தைப் படிக்கவும்; மூன்றாம் தரப்பு தொகுப்புகளுக்குத் தனி உரிமங்கள் உண்டு." },
-        { heading: "உள்ளூர் டெமோ", body: "README, Node.js 22.5+ மற்றும் Bun மூலம் உள்ளூர் அமைப்பையும், சான்றுகள் தேவையில்லாத செயற்கை `bun run demo`-வையும் விவரிக்கிறது. இது வெளி அமைப்புடன் இணையாது; மாதிரி ரசீது உண்மையான வெளியீட்டுச் சான்றல்ல." },
+        { heading: "உள்ளூர் அமைப்பு", body: "README, Node.js 22.5+ மற்றும் Bun மூலம் உள்ளூர் அமைப்பை விளக்கி PostgreSQL இணைப்பு தேவை என்பதைக் குறிப்பிடுகிறது. செயற்கை டெமோ தரவு வழங்கப்படவில்லை." },
         { heading: "செலவுகள்", body: "மூல உரிமத்திற்கு கட்டணம் இல்லை. சர்வர்/ஹோஸ்டிங், 𝕏 API, AI வழங்குநர் சேவைகள் தனிச் செலவுகளை ஏற்படுத்தலாம்." },
         { heading: "திறந்த மூலத்தின் வரம்புகள்", body: "திறந்த குறியீடு ஒவ்வொரு நிறுவலின் பாதுகாப்பு, புதுப்பிப்பு, சரியான அமைப்பு; ஆதரவு, SLA, தொடர்ச்சியான 𝕏 அணுகலை உறுதி செய்யாது. நேரடி வழங்குநர் பயன்பாட்டைத் தனியாகச் சரிபார்க்க வேண்டும்." },
         { heading: "பங்களிப்பும் திருத்தமும்", body: "பங்களிப்பு, பாதுகாப்பு அறிக்கை, திருத்த வழிகள் களஞ்சியத்தில் உள்ளன. பிழை அல்லது புதிய ஆதாரத்தை பொது GitHub பதிவில் சேர்க்கவும்." },
@@ -270,7 +270,7 @@ export const publicEvidenceCopyLocal: PartialEvidenceCopy = {
     pages: {
       openSource: { title: "Mã nguồn mở: tự kiểm tra và vận hành", description: "Giấy phép AGPL-3.0-or-later, demo cục bộ và giới hạn đã biết của ISPATLA.", summary: "Tự kiểm tra mã nguồn, giấy phép và cách chạy demo cục bộ. Mã nguồn mở không hứa máy chủ miễn phí hay bảo mật tuyệt đối.", sections: [
         { heading: "Giấy phép và mã nguồn", body: "Kho ứng dụng chính được công khai theo AGPL-3.0-or-later. Đọc toàn văn trong LICENSE; các gói bên thứ ba có giấy phép riêng." },
-        { heading: "Demo cục bộ", body: "README ghi cách cài cục bộ bằng Node.js 22.5+ và Bun, cùng demo tổng hợp `bun run demo` không cần thông tin xác thực. Demo không kết nối hệ thống ngoài; biên nhận mẫu không phải bằng chứng đăng bài thật." },
+        { heading: "Thiết lập cục bộ", body: "README hướng dẫn thiết lập cục bộ bằng Node.js 22.5+ và Bun, đồng thời nêu yêu cầu kết nối PostgreSQL. Không có dữ liệu demo tổng hợp." },
         { heading: "Chi phí", body: "Không thu phí giấy phép mã nguồn. Máy chủ/lưu trữ, quyền truy cập 𝕏 API và dịch vụ AI có thể phát sinh chi phí riêng." },
         { heading: "Giới hạn của mã nguồn mở", body: "Mã mở không đảm bảo mọi bản cài đều an toàn, cập nhật, cấu hình đúng; cũng không đảm bảo hỗ trợ, SLA hay quyền truy cập 𝕏 liên tục. Cần kiểm tra riêng việc kết nối nhà cung cấp trực tiếp." },
         { heading: "Đóng góp và đính chính", body: "Hướng dẫn đóng góp, báo cáo bảo mật và đính chính nằm trong kho mã. Gửi lỗi hoặc nguồn mới qua hồ sơ GitHub công khai." },
@@ -303,7 +303,7 @@ export const publicEvidenceCopyLocal: PartialEvidenceCopy = {
     pages: {
       openSource: { title: "오픈 소스: 코드를 확인하고 직접 실행하세요", description: "ISPATLA의 AGPL-3.0-or-later 라이선스, 로컬 데모, 알려진 제한.", summary: "소스 코드와 라이선스, 로컬 데모 절차를 직접 확인하세요. 오픈 소스가 무료 서버나 완벽한 보안을 보장하지는 않습니다.", sections: [
         { heading: "라이선스와 소스", body: "주요 앱 저장소는 공개되어 있으며 AGPL-3.0-or-later 라이선스를 사용합니다. 전체 조건은 LICENSE에서 확인하세요. 타사 패키지는 별도 라이선스를 따릅니다." },
-        { heading: "로컬 데모", body: "README는 Node.js 22.5 이상과 Bun을 이용한 로컬 설정 및 자격 증명 없는 합성 데모 `bun run demo`를 안내합니다. 외부 시스템에 연결하지 않으며 예시 영수증은 실제 게시 증거가 아닙니다." },
+        { heading: "로컬 설정", body: "README는 Node.js 22.5 이상과 Bun을 이용한 로컬 설정 및 PostgreSQL 연결 필요 사항을 안내합니다. 합성 데모 데이터는 제공하지 않습니다." },
         { heading: "비용", body: "소스 라이선스 비용은 없습니다. 서버/호스팅, 𝕏 API, AI 제공자 이용에는 별도 비용이 발생할 수 있습니다." },
         { heading: "오픈 소스의 한계", body: "공개 코드가 모든 설치 환경의 보안, 최신성, 올바른 설정, 지원, SLA, 지속적인 𝕏 접근을 보장하지 않습니다. 실제 제공자 연결은 별도로 확인해야 합니다." },
         { heading: "기여와 정정", body: "기여, 보안 신고, 정정 방법은 저장소에 있습니다. 오류나 새 출처는 공개 GitHub 기록에 등록하세요." },

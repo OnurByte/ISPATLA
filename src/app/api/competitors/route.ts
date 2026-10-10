@@ -1,12 +1,13 @@
 import { withUser } from "@/server/request-auth";
 import { NextResponse } from "next/server";
-import { getCompetitors, saveCompetitor } from "@/server/db";
+import { currentOwnerId } from "@/server/owner-context";
+import { getPostgresCompetitors, savePostgresCompetitor } from "@/server/postgres-sources-market";
 import { guardMutation, readJsonBody } from "@/server/api-guard";
 
 export const runtime = "nodejs";
 
-function GETHandler() {
-  return NextResponse.json(getCompetitors());
+async function GETHandler() {
+  return NextResponse.json(await getPostgresCompetitors(currentOwnerId()!));
 }
 
 async function POSTHandler(request: Request) {
@@ -16,7 +17,7 @@ async function POSTHandler(request: Request) {
     const body = await readJsonBody(request);
     const handle = String(body.handle || "").replace(/^@/, "").toLowerCase();
     if (!/^[a-z0-9_]{1,15}$/.test(handle)) return NextResponse.json({ error: "geçerli 𝕏 handle gerekli" }, { status: 400 });
-    return NextResponse.json(saveCompetitor({
+    return NextResponse.json(await savePostgresCompetitor(currentOwnerId()!, {
       handle,
       name: String(body.name || handle).slice(0, 120),
       category: String(body.category || "").slice(0, 240),

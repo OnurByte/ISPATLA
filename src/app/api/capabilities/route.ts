@@ -1,32 +1,30 @@
 import { withUser } from "@/server/request-auth";
 import { currentOwnerId } from "@/server/owner-context";
 import { NextResponse } from "next/server";
-import { getAccounts } from "@/server/db";
-import { getXAccountAuthState } from "@/server/x-oauth";
+import { getPostgresXAccounts } from "@/server/postgres-x-oauth";
 
 export const runtime = "nodejs";
 
-function GETHandler() {
+async function GETHandler() {
   const ownerId = currentOwnerId();
-  const accounts = getAccounts().map((account) => {
-    const state = ownerId ? getXAccountAuthState(account.id, ownerId) : null;
-    const scopes = state?.scopes || [];
-    const write = state?.connected === true && scopes.includes("tweet.write");
+  const accounts = ownerId ? (await getPostgresXAccounts(ownerId)).map((account) => {
+    const scopes = account.scopes;
+    const write = account.connected && scopes.includes("tweet.write");
     return {
       accountId: account.id,
       handle: account.handle,
-      connected: state?.connected === true,
-      authState: state?.authState || "disconnected",
+      connected: account.connected,
+      authState: account.authState,
       scopes,
       capabilities: {
         post: write,
         repost: write,
         reply: write,
-        media: state?.connected === true && scopes.includes("media.write"),
+        media: account.connected && scopes.includes("media.write"),
         quote: "unknown",
       },
     };
-  });
+  }) : [];
   return NextResponse.json({ accounts, xEntitlement: "unknown" }, { headers: { "cache-control": "no-store" } });
 }
 

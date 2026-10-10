@@ -1,10 +1,7 @@
-import { withUser } from "@/server/request-auth";
 import { NextResponse } from "next/server";
-import { deleteDraft, getAccountCategoryConfigs, getAccounts, getDraft, getPost, updateDraft } from "@/server/db";
-import { accountCategories } from "@/server/pipeline";
-import { evaluateDraft } from "@/server/draft-evaluator";
+import { withUser } from "@/server/request-auth";
 import { guardMutation, readJsonBody } from "@/server/api-guard";
-import { ensureDraftRevisionStore } from "@/server/draft-revisions";
+import { deletePostgresDraft, getPostgresDraft, savePostgresDraft } from "@/server/postgres-drafts";
 
 export const runtime = "nodejs";
 
@@ -12,55 +9,21 @@ async function PATCHHandler(request: Request, context: { params: Promise<{ id: s
   const denied = guardMutation(request);
   if (denied) return denied;
   const id = Number((await context.params).id);
-  ensureDraftRevisionStore();
-  if (!getDraft(id)) return NextResponse.json({ error: "draft bulunamadı" }, { status: 404 });
-  let body: Record<string, unknown>;
+  const current = await getPostgresDraft(id);
+  if (!current) return NextResponse.json({ error: "draft bulunamadı" }, { status: 404 });
   try {
-    body = await readJsonBody(request);
-  } catch {
-    return NextResponse.json({ error: "geçersiz JSON gövdesi" }, { status: 400 });
-  }
-  const now = Math.floor(Date.now() / 1000);
-  const draft = updateDraft({
-    id,
-    accountId: body.accountId === null ? null : body.accountId === undefined ? undefined : Number(body.accountId),
-    format: body.format === undefined ? undefined : String(body.format),
-    text: body.text === undefined ? undefined : String(body.text),
-    status: body.status === undefined ? undefined : String(body.status),
-    gateReason: body.gateReason === undefined ? undefined : String(body.gateReason),
-    now,
-  });
-  if (draft?.accountId) {
-    const account = getAccounts().find((item) => item.id === draft.accountId);
-    if (account) {
-      const categorySlug = getAccountCategoryConfigs()
-        .filter((item) => item.accountId === account.id && item.enabled)
-        .sort((left, right) => Number(right.primary) - Number(left.primary) || right.priority - left.priority)[0]?.categorySlug
-        || accountCategories(account)[0]
-        || "";
-      await evaluateDraft({
-        draftId: draft.id,
-        text: draft.text,
-        account,
-        categorySlug,
-        format: draft.format,
-        mediaType: "none",
-        sourceText: draft.externalId ? getPost(draft.externalId)?.text || "" : "",
-        now,
-      }).catch(() => undefined);
-    }
-  }
-  return NextResponse.json(getDraft(id) || draft);
+    const body = await readJsonBody(request);
+    const draft = await savePostgresDraft({ id, accountId: body.accountId === undefined ? current.accountId : body.accountId === null ? null : Number(body.accountId),
+      format: body.format === undefined ? current.format : String(body.format), text: body.text === undefined ? current.text : String(body.text),
+      sourceHandle: body.sourceHandle === undefined ? current.sourceHandle : String(body.sourceHandle), sourceUrl: body.sourceUrl === undefined ? current.sourceUrl : String(body.sourceUrl) });
+    return draft ? NextResponse.json(draft) : NextResponse.json({ error: "draft bulunamadı" }, { status: 404 });
+  } catch (error) { return NextResponse.json({ error: error instanceof Error ? error.message : "Draft kaydedilemedi" }, { status: 400 }); }
 }
-
 async function DELETEHandler(request: Request, context: { params: Promise<{ id: string }> }) {
   const denied = guardMutation(request);
   if (denied) return denied;
-  const id = Number((await context.params).id);
-  if (!deleteDraft(id)) return NextResponse.json({ error: "draft bulunamadı" }, { status: 404 });
-  return NextResponse.json({ ok: true });
+  try { return await deletePostgresDraft(Number((await context.params).id)) ? NextResponse.json({ ok: true }) : NextResponse.json({ error: "draft bulunamadı" }, { status: 404 }); }
+  catch { return NextResponse.json({ error: "Draft silinemedi" }, { status: 409 }); }
 }
-
 export const PATCH = withUser(PATCHHandler);
-
 export const DELETE = withUser(DELETEHandler);

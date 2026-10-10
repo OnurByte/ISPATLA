@@ -1,7 +1,8 @@
 import { withUser } from "@/server/request-auth";
 import { NextResponse } from "next/server";
-import { getCategoriesForAccount, saveAccountCategory, type CategoryDefinition } from "@/server/db";
 import { guardMutation, readJsonBody } from "@/server/api-guard";
+import { currentOwnerId } from "@/server/owner-context";
+import { getPostgresCategoriesForAccount, savePostgresAccountCategory, type PgCategory } from "@/server/postgres-accounts";
 
 export const runtime = "nodejs";
 
@@ -13,15 +14,15 @@ function object(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
 }
 
-function categoryInput(body: Record<string, unknown>, builtIn = false): Omit<CategoryDefinition, "id" | "createdAt" | "updatedAt"> {
+function categoryInput(body: Record<string, unknown>, builtIn = false): Omit<PgCategory, "id" | "createdAt" | "updatedAt" | "ownerUserId" | "accountId"> {
   return {
     slug: String(body.slug || ""),
     name: String(body.name || ""),
     enabled: body.enabled !== false,
     builtIn,
-    baseStrategy: String(body.baseStrategy || "generic") as CategoryDefinition["baseStrategy"],
-    clusterStrategy: String(body.clusterStrategy || "hybrid") as CategoryDefinition["clusterStrategy"],
-    verificationMode: String(body.verificationMode || "moderate") as CategoryDefinition["verificationMode"],
+    baseStrategy: String(body.baseStrategy || "generic") as PgCategory["baseStrategy"],
+    clusterStrategy: String(body.clusterStrategy || "hybrid") as PgCategory["clusterStrategy"],
+    verificationMode: String(body.verificationMode || "moderate") as PgCategory["verificationMode"],
     description: String(body.description || ""),
     positiveExamples: strings(body.positiveExamples),
     negativeExamples: strings(body.negativeExamples),
@@ -37,10 +38,10 @@ function categoryInput(body: Record<string, unknown>, builtIn = false): Omit<Cat
   };
 }
 
-function GETHandler(request: Request) {
+async function GETHandler(request: Request) {
   const accountId = Number(new URL(request.url).searchParams.get("accountId"));
   if (!Number.isSafeInteger(accountId) || accountId < 1) return NextResponse.json({ error: "owned accountId gerekli" }, { status: 400 });
-  try { return NextResponse.json(getCategoriesForAccount(accountId).filter((category) => category.builtIn || category.accountId === accountId)); }
+  try { return NextResponse.json(await getPostgresCategoriesForAccount(currentOwnerId()!, accountId)); }
   catch { return NextResponse.json({ error: "hesap bulunamadı" }, { status: 404 }); }
 }
 
@@ -51,7 +52,7 @@ async function POSTHandler(request: Request) {
     const body = await readJsonBody(request);
     const accountId = Number(body.accountId);
     if (!Number.isSafeInteger(accountId) || accountId < 1) return NextResponse.json({ error: "owned accountId gerekli" }, { status: 400 });
-    return NextResponse.json(saveAccountCategory({ ...categoryInput(body), accountId, now: Math.floor(Date.now() / 1000) }), { status: 201 });
+    return NextResponse.json(await savePostgresAccountCategory(currentOwnerId()!, accountId, { ...categoryInput(body), now: Math.floor(Date.now() / 1000) }), { status: 201 });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "category kaydedilemedi" }, { status: 400 });
   }

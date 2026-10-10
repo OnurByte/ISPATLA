@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 
 export default async function PublicProfilePage({ params }: { params: Promise<{ username: string }> }) {
   const { username } = await params;
-  const profile = findPublicProfile(username);
+  const profile = await findPublicProfile(username);
   if (!profile) notFound();
   if (profile.xHandle) redirect(profile.profilePath);
 

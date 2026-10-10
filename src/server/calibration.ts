@@ -65,28 +65,28 @@ export function reliabilityMetrics(points:Array<{probability:number;hit:boolean;
   const ece=reliability.reduce((sum,bin)=>sum+bin.count/unique.length*Math.abs(bin.meanPrediction-bin.observedRate),0);
   return {sampleCount:unique.length,brier,logLoss,ece,reliability};
 }
-function binaryLabels(modelKey:string,accountId:string,split:"calibration"|"holdout"):Array<{score:number;hit:boolean;groupId:string;ownerUserId:string;accountId:string;candidateId:string}> {
-  const rows=listEvaluationLabels(split,modelKey,accountId).filter(item=>item.label==="hit"||item.label==="miss").map(item=>({score:item.prediction.rawScore,hit:item.label==="hit",groupId:item.prediction.leakageGroup,ownerUserId:item.prediction.ownerUserId,accountId:item.prediction.accountId,candidateId:item.prediction.candidateId}));
+async function binaryLabels(modelKey:string,accountId:string,split:"calibration"|"holdout"):Promise<Array<{score:number;hit:boolean;groupId:string;ownerUserId:string;accountId:string;candidateId:string}>> {
+  const rows=(await listEvaluationLabels(split,modelKey,accountId)).filter(item=>item.label==="hit"||item.label==="miss").map(item=>({score:item.prediction.rawScore,hit:item.label==="hit",groupId:item.prediction.leakageGroup,ownerUserId:item.prediction.ownerUserId,accountId:item.prediction.accountId,candidateId:item.prediction.candidateId}));
   const seen=new Map<string,typeof rows>();for(const row of rows)seen.set(row.groupId,[...(seen.get(row.groupId)??[]),row]);
   return [...seen.values()].flatMap(group=>group.every(row=>row.hit===group[0].hit)?[group[0]]:[]);
 }
-export function calibrateStoredModel(input:{accountId:string;modelKey:string;minimumSamples?:number;now:number}):IsotonicProfile {
+export async function calibrateStoredModel(input:{accountId:string;modelKey:string;minimumSamples?:number;now:number}):Promise<IsotonicProfile> {
   if(!input.accountId.trim()||!input.modelKey.trim())throw new Error("account and model scope required");
   const key=JSON.stringify([input.accountId,input.modelKey]);
-  const labeled=binaryLabels(input.modelKey,input.accountId,"calibration");
+  const labeled=await binaryLabels(input.modelKey,input.accountId,"calibration");
   const profile=fitIsotonicCalibration(labeled.map(row=>({score:row.score,hit:row.hit,groupId:row.groupId})),input.minimumSamples??100);
   const groups=labeled.map(x=>x.groupId); const ownerScopedHash=sha256({accountId:input.accountId,modelKey:input.modelKey,split:"calibration",groups:[...new Set(groups)].sort(),candidates:labeled.map(x=>x.candidateId).sort()});
-  saveCalibrationProfile({modelKey:key,mapping:profile.mapping,sampleCount:profile.sampleCount,calibrationGroupHash:ownerScopedHash,createdAt:input.now,status:profile.status});
+  await saveCalibrationProfile({modelKey:key,mapping:profile.mapping,sampleCount:profile.sampleCount,calibrationGroupHash:ownerScopedHash,createdAt:input.now,status:profile.status});
   return profile;
 }
-export function evaluateStoredHoldout(input:{accountId:string;modelKey:string;now:number}):{status:"calibrated"|"insufficient";sampleCount:number;brier:number|null;logLoss:number|null;ece:number|null;reliability:ReliabilityBin[];replayId:string|null} {
+export async function evaluateStoredHoldout(input:{accountId:string;modelKey:string;now:number}):Promise<{status:"calibrated"|"insufficient";sampleCount:number;brier:number|null;logLoss:number|null;ece:number|null;reliability:ReliabilityBin[];replayId:string|null}> {
   if(!input.accountId.trim()||!input.modelKey.trim())throw new Error("account and model scope required");
-  const saved=latestCalibrationProfile(JSON.stringify([input.accountId,input.modelKey])); const labels=binaryLabels(input.modelKey,input.accountId,"holdout");
+  const saved=await latestCalibrationProfile(JSON.stringify([input.accountId,input.modelKey])); const labels=await binaryLabels(input.modelKey,input.accountId,"holdout");
   // Persisted calibrator is used only if its calibration set is adequate; holdout rows never refit it.
   const profile=saved?.status==="calibrated"?{status:saved.status,mapping:saved.mapping}: {status:"insufficient" as const,mapping:[]};
   const points=labels.flatMap(row=>{const probability=calibratedProbability(row.score,profile);return probability===null?[]:[{probability,hit:row.hit,groupId:row.groupId}];});
   const metrics=reliabilityMetrics(points); const datasetHash=sha256({split:"holdout",accountId:input.accountId,modelKey:input.modelKey,ids:labels.map(x=>x.candidateId).sort(),calibrationGroupHash:saved?.groupHash??null});
-  const first=labels[0]; const replayId=first?saveEvaluationReplay({accountId:first.accountId,modelKey:input.modelKey,datasetHash,sampleCount:metrics.sampleCount,brier:metrics.brier,logLoss:metrics.logLoss,ece:metrics.ece,reliability:metrics.reliability,createdAt:input.now}):null;
+  const first=labels[0]; const replayId=first?await saveEvaluationReplay({accountId:first.accountId,modelKey:input.modelKey,datasetHash,sampleCount:metrics.sampleCount,brier:metrics.brier,logLoss:metrics.logLoss,ece:metrics.ece,reliability:metrics.reliability,createdAt:input.now}):null;
   return {status:profile.status,sampleCount:metrics.sampleCount,brier:metrics.brier,logLoss:metrics.logLoss,ece:metrics.ece,reliability:metrics.reliability,replayId};
 }
 export function isBinaryOutcomeLabel(label:OutcomeLabel):boolean{return label==="hit"||label==="miss";}

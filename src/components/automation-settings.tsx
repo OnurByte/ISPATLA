@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Activity, RefreshCw } from "lucide-react";
-import type { AutomationLog, AutomationTaskId, AutomationTaskSchedule } from "@/server/db";
+import type { AutomationLog, AutomationTaskId, AutomationTaskSchedule } from "@/server/db-types";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";

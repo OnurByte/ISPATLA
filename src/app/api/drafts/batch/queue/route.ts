@@ -1,28 +1,19 @@
-import { withUser } from "@/server/request-auth";
 import { NextResponse } from "next/server";
-import { queueDraftIds } from "@/server/queue-service";
+import { withUser } from "@/server/request-auth";
 import { guardMutation, readJsonBody } from "@/server/api-guard";
+import { queueDraftIds } from "@/server/queue-service";
 
 export const runtime = "nodejs";
-
 async function POSTHandler(request: Request) {
   const denied = guardMutation(request);
   if (denied) return denied;
-  let body: Record<string, unknown>;
   try {
-    body = await readJsonBody(request);
-  } catch {
-    return NextResponse.json({ error: "geçersiz JSON gövdesi" }, { status: 400 });
-  }
-  const draftIds = Array.isArray(body.draftIds)
-    ? body.draftIds.map(Number).filter((id) => Number.isInteger(id) && id > 0).slice(0, 100)
-    : [];
-  if (!draftIds.length) return NextResponse.json({ error: "En az bir draft seçilmeli" }, { status: 400 });
-  try {
-    return NextResponse.json(queueDraftIds(draftIds), { status: 201 });
-  } catch (error) {
-    return NextResponse.json({ error: error instanceof Error ? error.message : "batch kuyruğa alınamadı" }, { status: 422 });
-  }
+    const body = await readJsonBody(request);
+    if (!Array.isArray(body.draftIds) || !body.draftIds.length || body.draftIds.length > 100
+      || body.draftIds.some((id) => !Number.isSafeInteger(id) || id < 1)) {
+      return NextResponse.json({ error: "1–100 arası geçerli draft kimliği gerekli" }, { status: 400 });
+    }
+    return NextResponse.json(await queueDraftIds(body.draftIds));
+  } catch (error) { return NextResponse.json({ error: error instanceof Error ? error.message : "Toplu kuyruk oluşturulamadı" }, { status: 400 }); }
 }
-
 export const POST = withUser(POSTHandler);

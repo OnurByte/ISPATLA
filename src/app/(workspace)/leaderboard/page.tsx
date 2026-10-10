@@ -13,5 +13,6 @@ export default async function LeaderboardPage({ searchParams }: { searchParams: 
   const tab = getLeaderboardTab(query.tab);
   let authenticated = false;
   try { authenticated = Boolean(await getOptionalPageUser()); } catch { /* The public ranking remains available if session lookup is unavailable. */ }
-  return <>{authenticated ? null : <PublicHeader locale={locale} authenticated={false} />}<LeaderboardContent locale={locale} tab={tab} board={getLeaderboard()} /></>;
+  const board = await getLeaderboard();
+  return <>{authenticated ? null : <PublicHeader locale={locale} authenticated={false} />}<LeaderboardContent locale={locale} tab={tab} board={board} /></>;
 }

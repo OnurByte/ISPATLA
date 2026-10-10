@@ -1,10 +1,10 @@
 import { withUser } from "@/server/request-auth";
 import { currentOwnerId } from "@/server/owner-context";
 import { NextResponse } from "next/server";
-import { canonicalCategorySlugs, deleteAccount, getAccounts, saveAccount, writingSkillIds } from "@/server/db";
 import { guardMutation, readJsonBody } from "@/server/api-guard";
 import { revokeXAccount } from "@/server/x-oauth";
 import { validateStyleProfilePatch } from "@/components/style-profile-json";
+import { deletePostgresAccount, getPostgresAccount, getPostgresCategoriesForAccount, updatePostgresAccount } from "@/server/postgres-accounts";
 
 export const runtime = "nodejs";
 
@@ -12,7 +12,8 @@ async function PATCHHandler(request: Request, context: { params: Promise<{ id: s
   const denied = guardMutation(request);
   if (denied) return denied;
   const id = Number((await context.params).id);
-  const current = getAccounts().find((account) => account.id === id);
+  const owner = currentOwnerId()!;
+  const current = await getPostgresAccount(owner, id);
   if (!current) return NextResponse.json({ error: "account bulunamadı" }, { status: 404 });
   try {
     const body = await readJsonBody(request);
@@ -26,23 +27,23 @@ async function PATCHHandler(request: Request, context: { params: Promise<{ id: s
       } catch (error) {
         return NextResponse.json({ error: error instanceof Error ? error.message : "styleProfile geçersiz" }, { status: 422 });
       }
-      if ("categories" in styleProfile && !canonicalCategorySlugs(styleProfile.categories)) return NextResponse.json({ error: "account kategorileri katalogdan seçilmeli" }, { status: 422 });
-      if ("writingSkillIds" in styleProfile && !writingSkillIds(styleProfile.writingSkillIds)) return NextResponse.json({ error: "writing skill seçimi geçersiz" }, { status: 422 });
+      if ("categories" in styleProfile) {
+        const allowed = new Set((await getPostgresCategoriesForAccount(owner, id)).map((category) => category.slug));
+        const slugs = Array.isArray(styleProfile.categories) ? [...new Set(styleProfile.categories.map(String).map((slug) => slug.trim().toLowerCase()).filter(Boolean))].slice(0, 12) : [];
+        if (!Array.isArray(styleProfile.categories) || slugs.some((slug) => !allowed.has(slug))) return NextResponse.json({ error: "account kategorileri katalogdan seçilmeli" }, { status: 422 });
+        styleProfile.categories = slugs;
+      }
+      if ("writingSkillIds" in styleProfile && (!Array.isArray(styleProfile.writingSkillIds) || styleProfile.writingSkillIds.some((item) => !["newsroom-style", "humanize-writing"].includes(String(item))))) return NextResponse.json({ error: "writing skill seçimi geçersiz" }, { status: 422 });
     }
-    const account = saveAccount({
-      id,
-      // OAuth owns provider identity; this endpoint only edits editorial settings.
-      accountKey: current.accountKey,
-      handle: current.handle,
-      displayName: current.displayName,
+    const dailyLimit = Number(body.dailyLimit ?? current.dailyLimit);
+    if (!Number.isFinite(dailyLimit)) return NextResponse.json({ error: "dailyLimit geçersiz" }, { status: 422 });
+    const account = await updatePostgresAccount({ owner, id,
       enabled: body.enabled === undefined ? current.enabled : body.enabled === true,
       defaultAccount: body.defaultAccount === undefined ? current.defaultAccount : body.defaultAccount === true,
-      automationMode: "manual",
-      dailyLimit: Math.min(100, Math.max(1, Number(body.dailyLimit ?? current.dailyLimit))),
+      dailyLimit: Math.min(100, Math.max(1, dailyLimit)),
       capabilities: Array.isArray(body.capabilities) ? body.capabilities.filter((item): item is string => typeof item === "string") : current.capabilities,
-      styleProfile: styleProfile || current.styleProfile,
-      now: Math.floor(Date.now() / 1000),
-    });
+      styleProfile: styleProfile || current.styleProfile });
+    if (!account) return NextResponse.json({ error: "account bulunamadı" }, { status: 404 });
     return NextResponse.json(account);
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "account güncellenemedi" }, { status: 400 });
@@ -53,9 +54,10 @@ async function DELETEHandler(request: Request, context: { params: Promise<{ id: 
   const denied = guardMutation(request);
   if (denied) return denied;
   const id = Number((await context.params).id);
-  if (!getAccounts().some((account) => account.id === id)) return NextResponse.json({ error: "account bulunamadı" }, { status: 404 });
-  const revocation = await revokeXAccount({ accountId: id, ownerUserId: currentOwnerId()! });
-  deleteAccount(id);
+  const owner = currentOwnerId()!;
+  if (!await getPostgresAccount(owner, id)) return NextResponse.json({ error: "account bulunamadı" }, { status: 404 });
+  const revocation = await revokeXAccount({ accountId: id, ownerUserId: owner });
+  if (!await deletePostgresAccount(owner, id)) return NextResponse.json({ error: "account silinemedi" }, { status: 500 });
   return NextResponse.json({ ok: true, providerRevoked: revocation.providerRevoked });
 }
 

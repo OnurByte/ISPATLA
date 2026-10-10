@@ -11,7 +11,7 @@ local reproduction, and whether a remote action actually occurred. Report local
 fixtures and live outcomes separately. The V3 branch is under implementation;
 tests are not a production security certification.
 
-Critical boundaries: real Better Auth sessions, owner-scoped SQLite queries,
+Critical boundaries: real Better Auth sessions, owner-scoped PostgreSQL queries,
 separate X OAuth grants and automation consent, encrypted credentials, final
 policy rechecks, once-only request markers, and authenticated reconciliation.
 Never retry an unknown remote write automatically.

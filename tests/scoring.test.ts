@@ -1,6 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { ageNormalizedOverperformance, clusterKey, freshnessDecayPerHour, historicalPerformanceScore, isCurrentOpportunity, isNumericalHit, LEGACY_FRESHNESS_DECAY_PER_HOUR, MAX_FRESHNESS_DECAY_PER_HOUR, MIN_FRESHNESS_DECAY_PER_HOUR, observedEngagement, opportunityFreshness, opportunityFreshnessForRelevance, opportunityScore, opportunityScoreRelevanceAware, opportunityScoreWithRelevance, OPPORTUNITY_MAX_AGE_SECONDS, overperformance, relevanceFactor, scorePost, selectDiverseCandidates, snapshotAcceleration } from "@/server/scoring";
-import { metricBreakdown } from "@/server/db";
+import { ageNormalizedOverperformance, clusterKey, freshnessDecayPerHour, historicalPerformanceScore, isCurrentOpportunity, isNumericalHit, LEGACY_FRESHNESS_DECAY_PER_HOUR, MAX_FRESHNESS_DECAY_PER_HOUR, metricBreakdown, MIN_FRESHNESS_DECAY_PER_HOUR, observedEngagement, opportunityFreshness, opportunityFreshnessForRelevance, opportunityScore, opportunityScoreRelevanceAware, opportunityScoreWithRelevance, OPPORTUNITY_MAX_AGE_SECONDS, overperformance, relevanceFactor, scorePost, selectDiverseCandidates, snapshotAcceleration } from "@/server/scoring";
 
 describe("market scoring", () => {
   test("normalizes Turkish clusters and removes URLs", () => {

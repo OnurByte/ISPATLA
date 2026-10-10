@@ -1,4 +1,4 @@
-import type { Account, AccountCategoryConfig } from "./db";
+import type { Account, AccountCategoryConfig } from "./db-types";
 
 export type FormatEvidence = { samples: number | null; engagementRate: number | null };
 export type OfficialTimeOutcome = { publishedAt: number; views: number | null };

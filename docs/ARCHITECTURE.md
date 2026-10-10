@@ -1,7 +1,7 @@
 # Architecture
 
 Next.js renders public entry pages and authenticated `/app` pages. Better Auth
-uses the same SQLite file as domain data. Request wrappers resolve a real
+and domain data use Supabase PostgreSQL through Drizzle ORM. Request wrappers resolve a real
 session and establish the owner context before private data is read or mutated.
 Operator-only shared administration has a separate explicit guard.
 
@@ -19,8 +19,8 @@ remain unchanged. Public profiles use `/handle`; reserved application paths
 retain an opaque `/u/` link. Private profiles and their avatar endpoints remain
 owner-only. Profile visibility does not publish drafts or enroll hit cards.
 
-A shared radar reader appends provenance and nullable metric revisions to the
-X-only event store. Account decisions and drafts run inside their owner's
+A PostgreSQL event store keeps provenance and nullable metric revisions for
+public X evidence. Account decisions and drafts run inside their owner's
 context. The original heuristic score remains a decision score; calibration
 uses labeled calibration groups and evaluates separate holdout groups.
 
@@ -33,7 +33,10 @@ connected-user evidence.
 
 Draft content changes append immutable revisions and invalidate unsent approvals
 and jobs atomically. A marked unresolved write fences edits until reconciliation.
-Demo uses a disposable database and synthetic adapters; official requests and
-publication are disabled. Simulated receipts never enter remote confirmation.
+The application starts with an empty PostgreSQL schema; former local records are
+not copied. Source scanning remains disabled until its PostgreSQL collection and
+scoring pipeline is complete. Reconciliation uses owner-scoped PostgreSQL records
+and remains operator-only. Outbound publication remains fail-closed until its
+PostgreSQL policy and evaluation gates are complete.
 
 See V3_IMPLEMENTATION_STATUS.md for unfinished integrations and proof boundaries.

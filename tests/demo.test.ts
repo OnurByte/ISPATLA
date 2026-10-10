@@ -15,11 +15,6 @@ test("contributor fixtures preserve missing data, simulate receipts and never fe
     expect(requests).toBe(0);
   }finally{globalThis.fetch=original;}
 });
-test("demo seeds an isolated disposable database without provider credentials",()=>{
-  const result=Bun.spawnSync({cmd:[process.execPath,"scripts/demo.ts","--seed-only"],env:{...process.env,ISPATLA_DEMO_PORT:"3108"},stdout:"pipe",stderr:"pipe"});
-  expect(result.exitCode,new TextDecoder().decode(result.stderr)).toBe(0);
-  expect(new TextDecoder().decode(result.stdout)).toContain('"remoteWrites":0');
-});
 test("demo mode blocks the official client even if a credential is supplied",()=>{
   const result=Bun.spawnSync({cmd:[process.execPath,"-e",`
     import assert from "node:assert/strict";

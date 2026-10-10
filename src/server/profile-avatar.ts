@@ -1,14 +1,14 @@
 import { mkdir, rename, rm, stat, writeFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
 import { randomUUID } from "node:crypto";
-import { getProfileAvatarAccess, syncUserProfileFromX } from "./db";
+import { getPostgresProfileAvatarAccess, syncPostgresUserProfileFromX } from "./postgres-public-profile";
 
 const MAX_AVATAR_BYTES = 2 * 1024 * 1024;
 const MIME_EXTENSIONS = { "image/png": "png", "image/jpeg": "jpg", "image/webp": "webp" } as const;
 type AvatarMime = keyof typeof MIME_EXTENSIONS;
 
-function avatarRoot(env: Record<string, string | undefined> = process.env, databasePath?: string): string {
-  return join(dirname(databasePath || env.ISPATLA_DB || join(process.cwd(), "state", "ispatla.sqlite3")), "profile-avatars");
+function avatarRoot(env: Record<string, string | undefined> = process.env, root?: string): string {
+  return root || env.ISPATLA_PROFILE_AVATAR_DIR || join(process.cwd(), "state", "profile-avatars");
 }
 
 function validAvatarUrl(value: string): URL | null {
@@ -27,7 +27,7 @@ function detectedMime(bytes: Uint8Array): AvatarMime | null {
 }
 
 export async function cacheProfileAvatar(input: {
-  xUserId: string; avatarUrl: string; fetcher?: typeof fetch; root?: string; databasePath?: string;
+  xUserId: string; avatarUrl: string; fetcher?: typeof fetch; root?: string;
 }): Promise<string | null> {
   if (!/^\d+$/.test(input.xUserId) || input.xUserId.length > 32) return null;
   const url = validAvatarUrl(input.avatarUrl);
@@ -52,7 +52,7 @@ export async function cacheProfileAvatar(input: {
     }
     const bytes = Buffer.concat(chunks);
     if (detectedMime(bytes) !== declaredMime) return null;
-    const root = input.root || avatarRoot(process.env, input.databasePath);
+    const root = avatarRoot(process.env, input.root);
     await mkdir(root, { recursive: true });
     const destination = join(root, `${input.xUserId}.${MIME_EXTENSIONS[declaredMime]}`);
     const temporary = join(root, `.${input.xUserId}.${randomUUID()}.tmp`);
@@ -66,21 +66,21 @@ export async function cacheProfileAvatar(input: {
 
 export async function cacheSelectedProfileAvatar(input: {
   ownerUserId: string; xUserId: string; handle: string; displayName: string; bio: string; protected?: boolean | null; avatarUrl: string;
-  fetcher?: typeof fetch; databasePath?: string;
+  fetcher?: typeof fetch; root?: string;
 }): Promise<string | null> {
-  if (!getProfileAvatarAccess(input.xUserId, input.ownerUserId)) return null;
-  const avatarUrl = await cacheProfileAvatar({ xUserId: input.xUserId, avatarUrl: input.avatarUrl, fetcher: input.fetcher, databasePath: input.databasePath });
+  if (!await getPostgresProfileAvatarAccess(input.xUserId, input.ownerUserId)) return null;
+  const avatarUrl = await cacheProfileAvatar({ xUserId: input.xUserId, avatarUrl: input.avatarUrl, fetcher: input.fetcher, root: input.root });
   if (avatarUrl) {
-    try { syncUserProfileFromX({ ownerUserId: input.ownerUserId, xUserId: input.xUserId, handle: input.handle, displayName: input.displayName, bio: input.bio, protected: input.protected, avatarUrl }); }
+    try { await syncPostgresUserProfileFromX({ ownerUserId: input.ownerUserId, xUserId: input.xUserId, handle: input.handle, displayName: input.displayName, bio: input.bio, protected: input.protected, avatarUrl }); }
     catch { /* Avatar availability does not affect a successful X connection. */ }
   }
   return avatarUrl;
 }
 
-export async function deleteProfileAvatar(xUserId: string, databasePath?: string): Promise<void> {
+export async function deleteProfileAvatar(xUserId: string, root?: string): Promise<void> {
   if (!/^\d{1,32}$/.test(xUserId)) return;
-  const root = avatarRoot(process.env, databasePath);
-  await Promise.all(Object.values(MIME_EXTENSIONS).map((extension) => rm(join(root, `${xUserId}.${extension}`), { force: true })));
+  const avatarDir = avatarRoot(process.env, root);
+  await Promise.all(Object.values(MIME_EXTENSIONS).map((extension) => rm(join(avatarDir, `${xUserId}.${extension}`), { force: true })));
 }
 
 export async function profileAvatarFile(xUserId: string, root = avatarRoot()): Promise<{ path: string; mime: AvatarMime } | null> {

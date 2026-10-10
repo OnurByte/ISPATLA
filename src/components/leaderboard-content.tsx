@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { localizePath, type Locale } from "@/i18n/config";
-import { getLeaderboard, LEADERBOARD_TABS, type LeaderboardTab } from "@/server/leaderboard";
+import { LEADERBOARD_TABS, type Leaderboard, type LeaderboardTab } from "@/server/leaderboard";
 
 const labels: Record<LeaderboardTab, string> = { week: "Haftanın hitleri", month: "Ayın hitleri", accounts: "En iyi hesap performansı", improvement: "En çok gelişen kullanıcılar" };
 const number = new Intl.NumberFormat("tr-TR", { maximumFractionDigits: 2 });
@@ -9,10 +9,10 @@ export function getLeaderboardTab(value?: string | string[]): LeaderboardTab {
   return typeof value === "string" && LEADERBOARD_TABS.includes(value as LeaderboardTab) ? value as LeaderboardTab : "week";
 }
 
-export function LeaderboardContent({ locale, tab, board = getLeaderboard() }: {
+export function LeaderboardContent({ locale, tab, board }: {
   locale: Locale;
   tab: LeaderboardTab;
-  board?: ReturnType<typeof getLeaderboard>;
+  board: Leaderboard;
 }) {
   const path = (href: string) => localizePath(locale, href);
   const items = board[tab];

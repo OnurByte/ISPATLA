@@ -16,6 +16,7 @@ type KeyMeta = { name: string; provider: string; configured: boolean; masked: st
 type AiProvider = "api" | "compatible" | "codex" | "anthropic" | "chatgpt" | "openrouter";
 type AiPanel = {
   enabled: boolean;
+  runtimeAvailable?: boolean;
   settings: { provider: AiProvider; model: string };
   configured: boolean;
   apiConfigured: boolean;
@@ -219,11 +220,11 @@ export function KeysPage({ initialKeys, initialVaultReady, initialAi }: { initia
     && (aiProvider !== "compatible" || (ai.compatible.baseUrl === compatibleBaseUrl && ai.compatible.name === compatibleName));
   const canTestConnection = selectedSettingsAreSaved && (aiProvider === "compatible" ? compatibleCredentialsReady : aiReady) && pending === "";
   const providerCards: Array<{ id: AiProvider; name: string; detail: string; brand?: string; ready: boolean; disabled?: boolean }> = [
-    { id: "openrouter", name: "OpenRouter", detail: "Hesabını bağla · modelleri tek yerden seç", brand: "/brand/openrouter.svg", ready: ai.openrouterConfigured },
-    { id: "api", name: "OpenAI API", detail: "Kendi API anahtarın", brand: "/brand/openai.svg", ready: ai.apiConfigured },
-    { id: "anthropic", name: "Claude API", detail: "Kendi Console anahtarın", brand: "/brand/anthropic.svg", ready: ai.anthropicConfigured },
+    { id: "openrouter", name: "OpenRouter", detail: "Hesabını bağla · modelleri tek yerden seç", brand: "/brand/openrouter.svg", ready: ai.openrouterConfigured, disabled: ai.runtimeAvailable === false },
+    { id: "api", name: "OpenAI API", detail: "Kendi API anahtarın", brand: "/brand/openai.svg", ready: ai.apiConfigured, disabled: ai.runtimeAvailable === false },
+    { id: "anthropic", name: "Claude API", detail: "Kendi Console anahtarın", brand: "/brand/anthropic.svg", ready: ai.anthropicConfigured, disabled: ai.runtimeAvailable === false },
     { id: "chatgpt", name: "ChatGPT hesabı", detail: ai.chatgpt.available ? "Hesabını bağla" : "Bu sunucuda kullanılamıyor", brand: "/brand/openai.svg", ready: ai.chatgpt.connected, disabled: !ai.chatgpt.available },
-    { id: "compatible", name: "Özel sağlayıcı", detail: "OpenAI uyumlu servis", ready: ai.compatibleConfigured },
+    { id: "compatible", name: "Özel sağlayıcı", detail: "OpenAI uyumlu servis", ready: ai.compatibleConfigured, disabled: ai.runtimeAvailable === false },
     ...(ai.codexAllowed ? [{ id: "codex" as const, name: "Codex", detail: "Bu sunucunun yerel oturumu", ready: ai.codex.authenticated }] : []),
   ];
   const providerName = providerCards.find((provider) => provider.id === aiProvider)?.name || "AI sağlayıcısı";
@@ -241,6 +242,7 @@ export function KeysPage({ initialKeys, initialVaultReady, initialAi }: { initia
         </AlertDescription>
         <AlertAction><Badge variant={vaultReady ? "default" : "destructive"}>{vaultReady ? "hazır" : "kurulmamış"}</Badge></AlertAction>
       </Alert>
+      {ai.runtimeAvailable === false && <Alert variant="destructive"><AlertDescription>AI sağlayıcı bağlantıları ve kullanım denemeleri PostgreSQL geçişi tamamlanana kadar kapalı. Anahtarları güvenli biçimde kaydedebilirsin; bu sırada AI istekleri çalışmaz.</AlertDescription></Alert>}
 
       <Card>
         <CardHeader><CardTitle>Kendi hesabını kullan</CardTitle><CardDescription>OpenAI veya Claude API anahtarını aşağıdan bağlayabilirsin. Yerel kurulumda ChatGPT planına da doğrudan izin verebilirsin.</CardDescription></CardHeader>
@@ -263,8 +265,8 @@ export function KeysPage({ initialKeys, initialVaultReady, initialAi }: { initia
           <Badge variant={ai.openrouterConfigured ? "default" : "secondary"}>{ai.openrouterConfigured ? "Bağlı" : "Bağlı değil"}</Badge>
         </CardHeader>
         <CardContent className="flex flex-wrap gap-2">
-          <Button onClick={() => void openrouterConnection("POST")} disabled={pending !== "" || ai.openrouterConfigured}>{pending === "openrouter" ? <Spinner data-icon="inline-start" /> : null}OpenRouter hesabını bağla</Button>
-          {ai.openrouterConfigured && <Button variant="outline" onClick={() => void openrouterConnection("DELETE")} disabled={pending !== ""}>Bağlantıyı kaldır</Button>}
+          <Button onClick={() => void openrouterConnection("POST")} disabled={pending !== "" || ai.openrouterConfigured || ai.runtimeAvailable === false}>{pending === "openrouter" ? <Spinner data-icon="inline-start" /> : null}OpenRouter hesabını bağla</Button>
+          {ai.openrouterConfigured && <Button variant="outline" onClick={() => void openrouterConnection("DELETE")} disabled={pending !== "" || ai.runtimeAvailable === false}>Bağlantıyı kaldır</Button>}
           <p className="w-full text-sm text-muted-foreground">Onaydan sonra anahtar güvenli kasada tutulur. İstekler OpenRouter’a gönderilir ve hesabın üzerinden ücretlendirilebilir.</p>
         </CardContent>
       </Card>
@@ -340,10 +342,10 @@ export function KeysPage({ initialKeys, initialVaultReady, initialAi }: { initia
           </section>
           </details>
           <div className="flex flex-wrap gap-2">
-            <Button onClick={saveAi} disabled={!aiModel || pending !== "" || (aiProvider === "codex" && !ai.codexAllowed)}>
+            <Button onClick={saveAi} disabled={!aiModel || pending !== "" || ai.runtimeAvailable === false || (aiProvider === "codex" && !ai.codexAllowed)}>
               {pending === "ai" ? <Spinner data-icon="inline-start" /> : <Save data-icon="inline-start" aria-hidden="true" />} AI ayarını kaydet
             </Button>
-            <Button variant="outline" onClick={() => void testConnection()} disabled={!canTestConnection}>
+            <Button variant="outline" onClick={() => void testConnection()} disabled={!canTestConnection || ai.runtimeAvailable === false}>
               {pending === "connection-test" ? <Spinner data-icon="inline-start" /> : <BrainCircuit data-icon="inline-start" aria-hidden="true" />} Bağlantıyı test et
             </Button>
           </div>

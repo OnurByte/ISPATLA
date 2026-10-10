@@ -1,6 +1,29 @@
-import type { ObservedPost } from "./db";
+import type { ObservedPost, PublicMetrics } from "./db-types";
 
 export const OPPORTUNITY_MAX_AGE_SECONDS = 24 * 60 * 60;
+
+type MetricInput = Partial<PublicMetrics> & { poll_votes?: unknown };
+
+export function metricBreakdown(input: MetricInput) {
+  const metrics: PublicMetrics = {
+    likes: Math.max(0, Number(input.likes) || 0),
+    replies: Math.max(0, Number(input.replies) || 0),
+    reposts: Math.max(0, Number(input.reposts) || 0),
+    quotes: Math.max(0, Number(input.quotes) || 0),
+    views: Math.max(0, Number(input.views) || 0),
+    pollVotes: Math.max(0, Number(input.pollVotes ?? input.poll_votes) || 0),
+  };
+  const engagements = metrics.likes + metrics.replies + metrics.reposts + metrics.quotes;
+  const denominator = metrics.views > 0 ? metrics.views : 0;
+  return {
+    ...metrics,
+    engagements,
+    engagementRate: denominator ? engagements / denominator : 0,
+    replyRate: denominator ? metrics.replies / denominator : 0,
+    repostRate: denominator ? metrics.reposts / denominator : 0,
+    quoteRate: denominator ? metrics.quotes / denominator : 0,
+  };
+}
 
 function nonNegative(value: unknown): number {
   const number = Number(value || 0);

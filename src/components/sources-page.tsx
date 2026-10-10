@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { BadgeCheck, Pin, Plus, RotateCcw, RotateCw, ScanSearch, Save, Trash2, UserRoundCheck } from "lucide-react";
-import type { DeletedSource, SourceConfig } from "@/server/db";
-import type { AccountCategoryConfig, SourceCategoryConfig } from "@/server/db";
+import type { DeletedSource, SourceConfig } from "@/server/db-types";
+import type { AccountCategoryConfig, SourceCategoryConfig } from "@/server/db-types";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   AlertDialog,

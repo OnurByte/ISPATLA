@@ -9,9 +9,10 @@ async function POSTHandler(request: Request, context: { params: Promise<{ id: st
   const denied = guardMutation(request);
   if (denied) return denied;
   const id = Number((await context.params).id);
+  if (!Number.isSafeInteger(id) || id < 1) return NextResponse.json({ error: "geçersiz job id" }, { status: 400 });
   try {
     const result = await runAutomationJob(id);
-    return NextResponse.json(result);
+    return NextResponse.json(result, { status: result.ok ? 200 : 503 });
   } catch (error) {
     const message = error instanceof Error ? error.message : "job çalıştırılamadı";
     return NextResponse.json({ error: message }, { status: message.includes("bulunamadı") ? 404 : 422 });

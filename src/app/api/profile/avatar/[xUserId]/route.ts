@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { NextResponse } from "next/server";
 import { requireSession } from "@/server/auth";
-import { getProfileAvatarAccess } from "@/server/db";
+import { getPostgresProfileAvatarAccess } from "@/server/postgres-public-profile";
 import { profileAvatarFile } from "@/server/profile-avatar";
 
 export const runtime = "nodejs";
@@ -13,7 +13,7 @@ export async function GET(request: Request, context: { params: Promise<{ xUserId
   let ownerUserId: string | undefined;
   try { ownerUserId = (await requireSession(request))?.user.id; } catch { /* Public completed profiles remain readable if auth storage is unavailable. */ }
   try {
-    if (!getProfileAvatarAccess(xUserId, ownerUserId)) return new Response(null, { status: 404, headers: { "cache-control": "no-store" } });
+    if (!await getPostgresProfileAvatarAccess(xUserId, ownerUserId)) return new Response(null, { status: 404, headers: { "cache-control": "no-store" } });
     const file = await profileAvatarFile(xUserId);
     if (!file) return new Response(null, { status: 404, headers: { "cache-control": "no-store" } });
     const bytes = await readFile(file.path);

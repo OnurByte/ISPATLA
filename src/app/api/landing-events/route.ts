@@ -1,29 +1,7 @@
-import { mkdirSync } from "node:fs";
-import { dirname, join } from "node:path";
 import { isLandingEventPayload } from "@/lib/landing-measurement";
 import { recordLandingEvent } from "@/server/landing-measurement";
 
 export const runtime = "nodejs";
-
-type Statement = { all(): unknown[]; run(...values: unknown[]): unknown };
-type Database = { exec(sql: string): void; prepare(sql: string): Statement };
-type DatabaseCtor = new (path: string) => Database;
-const builtin = (process as unknown as { getBuiltinModule(id: string): unknown }).getBuiltinModule;
-const Database = typeof (globalThis as { Bun?: unknown }).Bun !== "undefined"
-  ? (builtin("bun:sqlite") as { Database: DatabaseCtor }).Database
-  : (builtin("node:sqlite") as { DatabaseSync: DatabaseCtor }).DatabaseSync;
-
-function recordEvent(event: string, page: string, source: "direct" | "x" | "github" | "other"): void {
-  const path = process.env.ISPATLA_DB || join(process.cwd(), "state", "ispatla.sqlite3");
-  mkdirSync(dirname(path), { recursive: true });
-  const db = new Database(path);
-  try {
-    db.exec("PRAGMA busy_timeout=5000;");
-    recordLandingEvent(db, event, page, Math.floor(Date.now() / 1000), source);
-  } finally {
-    (db as unknown as { close?: () => void }).close?.();
-  }
-}
 
 export async function POST(request: Request): Promise<Response> {
   const origin = request.headers.get("origin");
@@ -52,7 +30,7 @@ export async function POST(request: Request): Promise<Response> {
   } catch { return Response.json({ error: "invalid event" }, { status: 400 }); }
   if (!isLandingEventPayload(body)) return Response.json({ error: "invalid event" }, { status: 400 });
   try {
-    recordEvent(body.event, body.page, body.source);
+    await recordLandingEvent(body.event, body.page, Math.floor(Date.now() / 1000), body.source);
     return new Response(null, { status: 204, headers: { "cache-control": "no-store" } });
   } catch {
     return Response.json({ error: "measurement unavailable" }, { status: 503, headers: { "cache-control": "no-store" } });

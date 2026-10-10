@@ -5,17 +5,11 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import {
-  getSetting,
-  getAiBudgetStatus,
-  reserveAiBudget,
-  settleAiBudgetReservation,
-  setSetting,
-} from "./db";
-import { secretOrEnv } from "./vault";
+import { postgresSecretOrEnv } from "./vault";
 import { compatibleProviderUrl, requestCompatibleProvider } from "./security";
 import { currentOwnerId } from "./owner-context";
 import { getChatGPTAccessToken, getChatGPTConnectionStatus, getChatGPTCredentialFingerprint } from "./chatgpt-connection";
+import { getPostgresSetting, setPostgresSetting, getPostgresAiBudgetStatus, reservePostgresAiBudget, settlePostgresAiBudgetReservation } from "./postgres-settings";
 
 export const LUNA_MODEL = "gpt-5.6-luna";
 export const TERRA_MODEL = "gpt-5.6-terra";
@@ -187,24 +181,20 @@ function isModel(provider: AiProvider, value: string): boolean {
   return /^[^\s]{1,160}$/.test(value);
 }
 
-function compatibleCapabilityKey(model: string): string | null {
-  const owner = currentOwnerId() || "self-hosted";
-  const settings = getCompatibleSettings();
-  const key = secretOrEnv("compatible_api_key", "AI_COMPATIBLE_API_KEY");
-  if (!settings.baseUrl || !key) return null;
-  const keyFingerprint = createHash("sha256").update(key).digest("hex");
-  return `${owner}\u0000${settings.baseUrl}\u0000${model}\u0000${keyFingerprint}`;
+async function compatibleCapabilityKey(model: string): Promise<string | null> {
+  const [settings, key] = await Promise.all([getCompatibleSettings(), postgresSecretOrEnv("compatible_api_key", "AI_COMPATIBLE_API_KEY")]);
+  return settings.baseUrl && key ? `${currentOwnerId() || "self-hosted"}\u0000${settings.baseUrl}\u0000${model}\u0000${createHash("sha256").update(key).digest("hex")}` : null;
 }
 
-function chatgptCapabilityKey(model: string): string | null {
-  const fingerprint = getChatGPTCredentialFingerprint();
+async function chatgptCapabilityKey(model: string): Promise<string | null> {
+  const fingerprint = await getChatGPTCredentialFingerprint();
   return fingerprint ? `chatgpt\u0000${currentOwnerId()}\u0000${model}\u0000${fingerprint}` : null;
 }
 
-export function aiModelCapabilities(provider: AiProvider, model: string): AiModelCapabilities | null {
+export async function aiModelCapabilities(provider: AiProvider, model: string): Promise<AiModelCapabilities | null> {
   if (!isModel(provider, model)) return null;
   if (provider === "compatible" || provider === "chatgpt" || provider === "openrouter") {
-    const cacheKey = provider === "chatgpt" ? chatgptCapabilityKey(model) : provider === "openrouter" ? openRouterCapabilityKey(model) : compatibleCapabilityKey(model);
+    const cacheKey = provider === "chatgpt" ? await chatgptCapabilityKey(model) : provider === "openrouter" ? await openRouterCapabilityKey(model) : await compatibleCapabilityKey(model);
     const expiresAt = cacheKey ? compatibleCapabilityCache.get(cacheKey) : undefined;
     if (!expiresAt || expiresAt <= Date.now()) {
       if (cacheKey) compatibleCapabilityCache.delete(cacheKey);
@@ -215,19 +205,19 @@ export function aiModelCapabilities(provider: AiProvider, model: string): AiMode
   return AI_MODEL_CAPABILITIES[provider]?.[model] || null;
 }
 
-function openRouterCapabilityKey(model: string): string | null {
-  const key = secretOrEnv("openrouter_api_key", "OPENROUTER_API_KEY");
+async function openRouterCapabilityKey(model: string): Promise<string | null> {
+  const key = await postgresSecretOrEnv("openrouter_api_key", "OPENROUTER_API_KEY");
   return key ? `openrouter\u0000${currentOwnerId()}\u0000${model}\u0000${createHash("sha256").update(key).digest("hex")}` : null;
 }
 
-export function assertAiModelCapability(provider: AiProvider, model: string, task: AiTaskType): AiModelCapabilities {
+export async function assertAiModelCapability(provider: AiProvider, model: string, task: AiTaskType): Promise<AiModelCapabilities> {
   if ((provider === "compatible" || provider === "chatgpt" || provider === "openrouter") && task === "connection_test" && isModel(provider, model)) {
     return { structuredOutput: true, reasoning: false, tasks: STRUCTURED_TASKS };
   }
-  if ((provider === "compatible" || provider === "chatgpt" || provider === "openrouter") && isModel(provider, model) && !aiModelCapabilities(provider, model)) {
+  if ((provider === "compatible" || provider === "chatgpt" || provider === "openrouter") && isModel(provider, model) && !(await aiModelCapabilities(provider, model))) {
     throw new Error("OpenAI-compatible model requires a successful connection test before use.");
   }
-  const capabilities = aiModelCapabilities(provider, model);
+  const capabilities = await aiModelCapabilities(provider, model);
   if (!capabilities?.structuredOutput || !capabilities.tasks.includes(task)) {
     throw new Error("AI model does not support the requested structured-output task.");
   }
@@ -243,11 +233,11 @@ export function modelOptions(provider: AiProvider): readonly string[] {
   return AI_MODELS[provider];
 }
 
-export function getCompatibleSettings(): AiCompatibleSettings {
-  return {
-    baseUrl: getSetting(AI_COMPATIBLE_BASE_URL_SETTING, "").trim(),
-    name: getSetting(AI_COMPATIBLE_NAME_SETTING, "Özel sağlayıcı").trim().slice(0, 80) || "Özel sağlayıcı",
-  };
+function clearCompatibleCapabilityCache(): void { compatibleCapabilityCache.clear(); }
+
+export async function getCompatibleSettings(): Promise<AiCompatibleSettings> {
+  const [baseUrl, name] = await Promise.all([getPostgresSetting(AI_COMPATIBLE_BASE_URL_SETTING, "https://api.openai.com/v1"), getPostgresSetting(AI_COMPATIBLE_NAME_SETTING, "Özel sağlayıcı")]);
+  return { baseUrl: baseUrl.trim(), name: name.trim().slice(0, 80) || "Özel sağlayıcı" };
 }
 
 function compatibleBaseUrl(value: string): string {
@@ -256,39 +246,34 @@ function compatibleBaseUrl(value: string): string {
   return url.toString().replace(/\/$/, "");
 }
 
-export function setCompatibleSettings(baseUrl: string, name: string): AiCompatibleSettings {
-  const now = Math.floor(Date.now() / 1000);
+export async function setCompatibleSettings(baseUrl: string, name: string): Promise<AiCompatibleSettings> {
   const result = { baseUrl: compatibleBaseUrl(baseUrl.trim()), name: name.trim().slice(0, 80) || "Özel sağlayıcı" };
-  setSetting(AI_COMPATIBLE_BASE_URL_SETTING, result.baseUrl, now);
-  setSetting(AI_COMPATIBLE_NAME_SETTING, result.name, now);
+  await Promise.all([setPostgresSetting(AI_COMPATIBLE_BASE_URL_SETTING, result.baseUrl), setPostgresSetting(AI_COMPATIBLE_NAME_SETTING, result.name)]);
+  clearCompatibleCapabilityCache();
   return result;
 }
 
-export function getAiSettings(): AiSettings {
-  const configuredProvider = getSetting(AI_PROVIDER_SETTING, "api");
+export async function getAiSettings(): Promise<AiSettings> {
+  const configuredProvider = await getPostgresSetting(AI_PROVIDER_SETTING, "api");
   const provider: AiProvider = isProvider(configuredProvider) ? configuredProvider : "api";
-  const configuredModel = getSetting(AI_MODEL_SETTING, "");
-  return {
-    provider,
-    model: isModel(provider, configuredModel) ? configuredModel : provider === "compatible" || provider === "chatgpt" || provider === "openrouter" ? "" : provider === "anthropic" ? AI_MODELS.anthropic[0] : LUNA_MODEL,
-  };
+  const configuredModel = await getPostgresSetting(AI_MODEL_SETTING, "");
+  return { provider, model: isModel(provider, configuredModel) ? configuredModel : provider === "compatible" || provider === "chatgpt" || provider === "openrouter" ? "" : provider === "anthropic" ? AI_MODELS.anthropic[0] : LUNA_MODEL };
 }
 
-export function setAiSettings(provider: string, model: string): AiSettings {
+export async function setAiSettings(provider: string, model: string): Promise<AiSettings> {
   if (!isProvider(provider) || !isModel(provider, model)) throw new Error("AI provider veya model desteklenmiyor");
   assertProviderAvailable(provider);
-  const now = Math.floor(Date.now() / 1000);
-  setSetting(AI_PROVIDER_SETTING, provider, now);
-  setSetting(AI_MODEL_SETTING, model, now);
+  await Promise.all([setPostgresSetting(AI_PROVIDER_SETTING, provider), setPostgresSetting(AI_MODEL_SETTING, model)]);
+  clearCompatibleCapabilityCache();
   return { provider, model };
 }
 
-export function isAiEnabled(): boolean {
-  return getSetting(AI_ENABLED_SETTING, "1") !== "0";
+export async function isAiEnabled(): Promise<boolean> {
+  return await getPostgresSetting(AI_ENABLED_SETTING, "1") !== "0";
 }
 
-export function setAiEnabled(enabled: boolean): void {
-  setSetting(AI_ENABLED_SETTING, enabled ? "1" : "0", Math.floor(Date.now() / 1000));
+export async function setAiEnabled(enabled: boolean): Promise<void> {
+  await setPostgresSetting(AI_ENABLED_SETTING, enabled ? "1" : "0");
 }
 
 export function codexEnvironment(source: Record<string, string | undefined> = process.env): Record<string, string | undefined> {
@@ -325,14 +310,15 @@ export function detectCodex(): CodexCapability {
   };
 }
 
-export function aiConfigured(settings = getAiSettings()): boolean {
-  if (!isAiEnabled()) return false;
-  if (settings.provider === "codex") return canUseCodexProvider() && detectCodex().authenticated;
-  if (settings.provider === "compatible") return Boolean(settings.model && getCompatibleSettings().baseUrl && secretOrEnv("compatible_api_key", "AI_COMPATIBLE_API_KEY") && aiModelCapabilities("compatible", settings.model));
-  if (settings.provider === "anthropic") return Boolean(secretOrEnv("anthropic_api_key", "ANTHROPIC_API_KEY"));
-  if (settings.provider === "chatgpt") return getChatGPTConnectionStatus().connected && Boolean(aiModelCapabilities("chatgpt", settings.model));
-  if (settings.provider === "openrouter") return Boolean(secretOrEnv("openrouter_api_key", "OPENROUTER_API_KEY") && settings.model);
-  return Boolean(secretOrEnv("openai_api_key", "OPENAI_API_KEY"));
+export async function aiConfigured(settings?: AiSettings): Promise<boolean> {
+  const current = settings || await getAiSettings();
+  if (!(await isAiEnabled())) return false;
+  if (current.provider === "codex") return canUseCodexProvider() && detectCodex().authenticated;
+  if (current.provider === "compatible") return Boolean(current.model && (await getCompatibleSettings()).baseUrl && (await postgresSecretOrEnv("compatible_api_key", "AI_COMPATIBLE_API_KEY")) && (await aiModelCapabilities("compatible", current.model)));
+  if (current.provider === "anthropic") return Boolean(await postgresSecretOrEnv("anthropic_api_key", "ANTHROPIC_API_KEY"));
+  if (current.provider === "chatgpt") return (await getChatGPTConnectionStatus()).connected && Boolean(await aiModelCapabilities("chatgpt", current.model));
+  if (current.provider === "openrouter") return Boolean(await postgresSecretOrEnv("openrouter_api_key", "OPENROUTER_API_KEY")) && Boolean(current.model);
+  return Boolean(await postgresSecretOrEnv("openai_api_key", "OPENAI_API_KEY"));
 }
 
 export function responseText(value: unknown): string | null {
@@ -370,8 +356,8 @@ function estimateUsage(provider: AiProvider, model: string): number | null {
   return model === "gpt-4.1-mini" ? 0.001 : 0.006;
 }
 
-export function usageBudgetAllowed(provider: AiProvider, model: string, calls = 1): boolean {
-  const status = getAiBudgetStatus();
+export async function usageBudgetAllowed(provider: AiProvider, model: string, calls = 1): Promise<boolean> {
+  const status = await getPostgresAiBudgetStatus();
   const estimate = estimateUsage(provider, model);
   if ((status.dailyBudgetUsd > 0 || status.monthlyBudgetUsd > 0) && estimate === null) return false;
   const reserve = (estimate || 0) * Math.max(1, calls);
@@ -398,13 +384,13 @@ function parseProviderUsage(raw: unknown, keys: { input: string[]; output: strin
   return { inputTokens: numeric(keys.input), outputTokens: numeric(keys.output), reportedUsd: numeric(keys.cost) };
 }
 
-function preflightProvider(provider: AiProvider): void {
+async function preflightProvider(provider: AiProvider): Promise<void> {
   assertProviderAvailable(provider);
-  if (provider === "api" && !secretOrEnv("openai_api_key", "OPENAI_API_KEY")) throw new Error("OPENAI_API_KEY missing");
-  if (provider === "anthropic" && !secretOrEnv("anthropic_api_key", "ANTHROPIC_API_KEY")) throw new Error("ANTHROPIC_API_KEY missing");
-  if (provider === "chatgpt" && !getChatGPTConnectionStatus().connected) throw new Error("ChatGPT account is not connected");
-  if (provider === "compatible" && (!secretOrEnv("compatible_api_key", "AI_COMPATIBLE_API_KEY") || !getCompatibleSettings().baseUrl)) throw new Error("OpenAI-uyumlu endpoint veya API anahtarı eksik");
-  if (provider === "openrouter" && !secretOrEnv("openrouter_api_key", "OPENROUTER_API_KEY")) throw new Error("OpenRouter bağlantısı gerekli");
+  if (provider === "api" && !(await postgresSecretOrEnv("openai_api_key", "OPENAI_API_KEY"))) throw new Error("OPENAI_API_KEY missing");
+  if (provider === "anthropic" && !(await postgresSecretOrEnv("anthropic_api_key", "ANTHROPIC_API_KEY"))) throw new Error("ANTHROPIC_API_KEY missing");
+  if (provider === "chatgpt" && !(await getChatGPTConnectionStatus()).connected) throw new Error("ChatGPT account is not connected");
+  if (provider === "compatible" && (!(await postgresSecretOrEnv("compatible_api_key", "AI_COMPATIBLE_API_KEY")) || !(await getCompatibleSettings()).baseUrl)) throw new Error("OpenAI-uyumlu endpoint veya API anahtarı eksik");
+  if (provider === "openrouter" && !(await postgresSecretOrEnv("openrouter_api_key", "OPENROUTER_API_KEY"))) throw new Error("OpenRouter bağlantısı gerekli");
   if (provider === "codex" && !detectCodex().authenticated) throw new Error("Codex login gerekli");
 }
 
@@ -412,33 +398,21 @@ async function reservedRequest(input: {
   provider: AiProvider; model: string; task: AiTaskType; kind: string; units?: number; metadata?: Record<string, unknown>;
   prompt: string; instructions: string; schemaName: string; schema: object;
 }): Promise<StructuredResult> {
-  assertAiModelCapability(input.provider, input.model, input.task);
+  await assertAiModelCapability(input.provider, input.model, input.task);
   const estimate = estimateUsage(input.provider, input.model);
-  const budget = getAiBudgetStatus();
-  if ((budget.dailyBudgetUsd > 0 || budget.monthlyBudgetUsd > 0) && estimate === null) {
-    throw new Error("AI budget limit cannot be enforced because this provider's request cost is unknown");
-  }
-  if (!usageBudgetAllowed(input.provider, input.model)) throw new Error("AI günlük veya aylık tahmini kullanım eşiği aşıldı");
-  preflightProvider(input.provider);
-  const now = Math.floor(Date.now() / 1000);
-  const reservationId = randomUUID();
-  const reservation = reserveAiBudget({ id: reservationId, task: input.task, provider: input.provider, model: input.model, reservedUsd: estimate, now });
-  if (!reservation.allowed) {
-    throw new Error(reservation.reason === "unknown_cost"
-      ? "AI budget limit cannot be enforced because this provider's request cost is unknown"
-      : "AI günlük veya aylık tahmini kullanım eşiği aşıldı");
-  }
+  const budget = await getPostgresAiBudgetStatus();
+  if ((budget.dailyBudgetUsd > 0 || budget.monthlyBudgetUsd > 0) && estimate === null) throw new Error("AI budget limit cannot be enforced because this provider's request cost is unknown");
+  await preflightProvider(input.provider);
+  const now = Math.floor(Date.now() / 1000), reservationId = randomUUID();
+  const reservation = await reservePostgresAiBudget({ id: reservationId, task: input.task, provider: input.provider, model: input.model, reservedUsd: estimate, now });
+  if (!reservation.allowed) throw new Error(reservation.reason === "unknown_cost" ? "AI budget limit cannot be enforced because this provider's request cost is unknown" : "AI günlük veya aylık tahmini kullanım eşiği aşıldı");
   try {
     const result = await requestStructured(input);
-    settleAiBudgetReservation(reservation.id, {
-      outcome: "success", now: Math.floor(Date.now() / 1000), kind: input.kind, units: input.units,
-      estimatedUsd: estimate, reportedUsd: result.usage.reportedUsd,
-      inputTokens: result.usage.inputTokens, outputTokens: result.usage.outputTokens,
-      metadata: input.metadata,
-    });
+    await settlePostgresAiBudgetReservation(reservation.id, { outcome: "success", now: Math.floor(Date.now() / 1000), kind: input.kind, units: input.units,
+      estimatedUsd: estimate, reportedUsd: result.usage.reportedUsd, inputTokens: result.usage.inputTokens, outputTokens: result.usage.outputTokens, metadata: input.metadata });
     return result;
   } catch (error) {
-    settleAiBudgetReservation(reservation.id, { outcome: error instanceof KnownAiRequestFailure ? "known_failure" : "ambiguous", now: Math.floor(Date.now() / 1000) });
+    await settlePostgresAiBudgetReservation(reservation.id, { outcome: error instanceof KnownAiRequestFailure ? "known_failure" : "ambiguous", now: Math.floor(Date.now() / 1000) });
     throw error;
   }
 }
@@ -485,7 +459,7 @@ function parseJsonText(text: string): unknown {
 }
 
 async function requestApiJson(input: { model: string; prompt: string; instructions: string; schemaName: string; schema: object; capabilities: AiModelCapabilities }): Promise<StructuredResult> {
-  const key = secretOrEnv("openai_api_key", "OPENAI_API_KEY");
+  const key = await postgresSecretOrEnv("openai_api_key", "OPENAI_API_KEY");
   if (!key) throw new Error("OPENAI_API_KEY missing");
   const body: Record<string, unknown> = {
     model: input.model,
@@ -551,8 +525,8 @@ async function requestChatGPTJson(input: { model: string; prompt: string; instru
 }
 
 async function requestCompatibleJson(input: { model: string; prompt: string; instructions: string; schemaName: string; schema: object }, provider: "compatible" | "openrouter" = "compatible"): Promise<StructuredResult> {
-  const key = provider === "openrouter" ? secretOrEnv("openrouter_api_key", "OPENROUTER_API_KEY") : secretOrEnv("compatible_api_key", "AI_COMPATIBLE_API_KEY");
-  const baseUrl = provider === "openrouter" ? "https://openrouter.ai/api/v1" : getCompatibleSettings().baseUrl;
+  const key = provider === "openrouter" ? await postgresSecretOrEnv("openrouter_api_key", "OPENROUTER_API_KEY") : await postgresSecretOrEnv("compatible_api_key", "AI_COMPATIBLE_API_KEY");
+  const baseUrl = provider === "openrouter" ? "https://openrouter.ai/api/v1" : (await getCompatibleSettings()).baseUrl;
   if (!key || !baseUrl) throw new Error("OpenAI-uyumlu endpoint veya API anahtarı eksik");
   const response = await requestCompatibleProvider({
     url: `${baseUrl}/chat/completions`,
@@ -587,7 +561,7 @@ function claudeSchema(value: unknown): unknown {
 }
 
 async function requestClaudeJson(input: { model: string; prompt: string; instructions: string; schema: object }): Promise<StructuredResult> {
-  const key = secretOrEnv("anthropic_api_key", "ANTHROPIC_API_KEY");
+  const key = await postgresSecretOrEnv("anthropic_api_key", "ANTHROPIC_API_KEY");
   if (!key) throw new Error("ANTHROPIC_API_KEY missing");
   const response = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
@@ -683,7 +657,7 @@ async function requestStructured(input: {
   schema: object;
 }): Promise<StructuredResult> {
   assertProviderAvailable(input.provider);
-  const capabilities = assertAiModelCapability(input.provider, input.model, input.task);
+  const capabilities = await assertAiModelCapability(input.provider, input.model, input.task);
   if (input.provider === "codex") {
     return { value: await runCodexJson({
       model: input.model,
@@ -706,9 +680,9 @@ const CONNECTION_TEST_SCHEMA = {
 } as const;
 
 export async function testAiConnection(): Promise<{ ok: true; provider: AiProvider; model: string }> {
-  const settings = getAiSettings();
+  const settings = await getAiSettings();
   assertProviderAvailable(settings.provider);
-  assertAiModelCapability(settings.provider, settings.model, "connection_test");
+  await assertAiModelCapability(settings.provider, settings.model, "connection_test");
   const result = record((await reservedRequest({
     provider: settings.provider,
     model: settings.model,
@@ -722,7 +696,7 @@ export async function testAiConnection(): Promise<{ ok: true; provider: AiProvid
   })).value);
   if (result.ok !== true) throw new Error("AI connection test returned an invalid structured response.");
   if (settings.provider === "compatible" || settings.provider === "chatgpt" || settings.provider === "openrouter") {
-    const cacheKey = settings.provider === "chatgpt" ? chatgptCapabilityKey(settings.model) : settings.provider === "openrouter" ? openRouterCapabilityKey(settings.model) : compatibleCapabilityKey(settings.model);
+    const cacheKey = settings.provider === "chatgpt" ? await chatgptCapabilityKey(settings.model) : settings.provider === "openrouter" ? await openRouterCapabilityKey(settings.model) : await compatibleCapabilityKey(settings.model);
     if (!cacheKey) throw new Error("Saved compatible provider key or endpoint is missing.");
     const now = Date.now();
     for (const [key, expiresAt] of compatibleCapabilityCache) {
@@ -747,8 +721,8 @@ export async function requestAiScore(input: {
   provider?: AiProvider;
   prior?: AiScore;
 }): Promise<AiScore> {
-  if (!isAiEnabled()) throw new Error("AI kullanımı kapalı");
-  const settings = getAiSettings();
+  if (!(await isAiEnabled())) throw new Error("AI kullanımı kapalı");
+  const settings = await getAiSettings();
   const provider = input.provider || settings.provider;
   const model = input.model || settings.model;
   if (!isModel(provider, model)) throw new Error(`AI model ${model} is not allowed for ${provider}`);
@@ -774,8 +748,8 @@ export async function requestAiText(input: {
   usageKind?: string;
   usageUnits?: number;
 }): Promise<string> {
-  if (!isAiEnabled()) throw new Error("AI kullanımı kapalı");
-  const settings = getAiSettings();
+  if (!(await isAiEnabled())) throw new Error("AI kullanımı kapalı");
+  const settings = await getAiSettings();
   const provider = input.provider || settings.provider;
   const model = input.model || settings.model;
   if (!isModel(provider, model)) throw new Error(`AI model ${model} is not allowed for ${provider}`);
@@ -807,8 +781,8 @@ export async function requestDraftSemanticFeatures(input: {
   provider?: AiProvider;
   model?: string;
 }): Promise<DraftSemanticFeatures> {
-  if (!isAiEnabled()) throw new Error("AI kullanımı kapalı");
-  const settings = getAiSettings();
+  if (!(await isAiEnabled())) throw new Error("AI kullanımı kapalı");
+  const settings = await getAiSettings();
   const provider = input.provider || settings.provider;
   const model = input.model || settings.model;
   if (!isModel(provider, model)) throw new Error(`AI model ${model} is not allowed for ${provider}`);
@@ -871,15 +845,14 @@ export const DRAFT_MODEL_PREFERENCES = ["anthropic/claude-sonnet-4.5", "openai/g
 const MODEL_LIST_TTL_SECONDS = 300;
 let modelListCache: { baseUrl: string; at: number; models: string[] } | null = null;
 
-export function getDraftModelSetting(): string {
-  const configured = getSetting(AI_DRAFT_MODEL_SETTING, "").trim();
-  return configured && isModel(getAiSettings().provider, configured) ? configured : "";
+export async function getDraftModelSetting(): Promise<string> {
+  return (await getPostgresSetting(AI_DRAFT_MODEL_SETTING, "")).trim();
 }
 
-export function setDraftModelSetting(model: string): string {
+export async function setDraftModelSetting(model: string): Promise<string> {
   const value = model.trim();
-  if (value && !isModel(getAiSettings().provider, value)) throw new Error("taslak modeli desteklenmiyor");
-  setSetting(AI_DRAFT_MODEL_SETTING, value, Math.floor(Date.now() / 1000));
+  if (value && !isModel((await getAiSettings()).provider, value)) throw new Error("taslak modeli desteklenmiyor");
+  await setPostgresSetting(AI_DRAFT_MODEL_SETTING, value);
   return value;
 }
 
@@ -889,8 +862,8 @@ export function clearCompatibleModelCache(): void {
 
 /** The model ids the OpenAI-compatible gateway reports. Never throws. */
 export async function listCompatibleModels(): Promise<string[]> {
-  const baseUrl = getCompatibleSettings().baseUrl;
-  const key = secretOrEnv("compatible_api_key", "AI_COMPATIBLE_API_KEY");
+  const baseUrl = (await getCompatibleSettings()).baseUrl;
+  const key = await postgresSecretOrEnv("compatible_api_key", "AI_COMPATIBLE_API_KEY");
   if (!baseUrl || !key) return [];
   const now = Math.floor(Date.now() / 1000);
   if (modelListCache && modelListCache.baseUrl === baseUrl && now - modelListCache.at < MODEL_LIST_TTL_SECONDS) {
@@ -922,10 +895,10 @@ export type DraftModelRoute = { provider: AiProvider; model: string; reason: str
 export async function resolveDraftModel(
   route: { provider?: AiProvider; model?: string } = {},
 ): Promise<DraftModelRoute> {
-  const settings = getAiSettings();
+  const settings = await getAiSettings();
   const provider = route.provider || settings.provider;
   if (route.model && isModel(provider, route.model)) return { provider, model: route.model, reason: "account_route" };
-  const configured = getDraftModelSetting();
+  const configured = await getDraftModelSetting();
   if (configured) return { provider, model: configured, reason: "ai_draft_model" };
   if (provider === "compatible") {
     const available = new Set(await listCompatibleModels());

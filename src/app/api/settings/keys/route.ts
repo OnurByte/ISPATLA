@@ -1,6 +1,6 @@
 import { withUser } from "@/server/request-auth";
 import { NextResponse } from "next/server";
-import { listSecretMetas, vaultReady } from "@/server/vault";
+import { listPostgresSecretMetas, postgresVaultReady } from "@/server/postgres-settings";
 
 export const runtime = "nodejs";
 
@@ -10,10 +10,10 @@ const KNOWN_KEYS = [
   { name: "compatible_api_key", provider: "OpenAI-uyumlu AI" },
 ];
 
-function GETHandler() {
-  const configured = new Map(listSecretMetas().map((secret) => [secret.name, secret]));
+async function GETHandler() {
+  const configured = new Map((await listPostgresSecretMetas()).map((secret) => [secret.name, secret]));
   return NextResponse.json({
-    vaultReady: vaultReady(),
+    vaultReady: postgresVaultReady(),
     keys: KNOWN_KEYS.map((key) => configured.get(key.name) || { ...key, configured: false, masked: "ayarlı değil", updatedAt: 0 }),
   });
 }

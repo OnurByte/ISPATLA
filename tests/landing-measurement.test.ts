@@ -1,9 +1,8 @@
 import { expect, test } from "bun:test";
-import { Database } from "bun:sqlite";
 import { classifyLandingReferrer, isLandingEventPayload, landingEvents, trackLandingEvent } from "../src/lib/landing-measurement";
 import { docsCopy } from "../src/i18n/docs-copy";
 import { LOCALES } from "../src/i18n/config";
-import { firstActionTimeBucket, recordLandingEvent } from "../src/server/landing-measurement";
+import { firstActionTimeBucket } from "../src/server/landing-measurement";
 
 test("landing measurement accepts only named events and bounded pages", () => {
   expect(isLandingEventPayload({ event: "demo_start", page: "/", source: "direct" })).toBe(true);
@@ -24,20 +23,6 @@ test("landing measurement accepts only named events and bounded pages", () => {
 
 test("client helper is inert outside a browser", () => {
   expect(() => trackLandingEvent("demo_start", "/")).not.toThrow();
-});
-
-test("landing events retain only coarse daily totals and preserve legacy counts", () => {
-  const db = new Database(":memory:");
-  try {
-    db.exec("CREATE TABLE landing_event_daily(day TEXT NOT NULL,event TEXT NOT NULL,page TEXT NOT NULL,count INTEGER NOT NULL DEFAULT 0,PRIMARY KEY(day,event,page)); INSERT INTO landing_event_daily VALUES('2026-10-09','demo_start','/',4);");
-    recordLandingEvent(db, "demo_start", "/", Date.parse("2026-10-09T10:00:00Z") / 1000, "x");
-    expect(db.prepare("SELECT day,event,page,bucket,source,count FROM landing_event_daily ORDER BY day,event").all()).toEqual([
-      { day: "2026-10-09", event: "demo_start", page: "/", bucket: "", source: "direct", count: 4 },
-      { day: "2026-10-09", event: "demo_start", page: "/", bucket: "", source: "x", count: 1 },
-    ]);
-    expect(db.prepare("PRAGMA table_info(landing_event_daily)").all().map((row) => (row as { name: string }).name)).toEqual(["day", "event", "page", "bucket", "source", "count"]);
-    expect(db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='landing_event_daily_legacy'").all()).toHaveLength(1);
-  } finally { db.close(); }
 });
 
 test("first-action elapsed time is reported only in coarse buckets", () => {

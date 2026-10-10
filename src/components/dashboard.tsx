@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { Activity, ArrowUpRight, Bot, CheckCircle2, CircleAlert, Database, ExternalLink, FileText, RefreshCw, Send, ShieldCheck, Sparkles, TimerReset } from "lucide-react";
-import type { RecentPost } from "@/server/db";
+import type { RecentPost } from "@/server/db-types";
 import type { DashboardView } from "@/server/dashboard";
 import { ActivityChart } from "@/components/activity-chart";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -143,9 +143,10 @@ export function Dashboard({ initial, canRunScan }: { initial: DashboardView; can
         {!summary.dbAvailable && (
           <Alert variant="destructive">
             <CircleAlert aria-hidden="true" />
-            <AlertDescription>SQLite kullanılamıyor: {summary.dbError || "bilinmeyen hata"}</AlertDescription>
+            <AlertDescription>Veritabanı kullanılamıyor: {summary.dbError || "bilinmeyen hata"}</AlertDescription>
           </Alert>
         )}
+        {!summary.historicalAnalyticsAvailable && <Alert><Database aria-hidden="true" /><AlertDescription>Geçmiş analitik verileri PostgreSQL&apos;e aktarılmadı; şu an geçmiş sonuç gösterilmiyor.</AlertDescription></Alert>}
 
         <section className="grid gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.65fr)]">
           <Card>

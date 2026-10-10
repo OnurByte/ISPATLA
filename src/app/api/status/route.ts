@@ -4,8 +4,8 @@ import { getDashboardSummary } from "@/server/dashboard";
 
 export const runtime = "nodejs";
 
-function GETHandler() {
-  return NextResponse.json(getDashboardSummary());
+async function GETHandler() {
+  return NextResponse.json(await getDashboardSummary());
 }
 
 export const GET = withUser(GETHandler);

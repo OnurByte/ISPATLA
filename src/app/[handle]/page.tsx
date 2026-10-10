@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 
 export async function generateMetadata({ params }: { params: Promise<{ handle: string }> }): Promise<Metadata> {
   const { handle } = await params;
-  const profile = findPublicProfileByPath(handle);
+  const profile = await findPublicProfileByPath(handle);
   if (!profile) return { robots: { index: false, follow: false } };
   const title = `${profile.displayName || "Profil"}${profile.xHandle ? ` (@${profile.xHandle})` : ""} · ispatla.tr`;
   return {
@@ -22,7 +22,7 @@ export async function generateMetadata({ params }: { params: Promise<{ handle: s
 
 export default async function PublicHandlePage({ params }: { params: Promise<{ handle: string }> }) {
   const { handle } = await params;
-  const profile = findPublicProfileByPath(handle);
+  const profile = await findPublicProfileByPath(handle);
   const locale = await requestPublicLocale();
   if (!profile) notFound();
   return <><PublicHeader locale={locale} /><PublicProfileView profile={profile} /></>;

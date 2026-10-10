@@ -9,16 +9,15 @@ Uygulama oturumu Better Auth ile yönetilir. X hesabı ayrı, oturuma bağlı OA
 eylem için Observe, Assist veya Off tercihleri ayrı tutulur. Auto arayüzde henüz
 etkin değildir; kazanılmış özerklik kabul koşulları uygulama durum belgesindedir.
 
-## Katkıcı demosu
+## Katkı
 
-Lisans: AGPL-3.0-or-later ([LICENSE](LICENSE)).
-`bun install --frozen-lockfile` ardından `bun run demo`: geçici veritabanı, sentetik
-kaynak ve yerel demo hesabı oluşturur. X/AI kimlik bilgisi gerekmez. Yayın kapalıdır;
-fixture makbuzu gerçek yayın kanıtı değildir. Ayrıntılar [CONTRIBUTING.md](CONTRIBUTING.md).
+Lisans: AGPL-3.0-or-later ([LICENSE](LICENSE)). Sentetik demo komutu kaldırıldı;
+demo verisi PostgreSQL üzerinde güvenli ve yalıtılmış biçimde sağlanana kadar demo yolu
+kullanılamaz. Ayrıntılar [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Yerel başlangıç
 
-Node.js 22.5+ (yerel SQLite) ve Bun gerekir. Kaynak listesini kendi yapılandırmanıza
+Node.js 22.5+ ve Bun gerekir. Kaynak listesini kendi yapılandırmanıza
 göre düzenleyin; bu komut mevcut dosyayı değiştirmez:
 
 ```sh
@@ -34,6 +33,7 @@ ISPATLA_TOKEN_KEY_CURRENT=<rastgele token şifreleme anahtarı>
 ISPATLA_SECRET_KEY=<AI kasası için ayrı rastgele anahtar>
 ISPATLA_PRIVATE_BETA=1
 ISPATLA_AUTOMATION=0
+DATABASE_URL=postgresql://<role>:<password>@<host>:6543/postgres
 ```
 
 Private beta seçeneği e-posta doğrulamasını açıkça kapatır. Normal kayıt ve parola
@@ -47,8 +47,10 @@ bun run dev
 ```
 
 Kamusal sayfa `/`, özel kontrol odası `/app`, kayıt ve giriş `/signup` ve `/login`.
-SQLite varsayılan olarak `state/ispatla.sqlite3` içindedir. `ISPATLA_DB` dosyayı,
-`ISPATLA_SOURCES` kaynak JSON yolunu değiştirir.
+Uygulama PostgreSQL'e Drizzle ORM ile bağlanır; çalıştırmadan önce Supabase
+projesinin **Connect → Transaction pooler** bölümündeki tam URI'yi `DATABASE_URL`
+olarak kullanın. Biçimi `postgresql://postgres.<PROJECT_REF>:<DB_PASSWORD>@<POOLER_HOST>:6543/postgres` şeklindedir; kullanıcı, parola, host ve portu bu paneldeki URI'den kopyalayın, pooler hostunu tahmin etmeyin. Vercel için de aynı transaction pooler URI'sini kullanın.
+Supabase PostgreSQL bağlantısı uygulamada Supabase'in veritabanı kök sertifikasıyla doğrulanır.
 
 ## Resmi X bağlantısı
 
@@ -85,7 +87,7 @@ açıklanır.
 ## Kontroller ve worker
 
 ```sh
-bun test
+bun test --isolate
 bun run lint
 bun run typecheck
 bun run build
@@ -95,9 +97,8 @@ bun run automation:worker
 Worker ve web zamanlayıcısı tek kalıcı çalışma kilidini paylaşır. İşler ayrıca
 süreli kira, heartbeat, deneme sayısı, backoff, hata kuyruğu ve olay çizelgesi tutar.
 Kaynak radar verisi ortaktır; hesap taslakları, kullanım, sırlar, işler ve yayın
-niyetleri oturum sahibinin kapsamındadır. Eski verilerin sahipliği ilk kaydolana
-aktarılmaz; doğrulanmış kullanıcıya açık atama için `scripts/assign-legacy-owner.ts`
-kullanılır.
+niyetleri oturum sahibinin kapsamındadır. Eski yerel veritabanı taşınmaz; hesap, ayar,
+taslak ve diğer uygulama verileri PostgreSQL'de yeni başlar.
 
 Stdio MCP araçları her çağrıda `ISPATLA_MCP_SESSION_COOKIE` ile gerçek uygulama
 oturumunu tekrar doğrular. Bu değer bir gizli oturum bilgisidir; paylaşmayın ve

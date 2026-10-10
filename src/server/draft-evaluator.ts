@@ -1,21 +1,49 @@
 import { aiConfigured, requestDraftSemanticFeatures, type AiProvider, type DraftSemanticFeatures } from "./ai";
-import {
-  recordDraftEvaluation,
-  type Account,
-  type DraftEvaluation,
-} from "./db";
+import { sql } from "drizzle-orm";
+import { currentOwnerId } from "./owner-context";
+import { getPostgresDb } from "./postgres";
+import { getPostgresAccount } from "./postgres-accounts";
+import { getPostgresDraft } from "./postgres-drafts";
+import type { Account, DraftEvaluation } from "./db-types";
 import { listEvaluationOutcomes, listEvaluationPredictions } from "./evaluation-store";
 
 export type DraftMediaType = "none" | "photo" | "video" | "media";
 
-function draftOutcomeBaseline(accountId: number, categorySlug: string, format: string) {
+async function recordPostgresDraftEvaluation(input: Omit<DraftEvaluation, "id" | "createdAt" | "updatedAt"> & { draftId: number; now: number }): Promise<DraftEvaluation> {
+  const owner = currentOwnerId();
+  if (!owner) throw new Error("draft evaluation requires an owner context");
+  const draft = await getPostgresDraft(input.draftId);
+  if (!draft || draft.accountId !== input.accountId) throw new Error("draft evaluation draft not found for owner");
+  if (input.accountId !== null && !(await getPostgresAccount(owner, input.accountId))) throw new Error("draft evaluation account not found for owner");
+  const baseline = input.baseline;
+  const result = await getPostgresDb().execute(sql`INSERT INTO ispatla_app.draft_evaluations (
+    draft_id,account_id,category_slug,mode,score,confidence,predicted_residual,baseline_scope,baseline_samples,
+    baseline_views,baseline_likes,baseline_replies,baseline_reposts,baseline_quotes,baseline_engagement_rate,
+    predicted_views,predicted_replies,predicted_reposts,predicted_quotes,features_json,semantic_json,helped_json,hurt_json,created_at,updated_at
+  ) VALUES (${input.draftId},${input.accountId},${input.categorySlug},${input.mode},${input.score},${input.confidence},${input.predictedResidual},
+    ${baseline.scope},${baseline.samples},${baseline.medianViews},${baseline.medianLikes},${baseline.medianReplies},${baseline.medianReposts},${baseline.medianQuotes},${baseline.medianEngagementRate},
+    ${input.predictedViews},${input.predictedReplies},${input.predictedReposts},${input.predictedQuotes},${JSON.stringify(input.features)},${JSON.stringify(input.semantic)},
+    ${JSON.stringify(input.helped.slice(0,8))},${JSON.stringify(input.hurt.slice(0,8))},${input.now},${input.now})
+  ON CONFLICT(draft_id) DO UPDATE SET account_id=excluded.account_id,category_slug=excluded.category_slug,mode=excluded.mode,
+    score=excluded.score,confidence=excluded.confidence,predicted_residual=excluded.predicted_residual,baseline_scope=excluded.baseline_scope,
+    baseline_samples=excluded.baseline_samples,baseline_views=excluded.baseline_views,baseline_likes=excluded.baseline_likes,
+    baseline_replies=excluded.baseline_replies,baseline_reposts=excluded.baseline_reposts,baseline_quotes=excluded.baseline_quotes,
+    baseline_engagement_rate=excluded.baseline_engagement_rate,predicted_views=excluded.predicted_views,predicted_replies=excluded.predicted_replies,
+    predicted_reposts=excluded.predicted_reposts,predicted_quotes=excluded.predicted_quotes,features_json=excluded.features_json,
+    semantic_json=excluded.semantic_json,helped_json=excluded.helped_json,hurt_json=excluded.hurt_json,updated_at=excluded.updated_at
+  RETURNING id`);
+  const id = Number((result.rows[0] as { id: number }).id);
+  return { ...input, id, createdAt: input.now, updatedAt: input.now };
+}
+
+async function draftOutcomeBaseline(accountId: number, categorySlug: string, format: string) {
   const empty = { scope: "none" as const, samples: 0, medianViews: null, medianLikes: null, medianReplies: null, medianReposts: null, medianQuotes: null, medianEngagementRate: null };
   try {
     const posts = new Map<string, { capturedAt: number; views: number | null; likes: number | null; replies: number | null; reposts: number | null; quotes: number | null }>();
-    for (const prediction of listEvaluationPredictions(String(accountId), undefined, 500)) {
+    for (const prediction of await listEvaluationPredictions(String(accountId), undefined, 500)) {
       if (prediction.category !== categorySlug || prediction.format !== format || prediction.action !== format
         || prediction.features.decision !== "eligible") continue;
-      for (const outcome of listEvaluationOutcomes(prediction.id)) {
+      for (const outcome of await listEvaluationOutcomes(prediction.id)) {
         const provenance = outcome.provenanceRef.match(new RegExp(`^official_x:${accountId}:(\\d{1,19}):published_at=(\\d{1,12})$`, "u"));
         if (outcome.source !== "official_x_api" || !provenance) continue;
         const publishedAt = Number(provenance[2]);
@@ -37,15 +65,15 @@ function draftOutcomeBaseline(accountId: number, categorySlug: string, format: s
   }
 }
 
-export function formatHistoryEvidence(accountId: number, categorySlug: string, formats: string[]) {
+export async function formatHistoryEvidence(accountId: number, categorySlug: string, formats: string[]) {
   const result: Record<string, { samples: number | null; engagementRate: number | null }> = Object.fromEntries(formats.map((format) => [format, { samples: null, engagementRate: null }]));
   try {
-    const predictions = listEvaluationPredictions(String(accountId), undefined, 500)
+    const predictions = (await listEvaluationPredictions(String(accountId), undefined, 500))
       .filter((prediction) => prediction.accountId === String(accountId) && prediction.category === categorySlug
         && prediction.action === prediction.format && prediction.features.decision === "eligible" && formats.includes(prediction.format));
     const byPublication = new Map<string, { format: string; engagementRate: number; capturedAt: number }>();
     for (const prediction of predictions) {
-      for (const outcome of listEvaluationOutcomes(prediction.id)) {
+      for (const outcome of await listEvaluationOutcomes(prediction.id)) {
         if (outcome.source !== "official_x_api") continue;
         const provenance = outcome.provenanceRef.match(new RegExp(`^official_x:${accountId}:(\\d{1,19}):published_at=(\\d{1,12})$`, "u"));
         if (!provenance) continue;
@@ -221,11 +249,11 @@ export async function evaluateDraft(input: {
   const now = input.now || Math.floor(Date.now() / 1000);
   const categorySlug = String(input.categorySlug || "").trim().toLocaleLowerCase("tr-TR");
   const features = extractDraftFeatures(input.text, input.mediaType || "none");
-  const baseline = draftOutcomeBaseline(input.account.id, categorySlug, input.format);
+  const baseline = await draftOutcomeBaseline(input.account.id, categorySlug, input.format);
 
   let semantic: DraftSemanticFeatures | null = null;
   let semanticMetadata: Record<string, unknown> = {};
-  if (aiConfigured()) {
+  if (await aiConfigured()) {
     try {
       semantic = await requestDraftSemanticFeatures({
         text: input.text,
@@ -258,7 +286,7 @@ export async function evaluateDraft(input: {
   const predictedResidual = null;
   const confidence = Math.round(clamp(15 + Math.min(25, baseline.samples) + (semantic ? 20 : 0), 0, 60));
 
-  return recordDraftEvaluation({
+  return recordPostgresDraftEvaluation({
     draftId: input.draftId,
     accountId: input.account.id,
     categorySlug,

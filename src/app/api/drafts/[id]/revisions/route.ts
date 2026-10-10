@@ -1,18 +1,12 @@
 import { NextResponse } from "next/server";
 import { withUser } from "@/server/request-auth";
-import { getDraft } from "@/server/db";
-import { getDraftRevisions } from "@/server/draft-revisions";
+import { getPostgresDraft, getPostgresDraftRevisions } from "@/server/postgres-drafts";
 
 export const runtime = "nodejs";
-
-function GETHandler(_request: Request, context: { params: Promise<{ id: string }> }) {
-  return context.params.then(({ id }) => {
-    const draftId = Number(id);
-    if (!Number.isSafeInteger(draftId) || draftId < 1 || !getDraft(draftId)) {
-      return NextResponse.json({ error: "draft bulunamadı" }, { status: 404 });
-    }
-    return NextResponse.json(getDraftRevisions(draftId));
-  });
+async function GETHandler(_request: Request, context: { params: Promise<{ id: string }> }) {
+  const id = Number((await context.params).id);
+  if (!Number.isSafeInteger(id) || id < 1 || !await getPostgresDraft(id)) return NextResponse.json({ error: "draft bulunamadı" }, { status: 404 });
+  try { return NextResponse.json(await getPostgresDraftRevisions(id)); }
+  catch { return NextResponse.json({ error: "Draft geçmişi hazır değil" }, { status: 503 }); }
 }
-
 export const GET = withUser(GETHandler);

@@ -1,74 +1,45 @@
-import { mkdirSync } from "node:fs";
-import { dirname, join } from "node:path";
 import { createHash, createHmac } from "node:crypto";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { APIError, betterAuth, type BetterAuthOptions } from "better-auth";
-import { getMigrations } from "better-auth/db/migration";
+import { sql } from "drizzle-orm";
 import { sendAuthEmail } from "./auth-mail";
 import { AbuseRiskService } from "./abuse-risk";
+import { getPostgresDb } from "./postgres";
+import { drizzleAdapter } from "better-auth/adapters/drizzle";
+import { authSchema } from "./postgres-auth-schema";
 import { normalizeEmailAddress, validateEmailQuality, type EmailQualityResult } from "./email-validation";
-import { assertXAccountOwner, connectXAccount, initializeXOAuthStore } from "./x-oauth-store";
-import { cacheSelectedProfileAvatar, deleteProfileAvatar } from "./profile-avatar";
+import { assertPostgresXAccountOwner, connectPostgresXAccount } from "./postgres-x-oauth";
 
 type XLoginGrant = { xUserId: string; handle: string; displayName: string; bio: string; protected: boolean | null; avatarSource: string | null; accessToken: string; refreshToken: string; expiresAt: number; scopes: string[] };
 const xLoginGrantContext = new AsyncLocalStorage<{ grant: XLoginGrant | null; ownerUserId?: string }>();
 const X_PUBLISHING_SCOPES = ["tweet.read", "tweet.write", "users.read", "users.email", "media.write", "offline.access"] as const;
 
-type SqliteResult = { changes?: number };
-type SqliteStatement = { run(...params: unknown[]): SqliteResult; get?(...params: unknown[]): unknown; all?(...params: unknown[]): unknown[] };
-type SqliteHandle = {
-  exec(sql: string): void;
-  close(): void;
-  prepare?(sql: string): SqliteStatement;
-  query?(sql: string): SqliteStatement;
-};
-type SqliteConstructor = new (path: string) => SqliteHandle;
 type AuthInstance = ReturnType<typeof betterAuth<BetterAuthOptions>>;
 
 type AuthRuntime = {
   auth: AuthInstance;
   handler(request: Request): Promise<Response>;
-  isUserDisabled(userId: string): boolean;
-  disableUser(userId: string, now: number): void;
+  isUserDisabled(userId: string): Promise<boolean>;
+  disableUser(userId: string, now: number): Promise<void>;
   close(): void;
 };
-
-function databasePath(env: Record<string, string | undefined>): string {
-  return env.ISPATLA_DB || join(process.cwd(), "state", "ispatla.sqlite3");
-}
-
-function openDatabase(path: string): SqliteHandle {
-  const getBuiltinModule = (process as unknown as { getBuiltinModule?: (name: string) => unknown }).getBuiltinModule;
-  if (!getBuiltinModule) throw new Error("Better Auth requires Node.js 22.5+ or Bun SQLite support");
-  const runtime = typeof (globalThis as { Bun?: unknown }).Bun !== "undefined"
-    ? getBuiltinModule("bun:sqlite") as { Database: SqliteConstructor }
-    : getBuiltinModule("node:sqlite") as { DatabaseSync: SqliteConstructor };
-  const Constructor = "Database" in runtime ? runtime.Database : runtime.DatabaseSync;
-  mkdirSync(dirname(path), { recursive: true });
-  const db = new Constructor(path);
-  db.exec("PRAGMA foreign_keys=ON; PRAGMA journal_mode=WAL; PRAGMA busy_timeout=5000;");
-  return db;
-}
-
-function runSql(db: SqliteHandle, sql: string, ...params: unknown[]): SqliteResult {
-  const statement = db.prepare?.(sql) || db.query?.(sql);
-  if (!statement) throw new Error("SQLite prepared statements are unavailable");
-  return statement.run(...params);
-}
 
 function tokenDigest(token: string): string {
   return createHash("sha256").update(token).digest("hex");
 }
 
-function registerEmailVerificationToken(db: SqliteHandle, userId: string, token: string): void {
+async function registerEmailVerificationToken(userId: string, token: string): Promise<void> {
   const now = Date.now();
-  runSql(db, "DELETE FROM auth_email_verification_tokens WHERE expires_at <= ?", now);
-  runSql(db, "INSERT OR REPLACE INTO auth_email_verification_tokens(token_hash, user_id, expires_at) VALUES (?, ?, ?)", tokenDigest(token), userId, now + 60 * 60 * 1000);
+  const db = getPostgresDb();
+  await db.execute(sql`DELETE FROM ispatla_auth.auth_email_verification_tokens WHERE expires_at <= ${now}`);
+  await db.execute(sql`INSERT INTO ispatla_auth.auth_email_verification_tokens(token_hash,user_id,expires_at)
+    VALUES (${tokenDigest(token)},${userId},${now + 60 * 60 * 1000})
+    ON CONFLICT(token_hash) DO UPDATE SET user_id=EXCLUDED.user_id,expires_at=EXCLUDED.expires_at`);
 }
 
-function consumeEmailVerificationToken(db: SqliteHandle, token: string): boolean {
-  const result = runSql(db, "DELETE FROM auth_email_verification_tokens WHERE token_hash = ? AND expires_at > ?", tokenDigest(token), Date.now());
-  return result.changes === 1;
+async function consumeEmailVerificationToken(token: string): Promise<boolean> {
+  const result = await getPostgresDb().execute(sql`DELETE FROM ispatla_auth.auth_email_verification_tokens WHERE token_hash = ${tokenDigest(token)} AND expires_at > ${Date.now()}`);
+  return result.rowCount === 1;
 }
 
 function twitterSignInProvider(env: Record<string, string | undefined>): BetterAuthOptions["socialProviders"] {
@@ -125,7 +96,7 @@ function stripTwitterTokens(account: Record<string, unknown>): Record<string, un
   return { ...account, accessToken: null, refreshToken: null, idToken: null, scope: null, accessTokenExpiresAt: null, refreshTokenExpiresAt: null };
 }
 
-function authOptions(db: SqliteHandle, env: Record<string, string | undefined>, appDatabasePath = databasePath(env)): BetterAuthOptions {
+function authOptions(env: Record<string, string | undefined>): BetterAuthOptions {
   const production = env.NODE_ENV === "production";
   const secret = env.BETTER_AUTH_SECRET;
   if (!secret || secret.length < 32) throw new Error("BETTER_AUTH_SECRET must contain at least 32 characters");
@@ -141,18 +112,6 @@ function authOptions(db: SqliteHandle, env: Record<string, string | undefined>, 
   if (baseURL.username || baseURL.password || baseURL.pathname !== "/" || baseURL.search || baseURL.hash) {
     throw new Error("BETTER_AUTH_URL must be a plain origin");
   }
-
-  db.exec(`CREATE TABLE IF NOT EXISTS auth_email_verification_tokens (
-    token_hash TEXT PRIMARY KEY,
-    user_id TEXT NOT NULL,
-    expires_at INTEGER NOT NULL
-  ); CREATE INDEX IF NOT EXISTS auth_email_verification_tokens_expiry_idx ON auth_email_verification_tokens(expires_at);
-  CREATE TABLE IF NOT EXISTS auth_signup_admission (
-    key TEXT PRIMARY KEY, count INTEGER NOT NULL, window_started_at INTEGER NOT NULL
-  ); CREATE INDEX IF NOT EXISTS auth_signup_admission_expiry_idx ON auth_signup_admission(window_started_at);
-  CREATE TABLE IF NOT EXISTS auth_user_status (
-    owner_user_id TEXT PRIMARY KEY, status TEXT NOT NULL CHECK(status IN ('active','disabled')), updated_at INTEGER NOT NULL
-  );`);
 
   const trustedOrigins = new Set([baseURL.origin]);
   if (!production) {
@@ -179,7 +138,7 @@ function authOptions(db: SqliteHandle, env: Record<string, string | undefined>, 
     baseURL: baseURL.origin,
     secret,
     trustedOrigins: [...trustedOrigins],
-    database: db as NonNullable<BetterAuthOptions["database"]>,
+    database: drizzleAdapter(getPostgresDb(), { provider: "pg", schema: authSchema, camelCase: true, schemaName: "ispatla_auth" }),
     socialProviders: twitterProvider || {},
     account: {
       updateAccountOnSignIn: true,
@@ -200,35 +159,16 @@ function authOptions(db: SqliteHandle, env: Record<string, string | undefined>, 
       autoSignInAfterVerification: false,
       expiresIn: 60 * 60,
       sendVerificationEmail: async ({ user, url, token }) => {
-        registerEmailVerificationToken(db, user.id, token);
+        await registerEmailVerificationToken(user.id, token);
         await sendAuthEmail("verification", { email: user.email, url }, env);
       },
     },
     user: {
       deleteUser: {
         enabled: true,
-        beforeDelete: async (user) => {
-          const [{ ensureDatabase, getAccounts }, { runAsOwner }, { revokeXAccount }, { disconnectChatGPT }] = await Promise.all([
-            import("./db"), import("./owner-context"), import("./x-oauth"), import("./chatgpt-connection"),
-          ]);
-          if (!ensureDatabase(appDatabasePath)) throw new Error("account data store is unavailable");
-          try { await runAsOwner(user.id, () => disconnectChatGPT()); } catch { /* Local owner-data purge remains authoritative if remote revocation is unavailable. */ }
-          const accounts = runAsOwner(user.id, () => getAccounts());
-          for (const account of accounts) {
-            try { await revokeXAccount({ accountId: account.id, ownerUserId: user.id }); }
-            catch { /* Local account deletion remains authoritative when provider revocation fails. */ }
-          }
-        },
-        afterDelete: async (user) => {
-          const { deleteOwnerData, ensureDatabase } = await import("./db");
-          if (!ensureDatabase(appDatabasePath)) throw new Error("account data store is unavailable");
-          const identities = db.prepare?.("SELECT x_user_id FROM user_profile_x_identity WHERE owner_user_id=?")?.all?.(user.id) as Array<{ x_user_id: string }> | undefined;
-          deleteOwnerData(user.id);
-          for (const { x_user_id: xUserId } of identities || []) {
-            const stillOwned = db.prepare?.("SELECT 1 FROM user_profile_x_identity WHERE x_user_id=? LIMIT 1")?.get?.(xUserId);
-            if (!stillOwned) await deleteProfileAvatar(xUserId, appDatabasePath);
-          }
-          runSql(db, "DELETE FROM auth_user_status WHERE owner_user_id=?", user.id);
+        beforeDelete: async () => {
+          // Do not delete auth rows while any owner data or provider grant may remain outside this schema.
+          throw new APIError("SERVICE_UNAVAILABLE", { code: "account_deletion_unavailable", message: "Account deletion is unavailable until all account data and provider grants are stored in PostgreSQL." });
         },
       },
     },
@@ -267,10 +207,12 @@ function authOptions(db: SqliteHandle, env: Record<string, string | undefined>, 
           before: async (account) => {
             const grant = xLoginGrantContext.getStore()?.grant;
             if (account.providerId === "twitter" && grant && account.accountId !== undefined && grant.xUserId !== account.accountId) throw new Error("X login grant did not match the authenticated account");
-            if (account.providerId === "twitter" && typeof account.accountId === "string" && typeof account.userId === "string") assertXAccountOwner({ xUserId: account.accountId, ownerUserId: account.userId, databasePath: appDatabasePath });
+            if (account.providerId === "twitter" && typeof account.accountId === "string" && typeof account.userId === "string") {
+              await assertPostgresXAccountOwner({ xUserId: account.accountId, ownerUserId: account.userId });
+            }
             return { data: stripTwitterTokens(account) };
           },
-          after: async (account) => provisionXLoginAccount(account, env, appDatabasePath),
+          after: async (account) => provisionXLoginAccount(account, env),
         },
         update: {
           before: async (account) => {
@@ -278,7 +220,7 @@ function authOptions(db: SqliteHandle, env: Record<string, string | undefined>, 
             if (account.providerId === "twitter" && grant && account.accountId !== undefined && grant.xUserId !== account.accountId) throw new Error("X login grant did not match the authenticated account");
             return { data: stripTwitterTokens(account) };
           },
-          after: async (account) => provisionXLoginAccount(account, env, appDatabasePath),
+          after: async (account) => provisionXLoginAccount(account, env),
         },
       },
       user: {
@@ -290,7 +232,7 @@ function authOptions(db: SqliteHandle, env: Record<string, string | undefined>, 
   };
 }
 
-async function provisionXLoginAccount(account: unknown, env: Record<string, string | undefined>, appDatabasePath: string): Promise<void> {
+async function provisionXLoginAccount(account: unknown, env: Record<string, string | undefined>): Promise<void> {
   if (!account || typeof account !== "object") return;
   const row = account as Record<string, unknown>;
   const grant = xLoginGrantContext.getStore()?.grant;
@@ -299,33 +241,17 @@ async function provisionXLoginAccount(account: unknown, env: Record<string, stri
     throw new APIError("INTERNAL_SERVER_ERROR", { code: "x_account_provision_failed", message: "X account connection could not be completed" });
   }
   xLoginGrantContext.getStore()!.ownerUserId = row.userId;
-  const { avatarSource, ...profileGrant } = grant;
-  try { connectXAccount({ ...profileGrant, ownerUserId: row.userId, avatarUrl: null, databasePath: appDatabasePath, encryptionEnv: env }); }
+  try { await connectPostgresXAccount({ ...grant, ownerUserId: row.userId, env }); }
   catch { throw new APIError("INTERNAL_SERVER_ERROR", { code: "x_account_provision_failed", message: "X account connection could not be completed" }); }
-  if (avatarSource) {
-    try { await cacheSelectedProfileAvatar({ ...profileGrant, ownerUserId: row.userId, avatarUrl: avatarSource, databasePath: appDatabasePath }); }
-    catch { /* The image is optional after the account grant has been stored. */ }
-  }
-}
-
-async function migrate(options: BetterAuthOptions): Promise<void> {
-  const migrations = await getMigrations(options);
-  if (migrations.unsafeChanges.length || migrations.schemaProblems.length) {
-    throw new Error(`Better Auth schema check failed: ${[...migrations.unsafeChanges, ...migrations.schemaProblems].join("; ")}`);
-  }
-  await migrations.runMigrations();
 }
 
 // Without a verified peer address, the shared route ceiling bounds preflight work across all clients.
-function admitSignupRequest(db: SqliteHandle, key: string, max: number, now = Math.floor(Date.now() / 1000)): boolean {
-  const sql = `INSERT INTO auth_signup_admission(key,count,window_started_at) VALUES(?,1,?)
-    ON CONFLICT(key) DO UPDATE SET
-      count=CASE WHEN window_started_at<=? THEN 1 ELSE count+1 END,
-      window_started_at=CASE WHEN window_started_at<=? THEN excluded.window_started_at ELSE window_started_at END
-    WHERE window_started_at<=? OR count<? RETURNING count;`;
-  const statement = db.prepare?.(sql) || db.query?.(sql);
-  if (!statement?.get) throw new Error("Signup admission storage is unavailable");
-  return !!statement.get(key,now,now-60,now-60,now-60,max);
+async function admitSignupRequest(key: string, max: number, now = Math.floor(Date.now() / 1000)): Promise<boolean> {
+  const result = await getPostgresDb().execute(sql`INSERT INTO ispatla_auth.auth_signup_admission AS admission(key,count,window_started_at) VALUES(${key},1,${now})
+      ON CONFLICT(key) DO UPDATE SET count=CASE WHEN admission.window_started_at <= ${now - 60} THEN 1 ELSE admission.count+1 END,
+      window_started_at=CASE WHEN admission.window_started_at <= ${now - 60} THEN EXCLUDED.window_started_at ELSE admission.window_started_at END
+      WHERE admission.window_started_at <= ${now - 60} OR admission.count < ${max} RETURNING count`);
+  return result.rows.length === 1;
 }
 function signupAdmissionDenied(): Response {
   return Response.json({ message: "Çok fazla kayıt isteği. Bir dakika sonra yeniden dene." }, { status: 429, headers: { "retry-after": "60", "cache-control": "no-store" } });
@@ -359,7 +285,7 @@ async function readAuthBody(request: Request): Promise<Record<string, unknown>> 
   } finally { reader.releaseLock(); }
 }
 
-async function authRequest(auth: AuthInstance, db: SqliteHandle, request: Request, trustedOrigins: string[], validateSignupEmail: (email: string) => Promise<EmailQualityResult>, abuse: AbuseRiskService, secureCookies: boolean, secret: string): Promise<Response> {
+async function authRequest(auth: AuthInstance, request: Request, trustedOrigins: string[], validateSignupEmail: (email: string) => Promise<EmailQualityResult>, abuse: AbuseRiskService, secureCookies: boolean, secret: string): Promise<Response> {
   const url = new URL(request.url);
   if (!["GET", "HEAD", "OPTIONS"].includes(request.method)) {
     const origin = request.headers.get("origin");
@@ -370,8 +296,8 @@ async function authRequest(auth: AuthInstance, db: SqliteHandle, request: Reques
   const signup = request.method === "POST" && url.pathname.endsWith("/sign-up/email");
   if (signup) {
     try {
-      if (!admitSignupRequest(db, "signup:route", 100)) return signupAdmissionDenied();
-      db.exec(`DELETE FROM auth_signup_admission WHERE window_started_at<=${Math.floor(Date.now()/1000)-60};`);
+      if (!await admitSignupRequest("signup:route", 100)) return signupAdmissionDenied();
+      await getPostgresDb().execute(sql`DELETE FROM ispatla_auth.auth_signup_admission WHERE window_started_at <= ${Math.floor(Date.now()/1000)-60}`);
     } catch { return Response.json({ message: "Kayıt hizmeti geçici olarak hazır değil. Yeniden dene." }, { status: 503 }); }
   }
   const emailRequest = request.method === "POST" && ["/sign-up/email", "/sign-in/email", "/request-password-reset", "/send-verification-email", "/reset-password"].some((path) => url.pathname.endsWith(path));
@@ -385,7 +311,7 @@ async function authRequest(auth: AuthInstance, db: SqliteHandle, request: Reques
     const email = normalizeEmailAddress(body.email);
     if (email) {
       const emailKey = "signup:email:" + createHmac("sha256", secret).update(`ispatla-signup-admission:v1\0${email}`).digest("base64url");
-      try { if (!admitSignupRequest(db, emailKey, 5)) return signupAdmissionDenied(); }
+      try { if (!await admitSignupRequest(emailKey, 5)) return signupAdmissionDenied(); }
       catch { return Response.json({ message: "Kayıt hizmeti geçici olarak hazır değil. Yeniden dene." }, { status: 503 }); }
     }
   }
@@ -394,7 +320,7 @@ async function authRequest(auth: AuthInstance, db: SqliteHandle, request: Reques
     try {
       const device = abuse.device(request.headers.get("cookie"), { secure: secureCookies || url.protocol === "https:" });
       // Next Request has no trusted peer address; client forwarded headers are not identity evidence.
-      const risk = abuse.recordSignupAttempt({ normalizedEmail: typeof body?.email === "string" ? normalizeEmailAddress(body.email) : null, deviceId: device.deviceId, ip: null });
+      const risk = await abuse.recordSignupAttempt({ normalizedEmail: typeof body?.email === "string" ? normalizeEmailAddress(body.email) : null, deviceId: device.deviceId, ip: null });
       attempt = { id: risk.attemptId, cookie: device.setCookie };
     } catch {
       return Response.json({ message: "Kayıt hizmeti geçici olarak hazır değil. Yeniden dene." }, { status: 503 });
@@ -407,7 +333,7 @@ async function authRequest(auth: AuthInstance, db: SqliteHandle, request: Reques
       const result = await response.clone().json().catch(() => null) as { user?: { id?: unknown } } | null;
       if (typeof result?.user?.id === "string" && result.user.id.trim()) ownerId = result.user.id;
     }
-    try { abuse.completeSignupAttempt(attempt.id, ownerId); }
+    try { await abuse.completeSignupAttempt(attempt.id, ownerId); }
     catch { console.error("Signup risk outcome could not be stored; the pending attempt remains available for review."); }
     if (attempt.cookie) response.headers.append("set-cookie", attempt.cookie);
     return response;
@@ -424,7 +350,7 @@ async function authRequest(auth: AuthInstance, db: SqliteHandle, request: Reques
           return Response.json({ message: "Doğrulama bağlantısı geçersiz." }, { status: 400 });
         }
       }
-      if (!consumeEmailVerificationToken(db, token)) return Response.json({ message: "Doğrulama bağlantısı geçersiz, kullanılmış veya süresi dolmuş." }, { status: 400 });
+      if (!await consumeEmailVerificationToken(token)) return Response.json({ message: "Doğrulama bağlantısı geçersiz, kullanılmış veya süresi dolmuş." }, { status: 400 });
     }
   }
   if (body && typeof body.email === "string") {
@@ -447,67 +373,66 @@ async function authRequest(auth: AuthInstance, db: SqliteHandle, request: Reques
 }
 
 export async function createAuthRuntime(input: {
-  databasePath?: string;
   env?: Record<string, string | undefined>;
   validateSignupEmail?: (email: string) => Promise<EmailQualityResult>;
 } = {}): Promise<AuthRuntime> {
   const env = input.env || process.env;
+  if (!env.DATABASE_URL) throw new Error("DATABASE_URL is required for PostgreSQL auth");
   // ponytail: test runtimes skip external DNS; inject a validator when exercising signup decisions.
   const validateSignupEmail = input.validateSignupEmail || (env.NODE_ENV === "test"
     ? async (email: string): Promise<EmailQualityResult> => ({ accepted: true, normalizedEmail: email, mxStatus: "unknown" })
     : validateEmailQuality);
-  const storagePath = input.databasePath || databasePath(env);
-  const db = openDatabase(storagePath);
-  try {
-    const options = authOptions(db, env, storagePath);
-    await migrate(options);
-    if (twitterSignInProvider(env)) initializeXOAuthStore(storagePath);
-    const auth = betterAuth(options) as AuthInstance;
-    const abuse = new AbuseRiskService(db, env.BETTER_AUTH_SECRET!);
-    return {
-      auth,
-      isUserDisabled(userId) {
-        const statement = db.prepare?.("SELECT status FROM auth_user_status WHERE owner_user_id=? LIMIT 1");
-        return (statement?.get?.(userId) as { status?: string } | undefined)?.status === "disabled";
-      },
-      disableUser(userId, now) {
-        runSql(db, "INSERT INTO auth_user_status(owner_user_id,status,updated_at) VALUES (?, 'disabled', ?) ON CONFLICT(owner_user_id) DO UPDATE SET status='disabled',updated_at=excluded.updated_at", userId, now);
-        runSql(db, "DELETE FROM session WHERE userId=?", userId);
-      },
-      handler: (request) => {
-        const context = { grant: null as XLoginGrant | null, ownerUserId: undefined as string | undefined };
-        return xLoginGrantContext.run(context, async () => {
-          const response = await authRequest(auth, db, request, options.trustedOrigins as string[], validateSignupEmail, abuse, env.NODE_ENV === "production", env.BETTER_AUTH_SECRET!);
-          let ownerUserId = context.ownerUserId;
-          if (response.ok && new URL(request.url).pathname.endsWith("/sign-in/email")) {
-            const body = await response.clone().json().catch(() => null) as { user?: { id?: unknown } } | null;
-            if (typeof body?.user?.id === "string") ownerUserId = body.user.id;
-          }
-          if (response.ok && ownerUserId) runSql(db, "DELETE FROM auth_user_status WHERE owner_user_id=?", ownerUserId);
-          return response;
-        });
-      },
-      close: () => db.close(),
-    };
-  } catch (error) {
-    db.close();
-    throw error;
-  }
+  const db = getPostgresDb();
+  const options = authOptions(env);
+  await verifyAuthTables();
+  const auth = betterAuth(options) as AuthInstance;
+  const abuse = new AbuseRiskService(env.BETTER_AUTH_SECRET!);
+  return {
+    auth,
+    async isUserDisabled(userId) {
+      const result = await db.execute(sql`SELECT status FROM ispatla_auth.auth_user_status WHERE owner_user_id=${userId} LIMIT 1`);
+      return result.rows[0]?.status === "disabled";
+    },
+    async disableUser(userId, now) {
+      await db.execute(sql`INSERT INTO ispatla_auth.auth_user_status(owner_user_id,status,updated_at) VALUES (${userId},'disabled',${now}) ON CONFLICT(owner_user_id) DO UPDATE SET status='disabled',updated_at=EXCLUDED.updated_at`);
+      await db.execute(sql`DELETE FROM ispatla_auth.session WHERE "userId"=${userId}`);
+    },
+    handler: (request) => {
+      const context = { grant: null as XLoginGrant | null, ownerUserId: undefined as string | undefined };
+      return xLoginGrantContext.run(context, async () => {
+        const response = await authRequest(auth, request, options.trustedOrigins as string[], validateSignupEmail, abuse, env.NODE_ENV === "production", env.BETTER_AUTH_SECRET!);
+        let ownerUserId = context.ownerUserId;
+        if (response.ok && new URL(request.url).pathname.endsWith("/sign-in/email")) {
+          const body = await response.clone().json().catch(() => null) as { user?: { id?: unknown } } | null;
+          if (typeof body?.user?.id === "string") ownerUserId = body.user.id;
+        }
+        if (response.ok && ownerUserId) await db.execute(sql`DELETE FROM ispatla_auth.auth_user_status WHERE owner_user_id=${ownerUserId}`);
+        return response;
+      });
+    },
+    close: () => {},
+  };
 }
 
 export async function initializeAuthDatabase(input: {
-  databasePath?: string;
   env?: Record<string, string | undefined>;
 } = {}): Promise<void> {
   const env = input.env || process.env;
-  const storagePath = input.databasePath || databasePath(env);
-  const db = openDatabase(storagePath);
-  try {
-    await migrate(authOptions(db, env, storagePath));
-    if (twitterSignInProvider(env)) initializeXOAuthStore(storagePath);
-  } finally {
-    db.close();
-  }
+  if (!env.DATABASE_URL) throw new Error("DATABASE_URL is required for PostgreSQL auth");
+  await verifyAuthTables();
+}
+
+async function verifyAuthTables(): Promise<void> {
+  const db = getPostgresDb();
+  await db.execute(sql`SELECT 1 FROM ispatla_auth.auth_user_status LIMIT 0`);
+  await db.execute(sql`SELECT 1 FROM ispatla_auth.auth_signup_admission LIMIT 0`);
+  await db.execute(sql`SELECT 1 FROM ispatla_auth.auth_abuse_signup_signals LIMIT 0`);
+  await db.execute(sql`SELECT 1 FROM ispatla_auth.auth_email_verification_tokens LIMIT 0`);
+  await db.execute(sql`SELECT 1 FROM ispatla_auth."user" LIMIT 0`);
+  await db.execute(sql`SELECT 1 FROM ispatla_auth.session LIMIT 0`);
+  await db.execute(sql`SELECT 1 FROM ispatla_auth.account LIMIT 0`);
+  await db.execute(sql`SELECT 1 FROM ispatla_auth.verification LIMIT 0`);
+  await db.execute(sql`SELECT 1 FROM ispatla_auth."rateLimit" LIMIT 0`);
 }
 
 let runtimePromise: Promise<AuthRuntime> | undefined;
@@ -529,14 +454,14 @@ export async function requireSession(request: Request) {
   const runtime = await getRuntime();
   const session = await runtime.auth.api.getSession({ headers: request.headers });
   if (!session) return null;
-  return runtime.isUserDisabled(session.user.id) ? null : session;
+  return await runtime.isUserDisabled(session.user.id) ? null : session;
 }
 
 export async function disableAuthenticatedUser(userId: string): Promise<void> {
   const runtime = await getRuntime();
-  runtime.disableUser(userId, Math.floor(Date.now() / 1000));
+  await runtime.disableUser(userId, Math.floor(Date.now() / 1000));
 }
 
 export async function isAuthenticatedUserDisabled(userId: string): Promise<boolean> {
-  return (await getRuntime()).isUserDisabled(userId);
+  return await (await getRuntime()).isUserDisabled(userId);
 }
