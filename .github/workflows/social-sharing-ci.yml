@@ -7,6 +7,8 @@ on:
       - "src/components/share-actions.tsx"
       - "src/components/hit-sharing-settings.tsx"
       - "src/lib/social-sharing.ts"
+      - "src/lib/site-icons.ts"
+      - "next.config.ts"
       - "src/server/og-fonts.ts"
       - "src/i18n/public-metadata.ts"
       - "tests/**"
@@ -27,4 +29,4 @@ jobs:
       - name: Typecheck
         run: bun run typecheck
       - name: Social metadata and image tests
-        run: bun test tests/public-metadata.test.ts tests/social-sharing.test.ts tests/social-og-rendering.test.ts tests/og-rendering.test.ts
+        run: bun test tests/public-metadata.test.ts tests/social-sharing.test.ts tests/social-og-rendering.test.ts tests/og-rendering.test.ts tests/site-icon.test.ts

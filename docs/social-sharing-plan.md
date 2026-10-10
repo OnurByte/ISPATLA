@@ -54,3 +54,10 @@ Scope: active public X observation pages (/h), public X-linked profiles, leaderb
 - https://github.com/dokalldotcom/link-preview (oEmbed fallbacks; audit SSRF safety, 3 stars)
 - https://github.com/shi-gg/bluesky-media-worker (media-type-specific metadata; platform-dependent, 2 stars)
 - https://github.com/smartperson/peertube-embed-proxy (experimental video embedding; review license, 0 stars)
+
+## Favicon compatibility fix
+
+- Deleted conflicting `src/app/favicon.ico` (file-based Next.js favicon metadata wins over ordinary layout icon settings).
+- One canonical existing branded PNG (`public/brand/ispatla-favicon.png`) supplies icon, shortcut and Apple icon metadata with a cache-busting revision.
+- `/favicon.ico` permanently absent as a physical asset but compatibility redirected (307) to the canonical PNG for clients requesting it directly.
+- `tests/site-icon.test.ts` checks valid PNG format/dimensions, metadata consistency and redirect behavior.
