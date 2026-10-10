@@ -5,6 +5,10 @@ on:
     paths:
       - "src/app/**"
       - "src/components/share-actions.tsx"
+      - "src/components/auth-form.tsx"
+      - "src/components/leaderboard-content.tsx"
+      - "src/components/public-profile-view.tsx"
+      - "src/i18n/**"
       - "src/components/hit-sharing-settings.tsx"
       - "src/lib/social-sharing.ts"
       - "src/lib/site-icons.ts"
@@ -29,4 +33,4 @@ jobs:
       - name: Typecheck
         run: bun run typecheck
       - name: Social metadata and image tests
-        run: bun test tests/public-metadata.test.ts tests/social-sharing.test.ts tests/social-og-rendering.test.ts tests/og-rendering.test.ts tests/site-icon.test.ts
+        run: bun test tests/public-metadata.test.ts tests/social-sharing.test.ts tests/social-og-rendering.test.ts tests/og-rendering.test.ts tests/site-icon.test.ts tests/feature-i18n.test.ts
