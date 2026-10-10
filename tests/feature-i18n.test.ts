@@ -11,6 +11,10 @@ import { ShareActions } from "../src/components/share-actions";
 import { LeaderboardContent } from "../src/components/leaderboard-content";
 import { HitSharingSettings } from "../src/components/hit-sharing-settings";
 
+function escapedText(value: string) {
+  return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/\x27/g, "&#x27;");
+}
+
 test("authentication, sharing and leaderboard have every key in all 20 locales", () => {
   expect(LOCALES).toHaveLength(20);
   for (const [translations, keys] of [
@@ -48,9 +52,9 @@ test("leaderboard method and tabs have translated copy for each locale", () => {
   const board = { week: [], month: [], accounts: [], improvement: [] };
   for (const locale of LOCALES) {
     const html = renderToStaticMarkup(createElement(LeaderboardContent, { locale, tab: "week", board }));
-    expect(html, locale).toContain(leaderboardCopy[locale].week);
-    expect(html, locale).toContain(leaderboardCopy[locale].method);
-    expect(html, locale).toContain(leaderboardCopy[locale].empty);
+    expect(html, locale).toContain(escapedText(leaderboardCopy[locale].week));
+    expect(html, locale).toContain(escapedText(leaderboardCopy[locale].method));
+    expect(html, locale).toContain(escapedText(leaderboardCopy[locale].empty));
   }
 });
 
@@ -66,8 +70,8 @@ test("selected languages do not silently use Turkish headings", () => {
 test("sharing settings offer a translated opt-in explanation for every locale", () => {
   for (const locale of LOCALES) {
     const html = renderToStaticMarkup(createElement(HitSharingSettings, { locale, initial: { posts: [], shares: [] } }));
-    expect(html, locale).toContain(hitSettingsCopy[locale].title);
-    expect(html, locale).toContain(hitSettingsCopy[locale].empty);
-    expect(html, locale).toContain(hitSettingsCopy[locale].notice);
+    expect(html, locale).toContain(escapedText(hitSettingsCopy[locale].title));
+    expect(html, locale).toContain(escapedText(hitSettingsCopy[locale].empty));
+    expect(html, locale).toContain(escapedText(hitSettingsCopy[locale].notice));
   }
 });

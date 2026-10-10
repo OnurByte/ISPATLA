@@ -1,6 +1,6 @@
 import { ImageResponse } from "next/og";
 import { ogFontsForText } from "@/server/og-fonts";
-import { requestPublicLocale } from "@/components/public-header";
+import { requestOpenGraphLocale } from "@/i18n/og-locale";
 import { leaderboardCopy } from "@/i18n/leaderboard-copy";
 
 export const runtime = "nodejs";
@@ -9,7 +9,7 @@ export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
 export default async function LeaderboardImage() {
-  const locale = await requestPublicLocale();
+  const locale = await requestOpenGraphLocale();
   const words = leaderboardCopy[locale];
   const fonts = await ogFontsForText("İSPATLA " + words.title + " " + words.eyebrow + " " + words.intro);
   return new ImageResponse(

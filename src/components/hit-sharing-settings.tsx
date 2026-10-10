@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import type { OwnHitShare, ShareableXPost } from "@/server/db-types";
 import { ShareActions } from "@/components/share-actions";
 import { publicShareUrl, publicSocialImageUrl } from "@/lib/social-sharing";
-import type { Locale } from "@/i18n/config";
+import { localizePath, type Locale } from "@/i18n/config";
 import { socialCopy } from "@/i18n/social-copy";
 import { hitSettingsCopy } from "@/i18n/hit-settings-copy";
 
@@ -87,7 +87,7 @@ export function HitSharingSettings({ initial, locale }: { initial: HitSharingDat
         </article>;
       })}
       {activeShares.length > 0 && <section className="flex flex-col gap-2 border-t pt-4" aria-labelledby="active-hit-shares-title"><h3 id="active-hit-shares-title" className="text-sm font-semibold">{words.active}</h3>{activeShares.map((share) => <div key={share.publicId} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border p-3 text-sm"><a className="break-all underline underline-offset-4" href={`/h/${share.publicId}`} target="_blank" rel="noreferrer">/h/{share.publicId}</a><ShareActions url={publicShareUrl("/h/" + share.publicId)} text={words.shareText + " · İSPATLA"} locale={locale} imageUrl={publicSocialImageUrl("/h/" + share.publicId)} /><Button type="button" size="sm" variant="outline" aria-pressed={share.leaderboardOptIn} onClick={() => void toggleLeaderboard(share)} disabled={pending !== null}>{share.leaderboardOptIn ? words.optOut : words.optIn}</Button><Button type="button" size="sm" variant="destructive" onClick={() => void revokeShare(share.publicId)} disabled={pending !== null}>{pending === share.publicId ? words.revoking : words.revoke}</Button></div>)}</section>}
-      <Link href="/leaderboard" className="self-start text-sm underline underline-offset-4">{words.leaderboard}</Link>
+      <Link href={localizePath(locale, "/leaderboard")} className="self-start text-sm underline underline-offset-4">{words.leaderboard}</Link>
       {message && <p role="status" className="text-sm text-muted-foreground">{message}</p>}
       <p className="text-xs text-muted-foreground">{words.notice}</p>
     </CardContent>

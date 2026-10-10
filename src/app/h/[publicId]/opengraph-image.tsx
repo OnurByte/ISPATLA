@@ -2,7 +2,7 @@ import { ImageResponse } from "next/og";
 import { readPublicXPostShare } from "@/server/hit-sharing";
 import { ogFontsForText } from "@/server/og-fonts";
 import { compactOfficialMetric } from "@/lib/social-sharing";
-import { requestPublicLocale } from "@/components/public-header";
+import { requestOpenGraphLocale } from "@/i18n/og-locale";
 import { socialCopy } from "@/i18n/social-copy";
 
 export const runtime = "nodejs";
@@ -17,7 +17,7 @@ export default async function OpenGraphImage({ params }: { params: Promise<{ pub
   const share = await readPublicXPostShare(publicId);
   if (!share) return new Response("Not found", { status: 404, headers: { "Cache-Control": "no-store" } });
 
-  const locale = await requestPublicLocale();
+  const locale = await requestOpenGraphLocale();
   const words = socialCopy[locale];
   const text = share.text.slice(0, 200);
   const fonts = await ogFontsForText(text + " " + share.accountHandle + " " + words.observation);

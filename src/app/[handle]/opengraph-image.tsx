@@ -1,7 +1,7 @@
 import { ImageResponse } from "next/og";
 import { findPublicProfileByPath } from "@/server/public-profile";
 import { ogFontsForText } from "@/server/og-fonts";
-import { requestPublicLocale } from "@/components/public-header";
+import { requestOpenGraphLocale } from "@/i18n/og-locale";
 import { socialCopy } from "@/i18n/social-copy";
 
 export const runtime = "nodejs";
@@ -15,7 +15,7 @@ export default async function ProfileImage({ params }: { params: Promise<{ handl
   const { handle } = await params;
   const profile = await findPublicProfileByPath(handle);
   if (!profile) return new Response("Not found", { status: 404, headers: { "Cache-Control": "no-store" } });
-  const locale = await requestPublicLocale();
+  const locale = await requestOpenGraphLocale();
   const words = socialCopy[locale];
   const name = (profile.displayName || words.unnamed).slice(0, 90);
   const bio = (profile.bio || words.noBio).slice(0, 200);
