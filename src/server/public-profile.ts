@@ -26,5 +26,5 @@ export async function findPublicProfileByPath(path: string): Promise<PublicUserP
 }
 
 export function validateProfileCompletion(value: Record<string, unknown>): void {
-  if (Object.keys(value).length) throw new Error("X profil bilgileri Ispatla üzerinden değiştirilemez");
+  if (Object.keys(value).length) throw new Error("𝕏 profil bilgileri Ispatla üzerinden değiştirilemez");
 }

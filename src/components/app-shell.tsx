@@ -78,7 +78,7 @@ function NavGroup({ title, items, pathname }: { title: string; items: NavItem[];
 }
 
 function XBrandIcon() {
-  return <svg aria-hidden="true" viewBox="0 0 24 24" className="size-4 fill-current"><path d="M18.9 2H22l-6.8 7.8L23.2 22h-6.3L12 14.6 5.5 22H2.4l7.3-8.4L1.8 2h6.5l4.4 6.9L18.9 2Zm-1.1 17.9h1.7L7.3 4H5.5l12.3 15.9Z" /></svg>;
+  return <span aria-hidden="true" className="text-base leading-none">𝕏</span>;
 }
 
 export function AppShell({ children }: { children: React.ReactNode }) {

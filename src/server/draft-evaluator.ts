@@ -167,7 +167,7 @@ export function scoreDraftFeatures(
 
   if (features.charCount >= 60 && features.charCount <= 230) {
     deterministic += 6;
-    helped.push("metin uzunluğu X için dengeli");
+    helped.push("metin uzunluğu 𝕏 için dengeli");
   } else if (features.charCount < 35) {
     deterministic -= 10;
     hurt.push("taslak çok kısa");

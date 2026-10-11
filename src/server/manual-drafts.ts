@@ -152,7 +152,7 @@ export async function createManualDraftBatch(input: ManualDraftInput): Promise<{
   const accounts = allAccounts.filter((account) => account.enabled && (!ids.length || ids.includes(account.id)));
   if (!accounts.length) throw new Error("En az bir aktif yayın hesabı seçilmeli");
   if (!prompt && !text) throw new Error("Konu/brief veya manuel metin gerekli");
-  if (text.length > 280) throw new Error("X metni 280 karakteri geçemez");
+  if (text.length > 280) throw new Error("𝕏 metni 280 karakteri geçemez");
   const externalId = String(input.externalId || "").trim();
   const [sourcePost] = externalId ? await getPostgresDb().select().from(observedPosts).where(eq(observedPosts.externalId, externalId)).limit(1) : [];
   const sourceUrl = String(input.sourceUrl || sourcePost?.statusUrl || "").trim();
