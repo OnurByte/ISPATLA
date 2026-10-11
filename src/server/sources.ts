@@ -1,17 +1,5 @@
-import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import type { SourceConfig, SourceProfile } from "./db-types";
-
-type RawSource = {
-  handle?: unknown;
-  name?: unknown;
-  enabled?: unknown;
-  maxPosts?: unknown;
-  rightsStatus?: unknown;
-  profile?: unknown;
-};
-
-type SourceFile = { sources?: RawSource[] };
+import type { SourceProfile } from "./db-types";
 
 export type DiscoveryEvidence = {
   handle: string;
@@ -46,34 +34,6 @@ export function asTopics(value: unknown, fallback: string[] = []): string[] {
     .map((topic) => String(topic).trim().replace(/\s+/g, " ").slice(0, 60))
     .filter(Boolean);
   return [...new Set(topics.length ? topics : fallback)].slice(0, 8);
-}
-
-function asRightsStatus(value: unknown): SourceConfig["rightsStatus"] {
-  return value === "cleared" || value === "prohibited" ? value : "unknown";
-}
-
-function readConfiguredSources(): SourceConfig[] {
-  const path = sourceConfigPath();
-  if (!existsSync(path)) return [];
-  try {
-    const file = JSON.parse(readFileSync(/* turbopackIgnore: true */ path, "utf8")) as SourceFile;
-    return (Array.isArray(file.sources) ? file.sources : []).flatMap((raw) => {
-      const handle = asHandle(raw.handle);
-      if (!handle) return [];
-      return [{
-        handle,
-        name: String(raw.name || handle),
-        enabled: raw.enabled !== false,
-        maxPosts: Math.min(50, Math.max(1, Number(raw.maxPosts || 20))),
-        rightsStatus: asRightsStatus(raw.rightsStatus),
-        profile: raw.profile && typeof raw.profile === "object"
-          ? raw.profile as SourceProfile
-          : {},
-      } satisfies SourceConfig];
-    });
-  } catch {
-    return [];
-  }
 }
 
 function record(value: unknown): Record<string, unknown> {

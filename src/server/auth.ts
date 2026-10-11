@@ -12,7 +12,6 @@ import { assertPostgresXAccountOwner, connectPostgresXAccount } from "./postgres
 
 type XLoginGrant = { xUserId: string; handle: string; displayName: string; bio: string; protected: boolean | null; avatarSource: string | null; accessToken: string; refreshToken: string; expiresAt: number; scopes: string[] };
 const xLoginGrantContext = new AsyncLocalStorage<{ grant: XLoginGrant | null; ownerUserId?: string }>();
-const X_PUBLISHING_SCOPES = ["tweet.read", "tweet.write", "users.read", "media.write", "offline.access"] as const;
 
 type AuthInstance = ReturnType<typeof betterAuth<BetterAuthOptions>>;
 
@@ -40,55 +39,6 @@ async function registerEmailVerificationToken(userId: string, token: string): Pr
 async function consumeEmailVerificationToken(token: string): Promise<boolean> {
   const result = await getPostgresDb().execute(sql`DELETE FROM ispatla_auth.auth_email_verification_tokens WHERE token_hash = ${tokenDigest(token)} AND expires_at > ${Date.now()}`);
   return result.rowCount === 1;
-}
-
-function twitterSignInProvider(env: Record<string, string | undefined>): BetterAuthOptions["socialProviders"] {
-  const clientId = env.X_OAUTH_CLIENT_ID;
-  const clientSecret = env.X_OAUTH_CLIENT_SECRET;
-  if (!clientId || !clientSecret) return undefined;
-  return { twitter: {
-    clientId,
-    clientSecret,
-    disableDefaultScope: true,
-    scope: [...X_PUBLISHING_SCOPES],
-    getUserInfo: async (tokens) => {
-      try {
-        const accessToken = tokens.accessToken;
-        if (!accessToken) return null;
-        const response = await fetch("https://api.x.com/2/users/me?user.fields=description,profile_image_url,protected", {
-          headers: { authorization: `Bearer ${accessToken}` },
-          signal: AbortSignal.timeout(5_000),
-        });
-        if (!response.ok) return null;
-        const profile = await response.json() as { data?: { id?: unknown; name?: unknown; username?: unknown; description?: unknown; profile_image_url?: unknown; protected?: unknown } };
-        const user = profile.data;
-        if (typeof user?.id !== "string" || typeof user.name !== "string" || typeof user.username !== "string") return null;
-        const scopes = tokens.scopes || [];
-        const context = xLoginGrantContext.getStore();
-        if (!context || !tokens.refreshToken || !tokens.accessTokenExpiresAt || !Number.isFinite(tokens.accessTokenExpiresAt.getTime())
-          || Math.floor(tokens.accessTokenExpiresAt.getTime() / 1000) <= Math.floor(Date.now() / 1000)
-          || X_PUBLISHING_SCOPES.some((scope) => !scopes.includes(scope))) return null;
-        context.grant = {
-          xUserId: user.id,
-          handle: user.username,
-          displayName: user.name,
-          bio: typeof user.description === "string" ? user.description : "",
-          protected: typeof user.protected === "boolean" ? user.protected : null,
-          avatarSource: typeof user.profile_image_url === "string" ? user.profile_image_url : null,
-          accessToken,
-          refreshToken: tokens.refreshToken,
-          expiresAt: Math.floor(tokens.accessTokenExpiresAt.getTime() / 1000),
-          scopes,
-        };
-        return {
-          user: { name: user.name, email: `x-${user.id}@users.ispatla.invalid`, emailVerified: true },
-          data: { data: { id: user.id, name: user.name, username: user.username, email: `x-${user.id}@users.ispatla.invalid` } },
-        };
-      } catch {
-        return null;
-      }
-    },
-  } };
 }
 
 function stripTwitterTokens(account: Record<string, unknown>): Record<string, unknown> {
@@ -131,7 +81,7 @@ function authOptions(env: Record<string, string | undefined>): BetterAuthOptions
     trustedOrigins.add(origin);
   }
 
-  const twitterProvider = twitterSignInProvider(env);
+  const twitterProvider = undefined;
 
   return {
     appName: "İSPATLA",
@@ -151,7 +101,7 @@ function authOptions(env: Record<string, string | undefined>): BetterAuthOptions
       minPasswordLength: 12,
       maxPasswordLength: 128,
       revokeSessionsOnPasswordReset: true,
-      sendResetPassword: async ({ user, url }) => sendAuthEmail("password-reset", { email: user.email, url }, env),
+      sendResetPassword: async ({ user, url }) => { if (user.email.endsWith(".invalid")) throw new Error("Real recovery email required"); await sendAuthEmail("password-reset", { email: user.email, url }, env); },
     },
     emailVerification: {
       sendOnSignUp: false,
@@ -164,6 +114,7 @@ function authOptions(env: Record<string, string | undefined>): BetterAuthOptions
       },
     },
     user: {
+      changeEmail: { enabled: true },
       deleteUser: {
         enabled: true,
         beforeDelete: async () => {
@@ -300,7 +251,7 @@ async function authRequest(auth: AuthInstance, request: Request, trustedOrigins:
       await getPostgresDb().execute(sql`DELETE FROM ispatla_auth.auth_signup_admission WHERE window_started_at <= ${Math.floor(Date.now()/1000)-60}`);
     } catch { return Response.json({ message: "Kayıt hizmeti geçici olarak hazır değil. Yeniden dene." }, { status: 503 }); }
   }
-  const emailRequest = request.method === "POST" && ["/sign-up/email", "/sign-in/email", "/request-password-reset", "/send-verification-email", "/reset-password"].some((path) => url.pathname.endsWith(path));
+  const emailRequest = request.method === "POST" && ["/sign-up/email", "/sign-in/email", "/request-password-reset", "/send-verification-email", "/reset-password", "/change-email"].some((path) => url.pathname.endsWith(path));
   let body: Record<string, unknown> | null = null;
   let bodyError: Response | null = null;
   if (emailRequest) {
@@ -352,6 +303,14 @@ async function authRequest(auth: AuthInstance, request: Request, trustedOrigins:
       }
       if (!await consumeEmailVerificationToken(token)) return Response.json({ message: "Doğrulama bağlantısı geçersiz, kullanılmış veya süresi dolmuş." }, { status: 400 });
     }
+  }
+  if (body && url.pathname.endsWith("/change-email")) {
+    if (typeof body.newEmail !== "string") return Response.json({message:"Invalid email"},{status:400});
+    let quality: EmailQualityResult;
+    try { quality = await validateSignupEmail(body.newEmail); }
+    catch { return Response.json({message:"Email validation is temporarily unavailable"},{status:503}); }
+    if (!quality.accepted) return Response.json({message:"Invalid email"},{status:400});
+    body.newEmail = quality.normalizedEmail || normalizeEmailAddress(body.newEmail);
   }
   if (body && typeof body.email === "string") {
     if (signup) {

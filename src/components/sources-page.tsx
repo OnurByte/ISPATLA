@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
@@ -305,13 +306,11 @@ export function SourcesPage({ accounts, initial, initialAvailable, initialDelete
             <CardDescription>{active.length} aktif · {candidates.length} keşif adayı · seçimler yalnız bu yayın hesabına uygulanır.</CardDescription>
           </div>
           <div className="flex gap-2">
-            <Button size="icon" variant="outline" onClick={() => setResetOpen(true)} disabled={!accountId || pending || scanning} aria-label="Bu hesabın kaynaklarını temizle" title="Bu hesabın kaynaklarını temizle"><RotateCw aria-hidden="true" /></Button>
             <Button size="icon" variant="outline" onClick={scanSources} disabled={!accountId || scanning} aria-label="Kaynak postlarını tara" title="Kaynak postlarını tara">
               {scanning ? <Spinner /> : <ScanSearch aria-hidden="true" />}
             </Button>
-            <Button size="icon" variant="outline" onClick={checkLiveness} disabled={!accountId || scanning || sources.length === 0} aria-label="Bu hesaptaki kaynakları kontrol et" title="Bu hesaptaki kaynakları kontrol et">{scanning ? <Spinner /> : <UserRoundCheck aria-hidden="true" />}</Button>
-            <Button size="icon" variant="outline" onClick={recoverTechnical} disabled={!accountId || scanning || warnings.length === 0} aria-label="Teknik uyarıları denetle" title="Teknik uyarıları denetle"><RotateCcw aria-hidden="true" /></Button>
             <Button size="icon" variant="outline" onClick={() => setDraft(blankSource())} disabled={!accountId} aria-label="Yeni kaynak"><Plus aria-hidden="true" /></Button>
+            <details><summary className="cursor-pointer rounded-md px-3 py-2 text-sm font-medium">Bakım</summary><div className="mt-2 flex flex-wrap gap-2"><Button size="icon" variant="outline" onClick={() => setResetOpen(true)} disabled={!accountId || pending || scanning} aria-label="Bu hesabın kaynaklarını temizle" title="Bu hesabın kaynaklarını temizle"><RotateCw aria-hidden="true" /></Button><Button size="icon" variant="outline" onClick={checkLiveness} disabled={!accountId || scanning || sources.length === 0} aria-label="Bu hesaptaki kaynakları kontrol et" title="Bu hesaptaki kaynakları kontrol et">{scanning ? <Spinner /> : <UserRoundCheck aria-hidden="true" />}</Button><Button size="icon" variant="outline" onClick={recoverTechnical} disabled={!accountId || scanning || warnings.length === 0} aria-label="Teknik uyarıları denetle" title="Teknik uyarıları denetle"><RotateCcw aria-hidden="true" /></Button></div></details>
           </div>
         </CardHeader>
         <CardContent><Tabs defaultValue="active">
@@ -373,26 +372,26 @@ export function SourcesPage({ accounts, initial, initialAvailable, initialDelete
                 <Input id="source-tone" value={draft.tone} onChange={(event) => setDraft({ ...draft, tone: event.target.value })} placeholder="analitik, kısa, eleştirel" />
               </Field>
               <Field>
-                <FieldLabel htmlFor="source-max">Max post</FieldLabel>
+                <FieldLabel htmlFor="source-max">Gönderi sınırı</FieldLabel>
                 <FieldDescription>Tek taramada alınacak üst sınır.</FieldDescription>
                 <Input id="source-max" type="number" min={1} max={50} value={draft.maxPosts} onChange={(event) => setDraft({ ...draft, maxPosts: Number(event.target.value) })} />
               </Field>
               <Field>
-                <FieldLabel htmlFor="rights">Rights status</FieldLabel>
+                <FieldLabel htmlFor="rights">Kullanım hakkı</FieldLabel>
                 <Select value={draft.rightsStatus} onValueChange={(value) => setDraft({ ...draft, rightsStatus: value as SourceDraft["rightsStatus"] })}>
-                  <SelectTrigger id="rights" className="w-full" aria-label="Rights status"><SelectValue /></SelectTrigger>
+                  <SelectTrigger id="rights" className="w-full" aria-label="Kullanım hakkı"><SelectValue /></SelectTrigger>
                   <SelectContent><SelectGroup>
-                    <SelectItem value="unknown">unknown</SelectItem>
-                    <SelectItem value="cleared">cleared</SelectItem>
-                    <SelectItem value="prohibited">prohibited</SelectItem>
+                    <SelectItem value="unknown">Bilinmiyor</SelectItem>
+                    <SelectItem value="cleared">İzinli</SelectItem>
+                    <SelectItem value="prohibited">Yasak</SelectItem>
                   </SelectGroup></SelectContent>
                 </Select>
               </Field>
             </div>
           </FieldGroup>
-          <fieldset className="space-y-3 rounded-lg border p-4">
+          <fieldset className="flex flex-col gap-3 rounded-lg border p-4">
             <legend className="px-1 text-sm font-medium">Bu kaynaktan hangi hesap kategorileri beslensin?</legend>
-            {accountCategories.length ? accountCategories.map((category) => <label key={category.categoryId} className="flex min-h-10 items-center gap-3 text-sm"><input type="checkbox" checked={sourceCategoryIds.includes(category.categoryId)} onChange={(event) => setSourceCategoryIds((current) => event.target.checked ? [...new Set([...current, category.categoryId])] : current.filter((id) => id !== category.categoryId))} />{category.categoryName}</label>) : <p className="text-sm text-muted-foreground">Önce bu yayın hesabı için kategori seç.</p>}
+            {accountCategories.length ? accountCategories.map((category) => <label key={category.categoryId} className="flex min-h-10 items-center gap-3 text-sm"><Checkbox checked={sourceCategoryIds.includes(category.categoryId)} onCheckedChange={(checked) => setSourceCategoryIds((current) => checked ? [...new Set([...current, category.categoryId])] : current.filter((id) => id !== category.categoryId))} />{category.categoryName}</label>) : <p className="text-sm text-muted-foreground">Önce bu yayın hesabı için kategori seç.</p>}
           </fieldset>
           <Field orientation="horizontal">
             <FieldContent><FieldLabel htmlFor="source-enabled">Kaynak aktif</FieldLabel><FieldDescription>Aktif kaynaklar intake taramasına dahil edilir.</FieldDescription></FieldContent>

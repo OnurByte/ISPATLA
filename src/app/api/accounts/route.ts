@@ -1,6 +1,7 @@
 import { withUser } from "@/server/request-auth";
 import { NextResponse } from "next/server";
-import { guardMutation } from "@/server/api-guard";
+import { linkPublicAccount } from "@/server/account-link";
+import { readJsonBody, guardMutation } from "@/server/api-guard";
 import { currentOwnerId } from "@/server/owner-context";
 import { getPostgresAccounts } from "@/server/postgres-accounts";
 
@@ -14,6 +15,8 @@ async function GETHandler() {
 function publicAccount(account: Awaited<ReturnType<typeof getPostgresAccounts>>[number]) {
   return {
     id: account.id,
+    xUserId: account.xUserId,
+    ownershipVerifiedAt: account.ownershipVerifiedAt,
     accountKey: account.accountKey,
     handle: account.handle,
     displayName: account.displayName,
@@ -30,7 +33,11 @@ function publicAccount(account: Awaited<ReturnType<typeof getPostgresAccounts>>[
 async function POSTHandler(request: Request) {
   const denied = guardMutation(request);
   if (denied) return denied;
-  return NextResponse.json({ error: "Yayın hesabı yalnızca doğrulanmış 𝕏 OAuth bağlantısıyla oluşturulabilir." }, { status: 422 });
+  try {
+    const body = await readJsonBody(request);
+    const result = await linkPublicAccount(body.handle);
+    return NextResponse.json(result, { status: 201, headers: { "cache-control": "no-store" } });
+  } catch { return NextResponse.json({ error: "Hesap bulunamadı veya profil kaynağına erişilemiyor." }, { status: 424 }); }
 }
 
 export const GET = withUser(GETHandler);

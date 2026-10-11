@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { internalPostUrl } from "@/lib/post-url";
 import { useRouter } from "next/navigation";
 import { ArrowUpRight, BrainCircuit, FilePenLine, RefreshCw, Sparkles } from "lucide-react";
 import type { Account, MarketInbox, MarketItem, MarketView } from "@/server/db-types";
@@ -47,7 +48,7 @@ function decisionReason(item: MarketItem) {
   if (item.decision === "not_eligible_evidence") return "Bu kanıt türü fırsat akışına dahil değil.";
   if (item.decision === "processed") return "Bu post zaten draft, yayın veya reconciliation akışında.";
   if (item.decision === "sensitive") return "Sensitive işareti nedeniyle yayın akışı dışında.";
-  return "Karar skoru, momentum ve tazeliğin birlikte hesaplanan sonucudur.";
+  return "Karar skoru, kaydedilen etkileşim verilerinden hesaplanır; ayrıntılar gönderi inceleyicisinde gösterilir.";
 }
 
 function safePhoto(mediaJson: string): string | null {
@@ -72,21 +73,14 @@ function OpportunityCard({ item, accountId, pending, onGenerate }: { item: Marke
         <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
           <Badge variant={item.decision === "opportunity" ? "outline" : item.decision === "sensitive" ? "destructive" : "secondary"}>{decisionLabel(item)}</Badge>
           {item.hit ? <Badge variant="destructive">HIT</Badge> : null}
-          <a href={item.statusUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 font-medium hover:text-foreground hover:underline">@{item.sourceHandle}<ArrowUpRight className="size-3" aria-hidden="true" /></a>
+          <Link href={internalPostUrl(item.externalId)} className="inline-flex items-center gap-1 font-medium hover:text-foreground hover:underline">@{item.sourceHandle}<ArrowUpRight className="size-3" aria-hidden="true" /></Link>
           <span>·</span><span>{stateLabel(item)}</span>
         </div>
-        <CardTitle className="text-[15px] leading-6 tracking-tight"><a href={item.statusUrl} target="_blank" rel="noreferrer" className="line-clamp-4 hover:underline">{item.text}</a></CardTitle>
+        <CardTitle className="text-[15px] leading-6 tracking-tight"><Link href={internalPostUrl(item.externalId)} className="line-clamp-4 hover:underline">{item.text}</Link></CardTitle>
       </div>
       <CardAction className="flex shrink-0 flex-col items-end gap-1"><Badge variant={scoreVariant(item.score)} className="text-base tabular-nums">{Math.round(item.score)}</Badge><span className="text-[11px] text-muted-foreground">karar skoru</span></CardAction>
     </CardHeader>
     <CardContent className="flex flex-col gap-4">
-      <div className="grid grid-cols-2 divide-x rounded-lg border bg-muted/20 sm:grid-cols-5">
-        <div className="px-3 py-2"><div className="text-[11px] text-muted-foreground">Momentum</div><div className="font-medium tabular-nums">{item.momentum === 100 ? "100 · tavan" : item.momentum}</div></div>
-        <div className="px-3 py-2"><div className="text-[11px] text-muted-foreground">Tazelik</div><div className="font-medium tabular-nums">%{item.freshness}</div></div>
-        <div className="px-3 py-2"><div className="text-[11px] text-muted-foreground">Etkileşim/saat</div><div className="font-medium tabular-nums">{item.velocity.toLocaleString("tr-TR")}</div></div>
-        <div className="px-3 py-2"><div className="text-[11px] text-muted-foreground">Güvenlik</div><div className={item.sensitive ? "font-medium text-destructive" : "font-medium"}>{item.sensitive ? "Sensitive" : "Sensitive değil"}</div></div>
-        <div className="px-3 py-2"><div className="text-[11px] text-muted-foreground">Takipçi oranı</div><div className="font-medium tabular-nums">%{(item.engagementRate * 100).toFixed(2)}</div></div>
-      </div>
       <p className="text-xs text-muted-foreground">{decisionReason(item)}</p>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0 truncate text-xs text-muted-foreground" title={item.scoreEvidence.reason || "deterministik skor"}><span className="font-medium text-foreground">{item.scoreEvidence.kind}</span>{item.scoreEvidence.reason ? <span> · {item.scoreEvidence.reason}</span> : null}</div>

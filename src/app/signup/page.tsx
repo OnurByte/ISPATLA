@@ -16,5 +16,5 @@ export default async function SignupPage({ searchParams }: { searchParams: Promi
     authUnavailable = true
   }
   if (authUnavailable) return <><PublicHeaderContent locale={locale} current="signup" authenticated={false} /><main className="mx-auto max-w-xl px-4 py-16 text-center"><h1 className="text-2xl font-semibold">{authCopy[locale].signInUnavailable}</h1><p className="mt-3 text-muted-foreground">{authCopy[locale].signInRetry}</p></main></>
-  return <><PublicHeader locale={locale} current="signup" /><AuthForm locale={locale} mode="signup" xLoginEnabled={Boolean(process.env.X_OAUTH_CLIENT_ID && process.env.X_OAUTH_CLIENT_SECRET)} xLoginError={typeof params.error === "string" ? params.error : params.x_error === "1"} /></>
+  return <><PublicHeader locale={locale} current="signup" /><AuthForm locale={locale} mode="signup" xLoginEnabled={false} xLoginError={typeof params.error === "string" ? params.error : params.x_error === "1"} /></>
 }

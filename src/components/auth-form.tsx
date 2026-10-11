@@ -109,7 +109,7 @@ export function AuthForm({ mode, token, locale = DEFAULT_LOCALE, next = "/dashbo
       <section className="w-full rounded-2xl border bg-card p-6 text-card-foreground shadow-sm sm:p-8" aria-labelledby="auth-title">
         <h1 id="auth-title" className="text-2xl font-semibold tracking-tight">{heading.title}</h1>
         <p className="mt-2 text-sm text-muted-foreground">{heading.description}</p>
-        {(mode === "login" || mode === "signup") && <div className="mt-6 space-y-2">
+        {xLoginEnabled && (mode === "login" || mode === "signup") && <div className="mt-6 space-y-2">
           <Button type="button" variant="outline" className="w-full" disabled={pending || !xLoginEnabled} aria-describedby={!xLoginEnabled ? "x-login-unavailable" : undefined} onClick={() => void continueWithX("/api/auth/sign-in/social", next, path(mode === "signup" ? "/signup" : "/login") + "?x_error=1" + (mode === "login" ? `&next=${encodeURIComponent(next)}` : ""))}>
             {words.withX}
           </Button>

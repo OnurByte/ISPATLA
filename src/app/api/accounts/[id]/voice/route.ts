@@ -26,7 +26,7 @@ async function POSTHandler(request: Request, context: { params: Promise<{ id: st
     const profile = supplied
       ? buildVoiceProfile(supplied, { handle })
       : await fetchVoiceProfile({ handle, maxPosts: Number(body.maxPosts) || 60 });
-    const saved = await updatePostgresAccount({ ...account, owner, styleProfile: { ...account.styleProfile, voice: profile } });
+    const saved = await updatePostgresAccount({ ...account, owner, styleProfile: { ...account.styleProfile, voice: profile, voiceSource: "manual" } });
     if (!saved) return NextResponse.json({ error: "voice profili kaydedilemedi" }, { status: 500 });
     return NextResponse.json({ handle: profile.handle, summary: voiceProfileSummary(profile), voiceContract: profile.voiceContract }, { status: 201 });
   } catch (error) {

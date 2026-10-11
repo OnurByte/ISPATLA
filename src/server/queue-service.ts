@@ -8,7 +8,6 @@ import {
 } from "./postgres-queue-store";
 import { OfficialXClient, OfficialXError } from "./official-x";
 import { withOfficialAccount } from "./publisher";
-import { getPostgresXAccountAuthState } from "./postgres-x-oauth";
 import { createIntentForDraft } from "./publication-service";
 import {
   claimPostgresAccountDispatchLease, isPostgresAccountDispatchLeaseCurrent, isPostgresOwnerEnabled,
@@ -52,6 +51,8 @@ export async function runDueAutomationJobs(now = Math.floor(Date.now() / 1000), 
 }
 
 export async function runAutomationJob(id: number, _now = Math.floor(Date.now() / 1000), _client = new OfficialXClient()): Promise<{ ok: boolean; job: AutomationJob | null; reason?: string }> {
+  void _now;
+  void _client;
   if (!(await publishingEnabled())) return { ok: false, job: await getPostgresQueueJob(id), reason: "publishing is paused" };
   const job = await getPostgresQueueJob(id);
   if (!job) throw new Error("job bulunamadı");

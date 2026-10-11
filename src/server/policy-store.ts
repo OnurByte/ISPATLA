@@ -2,7 +2,7 @@ import { and, desc, eq, isNull, or } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
 import { currentOwnerId } from "./owner-context";
 import { getPostgresDb } from "./postgres";
-import { accounts, categories, xPolicyKillAudit, xPolicyKillControls, xReplySummonAudits } from "./postgres-schema";
+import { categories, xPolicyKillAudit, xPolicyKillControls, xReplySummonAudits } from "./postgres-schema";
 import { getPostgresAccount, getPostgresCategoriesForAccount } from "./postgres-accounts";
 import { getPostgresXAccountAuthState } from "./postgres-x-oauth";
 import type { XAction } from "./x-policy";

@@ -1,5 +1,8 @@
 "use client";
 
+import { PublishingMethods } from "@/components/publishing-methods";
+import { postViewUrl } from "@/lib/post-url";
+
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Inbox, Plus, Save, Send, Sparkles, Trash2 } from "lucide-react";
@@ -88,11 +91,11 @@ function AccountPicker({ accounts, selected, onChange }: { accounts: Account[]; 
   );
 }
 
-export function DraftsPage({ initial, accounts, selectedDraftId }: { initial: DraftRecord[]; accounts: Account[]; selectedDraftId?: number }) {
+export function DraftsPage({ initial, accounts, selectedDraftId, sourcePostId }: { initial: DraftRecord[]; accounts: Account[]; selectedDraftId?: number; sourcePostId?: string }) {
   const enabledAccounts = accounts.filter((account) => account.enabled);
   const defaultSelected = enabledAccounts.map((account) => account.id);
   const [drafts, setDrafts] = useState(initial);
-  const [form, setForm] = useState<DraftForm>(asForm(selectedDraft(initial, selectedDraftId)));
+  const [form, setForm] = useState<DraftForm>({ ...asForm(selectedDraft(initial, selectedDraftId)), ...(sourcePostId ? { externalId: sourcePostId, id: undefined, format: "reply" } : {}) });
   const [message, setMessage] = useState("");
   const [pending, setPending] = useState(false);
   const [selectedAccounts, setSelectedAccounts] = useState<number[]>(defaultSelected);
@@ -233,7 +236,7 @@ export function DraftsPage({ initial, accounts, selectedDraftId }: { initial: Dr
       <Card>
         <CardHeader>
           <CardTitle>Manuel post üret</CardTitle>
-          <CardDescription>Brief veya hazır metin gir; seçilen hesaplara hesap başına varyant üret, sonra her hesabı ayrı queue job olarak çalıştır.</CardDescription>
+          <CardDescription>Brief veya hazır metin gir; hesaplarına uygun taslaklar oluştur, ardından paylaşımı kendi 𝕏 ekranında tamamla.</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-5">
           <div className="flex flex-wrap gap-2">
@@ -339,7 +342,8 @@ export function DraftsPage({ initial, accounts, selectedDraftId }: { initial: Dr
               </div>
             </FieldGroup>
             <Field><FieldLabel htmlFor="draft-text">İçerik</FieldLabel><Textarea id="draft-text" className="min-h-52" value={form.text} onChange={(event) => update("text", event.target.value)} placeholder="Özgün taslak metni..." /><FieldDescription className="text-right">{form.text.length}/280 karakter</FieldDescription></Field>
-            {form.sourceUrl && <a href={form.sourceUrl} target="_blank" rel="noreferrer" className="text-sm text-primary underline-offset-4 hover:underline">Kaynak postunu aç</a>}
+            {form.id && <PublishingMethods key={form.id} draftId={form.id} />}
+            {form.sourceUrl && <Link href={postViewUrl(form.sourceUrl)} className="text-sm text-primary underline-offset-4 hover:underline">Kaynak postunu aç</Link>}
             {form.gateReason && <Alert variant={form.status === "blocked" ? "destructive" : "default"}><AlertDescription>Gate: {form.gateReason}</AlertDescription></Alert>}
             {form.id ? <section aria-label="Draft sürüm geçmişi" className="rounded-lg border p-4">
               <div className="mb-3 flex items-center justify-between gap-3"><h3 className="text-sm font-medium">Sürüm geçmişi</h3><Badge variant="outline">{revisions.length} sürüm</Badge></div>

@@ -1,4 +1,5 @@
 "use client";
+import { postViewUrl } from "@/lib/post-url";
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
@@ -161,8 +162,8 @@ export function QueuePage({ initial, initialIntents, initialStatus = "all", init
     <Card>
       <CardHeader className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <CardTitle>Automation queue</CardTitle>
-          <CardDescription>Receipt başarı değildir; confirmed yalnız reconciliation kanıtından sonra gelir.</CardDescription>
+          <CardTitle>Yayın kuyruğu</CardTitle>
+          <CardDescription>Hazırlanan yayınları ve doğrulanmış paylaşım sonuçlarını takip et.</CardDescription>
         </div>
         <Button variant="outline" onClick={reload} disabled={pending > 0}>
           <RefreshCw data-icon="inline-start" aria-hidden="true" /> Yenile
@@ -205,7 +206,7 @@ export function QueuePage({ initial, initialIntents, initialStatus = "all", init
           <Empty className="border border-dashed py-10">
             <EmptyHeader>
               <EmptyTitle>Kuyruk boş</EmptyTitle>
-              <EmptyDescription>Draft stüdyosundan bir içerik kuyruğa al.</EmptyDescription>
+              <EmptyDescription>Taslaklar sayfasından bir içerik hazırla.</EmptyDescription>
             </EmptyHeader>
             <EmptyContent>
               <Button variant="outline" onClick={reload}>
@@ -241,7 +242,7 @@ export function QueuePage({ initial, initialIntents, initialStatus = "all", init
                   <TableCell className="whitespace-nowrap text-xs">{time(job.scheduledAt)}</TableCell>
                   <TableCell><Badge variant={variant(job.status)}>{job.status}</Badge></TableCell>
                   <TableCell className="text-xs">
-                      {job.status === "confirmed" ? <span>Doğrulandı{job.remoteUrl ? <> · <a className="underline" href={job.remoteUrl} target="_blank" rel="noreferrer">𝕏’te aç</a></> : null}</span>
+                      {job.status === "confirmed" ? <span>Doğrulandı{job.remoteUrl ? <> · <a className="underline" href={postViewUrl(job.remoteUrl)}>Gönderiyi incele</a></> : null}</span>
                       : needsManualReview(job.status) ? "Sonuç belirsiz · uzaktaki doğrulama gerekli; elle incele"
                         : job.status === "expired" ? <>Onay süresi doldu · {approvalExpiryLabel(job.approvalExpiresAt)} · onay kaydı #{job.approvalSnapshotId ?? "—"}<br /><span>Onaylanan içerik özeti görüntülenemiyor; yeni onaydan önce taslağı incele. <Link href={`/drafts?draft=${job.draftId}`} className="underline">Taslağı aç</Link></span></>
                         : job.receipt ? "İstek kabul edildi · doğrulama gerekli" : job.remoteWriteStartedAt ? "İstek gönderildi · sonuç henüz doğrulanmadı" : "Henüz uzak işlem yok"}
