@@ -1,4 +1,4 @@
-import { createHash, createHmac } from "node:crypto";
+import { createHash, createHmac, randomBytes } from "node:crypto";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { APIError, betterAuth, type BetterAuthOptions } from "better-auth";
 import { sql } from "drizzle-orm";
@@ -8,9 +8,9 @@ import { getPostgresDb } from "./postgres";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { authSchema } from "./postgres-auth-schema";
 import { normalizeEmailAddress, validateEmailQuality, type EmailQualityResult } from "./email-validation";
-import { assertPostgresXAccountOwner, connectPostgresXAccount } from "./postgres-x-oauth";
+import { assertPostgresXAccountOwner } from "./postgres-x-oauth";
 
-type XLoginGrant = { xUserId: string; handle: string; displayName: string; bio: string; protected: boolean | null; avatarSource: string | null; accessToken: string; refreshToken: string; expiresAt: number; scopes: string[] };
+type XLoginGrant = { xUserId: string; handle: string; displayName: string; bio: string; protected: boolean | null };
 const xLoginGrantContext = new AsyncLocalStorage<{ grant: XLoginGrant | null; ownerUserId?: string }>();
 
 type AuthInstance = ReturnType<typeof betterAuth<BetterAuthOptions>>;
@@ -39,6 +39,43 @@ async function registerEmailVerificationToken(userId: string, token: string): Pr
 async function consumeEmailVerificationToken(token: string): Promise<boolean> {
   const result = await getPostgresDb().execute(sql`DELETE FROM ispatla_auth.auth_email_verification_tokens WHERE token_hash = ${tokenDigest(token)} AND expires_at > ${Date.now()}`);
   return result.rowCount === 1;
+}
+
+export function isXLoginEnabled(env: Record<string, string | undefined> = process.env): boolean {
+  return env.ISPATLA_DEMO !== "1" && Boolean(env.X_OAUTH_CLIENT_ID?.trim() && env.X_OAUTH_CLIENT_SECRET?.trim());
+}
+
+function twitterSignInProvider(env: Record<string, string | undefined>): BetterAuthOptions["socialProviders"] {
+  const clientId = env.X_OAUTH_CLIENT_ID;
+  const clientSecret = env.X_OAUTH_CLIENT_SECRET;
+  if (!isXLoginEnabled(env) || !clientId || !clientSecret) return undefined;
+  return { twitter: {
+    clientId,
+    clientSecret,
+    disableDefaultScope: true,
+    scope: ["tweet.read", "users.read"],
+    getUserInfo: async (tokens) => {
+      try {
+        if (!tokens.accessToken) return null;
+        const response = await fetch("https://api.x.com/2/users/me?user.fields=description,protected", {
+          headers: { authorization: `Bearer ${tokens.accessToken}` },
+          redirect: "error",
+          signal: AbortSignal.timeout(5_000),
+        });
+        if (!response.ok) return null;
+        const profile = await response.json() as { data?: { id?: unknown; name?: unknown; username?: unknown; description?: unknown; protected?: unknown } };
+        const user = profile.data;
+        const context = xLoginGrantContext.getStore();
+        if (!context || typeof user?.id !== "string" || !/^\d{1,32}$/.test(user.id)
+          || typeof user.name !== "string" || typeof user.username !== "string" || !/^[A-Za-z0-9_]{1,15}$/.test(user.username)) return null;
+        context.grant = { xUserId: user.id, handle: user.username.toLowerCase(), displayName: user.name,
+          bio: typeof user.description === "string" ? user.description.slice(0, 500) : "",
+          protected: typeof user.protected === "boolean" ? user.protected : null };
+        // The provider ID is stable; this reserved address is not a recovery email.
+        return { user: { name: user.name, email: `x-${user.id}@users.ispatla.invalid`, emailVerified: false }, data: { data: { id: user.id, name: user.name, username: user.username } } };
+      } catch { return null; }
+    },
+  } };
 }
 
 function stripTwitterTokens(account: Record<string, unknown>): Record<string, unknown> {
@@ -81,7 +118,7 @@ function authOptions(env: Record<string, string | undefined>): BetterAuthOptions
     trustedOrigins.add(origin);
   }
 
-  const twitterProvider = undefined;
+  const twitterProvider = twitterSignInProvider(env);
 
   return {
     appName: "İSPATLA",
@@ -157,43 +194,60 @@ function authOptions(env: Record<string, string | undefined>): BetterAuthOptions
         create: {
           before: async (account) => {
             const grant = xLoginGrantContext.getStore()?.grant;
-            if (account.providerId === "twitter" && grant && account.accountId !== undefined && grant.xUserId !== account.accountId) throw new Error("X login grant did not match the authenticated account");
+            if (account.providerId === "twitter" && grant && account.accountId !== undefined && grant.xUserId !== account.accountId) throw new Error("𝕏 login grant did not match the authenticated account");
             if (account.providerId === "twitter" && typeof account.accountId === "string" && typeof account.userId === "string") {
               await assertPostgresXAccountOwner({ xUserId: account.accountId, ownerUserId: account.userId });
             }
             return { data: stripTwitterTokens(account) };
           },
-          after: async (account) => provisionXLoginAccount(account, env),
+          after: async (account) => provisionXLoginAccount(account),
         },
         update: {
           before: async (account) => {
             const grant = xLoginGrantContext.getStore()?.grant;
-            if (account.providerId === "twitter" && grant && account.accountId !== undefined && grant.xUserId !== account.accountId) throw new Error("X login grant did not match the authenticated account");
+            if (account.providerId === "twitter" && grant && account.accountId !== undefined && grant.xUserId !== account.accountId) throw new Error("𝕏 login grant did not match the authenticated account");
             return { data: stripTwitterTokens(account) };
           },
-          after: async (account) => provisionXLoginAccount(account, env),
+          after: async (account) => provisionXLoginAccount(account),
         },
       },
       user: {
         create: {
-          before: async (user) => ({ data: { ...user, name: user.email.split("@")[0] } }),
+          before: async (user) => ({ data: { ...user, name: xLoginGrantContext.getStore()?.grant ? user.name : user.email.split("@")[0] } }),
         },
       },
     },
   };
 }
 
-async function provisionXLoginAccount(account: unknown, env: Record<string, string | undefined>): Promise<void> {
+async function provisionXLoginAccount(account: unknown): Promise<void> {
   if (!account || typeof account !== "object") return;
   const row = account as Record<string, unknown>;
   const grant = xLoginGrantContext.getStore()?.grant;
   if (row.providerId !== "twitter") return;
   if (typeof row.userId !== "string" || !grant || row.accountId !== grant.xUserId) {
-    throw new APIError("INTERNAL_SERVER_ERROR", { code: "x_account_provision_failed", message: "X account connection could not be completed" });
+    throw new APIError("INTERNAL_SERVER_ERROR", { code: "x_account_provision_failed", message: "𝕏 account connection could not be completed" });
   }
   xLoginGrantContext.getStore()!.ownerUserId = row.userId;
-  try { await connectPostgresXAccount({ ...grant, ownerUserId: row.userId, env }); }
-  catch { throw new APIError("INTERNAL_SERVER_ERROR", { code: "x_account_provision_failed", message: "X account connection could not be completed" }); }
+  try {
+    const now = Math.floor(Date.now() / 1000);
+    const ownerUserId = row.userId;
+    await getPostgresDb().transaction(async (tx) => {
+      await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtextextended(${grant.xUserId}, 0))`);
+      const claimed = await tx.execute(sql`SELECT owner_user_id FROM ispatla_app.user_profile_x_identity WHERE x_user_id=${grant.xUserId} FOR UPDATE`);
+      if (claimed.rows[0] && claimed.rows[0].owner_user_id !== ownerUserId) throw new Error("𝕏 identity belongs to another user");
+      await tx.execute(sql`INSERT INTO ispatla_app.user_profiles(owner_user_id,username,created_at,updated_at)
+        VALUES(${ownerUserId},${randomBytes(18).toString("base64url")},${now},${now}) ON CONFLICT(owner_user_id) DO NOTHING`);
+      await tx.execute(sql`INSERT INTO ispatla_app.user_profile_x_identity(owner_user_id,x_user_id)
+        VALUES(${ownerUserId},${grant.xUserId}) ON CONFLICT(owner_user_id) DO NOTHING`);
+      const identity = await tx.execute(sql`SELECT x_user_id FROM ispatla_app.user_profile_x_identity WHERE owner_user_id=${ownerUserId} LIMIT 1`);
+      if (identity.rows[0]?.x_user_id === grant.xUserId) {
+        await tx.execute(sql`UPDATE ispatla_app.user_profiles SET x_handle=${grant.handle},display_name=${grant.displayName.slice(0,80)},bio=${grant.bio},
+          visibility=CASE WHEN ${grant.protected}::boolean THEN 'private' ELSE visibility END,updated_at=${now} WHERE owner_user_id=${ownerUserId}`);
+      }
+    });
+  }
+  catch { throw new APIError("INTERNAL_SERVER_ERROR", { code: "x_account_provision_failed", message: "𝕏 account connection could not be completed" }); }
 }
 
 // Without a verified peer address, the shared route ceiling bounds preflight work across all clients.

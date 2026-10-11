@@ -1,3 +1,4 @@
+import { isXLoginEnabled } from "@/server/auth"
 import { AuthForm } from "@/components/auth-form"
 import { PublicHeader, PublicHeaderContent, requestPublicLocale } from "@/components/public-header"
 import { getOptionalPageUser, hasPageSessionCookie } from "@/server/page-auth"
@@ -17,5 +18,5 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
   }
   if (authUnavailable) return <><PublicHeaderContent locale={locale} current="login" authenticated={false} /><main className="mx-auto max-w-xl px-4 py-16 text-center"><h1 className="text-2xl font-semibold">{authCopy[locale].signInUnavailable}</h1><p className="mt-3 text-muted-foreground">{authCopy[locale].signInRetry}</p></main></>
   const next = typeof params.next === "string" && params.next.startsWith("/") && !params.next.startsWith("//") && !params.next.includes("\\") ? params.next : "/dashboard"
-  return <><PublicHeader locale={locale} current="login" /><AuthForm locale={locale} mode="login" next={localizePath(locale, next)} xLoginEnabled={false} xLoginError={typeof params.error === "string" ? params.error : params.x_error === "1"} /></>
+  return <><PublicHeader locale={locale} current="login" /><AuthForm locale={locale} mode="login" next={localizePath(locale, next)} xLoginEnabled={isXLoginEnabled()} xLoginError={typeof params.error === "string" ? params.error : params.x_error === "1"} /></>
 }
