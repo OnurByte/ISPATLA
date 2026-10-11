@@ -1,7 +1,10 @@
 import type { DashboardSummary } from "./db-types";
 import { currentOwnerId } from "./owner-context";
 import { getPostgresDashboardSummary } from "./postgres-profile-dashboard";
-import { getPostgresXAccounts } from "./postgres-x-oauth";
+import { getPostgresAccounts } from "./postgres-accounts";
+import { getPostgresDrafts } from "./postgres-drafts";
+import { getPostgresSetting } from "./postgres-settings";
+import { getAiSettings, isAiEnabled, aiConfigured } from "./ai";
 
 export type DashboardView = Omit<DashboardSummary, "officialPublisherConfigured"> & {
   officialPublisherConfigured: boolean;
@@ -17,24 +20,25 @@ export function getAutomationRuntime() {
 export async function getDashboardSummary(): Promise<DashboardView> {
   const owner = currentOwnerId();
   if (!owner) throw new Error("authenticated dashboard owner required");
-  const [summary, accounts] = await Promise.all([getPostgresDashboardSummary(), getPostgresXAccounts(owner)]);
-  const connected = accounts.filter((account) => account.enabled && account.connected);
+  const [summary, accounts, recentDrafts, settings, enabled, automation] = await Promise.all([getPostgresDashboardSummary(), getPostgresAccounts(owner), getPostgresDrafts(6), getAiSettings(), isAiEnabled(), getPostgresSetting("automation_enabled", "0")]);
+  const configured = await aiConfigured(settings);
+  const connected = accounts.filter((account) => account.enabled);
   return {
     generatedAt: Math.floor(Date.now() / 1000),
     ...summary,
-    automationEnabled: false,
+    automationEnabled: automation === "1",
     automationRuntime: getAutomationRuntime(),
-    openaiConfigured: false,
-    aiEnabled: false,
-    aiConfigured: false,
-    aiProvider: "api",
-    officialPublisherConfigured: Boolean(process.env.X_OAUTH_CLIENT_ID && (process.env.ISPATLA_TOKEN_KEY_CURRENT || process.env.ISPATLA_SECRET_KEY)),
+    openaiConfigured: settings.provider === "api" && configured,
+    aiEnabled: enabled,
+    aiConfigured: configured,
+    aiProvider: settings.provider === "openrouter" ? "compatible" : settings.provider,
+    officialPublisherConfigured: false,
     officialX: {
       connectedAccounts: connected.length,
-      postWriteReadyAccounts: connected.filter((account) => account.scopes.includes("tweet.write")).length,
+      postWriteReadyAccounts: 0,
       autoConsentedPostAccounts: 0,
     },
-    recentDrafts: [],
+    recentDrafts: recentDrafts.map(({ id, text, status }) => ({ id, text, status })),
     historicalAnalyticsAvailable: false,
   };
 }

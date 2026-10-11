@@ -37,7 +37,7 @@ export async function getPostgresAccounts(owner: string) {
 
 function accountView(row: typeof accounts.$inferSelect) {
   return { id: row.id, ownerUserId: row.ownerUserId, accountKey: row.accountKey, handle: row.handle,
-    displayName: row.displayName, enabled: row.enabled, defaultAccount: row.defaultAccount, automationMode: row.automationMode as "manual" | "auto",
+    xUserId: row.xUserId, ownershipVerifiedAt: row.ownershipVerifiedAt, displayName: row.displayName, enabled: row.enabled, defaultAccount: row.defaultAccount, automationMode: row.automationMode as "manual" | "auto",
     dailyLimit: row.dailyLimit, capabilities: json(row.capabilitiesJson, [] as string[]), styleProfile: { ...DEFAULT_STYLE, ...json(row.styleProfileJson, {}) },
     subscriptionHistory: [], subscriptionState: { tier: "unknown" as const, observedAt: 0, historyComplete: false },
     publicVerificationStatus: "unknown" as const, updatedAt: row.updatedAt };
@@ -107,7 +107,7 @@ export async function savePostgresCategoryConfig(owner: string, input: { account
   return saved;
 }
 
-export async function savePostgresAccountCategory(owner: string, accountId: number, input: Omit<PgCategory, "id" | "createdAt" | "updatedAt" | "ownerUserId" | "accountId"> & { id?: number; now: number }): Promise<PgCategory> {
+export async function savePostgresAccountCategory(owner: string, accountId: number, input: Omit<PgCategory, "id" | "createdAt" | "updatedAt" | "ownerUserId" | "accountId"> & { id?: number; now: number; inferred?: boolean }): Promise<PgCategory> {
   if (input.builtIn) throw new Error("built-in categories are read-only");
   const slug = (input.slug.startsWith(`account-${accountId}-`) ? input.slug : `account-${accountId}-${input.slug}`).trim().toLowerCase();
   const name = input.name.trim().slice(0, 120), description = input.description.trim().slice(0, 2_000);
@@ -126,6 +126,11 @@ export async function savePostgresAccountCategory(owner: string, accountId: numb
       [existing] = await tx.select().from(categories).where(and(eq(categories.id, input.id), eq(categories.ownerUserId, owner), eq(categories.accountId, accountId), eq(categories.builtIn, 0))).limit(1);
       if (!existing) throw new Error("category owner/account mismatch");
     }
+    if (!existing && input.inferred) [existing] = await tx.select().from(categories).where(and(eq(categories.slug, slug), eq(categories.ownerUserId, owner), eq(categories.accountId, accountId), eq(categories.builtIn, 0))).limit(1);
+    if (existing && input.inferred) {
+      const [mapping] = await tx.select().from(accountCategories).where(and(eq(accountCategories.accountId, accountId), eq(accountCategories.categoryId, existing.id))).for("update");
+      if (mapping?.userModifiedAt != null || mapping?.source === "manual") return mapPostgresCategory(existing);
+    }
     const values = { slug, name, enabled: input.enabled ? 1 : 0, builtIn: 0, baseStrategy: input.baseStrategy, clusterStrategy: input.clusterStrategy,
       verificationMode: input.verificationMode, description, positiveExamplesJson: JSON.stringify(positiveExamples), negativeExamplesJson: JSON.stringify(negativeExamples),
       keywordsJson: JSON.stringify(keywords), excludedKeywordsJson: JSON.stringify(excludedKeywords), seedHandlesJson: JSON.stringify(seedHandles),
@@ -139,9 +144,9 @@ export async function savePostgresAccountCategory(owner: string, accountId: numb
     const primary = values.enabled === 1 && (!prior || !(await tx.select({ id: accountCategories.categoryId }).from(accountCategories).where(and(eq(accountCategories.accountId, accountId), eq(accountCategories.enabled, 1), eq(accountCategories.isPrimary, 1))).limit(1)).length);
     await tx.insert(accountCategories).values({ accountId, categoryId: row.id, enabled: values.enabled, isPrimary: primary || (prior?.isPrimary === 1 && values.enabled === 1) ? 1 : 0,
       weight: prior?.weight ?? 1, priority: prior?.priority ?? 1, publishThreshold: prior?.publishThreshold ?? null, dailyBudget: prior?.dailyBudget ?? null,
-      styleOverrideJson: prior?.styleOverrideJson ?? "{}", aiRouteOverrideJson: prior?.aiRouteOverrideJson ?? "{}", source: "manual", userModifiedAt: input.now })
+      styleOverrideJson: prior?.styleOverrideJson ?? "{}", aiRouteOverrideJson: prior?.aiRouteOverrideJson ?? "{}", source: input.inferred ? "inferred" : "manual", userModifiedAt: input.inferred ? null : input.now })
       .onConflictDoUpdate({ target: [accountCategories.accountId, accountCategories.categoryId], set: { enabled: values.enabled,
-        isPrimary: primary || (prior?.isPrimary === 1 && values.enabled === 1) ? 1 : 0, source: "manual", userModifiedAt: input.now } });
+        isPrimary: primary || (prior?.isPrimary === 1 && values.enabled === 1) ? 1 : 0, source: input.inferred ? "inferred" : "manual", userModifiedAt: input.inferred ? null : input.now } });
     return mapPostgresCategory(row);
   });
 }

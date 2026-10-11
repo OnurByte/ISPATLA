@@ -1,4 +1,4 @@
-import { and, asc, eq, isNotNull, isNull, lte, or, sql } from "drizzle-orm";
+import { and, asc, eq, isNotNull, isNull, lte, sql } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
 import { getPostgresSetting } from "./postgres-settings";
 import { getPostgresDb } from "./postgres";

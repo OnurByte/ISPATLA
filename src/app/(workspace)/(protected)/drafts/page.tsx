@@ -6,7 +6,7 @@ import { getPostgresDrafts } from "@/server/postgres-drafts";
 import { renderUserPage } from "@/server/page-auth";
 
 export const dynamic = "force-dynamic";
-export default function DraftsRoute({ searchParams }: { searchParams: Promise<{ draft?: string | string[] }> }) {
+export default function DraftsRoute({ searchParams }: { searchParams: Promise<{ draft?: string | string[]; externalId?: string }> }) {
   return renderUserPage(async () => {
     const query = await searchParams;
     const value = Array.isArray(query.draft) ? query.draft[0] : query.draft;
@@ -15,6 +15,6 @@ export default function DraftsRoute({ searchParams }: { searchParams: Promise<{ 
     if (!owner) return null;
     const [drafts, rows] = await Promise.all([getPostgresDrafts(), getPostgresAccounts(owner)]);
     const accounts = rows.map((row) => ({ ...row, subscriptionState: { tier: "unknown" as const, observedAt: 0, historyComplete: false } }));
-    return <main className="min-h-screen"><div className="mx-auto flex w-full max-w-[1480px] flex-col gap-7 px-4 py-6 sm:px-6 lg:px-8 lg:py-10"><PageHeading eyebrow="Üretim / edit" title="Draft stüdyosu" description="Draft metinlerini ve sürüm geçmişini yönetin." /><DraftsPage initial={drafts} accounts={accounts} selectedDraftId={selectedDraftId} /></div></main>;
+    return <main className="min-h-screen"><div className="mx-auto flex w-full max-w-[1480px] flex-col gap-7 px-4 py-6 sm:px-6 lg:px-8 lg:py-10"><PageHeading eyebrow="Üretim / edit" title="Draft stüdyosu" description="Draft metinlerini ve sürüm geçmişini yönetin." /><DraftsPage initial={drafts} accounts={accounts} selectedDraftId={selectedDraftId} sourcePostId={query.externalId && /^\d{1,19}$/.test(query.externalId) ? query.externalId : undefined} /></div></main>;
   });
 }

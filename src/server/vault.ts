@@ -2,7 +2,6 @@ import { createCipheriv, createDecipheriv, randomBytes, scryptSync } from "node:
 import {
   deletePostgresSecret,
   decryptPostgresSecret,
-  encryptPostgresSecret,
   getPostgresSecret,
   getPostgresSecretValue,
   listPostgresSecretMetas,

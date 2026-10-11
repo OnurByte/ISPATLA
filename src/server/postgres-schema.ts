@@ -57,7 +57,7 @@ export const userProfiles = app.table("user_profiles", {
 export const accounts = app.table("accounts", {
   id: bigserial("id", { mode: "number" }).primaryKey(), accountKey: text("account_key").notNull().unique(),
   ownerUserId: text("owner_user_id").notNull().references(() => authUser.id, { onDelete: "cascade" }),
-  handle: text("handle").notNull().unique(), displayName: text("display_name").notNull().default(""),
+  handle: text("handle").notNull(), xUserId: text("x_user_id"), ownershipVerifiedAt: bigint("ownership_verified_at", { mode: "number" }), displayName: text("display_name").notNull().default(""),
   enabled: boolean("enabled").notNull().default(true), defaultAccount: boolean("default_account").notNull().default(false),
   automationMode: text("automation_mode").notNull().default("manual"), dailyLimit: integer("daily_limit").notNull().default(24),
   capabilitiesJson: text("capabilities_json").notNull().default("[]"), styleProfileJson: text("style_profile_json").notNull().default("{}"),

@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
+import { internalPostUrl } from "@/lib/post-url";
 import { Activity, ArrowUpRight, Bot, CheckCircle2, CircleAlert, Database, ExternalLink, FileText, RefreshCw, Send, ShieldCheck, Sparkles, TimerReset } from "lucide-react";
 import type { RecentPost } from "@/server/db-types";
 import type { DashboardView } from "@/server/dashboard";
@@ -32,9 +33,9 @@ function PostRow({ post }: { post: RecentPost }) {
     <TableRow>
       <TableCell className="max-w-[560px]">
         <div className="flex flex-col gap-1">
-          <a className="line-clamp-2 font-medium leading-5 hover:underline" href={post.statusUrl} target="_blank" rel="noreferrer">
+          <Link className="line-clamp-2 font-medium leading-5 hover:underline" href={internalPostUrl(post.externalId)}>
             {post.text}
-          </a>
+          </Link>
           <span className="text-xs text-muted-foreground">@{post.sourceHandle} · {formatAge(post.observedAt)}</span>
         </div>
       </TableCell>
@@ -114,7 +115,7 @@ export function Dashboard({ initial, canRunScan }: { initial: DashboardView; can
           <div className="max-w-3xl">
             <div className="mb-2 flex items-center gap-2"><Badge variant="secondary">{summary.officialX.connectedAccounts ? "Sıradaki adım" : "Hoş geldin"}</Badge></div>
             <h2 id="first-step-title" className="text-lg font-semibold">{!summary.officialX.connectedAccounts ? "Hesabını bağla, konularını birlikte bulalım." : !summary.aiConfigured ? "Taslak hazırlamak için kendi AI sağlayıcını bağla." : "İlk fırsatını seç ve taslağını hazırla."}</h2>
-            <p className="mt-1 text-sm leading-6 text-muted-foreground">{!summary.officialX.connectedAccounts ? "İzin verdiğin profil ve gönderilerinden konu önerileri hazırlanır. Tercihlerini sen onaylarsın; hesap bağlantısı otomatik yayın izni vermez." : !summary.aiConfigured ? "AI anahtarın yalnızca senin isteklerinde kullanılır. Sağlayıcı hazır olduğunda gerçek bir kaynak üzerinden taslak oluşturabilirsin." : "Kaynak bağlantısı ve hesap uyumunu incele. Tahmini performans puanı yayın sonucu değildir; yayınlamak için ayrıca onay vermen gerekir."}</p>
+            <p className="mt-1 text-sm leading-6 text-muted-foreground">{!summary.officialX.connectedAccounts ? "Herkese açık profil ve gönderilerinden konu önerileri hazırlanır. Tercihlerini düzenleyebilirsin; hesap eklemek otomatik yayın izni vermez." : !summary.aiConfigured ? "AI anahtarın yalnızca senin isteklerinde kullanılır. Sağlayıcı hazır olduğunda gerçek bir kaynak üzerinden taslak oluşturabilirsin." : "Kaynak bağlantısı ve hesap uyumunu incele. Tahmini performans puanı yayın sonucu değildir; yayınlamak için ayrıca onay vermen gerekir."}</p>
           </div>
           <Link href={!summary.officialX.connectedAccounts ? "/accounts" : !summary.aiConfigured ? "/settings/keys" : "/opportunities"} className={buttonVariants({ variant: "outline", className: "shrink-0" })}>
             {!summary.officialX.connectedAccounts ? "Hesabımı bağla" : !summary.aiConfigured ? "AI ayarlarını aç" : "Fırsatları incele"} <ArrowUpRight data-icon="inline-end" aria-hidden="true" />

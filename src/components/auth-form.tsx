@@ -4,7 +4,10 @@ import Link from "next/link"
 import { useState, type FormEvent } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field"
+import { Separator } from "@/components/ui/separator"
+import { Spinner } from "@/components/ui/spinner"
 import { DEFAULT_LOCALE, localizePath, type Locale } from "@/i18n/config"
 import { announceSessionChange } from "@/components/auth-session-sync"
 import { authCopy } from "@/i18n/auth-copy"
@@ -106,39 +109,50 @@ export function AuthForm({ mode, token, locale = DEFAULT_LOCALE, next = "/dashbo
 
   return (
     <main className="mx-auto flex min-h-[70vh] w-full max-w-md items-center px-4 py-8 sm:py-12">
-      <section className="w-full rounded-2xl border bg-card p-6 text-card-foreground shadow-sm sm:p-8" aria-labelledby="auth-title">
-        <h1 id="auth-title" className="text-2xl font-semibold tracking-tight">{heading.title}</h1>
-        <p className="mt-2 text-sm text-muted-foreground">{heading.description}</p>
-        {(mode === "login" || mode === "signup") && <div className="mt-6 space-y-2">
-          <Button type="button" variant="outline" className="w-full" disabled={pending || !xLoginEnabled} aria-describedby={!xLoginEnabled ? "x-login-unavailable" : undefined} onClick={() => void continueWithX("/api/auth/sign-in/social", next, path(mode === "signup" ? "/signup" : "/login") + "?x_error=1" + (mode === "login" ? `&next=${encodeURIComponent(next)}` : ""))}>
-            {words.withX}
-          </Button>
-          {!xLoginEnabled && <p id="x-login-unavailable" className="text-xs text-muted-foreground">{words.xUnavailable}</p>}
-          {xLoginError && <p className="text-sm text-destructive" role="alert">{xLoginError === "email_not_found" ? words.xEmailMissing : xLoginError === "unable_to_get_user_info" ? words.xProfileMissing : words.xFailure}</p>}
-        </div>}
-        <form className="mt-6 space-y-4" onSubmit={submit}>
-          {fields && <div className="space-y-2">
-            <Label htmlFor="email">{words.email}</Label>
-            <Input id="email" name="email" type="email" autoComplete="email" required value={email} onChange={(event) => setEmail(event.target.value)} disabled={pending} />
+      <Card className="w-full" aria-labelledby="auth-title">
+        <CardHeader>
+          <CardTitle><h1 id="auth-title">{heading.title}</h1></CardTitle>
+          <CardDescription>{heading.description}</CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-6">
+          {(mode === "login" || mode === "signup") && <div className="flex flex-col gap-3">
+            <Button type="button" variant="outline" size="lg" className="min-h-11 w-full" disabled={pending || !xLoginEnabled} aria-describedby={!xLoginEnabled ? "x-login-unavailable" : undefined} onClick={() => void continueWithX("/api/auth/sign-in/social", next, path(mode === "signup" ? "/signup" : "/login") + "?x_error=1" + (mode === "login" ? `&next=${encodeURIComponent(next)}` : ""))}>
+              {pending && <Spinner data-icon="inline-start" aria-label={words.wait} />}
+              {words.withX}
+            </Button>
+            {!xLoginEnabled && <p id="x-login-unavailable" className="text-xs text-muted-foreground">{words.xUnavailable}</p>}
+            {xLoginError && <p className="text-sm text-destructive" role="alert">{xLoginError === "email_not_found" ? words.xEmailMissing : xLoginError === "unable_to_get_user_info" ? words.xProfileMissing : words.xFailure}</p>}
+            <Separator />
           </div>}
-          {(mode === "login" || mode === "signup" || mode === "reset") && <div className="space-y-2">
-            <Label htmlFor="password">{mode === "reset" ? words.newPassword : words.password}</Label>
-            <Input id="password" name="password" type="password" autoComplete={mode === "login" ? "current-password" : mode === "signup" ? "new-password" : "new-password"} minLength={12} maxLength={128} required value={password} onChange={(event) => setPassword(event.target.value)} disabled={pending} />
-            {mode !== "login" && <p className="text-xs text-muted-foreground">{words.minLength}</p>}
-          </div>}
-          {error && <p className="text-sm text-destructive" role="alert">{error}</p>}
-          {message && <p className="text-sm text-muted-foreground" role="status">{message}</p>}
-          <Button className="w-full" type="submit" disabled={pending || (mode === "reset" && !token)}>
-            {pending ? words.wait : heading.button}
-          </Button>
-        </form>
-        <nav className="mt-5 flex flex-wrap gap-x-4 gap-y-2 text-sm text-muted-foreground" aria-label={words.links}>
-          {mode !== "login" && <Link className="underline underline-offset-4" href={path("/login")}>{navigation.login}</Link>}
-          {mode !== "signup" && <Link className="underline underline-offset-4" href={path("/signup")}>{navigation.start}</Link>}
-          {mode !== "forgot" && mode !== "reset" && <Link className="underline underline-offset-4" href={path("/forgot-password")}>{words.forgotLink}</Link>}
-          {mode === "reset" && !token && <p className="w-full text-destructive">{words.missingToken}</p>}
-        </nav>
-      </section>
+          <form onSubmit={submit}>
+            <FieldGroup>
+              {fields && <Field data-disabled={pending}>
+                <FieldLabel htmlFor="email">{words.email}</FieldLabel>
+                <Input id="email" name="email" type="email" autoComplete="email" required value={email} onChange={(event) => setEmail(event.target.value)} disabled={pending} />
+              </Field>}
+              {(mode === "login" || mode === "signup" || mode === "reset") && <Field data-disabled={pending}>
+                <FieldLabel htmlFor="password">{mode === "reset" ? words.newPassword : words.password}</FieldLabel>
+                <Input id="password" name="password" type="password" autoComplete={mode === "login" ? "current-password" : mode === "signup" ? "new-password" : "new-password"} minLength={12} maxLength={128} required value={password} onChange={(event) => setPassword(event.target.value)} disabled={pending} />
+                {mode !== "login" && <FieldDescription>{words.minLength}</FieldDescription>}
+              </Field>}
+              {error && <p className="text-sm text-destructive" role="alert">{error}</p>}
+              {message && <p className="text-sm text-muted-foreground" role="status">{message}</p>}
+              <Button size="lg" className="min-h-11 w-full" type="submit" disabled={pending || (mode === "reset" && !token)}>
+                {pending && <Spinner data-icon="inline-start" aria-label={words.wait} />}
+                {pending ? words.wait : heading.button}
+              </Button>
+            </FieldGroup>
+          </form>
+        </CardContent>
+        <CardFooter>
+          <nav className="flex flex-wrap gap-x-4 gap-y-2 text-sm text-muted-foreground" aria-label={words.links}>
+            {mode !== "login" && <Link className="underline underline-offset-4" href={path("/login")}>{navigation.login}</Link>}
+            {mode !== "signup" && <Link className="underline underline-offset-4" href={path("/signup")}>{navigation.start}</Link>}
+            {mode !== "forgot" && mode !== "reset" && <Link className="underline underline-offset-4" href={path("/forgot-password")}>{words.forgotLink}</Link>}
+            {mode === "reset" && !token && <p className="w-full text-destructive">{words.missingToken}</p>}
+          </nav>
+        </CardFooter>
+      </Card>
     </main>
   )
 }

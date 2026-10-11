@@ -1,5 +1,4 @@
 import { and, asc, desc, eq, isNotNull, isNull, or, sql } from "drizzle-orm";
-import { randomUUID } from "node:crypto";
 import { currentOwnerId } from "./owner-context";
 import { getPostgresDb } from "./postgres";
 import { accounts, draftRevisions, drafts } from "./postgres-schema";

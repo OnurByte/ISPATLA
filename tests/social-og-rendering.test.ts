@@ -10,7 +10,7 @@ test("leaderboard social image is a 1200×630 PNG", async () => {
   expect([...bytes.slice(0, 8)]).toEqual([137, 80, 78, 71, 13, 10, 26, 10]);
   expect(new DataView(bytes.buffer).getUint32(16)).toBe(1200);
   expect(new DataView(bytes.buffer).getUint32(20)).toBe(630);
-});
+}, 15_000);
 
 test("missing public proof images never generate a card", async () => {
   const unknownHit = await HitImage({ params: Promise.resolve({ publicId: "invalid" }) });

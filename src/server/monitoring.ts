@@ -55,7 +55,7 @@ export function scoreSourcePost(sourceHandle: string, value: XPost, now: number)
     authorVerificationStatus: verification,
     mediaCount,
     mediaJson: JSON.stringify(media),
-    rawJson: "{}",
+    rawJson: JSON.stringify({ ...value, url: safeStatusUrl(value.url, authorHandle, value.id), text, media }),
     score: score.score,
     scoreReason: score.reason,
     sensitive: sensitive ? 1 : 0,
@@ -156,8 +156,10 @@ export function cadenceFor(target: Pick<MonitorTarget, "kind" | "hits" | "unique
 export function seedMonitorTargets(): number { return 0; }
 export async function refreshDiscoveryQueries(): Promise<number> { return 0; }
 export async function runMonitorTarget(_target: MonitorTarget): Promise<{ status: "skipped"; uniqueResults: number; hits: number }> {
+  void _target;
   return { status: "skipped", uniqueResults: 0, hits: 0 };
 }
 export async function runDueMonitors(_now?: number, _limit?: number): Promise<{ attempted: number; failed: number; skipped: number }> {
+  void _now; void _limit;
   return { attempted: 0, failed: 0, skipped: 1 };
 }

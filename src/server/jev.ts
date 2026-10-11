@@ -93,12 +93,6 @@ export const JEV_MAX_RESPONSE_BYTES = 1024 * 1024;
 /** Observed cost of one successful live call (jev-context/02, memory note 09-19). */
 export const JEV_ESTIMATED_USD = 0.036;
 
-const JEV_MODE_SETTING = "jev_mode";
-const JEV_MODEL_SETTING = "jev_model";
-const JEV_PROVIDER_SETTING = "jev_provider";
-const JEV_BASE_URL_SETTING = "jev_base_url";
-const JEV_TIMEOUT_SETTING = "jev_timeout_ms";
-const JEV_CACHE_TTL_SETTING = "jev_cache_ttl_seconds";
 
 const STRICT_PROBABILITY_TOLERANCE = 0.001;
 /** Vercel rounds probabilities to two decimals; 3 terms x 0.005 rounding slack. */

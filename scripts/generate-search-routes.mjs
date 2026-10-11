@@ -6,13 +6,13 @@ const scriptDir = dirname(fileURLToPath(import.meta.url));
 const appRoot = resolve(scriptDir, "../src/app");
 const output = resolve(scriptDir, "../src/generated/search-routes.ts");
 const routes = [];
-const redirectOnlyRoutes = new Set(["/settings/profile"]);
+const redirectOnlyRoutes = new Set(["/settings/profile", "/mcp/authorize"]);
 
 function visit(directory) {
   for (const entry of readdirSync(directory, { withFileTypes: true })) {
     const path = resolve(directory, entry.name);
     if (entry.isDirectory()) {
-      if (!entry.name.startsWith("[") && !entry.name.startsWith("_")) visit(path);
+      if (!entry.name.startsWith("[") && !entry.name.startsWith("_") && !entry.name.startsWith("@")) visit(path);
       continue;
     }
     if (!/^page\.(?:js|jsx|ts|tsx)$/.test(entry.name)) continue;

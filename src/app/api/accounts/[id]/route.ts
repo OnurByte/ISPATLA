@@ -35,6 +35,7 @@ async function PATCHHandler(request: Request, context: { params: Promise<{ id: s
       }
       if ("writingSkillIds" in styleProfile && (!Array.isArray(styleProfile.writingSkillIds) || styleProfile.writingSkillIds.some((item) => !["newsroom-style", "humanize-writing"].includes(String(item))))) return NextResponse.json({ error: "writing skill seçimi geçersiz" }, { status: 422 });
     }
+    if (styleProfile && JSON.stringify(styleProfile.voice) !== JSON.stringify((current.styleProfile as Record<string, unknown>).voice)) styleProfile.voiceSource = "manual";
     const dailyLimit = Number(body.dailyLimit ?? current.dailyLimit);
     if (!Number.isFinite(dailyLimit)) return NextResponse.json({ error: "dailyLimit geçersiz" }, { status: 422 });
     const account = await updatePostgresAccount({ owner, id,

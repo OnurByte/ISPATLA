@@ -1,0 +1,2 @@
+import { mcpOrigin, MCP_SCOPES } from "@/server/mcp-authorization";
+export function GET() { const origin=mcpOrigin(); return Response.json({ issuer:origin, authorization_endpoint:`${origin}/mcp/authorize`, token_endpoint:`${origin}/mcp/token`, registration_endpoint:`${origin}/mcp/register`, revocation_endpoint:`${origin}/mcp/revoke`, response_types_supported:["code"], grant_types_supported:["authorization_code","refresh_token"], code_challenge_methods_supported:["S256"], token_endpoint_auth_methods_supported:["none"], scopes_supported:MCP_SCOPES }); }
