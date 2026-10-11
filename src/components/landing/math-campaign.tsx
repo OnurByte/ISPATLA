@@ -34,14 +34,12 @@ export function MathCampaign({ locale, dir, copy, startHref }: {
   const [budget, setBudget] = useState<number>(copy.experiment.budgetChoices[0].value);
   const [candidates, setCandidates] = useState<number>(copy.experiment.candidateChoices[0].value);
   const outcome = copy.experiment.outcomes[mathScenarioKey(budget, candidates)];
-  const number = new Intl.NumberFormat(locale);
 
   return <section id="math-campaign" lang={locale} dir={dir} className="scroll-mt-8 overflow-hidden border-y-2 border-[color:var(--press-ink)] bg-[var(--press-surface)] text-[var(--press-ink)]">
     <div className="mx-auto max-w-7xl px-5 py-16 sm:px-8 sm:py-24 lg:py-28">
       <header className="grid gap-8 border-b border-[color:var(--press-ink)]/25 pb-10 lg:grid-cols-[1.15fr_.85fr] lg:items-end lg:gap-16 lg:pb-14">
         <div>
           <h2 className="press-serif mt-6 max-w-5xl text-[clamp(3.25rem,9vw,8rem)] leading-[.84] tracking-[-.055em]">{copy.headline}</h2>
-          <p className="press-mono mt-7 inline-flex border border-[color:var(--press-ink)]/35 px-3 py-2 text-[10px] font-bold uppercase tracking-[.13em]">{copy.statusLabel}</p>
         </div>
         <div className="border-s-2 border-[var(--press-blue)] ps-5 sm:ps-7">
           <p className="text-lg font-semibold leading-7 sm:text-xl sm:leading-8">{copy.statusBody}</p>
@@ -51,7 +49,6 @@ export function MathCampaign({ locale, dir, copy, startHref }: {
 
       <div className="grid gap-10 py-12 sm:py-16 lg:grid-cols-[.55fr_1.45fr] lg:gap-20">
         <div className="lg:sticky lg:top-8 lg:self-start">
-          <p className="press-mono text-xs uppercase tracking-[.16em] text-[var(--press-blue)]">{copy.manifesto[0]}</p>
           <p className="press-serif mt-5 text-3xl leading-tight sm:text-4xl">{copy.manifesto[1]}</p>
         </div>
         <div className="space-y-6 text-base leading-8 sm:text-lg sm:leading-9">
@@ -61,7 +58,6 @@ export function MathCampaign({ locale, dir, copy, startHref }: {
 
       <div className="border-t-2 border-[color:var(--press-ink)] pt-8 sm:pt-10">
         <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
-          <p className="press-mono text-xs uppercase tracking-[.16em] text-[var(--press-blue)]">{copy.statusLabel}</p>
           
         </div>
         <div className="divide-y divide-[color:var(--press-ink)]/25 border-y border-[color:var(--press-ink)]/25">
@@ -75,17 +71,15 @@ export function MathCampaign({ locale, dir, copy, startHref }: {
                 <figcaption id={`math-formula-${index}`} className="mt-2 text-xs leading-5 text-[var(--press-warm)]">{feature.formulaLegend}</figcaption>
               </figure>
             </div>
-            <span className="press-mono mt-1 text-[10px] uppercase tracking-[.14em] text-[var(--press-warm)] sm:text-end">{feature.mathLabel}</span>
           </article>)}
         </div>
       </div>
 
       <section aria-labelledby="math-experiment-title" className="mt-14 grid overflow-hidden border-2 border-[color:var(--press-ink)] lg:mt-20 lg:grid-cols-[.8fr_1.2fr]">
         <div className="bg-[var(--press-ink)] p-6 text-[var(--press-paper)] sm:p-9 lg:p-11">
-          <p className="press-mono text-[10px] uppercase tracking-[.16em] text-[var(--press-paper)] opacity-80">{copy.experiment.note}</p>
+          <span className="sr-only">{copy.experiment.note}</span>
           <h3 id="math-experiment-title" className="press-serif mt-5 text-3xl leading-tight sm:text-4xl">{copy.experiment.title}</h3>
           <p className="mt-4 text-sm leading-7 opacity-80">{copy.experiment.body}</p>
-          <p className="press-mono mt-8 border-s border-[var(--press-blue)] ps-4 text-xs leading-6">{copy.experiment.prompt}</p>
         </div>
         <div className="p-6 sm:p-9 lg:p-11">
           <div className="grid gap-5 sm:grid-cols-2">
@@ -99,7 +93,6 @@ export function MathCampaign({ locale, dir, copy, startHref }: {
             </div>
           </div>
           <div className="mt-7 border-s-4 border-[var(--press-blue)] bg-[color-mix(in_srgb,var(--press-blue)_8%,var(--press-paper))] p-5 sm:p-6" aria-live="polite" aria-atomic="true">
-            <p className="press-mono text-[10px] uppercase tracking-[.13em] text-[var(--press-blue)]">{number.format(budget)} · {number.format(candidates)}</p>
             <h4 className="press-serif mt-3 text-2xl leading-tight">{outcome.title}</h4>
             <p className="mt-3 text-sm leading-7">{outcome.body}</p>
           </div>

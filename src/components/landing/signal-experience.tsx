@@ -37,8 +37,7 @@ export function SignalExperience({ copy, startHref }: { copy: SignalPressCopy; s
           </div>
         </div>
         <article className="relative min-w-0 border-2 border-[#16191e] bg-[#f0ede5] p-5 shadow-[8px_8px_0_#16191e] sm:p-9">
-          <div className="press-mono flex items-center justify-between border-b border-[#16191e]/25 pb-4 text-[10px] uppercase tracking-[.14em]"><span>{copy.selected}</span></div>
-          <div className="mt-6"><TweetCard source={example.source} synthetic={copy.synthetic}>{example.post}</TweetCard></div>
+          <TweetCard source={example.source} synthetic={copy.synthetic}>{example.post}</TweetCard>
           <div className="mt-6 border-t border-[#16191e]/25 pt-6">
             <p className={`flex items-center gap-2 text-lg font-bold ${example.verdict === "reject" ? "text-[var(--press-danger)]" : "text-[var(--press-blue)]"}`}>{example.verdict === "reject" ? <Ban aria-hidden="true" size={20} /> : <Check aria-hidden="true" size={20} />}{example.verdict === "reject" ? copy.rejected : copy.accepted}</p>
             <p className="mt-3 text-sm leading-6">{example.reason}</p>
@@ -53,10 +52,8 @@ export function SignalExperience({ copy, startHref }: { copy: SignalPressCopy; s
       <div className="grid gap-8 lg:grid-cols-[.72fr_1.28fr] lg:gap-16">
         <div><h2 className="press-serif mt-4 text-4xl leading-none sm:text-6xl">{copy.writingTitle}</h2><p className="mt-6 text-base leading-7">{copy.writingIntro}</p><p className="press-mono mt-8 border-l-2 border-[#315bf5] ps-4 text-sm">{copy.approval}</p></div>
         <div className="grid min-w-0 gap-5 md:grid-cols-2">
-          <p className="press-mono text-xs text-[#315bf5] md:col-span-2">{copy.accountLabel} · @sample_account</p>
-          <p className="press-mono text-xs text-[#9a9a91] md:col-span-2">{copy.historyLabel}</p>
-          <div className="min-w-0"><p className="mb-3 text-sm font-bold">{copy.revisionA}</p><TweetCard source="@sample_account" synthetic={copy.synthetic}>{diff.prefix}<del className="bg-[#bc453d]/15 text-[var(--press-danger)]">{diff.removed}</del>{diff.suffix}</TweetCard></div>
-          {example.verdict === "reject" ? <div className="min-w-0 border border-[#9b302a]/30 bg-[#bc453d]/5 p-5 sm:p-6"><p className="flex items-center gap-2 text-lg font-bold text-[var(--press-danger)]"><Ban aria-hidden="true" size={20} />{copy.rejected}</p><p className="mt-4 text-base leading-7">{example.revised}</p><p className="mt-4 text-sm leading-6">{example.reason}</p></div> : <div className="min-w-0"><p className="mb-3 text-sm font-bold text-[var(--press-blue)]">{copy.revisionB}</p><TweetCard source="@sample_account" synthetic={copy.synthetic}>{diff.prefix}<ins className="bg-[#315bf5]/10 text-[#16191e] decoration-[#315bf5]">{diff.added}</ins>{diff.suffix}</TweetCard></div>}
+          <div className="min-w-0"><p className="mb-3 text-sm font-bold">{copy.before}</p><TweetCard source="@sample_account" synthetic={copy.synthetic}>{diff.prefix}<del className="bg-[#bc453d]/15 text-[var(--press-danger)]">{diff.removed}</del>{diff.suffix}</TweetCard></div>
+          {example.verdict === "reject" ? <div className="min-w-0 border border-[#9b302a]/30 bg-[#bc453d]/5 p-5 sm:p-6"><p className="flex items-center gap-2 text-lg font-bold text-[var(--press-danger)]"><Ban aria-hidden="true" size={20} />{copy.rejected}</p><p className="mt-4 text-base leading-7">{example.revised}</p><p className="mt-4 text-sm leading-6">{example.reason}</p></div> : <div className="min-w-0"><p className="mb-3 text-sm font-bold text-[var(--press-blue)]">{copy.after}</p><TweetCard source="@sample_account" synthetic={copy.synthetic}>{diff.prefix}<ins className="bg-[#315bf5]/10 text-[#16191e] decoration-[#315bf5]">{diff.added}</ins>{diff.suffix}</TweetCard></div>}
         </div>
       </div>
     </section>

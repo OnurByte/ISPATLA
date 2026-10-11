@@ -13,12 +13,10 @@ test("renders the planned campaign, localized legends and formula controls in al
     }));
     expect(markup).toContain(`lang="${locale}"`);
     expect(markup).toContain(`dir="${LOCALE_CONFIG[locale].dir}"`);
-    expect(markup).toContain(copy.statusLabel);
+    expect(markup).toContain(copy.statusBody);
     expect(markup).toContain(copy.experiment.note);
     expect(markup).toContain(copy.experiment.outcomes["2:3"].title);
     expect(markup.match(/math-formula-\d/g)?.length).toBeGreaterThanOrEqual(8);
-    expect(markup).toContain("ΔE / Δt");
-    expect(markup).toContain("λ(t)");
     expect(markup).toContain('aria-live="polite"');
     expect(markup).toContain('href="/' + locale + '/signup"');
   }
