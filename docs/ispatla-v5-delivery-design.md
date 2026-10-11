@@ -4,7 +4,7 @@
 
 ## Ürün sonucu
 
-Hedef durumda X OAuth sunucuda ve arayüzde kapalı olacak. Kullanıcı e-posta/şifre ile giriş yapacak, bir X handle ekleyecek; erişilebilir herkese açık içeriklerden kategori ve yazı tarzı otomatik oluşturulacak. Handle eklemek sahiplik sağlamaz. Kullanıcı bio challenge ile doğruladığı hesabı kişisel kimliği olarak kullanabilir. Mevcut X kullanıcılarının oturumları ve tarihsel kayıtları korunur; gerçek e-posta ve parola geçişi sağlanır.
+Son kullanıcı kararına göre 𝕏 OAuth girişi sunucuda ve shadcn giriş/kayıt ekranlarında açık kalır. Kullanıcı 𝕏 OAuth veya e-posta/şifre ile giriş yapabilir, bir 𝕏 handle ekleyebilir; erişilebilir herkese açık içeriklerden kategori ve yazı tarzı otomatik oluşturulacak. Handle eklemek sahiplik sağlamaz. Kullanıcı bio challenge ile doğruladığı hesabı kişisel kimliği olarak kullanabilir. Mevcut X kullanıcılarının oturumları ve tarihsel kayıtları korunur; gerçek e-posta ve parola geçişi sağlanır.
 
 Gönderiye tıklamak `/post/{id}` adresinde ISPATLA inceleyicisini açar. Akıştan açılış masaüstünde modal, mobilde tam ekran görünüm; doğrudan URL ve yenileme tam sayfa görünüm üretir. Geri ve ileri gezinme korunur. Açıkça etiketlenmiş ikincil `𝕏'te aç` eylemi kalabilir.
 
@@ -34,7 +34,7 @@ Bağlantı sonrası tek sınırlı veri toplama profili ve özgün gönderileri 
 
 Sahiplik challenge'ı rastgele, süreli ve tek kullanımlı; doğrulama taze profil okuması ve sabit ID eşleşmesi ister. Transaction ve global doğrulanmış kimlik kısıtı yarışları engeller. Başka kullanıcının kaydı üzerinde işlem yapılamaz.
 
-OAuth giriş ve linking uçları sunucuda kapanır. Mevcut aktif oturumdaki X kullanıcıları doğrulanmış gerçek e-posta + parola geçişini yapabilir. OAuth-only kullanıcının aktif oturumu yoksa yeni hesap oluşturmak veya yalnız handle doğrulamak eski ISPATLA hesabına erişim sağlamaz; sentetik adrese parola sıfırlama gönderilmez. Mevcut kullanıcıları kilitlemeden geçiş kabulü için önce kullanıcı kayıtları ve kullanılabilir kurtarma yöntemleri denetlenir. Kurtarma kanıtı bulunmayan eski hesaplar çözülmeden geçiş tamamlandı sayılmaz; bu durum ayrı bir yayın engelidir.
+𝕏 OAuth girişi `tweet.read` ve `users.read` izinleriyle PKCE kullanır. `/2/users/me` yanıtından sabit ID, ad ve kullanıcı adı alınır; profil kimliği sabit ID'ye bağlanır, kullanıcı adı sonraki girişlerde güncellenir. Giriş grant'i yayın hesabı oluşturmaz; tokenlar auth tablolarında saklanmaz. Mevcut 𝕏 kullanıcıları aynı kimlikle giriş yapmaya devam eder. Gerçek e-posta + parola ekleme alternatif kurtarma yöntemidir; sentetik adrese parola sıfırlama gönderilmez.
 
 ### 2. Viewer ve veri sınırı
 
@@ -50,7 +50,7 @@ Next.js'in kurulu sürümündeki intercepting + parallel route kuralları kullan
 
 Web Intent, manuel URL ilişkilendirme ve X native scheduling yönlendirmesi ortak mevcut publication servisinde hazırlanır. Pencerenin açılması/kapanması yayın başarısı değildir. Native scheduling Web Intent'e belgelenmemiş zaman parametresi eklemez; kullanıcı X ekranında tamamlar. FXTwitter ile gözlenen receipt, resmî doğrulama ile aynı kanıt seviyesi sayılmaz. Author ID, metin/hedef sürümü ve duplicate kontrolleri yapılır.
 
-X OAuth ve otomatik resmî yayın kapalı kalır. Kullanıcı çerezi, şifre veya TOTP toplama; tarayıcı otomasyonunu SaaS yayın yöntemi yapma kapsam dışıdır.
+𝕏 OAuth girişi açık kalır; otomatik resmî yayın kapalı kalır. Kullanıcı çerezi, şifre veya TOTP toplama; tarayıcı otomasyonunu SaaS yayın yöntemi yapma kapsam dışıdır.
 
 Yerel MCP önce ortak account analysis, publishing prepare/status ve gerçek analytics servislerini kullanır. `confirm:true` web onayını atlayamaz. Uzak `/mcp` ayrı ISPATLA yetkilendirmesi kullanır: kullanıcı consent, dar scopes, süreli authorization code + PKCE, resource/audience bağlı token, iptal, rate limit ve origin kontrolü. Global session cookie veya X tokenı uzak bağlantıya taşınmaz. Discovery ve token uçları olmadan route tek başına tamamlanma sayılmaz. SDK'nin kurulu HTTP/auth yetenekleri doğrulanarak kullanılır.
 
@@ -77,7 +77,7 @@ Silme kararı import/export ve caller analiziyle kanıtlanır. Kullanılan auth 
 
 | Gereksinim | Gerekli kanıt |
 | --- | --- |
-| X OAuth kapalı, mevcut kullanıcı geçişi | Provider/endpoint reddi, UI yokluğu, aktif oturum ve eski identity korunması; doğrulanmış gerçek e-posta/parola geçiş testi |
+| 𝕏 OAuth girişi ve mevcut kimlik | Shadcn düğmesi, read-only scope ve S256 PKCE; sabit ID ve güncellenen handle; token saklanmaması ve sahiplik çakışması testleri |
 | Handle ekleme + sabit kimlik | Rename, provider ID mismatch, aynı hesabı farklı kullanıcıların analizi; owner sınırı testleri |
 | Sahiplik | Expiry/replay/stale response, exact ID, concurrent claim ve unverified public identity reddi |
 | FXTwitter | Gerçek şema örneklerine dayalı cursor.bottom, JSON code, 429/timeout, duplicate, nullable metric ve schema regression |
@@ -99,6 +99,9 @@ Entegrasyon kanıtı sahiplik yarışı ve tekrar kullanımı, manuel kategori/v
 
 Yerel tarayıcıda giriş, viewer overlay, Escape ile geri dönüş ve focus, ileri gezinme, doğrudan yenileme, kaydetme, kaynak gönderiden taslak oluşturma ve 390 px mobil görünüm doğrulandı. Gerçek FXTwitter profil/timeline okuması ayrıca geçti; bu kanıt üretim ortamının hazır olduğunu göstermez.
 
-**Canlı yayın engeli:** Yapılandırılmış canlı veritabanında yalnız toplu ve salt-okunur denetim yapıldı: 2 kullanıcı arasında gerçek kurtarma e-postası/parolası bulunmayan 1 eski X kullanıcısı var; aktif oturumu mevcut. Bu kullanıcı oturumu açıkken güvenlik ekranından gerçek e-postasını doğrulayıp parola oluşturmalı. Kurtarma geçişi tamamlanmadan OAuth'u kapatan sürüm canlıya alınmamalı.
+**Kurtarma durumu:** Önceki salt-okunur denetimde gerçek kurtarma e-postası/parolası olmayan eski 𝕏 kullanıcısı bulunmuştu. OAuth girişi yeniden açık olduğundan bu kullanıcı kimliğiyle giriş yapabilir; gerçek e-posta/parola eklemek ek kurtarma seçeneğidir. Gerçek kullanıcıyla sağlayıcı onayı ve callback tamamlanması ayrıca doğrulanmalıdır.
 
 Canlı veritabanı migration'ı, push/merge ve deployment yapılmadı. Üretimde MCP proxy/Origin davranışı ve tarayıcı akışı ayrıca doğrulanmalıdır. Hiçbir canlı kullanıcı e-postası, parolası veya kimlik kaydı bu çalışma kapsamında değiştirilmedi.
+
+
+11 Ekim düzeltmesi: Yerel OAuth başlatma isteği HTTP 200 döndü; sağlayıcı `x.com`, callback `/api/auth/callback/twitter`, scope `tweet.read users.read`, PKCE `S256` olarak doğrulandı. 𝕏 hesabı ile gerçek izin/callback tamamlanmadı.
