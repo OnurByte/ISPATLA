@@ -27,7 +27,7 @@ export function SignalManifesto({ copy, path, startHref, children }: { copy: Sig
     <Separator />
     <section className="bg-muted">
       <div className="mx-auto flex max-w-7xl flex-wrap gap-4 px-5 py-8 sm:px-8">
-        {[[copy.transparency, "/transparency"], [copy.research, "/research/xpatla-consumer-complaints-2026"], [copy.install, "/open-source"]].map(([label, href]) => <Link key={href} href={path(href)} className={buttonVariants({ variant: "outline", size: "lg", className: "h-auto min-h-11 whitespace-normal" })}>{label}<ArrowUpRight aria-hidden="true" data-icon="inline-end" /></Link>)}
+        {[[copy.transparency, "/transparency"], [copy.install, "/open-source"]].map(([label, href]) => <Link key={href} href={path(href)} className={buttonVariants({ variant: "outline", size: "lg", className: "h-auto min-h-11 whitespace-normal" })}>{label}<ArrowUpRight aria-hidden="true" data-icon="inline-end" /></Link>)}
       </div>
     </section>
     {children}
