@@ -1,9 +1,10 @@
+import Link from "next/link";
 import { expect, test } from "bun:test";
 import { renderToStaticMarkup } from "react-dom/server";
 import { PublicHeaderNav } from "../src/components/public-header-nav";
 
 test("public navigation keeps one link tree and an accessible mobile toggle", () => {
-  const markup = renderToStaticMarkup(<PublicHeaderNav brand={<a href="/">ispatla.tr</a>} label="Menu"><a href="/docs">Tour</a><a href="/login">Log in</a></PublicHeaderNav>);
+  const markup = renderToStaticMarkup(<PublicHeaderNav brand={<Link href="/">ispatla.tr</Link>} label="Menu"><Link href="/docs">Tour</Link><Link href="/login">Log in</Link></PublicHeaderNav>);
   expect(markup).toContain('aria-label="Menu"');
   expect(markup).toContain('aria-expanded="false"');
   expect(markup).toContain('aria-controls=');
