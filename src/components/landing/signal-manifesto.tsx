@@ -16,7 +16,7 @@ export function SignalManifesto({ copy, path, startHref, children }: { copy: Sig
       <div className="grid gap-10 lg:grid-cols-[1fr_.8fr] lg:items-start">
         <div className="flex flex-col items-start gap-8">
           <h2 className="max-w-3xl text-4xl leading-tight sm:text-6xl">{copy.manifestoTitle}</h2>
-          <Link href={startHref} className={buttonVariants({ size: "lg" })}>{dictionary.nav.start}<ArrowRight aria-hidden="true" data-icon="inline-end" /></Link>
+          <Link href={startHref} className={buttonVariants({ size: "lg", className: "min-h-11 px-5" })}>{dictionary.nav.start}<ArrowRight aria-hidden="true" data-icon="inline-end" /></Link>
         </div>
         <aside className="flex min-w-0 flex-col gap-6">
           <Alert><Info aria-hidden="true" /><AlertTitle><Link href={path("/no-viral-guarantee")} className="underline underline-offset-4">{copy.antiTitle}</Link></AlertTitle><AlertDescription>{copy.antiBody}</AlertDescription></Alert>
@@ -36,9 +36,9 @@ export function SignalManifesto({ copy, path, startHref, children }: { copy: Sig
       <div className="mx-auto flex max-w-7xl flex-col items-start gap-6 px-5 py-12 sm:px-8">
         <BrandLogo href={path("/")} ariaLabel={dictionary.landing.brand} />
         <nav aria-label={dictionary.landing.menuLabel} className="flex flex-wrap gap-2">
-          {[[copy.install, "/docs"], [copy.repo, "/open-source"], [copy.transparency, "/transparency"], [dictionary.landing.security, "/security"], [dictionary.landing.privacy, "/privacy"], [dictionary.landing.terms, "/terms"]].map(([label, href]) => <Link key={href} href={path(href)} data-landing-event={href === "/docs" ? "open_source_docs" : undefined} data-landing-page={href === "/docs" ? "/" : undefined} className={buttonVariants({ variant: "link" })}>{label}</Link>)}
-          <a href="https://github.com/OnurByte/Ispatla/blob/main/CONTRIBUTING.md" target="_blank" rel="noopener noreferrer" data-landing-event="github_click" data-landing-page="/" className={buttonVariants({ variant: "link" })}>{copy.contributing}</a>
-          <a href="https://x.com/OnurStirner" target="_blank" rel="noopener noreferrer" className={buttonVariants({ variant: "link" })}>𝕏</a>
+          {[[copy.install, "/docs"], [copy.repo, "/open-source"], [copy.transparency, "/transparency"], [dictionary.landing.security, "/security"], [dictionary.landing.privacy, "/privacy"], [dictionary.landing.terms, "/terms"]].map(([label, href]) => <Link key={href} href={path(href)} data-landing-event={href === "/docs" ? "open_source_docs" : undefined} data-landing-page={href === "/docs" ? "/" : undefined} className={buttonVariants({ variant: "link", className: "min-h-11" })}>{label}</Link>)}
+          <a href="https://github.com/OnurByte/Ispatla/blob/main/CONTRIBUTING.md" target="_blank" rel="noopener noreferrer" data-landing-event="github_click" data-landing-page="/" className={buttonVariants({ variant: "link", className: "min-h-11" })}>{copy.contributing}</a>
+          <a href="https://x.com/OnurStirner" target="_blank" rel="noopener noreferrer" className={buttonVariants({ variant: "link", className: "min-h-11" })}>𝕏</a>
         </nav>
       </div>
     </footer>

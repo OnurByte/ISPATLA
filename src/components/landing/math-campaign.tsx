@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { ArrowUpRight } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
@@ -84,12 +85,12 @@ export function MathCampaign({ locale, dir, copy, startHref }: {
           <FieldGroup className="grid sm:grid-cols-2">
             <Field><FieldLabel id="math-budget-label">{copy.experiment.budgetLabel}</FieldLabel>
               <ToggleGroup variant="outline" value={[String(budget)]} onValueChange={(values) => { if (values.length) setBudget(Number(values[0])); }} aria-labelledby="math-budget-label" className="flex-wrap">
-                {copy.experiment.budgetChoices.map((choice) => <ToggleGroupItem key={choice.value} value={String(choice.value)}>{choice.label}</ToggleGroupItem>)}
+                {copy.experiment.budgetChoices.map((choice) => <ToggleGroupItem key={choice.value} value={String(choice.value)} className="min-h-11 px-4 aria-pressed:border-primary aria-pressed:bg-accent aria-pressed:text-accent-foreground">{choice.label}</ToggleGroupItem>)}
               </ToggleGroup>
             </Field>
             <Field><FieldLabel id="math-candidates-label">{copy.experiment.candidateLabel}</FieldLabel>
               <ToggleGroup variant="outline" value={[String(candidates)]} onValueChange={(values) => { if (values.length) setCandidates(Number(values[0])); }} aria-labelledby="math-candidates-label" className="flex-wrap">
-                {copy.experiment.candidateChoices.map((choice) => <ToggleGroupItem key={choice.value} value={String(choice.value)}>{choice.label}</ToggleGroupItem>)}
+                {copy.experiment.candidateChoices.map((choice) => <ToggleGroupItem key={choice.value} value={String(choice.value)} className="min-h-11 px-4 aria-pressed:border-primary aria-pressed:bg-accent aria-pressed:text-accent-foreground">{choice.label}</ToggleGroupItem>)}
               </ToggleGroup>
             </Field>
           </FieldGroup>
@@ -105,7 +106,7 @@ export function MathCampaign({ locale, dir, copy, startHref }: {
 
       <Card className="mt-14 sm:mt-20">
         <CardHeader><CardTitle><h3>{copy.closing.title}</h3></CardTitle><CardDescription>{copy.closing.body}</CardDescription></CardHeader>
-        <CardFooter><Button role="link" nativeButton={false} render={<Link href={startHref} />} size="lg">{copy.closing.cta}<span aria-hidden="true">↗</span></Button></CardFooter>
+        <CardFooter><Button role="link" nativeButton={false} render={<Link href={startHref} />} size="lg" className="min-h-11 px-5">{copy.closing.cta}<ArrowUpRight aria-hidden="true" data-icon="inline-end" /></Button></CardFooter>
       </Card>
     </div>
   </section>;

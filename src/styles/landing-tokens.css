@@ -1,20 +1,22 @@
 .signal-press {
   --background: #f0ede5;
   --foreground: #16191e;
-  --card: #faf9f6;
+  --card: #faf8f1;
   --card-foreground: var(--foreground);
+  --popover: var(--card);
+  --popover-foreground: var(--foreground);
   --primary: #315bf5;
   --primary-foreground: #ffffff;
   --secondary: #e5e1d7;
   --secondary-foreground: var(--foreground);
   --muted: #e5e1d7;
-  --muted-foreground: #66675f;
-  --accent: #e5e1d7;
-  --accent-foreground: var(--foreground);
-  --border: #c8c5bc;
-  --input: var(--border);
+  --muted-foreground: #55564f;
+  --accent: #dce3ff;
+  --accent-foreground: #2448c7;
+  --border: #cecac0;
+  --input: #c3bfb5;
   --ring: var(--primary);
-  --destructive: #bc453d;
+  --destructive: #aa362f;
   color-scheme: light;
 }
 
@@ -24,12 +26,14 @@
   --card: #20242c;
   --primary: #aebeff;
   --primary-foreground: #16191e;
-  --secondary: #20242c;
-  --muted: #20242c;
+  --secondary: #2a2e37;
+  --muted: #2a2e37;
   --muted-foreground: #c1bfb6;
-  --accent: #2b303a;
-  --border: #434750;
-  --destructive: #ff9b87;
+  --accent: #2e3a62;
+  --accent-foreground: #dce3ff;
+  --border: #444750;
+  --input: #555862;
+  --destructive: #ef928c;
   color-scheme: dark;
 }
 

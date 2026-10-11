@@ -59,14 +59,14 @@ export default async function Home() {
         <div lang={locale} className="relative z-10">
           <h1 className="max-w-3xl text-[clamp(2.75rem,6vw,5.5rem)] leading-[1.02] tracking-[-.035em]">{copy.headline}<span className="mt-4 block text-primary">{copy.headlineAccent}</span></h1>
           <p className="mt-8 max-w-xl text-base leading-7 sm:text-lg sm:leading-8">{copy.intro}</p>
-          <div className="mt-8 flex flex-wrap items-center gap-3"><a href="#signal-detector" className={buttonVariants({ size: "lg" })}>{copy.explore}<ArrowDown aria-hidden="true" data-icon="inline-end" /></a><Link href={startHref} className={buttonVariants({ variant: "outline", size: "lg" })}>{getDictionary(locale).nav.start}</Link></div>
+          <div className="mt-8 flex flex-wrap items-center gap-3"><a href="#signal-detector" className={buttonVariants({ size: "lg", className: "min-h-11 px-5" })}>{copy.explore}<ArrowDown aria-hidden="true" data-icon="inline-end" /></a><Link href={startHref} className={buttonVariants({ variant: "outline", size: "lg", className: "min-h-11 px-5" })}>{getDictionary(locale).nav.start}</Link></div>
         </div>
         <div lang={locale} dir={LOCALE_CONFIG[locale].dir} className="min-w-0">
           <TweetCard source={copy.examples[0].source} synthetic={copy.synthetic}>{copy.examples[0].post}</TweetCard>
           <div className="mt-5 flex flex-col gap-4"><Separator />
             <p className="text-sm font-bold text-primary">{copy.accepted}</p>
             <p className="mt-2 max-w-xl text-sm leading-6">{copy.examples[0].reason}</p>
-            <a href="#writing-room" className={buttonVariants({ variant: "link", className: "self-start" })}>{copy.inspect}<ArrowRight aria-hidden="true" data-icon="inline-end" /></a>
+            <a href="#writing-room" className={buttonVariants({ variant: "link", className: "min-h-11 self-start" })}>{copy.inspect}<ArrowRight aria-hidden="true" data-icon="inline-end" /></a>
           </div>
         </div>
       </section>

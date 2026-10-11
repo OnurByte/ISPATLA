@@ -35,7 +35,7 @@ export function SignalExperience({ copy, startHref }: { copy: SignalPressCopy; s
           <h2 className="mt-4 text-4xl leading-[.98] tracking-tight sm:text-6xl">{copy.detectorTitle}</h2>
           <p className="mt-6 max-w-lg text-base leading-7">{copy.detectorIntro}</p>
           <ToggleGroup value={[selected]} onValueChange={(values) => { if (!started.current) { started.current = true; trackLandingEvent("demo_start", "/"); } if (values[0]) setSelected(values[0]); }} variant="outline" orientation="vertical" spacing={2} aria-label={copy.source} className="mt-7 w-full items-stretch">
-            {copy.examples.map((item) => <ToggleGroupItem key={item.id} value={item.id} className="min-h-12 w-full justify-start px-4 py-3"><span className="min-w-0 truncate">{item.source}</span></ToggleGroupItem>)}
+            {copy.examples.map((item) => <ToggleGroupItem key={item.id} value={item.id} className="min-h-12 w-full justify-start bg-card px-4 py-3 aria-pressed:border-primary aria-pressed:bg-accent aria-pressed:text-accent-foreground"><span className="min-w-0 truncate">{item.source}</span></ToggleGroupItem>)}
           </ToggleGroup>
         </div>
         <article className="flex min-w-0 flex-col gap-6">
@@ -45,7 +45,7 @@ export function SignalExperience({ copy, startHref }: { copy: SignalPressCopy; s
             <AlertTitle>{example.verdict === "reject" ? copy.rejected : copy.accepted}</AlertTitle>
             <AlertDescription>{example.reason}</AlertDescription>
           </Alert>
-          <Button render={<a href="#writing-room" />} nativeButton={false} role="link" variant="outline" size="lg" className="self-start" onClick={() => { if (started.current && !completed.current) { completed.current = true; trackLandingEvent("demo_complete", "/"); } }}>{copy.inspect}<ArrowDown data-icon="inline-end" /></Button>
+          <Button render={<a href="#writing-room" />} nativeButton={false} role="link" variant="outline" size="lg" className="min-h-11 self-start px-5" onClick={() => { if (started.current && !completed.current) { completed.current = true; trackLandingEvent("demo_complete", "/"); } }}>{copy.inspect}<ArrowDown data-icon="inline-end" /></Button>
         </article>
       </div>
     </section>
