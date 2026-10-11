@@ -54,8 +54,8 @@ export function SignalExperience({ copy, startHref }: { copy: SignalPressCopy; s
       <div className="grid gap-8 lg:grid-cols-[.72fr_1.28fr] lg:gap-16">
         <div><h2 className="mt-4 text-4xl leading-none sm:text-6xl">{copy.writingTitle}</h2><p className="mt-6 text-base leading-7">{copy.writingIntro}</p><Separator className="my-6" /><p className="text-sm text-muted-foreground">{copy.approval}</p></div>
         <div className="grid min-w-0 gap-5 md:grid-cols-2">
-          <div className="min-w-0"><p className="mb-3 text-sm font-bold">{copy.before}</p><TweetCard source="@sample_account" synthetic={copy.synthetic}>{diff.prefix}<del className="bg-destructive/10 text-destructive">{diff.removed}</del>{diff.suffix}</TweetCard></div>
-          {example.verdict === "reject" ? <Alert variant="destructive" className="h-fit"><Ban aria-hidden="true" /><AlertTitle>{copy.rejected}</AlertTitle><AlertDescription><p>{example.revised}</p><p>{example.reason}</p></AlertDescription></Alert> : <div className="min-w-0"><p className="mb-3 text-sm font-bold">{copy.after}</p><TweetCard source="@sample_account" synthetic={copy.synthetic}>{diff.prefix}<ins className="bg-accent">{diff.added}</ins>{diff.suffix}</TweetCard></div>}
+          <div className="min-w-0" aria-label={copy.before}><TweetCard source="@sample_account" synthetic={copy.synthetic}>{diff.prefix}<del className="bg-destructive/10 text-destructive">{diff.removed}</del>{diff.suffix}</TweetCard></div>
+          {example.verdict === "reject" ? <Alert variant="destructive" className="h-fit"><Ban aria-hidden="true" /><AlertTitle>{copy.rejected}</AlertTitle><AlertDescription><p>{example.revised}</p><p>{example.reason}</p></AlertDescription></Alert> : <div className="min-w-0" aria-label={copy.after}><TweetCard source="@sample_account" synthetic={copy.synthetic}>{diff.prefix}<ins className="bg-accent">{diff.added}</ins>{diff.suffix}</TweetCard></div>}
         </div>
       </div>
     </section>
