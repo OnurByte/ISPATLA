@@ -57,7 +57,6 @@ export function SignalExperience({ copy, startHref }: { copy: SignalPressCopy; s
           <p className="press-mono text-xs text-[#9a9a91] md:col-span-2">{copy.historyLabel}</p>
           <div className="min-w-0"><p className="mb-3 text-sm font-bold">{copy.revisionA}</p><TweetCard source="@sample_account" synthetic={copy.synthetic}>{diff.prefix}<del className="bg-[#bc453d]/15 text-[var(--press-danger)]">{diff.removed}</del>{diff.suffix}</TweetCard></div>
           {example.verdict === "reject" ? <div className="min-w-0 border border-[#9b302a]/30 bg-[#bc453d]/5 p-5 sm:p-6"><p className="flex items-center gap-2 text-lg font-bold text-[var(--press-danger)]"><Ban aria-hidden="true" size={20} />{copy.rejected}</p><p className="mt-4 text-base leading-7">{example.revised}</p><p className="mt-4 text-sm leading-6">{example.reason}</p></div> : <div className="min-w-0"><p className="mb-3 text-sm font-bold text-[var(--press-blue)]">{copy.revisionB}</p><TweetCard source="@sample_account" synthetic={copy.synthetic}>{diff.prefix}<ins className="bg-[#315bf5]/10 text-[#16191e] decoration-[#315bf5]">{diff.added}</ins>{diff.suffix}</TweetCard></div>}
-          <p className="press-mono text-xs text-[#9a9a91]">{copy.before}: {copy.revisionA} / {copy.after}: {example.verdict === "reject" ? copy.rejected : copy.revisionB}</p>
         </div>
       </div>
     </section>

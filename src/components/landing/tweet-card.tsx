@@ -12,7 +12,7 @@ export function TweetCard({ source, synthetic, children }: { source: string; syn
     </div>
     <p className="mt-5 whitespace-pre-wrap break-words text-lg leading-7">{children}</p>
     <div aria-hidden="true" className="mt-5 flex justify-between border-t border-[#16191e]/15 pt-4 text-[var(--press-warm)]"><MessageCircle size={18} /><Repeat2 size={18} /><Heart size={18} /><Upload size={18} /></div>
-    <p className="mt-4 text-xs leading-5 text-[var(--press-warm)]">{synthetic}</p>
+    <span className="sr-only">{synthetic}</span>
   </div>;
 }
 
