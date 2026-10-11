@@ -12,7 +12,7 @@ export const GET = withUser(async () => NextResponse.json(await getPostgresOwnUs
 export const PUT = withUser(async (request: Request) => {
   try {
     const body = await readJsonBody(request);
-    if (Object.keys(body).length) throw new Error("X profil bilgileri Ispatla üzerinden değiştirilemez");
+    if (Object.keys(body).length) throw new Error("𝕏 profil bilgileri Ispatla üzerinden değiştirilemez");
     const ownerUserId = currentOwnerId();
     const connectedAccounts = ownerUserId
       ? (await getPostgresXAccounts(ownerUserId)).filter((account) => account.enabled && account.connected)

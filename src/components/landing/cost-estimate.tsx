@@ -24,7 +24,7 @@ export function CostEstimate({ copy }: { copy: SignalPressCopy }) {
   const money = new Intl.NumberFormat(copy.contentLocale, { style: "currency", currency: "USD", maximumFractionDigits: 2 }).format(total);
   const field = (id: string, label: string, value: string, set: (value: string) => void, step: string) => <Field>
     <FieldLabel htmlFor={id}>{label}</FieldLabel>
-    <Input id={id} type="number" min="0" max={MAX_AMOUNT} step={step} value={value} onChange={(event) => set(event.currentTarget.value)} />
+    <Input className="min-h-11 bg-card" id={id} type="number" min="0" max={MAX_AMOUNT} step={step} value={value} onChange={(event) => set(event.currentTarget.value)} />
   </Field>;
   return <Card aria-labelledby="cost-estimate-title" className="mt-6">
     <CardHeader><CardTitle><h4 id="cost-estimate-title">{copy.costsTitle}</h4></CardTitle><CardDescription>{copy.costsBody}</CardDescription></CardHeader>

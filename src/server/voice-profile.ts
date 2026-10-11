@@ -335,7 +335,7 @@ const reader = new FxTwitterReader();
 /** Live read of a public timeline. Keyless: FxTwitter, same transport monitoring uses. */
 export async function fetchVoiceProfile(input: { handle: string; maxPosts?: number }): Promise<VoiceProfile> {
   const handle = String(input.handle || "").replace(/^@/, "").trim();
-  if (!/^[A-Za-z0-9_]{1,15}$/.test(handle)) throw new Error("geçerli bir X handle gerekli");
+  if (!/^[A-Za-z0-9_]{1,15}$/.test(handle)) throw new Error("geçerli bir 𝕏 handle gerekli");
   const batch = await reader.fetchTimeline({ handle, maxPosts: Math.max(10, Math.min(100, input.maxPosts || 60)) });
   const own = batch.posts.filter((post) => !post.author.handle || post.author.handle === handle.toLowerCase());
   if (!own.length) throw new Error("timeline boş döndü");

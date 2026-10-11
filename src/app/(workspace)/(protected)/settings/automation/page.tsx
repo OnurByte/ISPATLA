@@ -15,6 +15,6 @@ export default async function AutomationRoute() {
       enabled: account.enabled, connected: account.connected, postMode: account.postMode,
     }));
     const [schedules, logs] = canManageSchedules ? await Promise.all([getPostgresAutomationSchedules(), getPostgresAutomationLogs(100)]) : [[], []];
-    return <main className="min-h-screen"><div className="mx-auto flex w-full max-w-[980px] flex-col gap-7 px-4 py-6 sm:px-6 lg:px-8 lg:py-10"><PageHeading eyebrow="Ayarlar / otomasyon" title="Otomasyon" description="Çalıştırıcının canlı durumu ve X hesabı izinleri." /><AutomationSettings initial={{ runtime: getAutomationRuntime(), accountAutomation }} canManageSchedules={canManageSchedules} schedules={schedules} logs={logs} /></div></main>;
+    return <main className="min-h-screen"><div className="mx-auto flex w-full max-w-[980px] flex-col gap-7 px-4 py-6 sm:px-6 lg:px-8 lg:py-10"><PageHeading eyebrow="Ayarlar / otomasyon" title="Otomasyon" description="Çalıştırıcının canlı durumu ve 𝕏 hesabı izinleri." /><AutomationSettings initial={{ runtime: getAutomationRuntime(), accountAutomation }} canManageSchedules={canManageSchedules} schedules={schedules} logs={logs} /></div></main>;
   });
 }
