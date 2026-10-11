@@ -18,6 +18,12 @@ test("renders the planned campaign, localized legends and formula controls in al
     expect(markup).toContain(copy.experiment.outcomes["2:3"].title);
     expect(markup.match(/math-formula-\d/g)?.length).toBeGreaterThanOrEqual(8);
     expect(markup).toContain('aria-live="polite"');
+    expect(markup.match(/data-slot="toggle-group"/g)?.length).toBe(2);
+    expect(markup.match(/aria-pressed="true"/g)?.length).toBe(2);
+    expect(markup.match(/data-slot="toggle-group-item"/g)?.length).toBe(4);
+    expect(markup).toContain('aria-labelledby="math-budget-label"');
+    expect(markup).toContain('aria-labelledby="math-candidates-label"');
+    expect(markup).toContain('tabindex="0"');
     expect(markup).toContain('href="/' + locale + '/signup"');
   }
 });
