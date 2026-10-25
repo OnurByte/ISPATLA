@@ -12,8 +12,8 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   metadataBase: new URL(PUBLIC_ORIGIN),
-  title: "Ispatla — 𝕏 intelligence desk",
-  description: "𝕏 sinyallerini izle, yayın kararını kanıtla ve sonucu doğrula.",
+  title: "ispatla.tr — 𝕏 için AI kampanya çalışma alanı",
+  description: "Fikirlerini AI destekli kampanyalara dönüştür. Çoklu 𝕏 hesaplarını, içeriklerini ve MCP araçlarını tek çalışma alanında buluştur.",
   icons: SITE_ICON_METADATA,
 };
 
@@ -32,7 +32,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
     } catch { forceSystemTheme = true; }
   }
   return (
-    <html lang={locale} dir={direction} className="h-full antialiased" suppressHydrationWarning>
+    <html lang={locale} dir={direction} data-scroll-behavior="smooth" className="h-full antialiased" suppressHydrationWarning>
       <body className="min-h-full">
         <ThemeProvider forceSystemTheme={forceSystemTheme}>
           <TooltipProvider>
