@@ -5,7 +5,8 @@ import { postViewUrl } from "@/lib/post-url";
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Inbox, Plus, Save, Send, Sparkles, Trash2 } from "lucide-react";
+import { Inbox, Plus, Save, Send, Trash2 } from "lucide-react";
+import { AiIcon } from "@/components/ai-icon";
 import type { PgDraft as DraftRecord } from "@/server/postgres-drafts";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -240,7 +241,7 @@ export function DraftsPage({ initial, accounts, selectedDraftId, sourcePostId }:
         </CardHeader>
         <CardContent className="flex flex-col gap-5">
           <div className="flex flex-wrap gap-2">
-            <Button variant={composeMode === "generate" ? "secondary" : "outline"} onClick={() => setComposeMode("generate")}> <Sparkles data-icon="inline-start" aria-hidden="true" /> AI brief</Button>
+            <Button variant={composeMode === "generate" ? "secondary" : "outline"} onClick={() => setComposeMode("generate")}> <AiIcon size={16} className="mr-2" /> AI brief</Button>
             <Button variant={composeMode === "manual" ? "secondary" : "outline"} onClick={() => setComposeMode("manual")}>Manuel metin</Button>
           </div>
           {composeMode === "generate" ? (
@@ -295,7 +296,7 @@ export function DraftsPage({ initial, accounts, selectedDraftId, sourcePostId }:
             </Field>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Button onClick={createBatch} disabled={pending}>{pending ? <Spinner data-icon="inline-start" /> : <Sparkles data-icon="inline-start" aria-hidden="true" />} Batch üret</Button>
+            <Button onClick={createBatch} disabled={pending}>{pending ? <Spinner data-icon="inline-start" /> : <AiIcon size={16} className="mr-2" />} Batch üret</Button>
             <Button variant="secondary" onClick={queueBatch} disabled={pending || !batchDraftIds.length}><Send data-icon="inline-start" aria-hidden="true" /> Seçilen hesaplara kuyruğa al</Button>
           </div>
         </CardContent>
@@ -392,7 +393,7 @@ export function DraftsPage({ initial, accounts, selectedDraftId, sourcePostId }:
             {message && <Alert><AlertDescription>{message}</AlertDescription></Alert>}
             <div className="flex flex-wrap items-center gap-2">
               <Button onClick={save} disabled={pending}>{pending ? <Spinner data-icon="inline-start" /> : <Save data-icon="inline-start" aria-hidden="true" />} Kaydet</Button>
-              <Button variant="outline" onClick={generateFromMarket} disabled={pending}><Sparkles data-icon="inline-start" aria-hidden="true" /> Market varyantı</Button>
+              <Button variant="outline" onClick={generateFromMarket} disabled={pending}><AiIcon size={16} className="mr-2" /> Market varyantı</Button>
               <Button variant="secondary" onClick={queue} disabled={pending}><Send data-icon="inline-start" aria-hidden="true" /> Kuyruğa al</Button>
               <Button variant="destructive" onClick={removeDraft} disabled={pending || !form.id}><Trash2 data-icon="inline-start" aria-hidden="true" /> Sil</Button>
               <Badge variant="outline" className="gap-2"><Inbox aria-hidden="true" /> {form.status}</Badge>

@@ -3,7 +3,7 @@
 import { Dialog } from "@base-ui/react/dialog";
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { useRouter } from "next/navigation";
-import { Search, ArrowUp, ArrowDown, CornerDownLeft, X, Gauge, Users, BarChart3, Tag, FileKey2, Trophy, Sparkles, Settings2, UserRound, ShieldCheck, KeyRound, CalendarClock, BookOpen, FileText, LockKeyhole, Globe2, type LucideIcon } from "lucide-react";
+import { Search, ArrowUp, ArrowDown, CornerDownLeft, X, Gauge, Users, BarChart3, Tag, FileKey2, Trophy, Radar, ClipboardList, PenLine, Settings2, UserRound, ShieldCheck, KeyRound, CalendarClock, BookOpen, FileText, LockKeyhole, Globe2, type LucideIcon } from "lucide-react";
 import { DEFAULT_LOCALE, localizePath, type Locale } from "@/i18n/config";
 import { getDictionary } from "@/i18n/dictionaries";
 import { Button } from "@/components/ui/button";
@@ -19,8 +19,8 @@ const PAGE_DETAILS: Record<string, { icon: LucideIcon; en: string; tr: string }>
   categories: { icon: Tag, en: "Organize the topics used in your workspace.", tr: "Çalışma alanındaki konu kategorilerini düzenle." },
   drafts: { icon: FileText, en: "Create and edit posts before publishing.", tr: "Yayınlamadan önce gönderileri oluştur ve düzenle." },
   evaluation: { icon: Trophy, en: "Compare model quality with your own content.", tr: "Modellerin kalitesini kendi içeriklerinle karşılaştır." },
-  onboarding: { icon: Sparkles, en: "Finish connecting your accounts and preferences.", tr: "Hesap bağlantılarını ve tercihlerini tamamla." },
-  opportunities: { icon: Sparkles, en: "Find sourced topics worth responding to.", tr: "Yanıt vermeye değer, kaynaklı konuları bul." },
+  onboarding: { icon: ClipboardList, en: "Finish connecting your accounts and preferences.", tr: "Hesap bağlantılarını ve tercihlerini tamamla." },
+  opportunities: { icon: Radar, en: "Find sourced topics worth responding to.", tr: "Yanıt vermeye değer, kaynaklı konuları bul." },
   queue: { icon: CalendarClock, en: "Review posts scheduled for publication.", tr: "Yayınlanmak üzere sıraya alınan gönderileri incele." },
   settings: { icon: Settings2, en: "Manage your workspace preferences.", tr: "Çalışma alanı tercihlerini yönet." },
   appearance: { icon: Settings2, en: "Choose your theme and accent color.", tr: "Tema ve vurgu rengini seç." },
@@ -28,7 +28,7 @@ const PAGE_DETAILS: Record<string, { icon: LucideIcon; en: string; tr: string }>
   keys: { icon: KeyRound, en: "Connect AI providers and manage model access.", tr: "Yapay zekâ sağlayıcılarını bağla ve model erişimini yönet." },
   profile: { icon: UserRound, en: "Edit your public profile and sharing details.", tr: "Herkese açık profilini ve paylaşım bilgilerini düzenle." },
   security: { icon: ShieldCheck, en: "Manage sign-in and account security.", tr: "Oturum açma ve hesap güvenliğini yönet." },
-  style: { icon: Sparkles, en: "Tune the writing voice for your drafts.", tr: "Taslaklarının yazım tarzını belirle." },
+  style: { icon: PenLine, en: "Tune the writing voice for your drafts.", tr: "Taslaklarının yazım tarzını belirle." },
   sources: { icon: Globe2, en: "Review the sources connected to your accounts.", tr: "Hesaplarına bağlı kaynakları incele." },
   docs: { icon: BookOpen, en: "Read product guides and setup instructions.", tr: "Ürün kılavuzlarını ve kurulum yönergelerini oku." },
   "forgot-password": { icon: LockKeyhole, en: "Request a password reset link.", tr: "Şifre sıfırlama bağlantısı iste." },

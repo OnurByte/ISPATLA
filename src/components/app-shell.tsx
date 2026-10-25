@@ -7,7 +7,9 @@ import {
   FileKey2,
   Gauge,
   Settings2,
-  Sparkles,
+  Radar,
+  Tags,
+  PenLine,
   Users,
   Trophy,
   type LucideIcon,
@@ -88,17 +90,17 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const routePathname = stripLocalePrefix(pathname);
   const primaryNav: NavItem[] = [
     { href: "/dashboard", label: dict.nav.dashboard, icon: Gauge },
-    { href: "/opportunities", label: dict.nav.opportunities, icon: Sparkles },
+    { href: "/opportunities", label: dict.nav.opportunities, icon: Radar },
     { href: "/drafts", label: dict.nav.drafts, icon: FileKey2, children: [{ href: "/queue", label: dict.nav.queue, icon: FileKey2 }] },
     { href: "/leaderboard", label: dict.nav.leaderboard, icon: Trophy },
   ];
   const operationsNav: NavItem[] = [
-    { href: "/accounts", label: dict.nav.accounts, icon: Users, children: [{ href: "/sources", label: dict.nav.sources, icon: Users }, { href: "/categories", label: dict.nav.categories, icon: Sparkles }] },
+    { href: "/accounts", label: dict.nav.accounts, icon: Users, children: [{ href: "/sources", label: dict.nav.sources, icon: Users }, { href: "/categories", label: dict.nav.categories, icon: Tags }] },
     { href: "/analytics", label: dict.nav.analytics, icon: BarChart3, children: [{ href: "/evaluation", label: dict.nav.evaluation, icon: Trophy }] },
   ];
   const settingsNav: NavItem[] = [{ href: "/settings", label: dict.nav.settings, icon: Settings2, children: [
     { href: "/settings/appearance", label: dict.nav.appearance, icon: Settings2 },
-    { href: "/settings/style", label: dict.nav.style, icon: Sparkles },
+    { href: "/settings/style", label: dict.nav.style, icon: PenLine },
     { href: "/settings/security", label: dict.nav.security, icon: FileKey2 },
     { href: "/settings/keys", label: dict.nav.keys, icon: FileKey2 },
     { href: "/settings/automation", label: dict.nav.automation, icon: Gauge },

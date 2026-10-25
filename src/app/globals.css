@@ -168,10 +168,7 @@
 :root { --accent: color-mix(in srgb, var(--primary) 14%, var(--background)); --accent-foreground: var(--primary); --sidebar-accent: color-mix(in srgb, var(--sidebar-primary) 14%, var(--sidebar)); --sidebar-accent-foreground: var(--foreground); }
 :root { --swatch-blue: #315bf5; --swatch-green: #20804d; --swatch-orange: #b45309; --swatch-violet: #7048d8; --swatch-rose: #b33358; }
 
-.brand-gradient-mark { background: linear-gradient(135deg, var(--brand-start, #315bf5), var(--brand-mid, #12a89d), var(--brand-end, #f08b3e)); }
-.brand-gradient-text { background-image: linear-gradient(105deg, var(--brand-start, #315bf5), var(--brand-mid, #12a89d), var(--brand-end, #f08b3e)); background-clip: text; color: transparent; }
-.brand-gradient-mark, .brand-gradient-text { background-size: 200% 200%; animation: brand-gradient 8s ease-in-out infinite alternate; }
-@keyframes brand-gradient { from { background-position: 0% 50%; } to { background-position: 100% 50%; } }
+.brand-mark { background-color: currentColor; }
 [data-slot="sidebar-menu-button"] svg { transition: transform 180ms ease; }
 [data-slot="sidebar-menu-button"]:hover svg { transform: rotate(-3deg) scale(1.06); }
 [data-slot="sidebar-menu-button"]:active svg { transform: scale(0.96); }

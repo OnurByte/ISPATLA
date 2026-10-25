@@ -7,16 +7,12 @@ export type MotionPreference = "system" | "reduce";
 export function isDarkAppearance(theme: Theme, systemPrefersDark: boolean): boolean {
   return theme === "dark" || (theme === "system" && systemPrefersDark);
 }
-export function paintBrandFavicon(context: CanvasRenderingContext2D, image: CanvasImageSource, dark: boolean, brandStart: string, brandMid: string, brandEnd: string) {
+export function paintBrandFavicon(context: CanvasRenderingContext2D, image: CanvasImageSource, dark: boolean) {
   context.clearRect(0, 0, 64, 64);
   context.globalCompositeOperation = "source-over";
   context.drawImage(image, 0, 0, 64, 64);
   context.globalCompositeOperation = "source-in";
-  const gradient = context.createLinearGradient(0, 0, 64, 64);
-  gradient.addColorStop(0, brandStart);
-  gradient.addColorStop(0.5, brandMid);
-  gradient.addColorStop(1, brandEnd);
-  context.fillStyle = gradient;
+  context.fillStyle = dark ? "#ffffff" : "#1a1a1a";
   context.fillRect(0, 0, 64, 64);
   context.globalCompositeOperation = "destination-over";
   context.fillStyle = dark ? "#000000" : "#ffffff";
@@ -89,14 +85,10 @@ export function ThemeProvider({ children, forceSystemTheme = false }: { children
       canvas.width = canvas.height = 64;
       const context = canvas.getContext("2d");
       if (!context) return;
-      const colors = getComputedStyle(document.documentElement);
       paintBrandFavicon(
         context,
         image,
         dark,
-        colors.getPropertyValue("--brand-start").trim() || "#315bf5",
-        colors.getPropertyValue("--brand-mid").trim() || "#12a89d",
-        colors.getPropertyValue("--brand-end").trim() || "#f08b3e",
       );
       const favicon = document.querySelector<HTMLLinkElement>("#ispatla-accent-icon") || document.createElement("link");
       favicon.id = "ispatla-accent-icon";
@@ -114,7 +106,7 @@ export function ThemeProvider({ children, forceSystemTheme = false }: { children
     };
     image.onload = drawFavicon;
     if (effectiveTheme === "system") media.addEventListener("change", drawFavicon);
-    image.src = "/brand/ispatla-symbol.png";
+    image.src = "/brand/logo.svg";
     return () => { cancelled = true; observer?.disconnect(); media.removeEventListener("change", drawFavicon); };
   }, [accent, effectiveTheme]);
 

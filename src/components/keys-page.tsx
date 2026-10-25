@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
-import { BrainCircuit, KeyRound, LockKeyhole, Save, Trash2 } from "lucide-react";
+import { KeyRound, LockKeyhole, Save, Trash2 } from "lucide-react";
+import { AiIcon } from "@/components/ai-icon";
 import { Alert, AlertAction, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -274,7 +275,7 @@ export function KeysPage({ initialKeys, initialVaultReady, initialAi }: { initia
       <Card>
         <CardHeader className="flex-row items-start justify-between gap-4">
           <div className="flex items-start gap-3">
-            <BrainCircuit aria-hidden="true" />
+            <AiIcon size={20} />
             <div>
               <CardTitle>AI sağlayıcısı ve model</CardTitle>
           <CardDescription>Hesabını bağla, kullanacağın modeli seç ve bağlantıyı doğrula.</CardDescription>
@@ -346,7 +347,7 @@ export function KeysPage({ initialKeys, initialVaultReady, initialAi }: { initia
               {pending === "ai" ? <Spinner data-icon="inline-start" /> : <Save data-icon="inline-start" aria-hidden="true" />} AI ayarını kaydet
             </Button>
             <Button variant="outline" onClick={() => void testConnection()} disabled={!canTestConnection || ai.runtimeAvailable === false}>
-              {pending === "connection-test" ? <Spinner data-icon="inline-start" /> : <BrainCircuit data-icon="inline-start" aria-hidden="true" />} Bağlantıyı test et
+              {pending === "connection-test" ? <Spinner data-icon="inline-start" /> : <AiIcon size={16} className="mr-2" />} Bağlantıyı test et
             </Button>
           </div>
           <p className="text-sm text-muted-foreground">Test, kaydedilmiş sağlayıcı ve anahtarla tek bir küçük yapılandırılmış yanıt isteği gönderir; sağlayıcı ücret yansıtabilir.</p>

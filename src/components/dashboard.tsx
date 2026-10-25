@@ -3,7 +3,9 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { internalPostUrl } from "@/lib/post-url";
-import { Activity, ArrowUpRight, Bot, CheckCircle2, CircleAlert, Database, ExternalLink, FileText, RefreshCw, Send, ShieldCheck, Sparkles, TimerReset } from "lucide-react";
+import { Activity, ArrowUpRight, CheckCircle2, CircleAlert, Database, ExternalLink, FileText, Radar, RefreshCw, Send, ShieldCheck, TimerReset } from "lucide-react";
+import type { ComponentType } from "react";
+import { AiIcon } from "@/components/ai-icon";
 import type { RecentPost } from "@/server/db-types";
 import type { DashboardView } from "@/server/dashboard";
 import { ActivityChart } from "@/components/activity-chart";
@@ -46,7 +48,7 @@ function PostRow({ post }: { post: RecentPost }) {
   );
 }
 
-function MetricCard({ icon: Icon, label, value, detail, href }: { icon: typeof Activity; label: string; value: string | number; detail: string; href?: string }) {
+function MetricCard({ icon: Icon, label, value, detail, href }: { icon: ComponentType<{ className?: string }>; label: string; value: string | number; detail: string; href?: string }) {
   const card = (
     <Card className={href ? "transition-colors hover:border-primary/50" : undefined}>
       <CardHeader className="flex-row items-start justify-between gap-4 pb-3">
@@ -54,7 +56,7 @@ function MetricCard({ icon: Icon, label, value, detail, href }: { icon: typeof A
           <CardDescription>{label}</CardDescription>
           <CardTitle className="text-3xl tabular-nums">{value}</CardTitle>
         </div>
-        <Icon className="size-5 text-muted-foreground" aria-hidden="true" />
+        <Icon className="size-5 text-muted-foreground" />
       </CardHeader>
       <CardContent className="text-xs text-muted-foreground">{detail}</CardContent>
     </Card>
@@ -123,9 +125,9 @@ export function Dashboard({ initial, canRunScan }: { initial: DashboardView; can
         </section>
 
         <section className="grid gap-4 sm:grid-cols-2" aria-label="İçeriklerin ve bağlantıların">
-          <MetricCard icon={Sparkles} label="Senin için fırsatlar" value={summary.opportunities} detail="Kaynak ve uygunluk kanıtını incele" href="/opportunities" />
+          <MetricCard icon={Radar} label="Senin için fırsatlar" value={summary.opportunities} detail="Kaynak ve uygunluk kanıtını incele" href="/opportunities" />
           <MetricCard icon={Send} label="Yayın sonuçların" value={summary.publishedConfirmed} detail="Yayın makbuzu doğrulandı; performans metrikleri ayrıca gözlenir" href="/analytics" />
-          <MetricCard icon={Bot} label="AI sağlayıcın" value={!summary.aiEnabled ? "Kapalı" : summary.aiConfigured ? "Yapılandırıldı" : "Bağlantı gerekli"} detail="Kendi anahtarını yönet ve bağlantıyı test et" href="/settings/keys" />
+          <MetricCard icon={AiIcon} label="AI sağlayıcın" value={!summary.aiEnabled ? "Kapalı" : summary.aiConfigured ? "Yapılandırıldı" : "Bağlantı gerekli"} detail="Kendi anahtarını yönet ve bağlantıyı test et" href="/settings/keys" />
           <MetricCard icon={ShieldCheck} label="Bağlı 𝕏 hesapların" value={summary.officialX.connectedAccounts} detail="Bağlantı, konular ve izinlerini yönet" href="/accounts" />
         </section>
         <Card><CardHeader><CardTitle>Taslakların</CardTitle><CardDescription>Son üç taslağın. Düzenlemek ve yayına hazırlamak için taslak masanı aç.</CardDescription></CardHeader><CardContent className="space-y-4">
@@ -137,7 +139,7 @@ export function Dashboard({ initial, canRunScan }: { initial: DashboardView; can
         <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4" aria-label="Teknik metrikler">
           <MetricCard icon={Database} label="Kaynaklar" value={`${summary.sourcesObserved}/${summary.sourcesConfigured}`} detail="Enabled config / state içinde görülen" />
           <MetricCard icon={Activity} label="Gözlenen post" value={summary.postsObserved} detail={`${summary.postsLast24h} son 24 saatte`} />
-          <MetricCard icon={Sparkles} label="Fırsatlar" value={summary.opportunities} detail="Skor ≥ 70, sensitive değil · listeyi aç" href="/opportunities" />
+          <MetricCard icon={Radar} label="Fırsatlar" value={summary.opportunities} detail="Skor ≥ 70, sensitive değil · listeyi aç" href="/opportunities" />
           <MetricCard icon={Send} label="Reconciliation kuyruğu" value={summary.attemptsPending} detail={`${summary.publishedConfirmed} confirmed · ${summary.publishBlocked} blocked`} />
         </section>
 
@@ -171,7 +173,7 @@ export function Dashboard({ initial, canRunScan }: { initial: DashboardView; can
             <CardContent className="flex flex-col gap-4">
               <div className="flex flex-wrap items-center justify-between gap-4"><span className="flex items-center gap-2 text-sm"><TimerReset className="size-4 text-muted-foreground" aria-hidden="true" /> Radar</span><Badge variant={summary.automationRuntime.healthy ? "default" : "outline"}>{summary.automationRuntime.healthy ? `${summary.automationRuntime.owner} heartbeat ${summary.automationRuntime.lagSeconds} sn önce` : "çalışmıyor · heartbeat yok"}</Badge></div>
               <Separator />
-              <div className="flex items-center justify-between gap-4"><span className="flex items-center gap-2 text-sm"><Bot className="size-4 text-muted-foreground" aria-hidden="true" /> {summary.aiProvider === "codex" ? "Codex" : summary.aiProvider === "compatible" ? "Özel AI endpoint" : summary.aiProvider === "chatgpt" ? "ChatGPT planı" : summary.aiProvider === "anthropic" ? "Claude API" : "OpenAI Responses"}</span><Badge variant={!summary.aiEnabled ? "secondary" : summary.aiConfigured ? "default" : "destructive"}>{!summary.aiEnabled ? "kapalı" : summary.aiConfigured ? "hazır" : summary.aiProvider === "codex" ? "login yok" : "key / endpoint yok"}</Badge></div>
+              <div className="flex items-center justify-between gap-4"><span className="flex items-center gap-2 text-sm"><AiIcon size={16} className="text-muted-foreground" /> {summary.aiProvider === "codex" ? "Codex" : summary.aiProvider === "compatible" ? "Özel AI endpoint" : summary.aiProvider === "chatgpt" ? "ChatGPT planı" : summary.aiProvider === "anthropic" ? "Claude API" : "OpenAI Responses"}</span><Badge variant={!summary.aiEnabled ? "secondary" : summary.aiConfigured ? "default" : "destructive"}>{!summary.aiEnabled ? "kapalı" : summary.aiConfigured ? "hazır" : summary.aiProvider === "codex" ? "login yok" : "key / endpoint yok"}</Badge></div>
               <div className="flex items-center justify-between gap-4"><span className="flex items-center gap-2 text-sm"><Send className="size-4 text-muted-foreground" aria-hidden="true" /> Official 𝕏 grant</span><Badge variant={summary.officialX.postWriteReadyAccounts ? "default" : "secondary"}>{summary.officialX.postWriteReadyAccounts} write hazır</Badge></div>
               <div className="flex items-center justify-between gap-4"><span className="flex items-center gap-2 text-sm"><ShieldCheck className="size-4 text-muted-foreground" aria-hidden="true" /> Publisher yapılandırması</span><Badge variant={summary.officialPublisherConfigured ? "default" : "destructive"}>{summary.officialPublisherConfigured ? "sunucu hazır" : "sunucu yapılandırması eksik"}</Badge></div>
               <div className="flex items-center justify-between gap-4"><span className="flex items-center gap-2 text-sm"><ShieldCheck className="size-4 text-muted-foreground" aria-hidden="true" /> Açık Auto post izni</span><Badge variant={summary.officialX.autoConsentedPostAccounts ? "default" : "secondary"}>{summary.officialX.autoConsentedPostAccounts} hesap · {summary.officialX.connectedAccounts} bağlı</Badge></div>

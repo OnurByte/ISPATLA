@@ -1,9 +1,10 @@
 "use client";
 
-import { useId, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import type { Locale } from "@/i18n/config";
 import type { CampaignLandingCopy } from "@/i18n/campaign-landing-types";
 import { BrandMark } from "@/components/brand-logo";
+import { AiIcon } from "@/components/ai-icon";
 import { trackLandingEvent } from "@/lib/landing-measurement";
 import "./campaign-preview.css";
 
@@ -58,7 +59,6 @@ export function CampaignPreview({ locale, copy }: { locale: Locale; copy: Campai
   const [account, setAccount] = useState(0);
   const started = useRef(false);
   const completed = useRef(false);
-  const gradientId = useId().replaceAll(":", "");
   const demo = DEMO[period];
   const number = new Intl.NumberFormat(locale);
   const percent = new Intl.NumberFormat(locale, { style: "percent", maximumFractionDigits: 1 });
@@ -134,14 +134,7 @@ export function CampaignPreview({ locale, copy }: { locale: Locale; copy: Campai
 
             <figure className="campaign-preview__chart">
               <svg viewBox="0 0 760 260" role="img" aria-label={copy.chartDescription}>
-                <defs>
-                  <linearGradient id={`campaign-fill-${gradientId}`} x1="0" x2="0" y1="0" y2="1">
-                    <stop offset="0%" stopColor={CHART_COLORS[0]} stopOpacity=".19" />
-                    <stop offset="100%" stopColor={CHART_COLORS[0]} stopOpacity="0" />
-                  </linearGradient>
-                </defs>
                 {[42, 86, 130, 174, 218].map((y) => <path key={y} d={`M38 ${y}H722`} className="campaign-preview__gridline" />)}
-                <path d={`${campaignChartPath(demo.series[0])} L722 220 L38 220 Z`} fill={`url(#campaign-fill-${gradientId})`} />
                 {demo.series.map((series, index) => (
                   <g key={index}>
                     <path d={campaignChartPath(series)} fill="none" stroke={CHART_COLORS[index]} strokeWidth={index === 0 ? 3 : 2.5} strokeLinecap="round" strokeLinejoin="round" opacity={index === 0 ? 1 : 0.8} />
@@ -178,10 +171,10 @@ export function CampaignPreview({ locale, copy }: { locale: Locale; copy: Campai
 
           <aside className="campaign-preview__brief">
             <div className="campaign-preview__section-head campaign-preview__brief-head">
-              <h3>{copy.topicLabel}</h3><span className="campaign-preview__brief-icon" aria-hidden="true">✳</span>
+              <h3>{copy.topicLabel}</h3>
             </div>
             <p className="campaign-preview__topic">{copy.topic}</p>
-            <div className="campaign-preview__ai-heading"><span className="campaign-preview__ai-spark" aria-hidden="true">✦</span><h3>{copy.aiLabel}</h3></div>
+            <div className="campaign-preview__ai-heading"><AiIcon size={17} aria-hidden="true" /><h3>{copy.aiLabel}</h3></div>
             <div className="campaign-preview__review">
               <span className="campaign-preview__review-label">{copy.reviewLabel}</span>
               <div className="campaign-preview__review-switch" role="group" aria-label={copy.reviewLabel}>

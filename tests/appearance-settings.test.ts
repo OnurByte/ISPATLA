@@ -8,7 +8,7 @@ test("theme selection resolves the matching light or dark favicon surface", () =
   expect(isDarkAppearance("system", false)).toBe(false);
 });
 
-test("favicon composition keeps a transparent corner on the selected black or white surface", () => {
+test("favicon uses a flat logo foreground with contrast on the selected black or white surface", () => {
   class PixelCanvas {
     pixels = Array.from({ length: 4 }, () => ({ color: "transparent", alpha: 0 }));
     globalCompositeOperation: GlobalCompositeOperation = "source-over";
@@ -27,14 +27,14 @@ test("favicon composition keeps a transparent corner on the selected black or wh
   }
 
   const darkCanvas = new PixelCanvas();
-  paintBrandFavicon(darkCanvas as unknown as CanvasRenderingContext2D, {} as CanvasImageSource, true, "#315bf5", "#12a89d", "#f08b3e");
+  paintBrandFavicon(darkCanvas as unknown as CanvasRenderingContext2D, {} as CanvasImageSource, true);
   expect(darkCanvas.pixels[0]).toEqual({ color: "#000000", alpha: 1 });
-  expect(darkCanvas.pixels[3]).toEqual({ color: "#315bf5", alpha: 1 });
+  expect(darkCanvas.pixels[3]).toEqual({ color: "#ffffff", alpha: 1 });
 
   const lightCanvas = new PixelCanvas();
-  paintBrandFavicon(lightCanvas as unknown as CanvasRenderingContext2D, {} as CanvasImageSource, false, "#315bf5", "#12a89d", "#f08b3e");
+  paintBrandFavicon(lightCanvas as unknown as CanvasRenderingContext2D, {} as CanvasImageSource, false);
   expect(lightCanvas.pixels[0]).toEqual({ color: "#ffffff", alpha: 1 });
-  expect(lightCanvas.pixels[3]).toEqual({ color: "#315bf5", alpha: 1 });
+  expect(lightCanvas.pixels[3]).toEqual({ color: "#1a1a1a", alpha: 1 });
 });
 
 test("appearance preferences accept only known values and preserve the existing theme key", () => {

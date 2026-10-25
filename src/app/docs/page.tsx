@@ -31,7 +31,7 @@ export default async function DocsPage() {
       <PublicSection id="mcp" title={mcpCopy.title}>
         <p>{mcpCopy.body}</p>
         <p>{mcpCopy.secret}</p>
-        <pre dir="ltr" className="overflow-x-auto rounded-md border bg-muted/40 p-4 font-mono text-xs text-foreground">ISPATLA_MCP_SESSION_COOKIE="&lt;your-session-cookie&gt;" bun run mcp</pre>
+        <pre dir="ltr" className="overflow-x-auto rounded-md border bg-muted/40 p-4 font-mono text-xs text-foreground">{'ISPATLA_MCP_SESSION_COOKIE="<your-session-cookie>" bun run mcp'}</pre>
         <p><a className="underline underline-offset-4" href={`${repo}/blob/main/README.md`} target="_blank" rel="noopener noreferrer">{locale === "tr" ? "MCP kurulum ayrıntıları" : "MCP setup details"}</a></p>
       </PublicSection>
     </div>
