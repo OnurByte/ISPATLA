@@ -21,9 +21,8 @@
   margin-inline: auto;
   overflow: hidden;
   border: 1px solid #354252;
-  border-radius: 18px;
+  border-radius: 10px;
   background: var(--preview-bg);
-  box-shadow: 0 28px 76px rgb(8 13 21 / 24%);
 }
 
 .campaign-preview__topbar,
@@ -108,17 +107,16 @@
 .campaign-preview__spark { width: 54px; height: 20px; }
 
 .campaign-preview__brief { padding: 18px; }
-.campaign-preview__brief-icon { display: grid; width: 25px; height: 25px; flex: none; place-items: center; border: 1px solid #39476b; border-radius: 7px; color: #aebeff; font-size: 15px; }
 .campaign-preview__topic { min-height: 52px; margin: 12px 0 17px; color: #edf0f4; font-family: inherit; font-size: 17px; line-height: 1.45; }
 .campaign-preview__ai-heading { display: flex; align-items: center; gap: 8px; padding-top: 13px; border-top: 1px solid var(--preview-line); }
 .campaign-preview__ai-heading h3 { margin: 0; color: #c9d3de; font-size: 11px; font-weight: 600; line-height: 1.4; }
-.campaign-preview__ai-spark { color: #aebeff; font-size: 15px; }
+.campaign-preview__ai-heading > span { flex: none; color: #aebeff; }
 .campaign-preview__review { align-items: flex-start; gap: 10px; margin-top: 14px; }
 .campaign-preview__review-label { padding-top: 5px; color: var(--preview-muted); font-size: 9px; line-height: 1.35; }
 .campaign-preview__review-switch { padding: 2px; }
-.campaign-preview__review-switch button { min-width: 0; min-height: 36px; padding-inline: 10px; font-size: 9px; }
+.campaign-preview__review-switch button { min-width: 0; min-height: 44px; padding-inline: 10px; font-size: 9px; }
 .campaign-preview__account-select { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 5px; margin-top: 10px; }
-.campaign-preview__account-select button { min-width: 0; min-height: 38px; padding: 5px 6px; overflow: hidden; border: 1px solid #344152; border-radius: 7px; background: #141c27; color: #aeb9c6; cursor: pointer; font: inherit; font-size: 9px; line-height: 1.25; text-overflow: ellipsis; }
+.campaign-preview__account-select button { min-width: 0; min-height: 44px; padding: 5px 6px; overflow: hidden; border: 1px solid #344152; border-radius: 7px; background: #141c27; color: #aeb9c6; cursor: pointer; font: inherit; font-size: 9px; line-height: 1.25; text-overflow: ellipsis; }
 .campaign-preview__account-select button[aria-pressed="true"] { border-color: #526aa0; background: #263550; color: #e3eaff; }
 .campaign-preview__drafts { display: grid; gap: 7px; margin-top: 10px; }
 .campaign-preview__draft { padding: 10px 11px 11px; border: 1px solid #303c4c; border-radius: 9px; background: var(--preview-surface-raised); }
@@ -141,7 +139,7 @@
 }
 
 @media (max-width: 560px) {
-  .campaign-preview__frame { border-radius: 13px; }
+  .campaign-preview__frame { border-radius: 10px; }
   .campaign-preview__topbar { min-height: 54px; padding: 10px 13px; }
   .campaign-preview__sample { max-width: 67%; padding: 6px 8px; font-size: 9px; }
   .campaign-preview__heading { align-items: flex-start; flex-direction: column; gap: 12px; padding: 16px 13px 12px; }

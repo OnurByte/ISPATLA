@@ -146,7 +146,7 @@ test("public product-tour navigation shares the brand and preserves every locale
   for (const locale of LOCALES) {
     const markup = renderToStaticMarkup(createElement(PublicHeaderContent, { locale, current: "docs", authenticated: false }));
     expect(markup).toContain("ispatla.tr");
-    expect(markup).toContain("/brand/ispatla-symbol.png");
+    expect(markup).toContain("/brand/logo.svg");
     expect(markup).toContain(`href="${localizePath(locale, "/")}"`);
     for (const route of ["/docs", "/login", "/signup"]) expect(markup).toContain(`href="${localizePath(locale, route)}"`);
     const tourLink = markup.match(/<a\b[^>]*>/g)?.find((tag) => tag.includes(`href="${localizePath(locale, "/docs")}"`));

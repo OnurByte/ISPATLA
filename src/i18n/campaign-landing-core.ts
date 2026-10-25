@@ -4,8 +4,8 @@ export const campaignLandingCore: Record<"tr" | "en", CampaignLandingCopy> = {
   tr: {
     nav: { product: "Ürün", mcp: "MCP", faq: "Sorular", login: "Giriş yap", start: "Başla", dashboard: "Çalışma alanı", menu: "Ana menü" },
     eyebrow: "𝕏 İÇİN AI KAMPANYA ÇALIŞMA ALANI",
-    headline: "Gündemi yakala.", headlineAccent: "Etkiyi çoğalt.",
-    intro: "Bir konu. Birden fazla hesap. ispatla.tr ile fikirlerini AI destekli kampanyalara dönüştür, içeriklerini birlikte hazırla ve hesaplarını tek yerden yönet.",
+    headline: "Algoritmaya tapma.", headlineAccent: "İspatla.",
+    intro: "𝕏 kaynaklarını incele, hesaplarına uygun konuları seç ve AI ile taslak hazırla. İçeriklerini tek tek ya da birlikte gözden geçir.",
     primaryCta: "Çalışma alanını aç", secondaryCta: "Nasıl çalışır?", heroNote: "Çoklu hesap · AI ile içerik · MCP entegrasyonu",
     audienceLabel: "Tek hesaptan daha büyük düşünenler için.", audiences: ["Markalar", "İçerik ekipleri", "Ajanslar"],
     preview: {
@@ -18,8 +18,8 @@ export const campaignLandingCore: Record<"tr" | "en", CampaignLandingCopy> = {
       ready: "Taslak", reviewLabel: "İnceleme görünümü", individual: "Tek tek", bulk: "Toplu", individualNote: "Her hesabın içeriğine ayrı ayrı odaklan.", bulkNote: "Seçili içerikleri aynı görünümde karşılaştır.",
     },
     workflow: {
-      eyebrow: "FİKİRDEN KAMPANYAYA", title: "Aynı hedef. Daha geniş bir etki alanı.",
-      intro: "Hesaplar arasında kaybolma. Konuyu, içerikleri ve ekibinin bir sonraki adımını aynı çalışma alanında buluştur.",
+      eyebrow: "NASIL ÇALIŞIR?", title: "Konuyu seç. Her hesap için yaz.",
+      intro: "Kaynaklar, hesaplar ve düzenlenebilir taslaklar aynı çalışma alanında.",
       steps: [
         { title: "Konuyu belirle.", body: "Gündemdeki bir konuşmadan, bir kaynaktan veya kendi brief'inden başla. Kampanyanın yönünü sen belirle." },
         { title: "Hesaplarını bir araya getir.", body: "Hedef hesapları seç. AI ile aynı fikir için farklı açılar üret, taslakları birlikte düzenle." },
@@ -27,11 +27,11 @@ export const campaignLandingCore: Record<"tr" | "en", CampaignLandingCopy> = {
       ],
     },
     mcp: {
-      eyebrow: "AGENTIC ÇALIŞMA · MCP", title: "AI asistanın da ekibe katılsın.",
+      eyebrow: "MCP BAĞLANTISI", title: "Kendi AI araçlarınla çalış.",
       intro: "MCP ile ispatla.tr'yi araç destekleyen AI asistanına bağla. Fırsatları incele, birden fazla hesap için taslak hazırla ve iş akışını konuşarak yönet.",
       cta: "MCP bağlantısını keşfet", prompt: "Bu konuyu üç hesabımız için farklı açılardan hazırla.", response: "Hesapları ve brief'i kullanarak taslakları hazırlayabilirim.",
       steps: ["Fırsatları incele", "Hesaplara taslak üret", "Yayın işlerini takip et"],
-      note: "Kendi çalışma alanın. Kendi AI araçların. Tek bir bağlantı standardı.",
+      note: "Yerel stdio bağlantısı. Uygulama oturumun ve hesap izinlerin geçerli.",
     },
     faqTitle: "Aklındaki sorular.",
     faqs: [
@@ -39,14 +39,14 @@ export const campaignLandingCore: Record<"tr" | "en", CampaignLandingCopy> = {
       { question: "AI içerik üretiminin neresinde?", answer: "AI, brief'ini taslaklara dönüştürür ve farklı anlatım açıları hazırlamana yardımcı olur. Metinler düzenlenebilir; hangi hesapla ve nasıl ilerleyeceğini sen belirlersin." },
       { question: "MCP ile neler yapabilirim?", answer: "MCP sunucusu fırsatları inceleme, kaynakları listeleme, taslak üretme ve yayın işlerini yönetme araçlarını sunar. Yerel bağlantı için kurulum rehberini kullanabilirsin. Yayın işlemleri hesabının izinlerine ve etkin iş akışına bağlıdır." },
     ],
-    closing: { title: "Bir sonraki konuşmada yerini al.", body: "Fikirlerini, hesaplarını ve AI araçlarını ispatla.tr'de buluştur.", cta: "ispatla.tr ile başla" },
+    closing: { title: "Ne paylaşacağına sen karar ver.", body: "Kaynağı incele. Taslağı düzenle. Hesabının sesini koru.", cta: "ispatla.tr ile başla" },
     footerNote: "𝕏 için AI destekli kampanya çalışma alanı.",
   },
   en: {
     nav: { product: "Product", mcp: "MCP", faq: "FAQ", login: "Sign in", start: "Get started", dashboard: "Workspace", menu: "Main menu" },
     eyebrow: "THE AI CAMPAIGN WORKSPACE FOR 𝕏",
     headline: "Catch the conversation.", headlineAccent: "Multiply your impact.",
-    intro: "One topic. Multiple accounts. Turn ideas into AI-assisted campaigns with ispatla.tr. Create content together and manage your accounts in one place.",
+    intro: "Inspect 𝕏 sources, choose topics for your accounts and prepare drafts with AI. Review each account separately or compare drafts together.",
     primaryCta: "Open your workspace", secondaryCta: "See how it works", heroNote: "Multiple accounts · AI content · MCP integration",
     audienceLabel: "For ambitions bigger than one account.", audiences: ["Brands", "Content teams", "Agencies"],
     preview: {
@@ -59,8 +59,8 @@ export const campaignLandingCore: Record<"tr" | "en", CampaignLandingCopy> = {
       ready: "Draft", reviewLabel: "Review view", individual: "Individual", bulk: "Together", individualNote: "Focus on each account's content individually.", bulkNote: "Compare selected content in a shared view.",
     },
     workflow: {
-      eyebrow: "FROM IDEA TO CAMPAIGN", title: "One direction. A wider reach.",
-      intro: "Stop getting lost between accounts. Bring the topic, the content and your team's next move into one workspace.",
+      eyebrow: "HOW IT WORKS", title: "Choose a topic. Write for each account.",
+      intro: "Keep your sources, accounts and editable drafts in one workspace.",
       steps: [
         { title: "Choose your topic.", body: "Start with a conversation, a source or your own brief. Set the direction for your campaign." },
         { title: "Bring your accounts together.", body: "Choose your accounts. Use AI to explore different angles on one idea, then edit the drafts together." },
@@ -68,11 +68,11 @@ export const campaignLandingCore: Record<"tr" | "en", CampaignLandingCopy> = {
       ],
     },
     mcp: {
-      eyebrow: "AGENTIC WORKFLOWS · MCP", title: "Your AI assistant belongs on the team.",
+      eyebrow: "MCP CONNECTION", title: "Work with your own AI tools.",
       intro: "Connect ispatla.tr to your tool-enabled AI assistant with MCP. Inspect opportunities, prepare drafts for multiple accounts and manage your workflow through conversation.",
       cta: "Explore the MCP connection", prompt: "Give this topic a different angle for each of our three accounts.", response: "I can use your accounts and brief to prepare the drafts.",
       steps: ["Inspect opportunities", "Draft for your accounts", "Track publication work"],
-      note: "Your workspace. Your AI tools. One connection standard.",
+      note: "A local stdio connection, using your application session and account permissions.",
     },
     faqTitle: "Good questions.",
     faqs: [
@@ -80,7 +80,7 @@ export const campaignLandingCore: Record<"tr" | "en", CampaignLandingCopy> = {
       { question: "Where does AI fit in?", answer: "AI turns your brief into drafts and helps you explore different angles. The text stays editable; you decide which accounts to use and how to proceed." },
       { question: "What can I do with MCP?", answer: "The MCP server offers tools to inspect opportunities, list sources, generate drafts and manage publication work. Follow the guide for a local connection. Publication actions depend on account permissions and the enabled workflow." },
     ],
-    closing: { title: "Be part of the next conversation.", body: "Bring your ideas, accounts and AI tools together in ispatla.tr.", cta: "Get started with ispatla.tr" },
+    closing: { title: "You decide what to publish.", body: "Check the source. Edit the draft. Keep your account's voice.", cta: "Get started with ispatla.tr" },
     footerNote: "The AI-assisted campaign workspace for 𝕏.",
   },
 };

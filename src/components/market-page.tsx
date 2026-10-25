@@ -5,7 +5,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { internalPostUrl } from "@/lib/post-url";
 import { useRouter } from "next/navigation";
-import { ArrowUpRight, BrainCircuit, FilePenLine, RefreshCw, Sparkles } from "lucide-react";
+import { ArrowUpRight, FilePenLine, Info, RefreshCw } from "lucide-react";
+import { AiIcon } from "@/components/ai-icon";
 import type { Account, MarketInbox, MarketItem, MarketView } from "@/server/db-types";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -85,7 +86,7 @@ function OpportunityCard({ item, accountId, pending, onGenerate }: { item: Marke
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0 truncate text-xs text-muted-foreground" title={item.scoreEvidence.reason || "deterministik skor"}><span className="font-medium text-foreground">{item.scoreEvidence.kind}</span>{item.scoreEvidence.reason ? <span> · {item.scoreEvidence.reason}</span> : null}</div>
         {canGenerate ? <div className="flex flex-wrap gap-2">
-          <Button size="sm" variant="outline" onClick={() => onGenerate(item.externalId, null, "example")} disabled={Boolean(pending)}>{pending === `${item.externalId}:example` ? <Spinner data-icon="inline-start" /> : <Sparkles data-icon="inline-start" aria-hidden="true" />}Örnek post oluştur</Button>
+          <Button size="sm" variant="outline" onClick={() => onGenerate(item.externalId, null, "example")} disabled={Boolean(pending)}>{pending === `${item.externalId}:example` ? <Spinner data-icon="inline-start" /> : <AiIcon size={16} className="mr-2" />}Örnek post oluştur</Button>
           <Button size="sm" onClick={() => onGenerate(item.externalId, accountId || null, "post")} disabled={!accountId || Boolean(pending)}>{pending === `${item.externalId}:post` ? <Spinner data-icon="inline-start" /> : <FilePenLine data-icon="inline-start" aria-hidden="true" />}Post oluştur</Button>
         </div> : null}
       </div>
@@ -142,7 +143,7 @@ export function MarketPage({ initial, accounts }: { initial: MarketInbox & { sca
 
   return <div className="flex flex-col gap-5">
     {initial.scanAvailable === false ? <Alert><AlertDescription>Kaynak tarama worker&apos;ının PostgreSQL geçişi tamamlanmadı. Bu görünümde henüz PostgreSQL gözlemleri var; eski arşiv kullanılmıyor.</AlertDescription></Alert> : null}
-    <Alert><BrainCircuit aria-hidden="true" /><AlertDescription>Fırsat, son 24 saatte oluşturulmuş; sensitive olmayan; işlenmemiş ve karar skoru ≥ 70 olan kaynak postudur. Hız ve takipçi oranı FxTwitter&apos;dan gelen gözlenen sayaçlardır; skor 𝕏&apos;in iç sıralaması veya erişim garantisi değildir.</AlertDescription></Alert>
+    <Alert><Info aria-hidden="true" /><AlertDescription>Fırsat, son 24 saatte oluşturulmuş; sensitive olmayan; işlenmemiş ve karar skoru ≥ 70 olan kaynak postudur. Hız ve takipçi oranı FxTwitter&apos;dan gelen gözlenen sayaçlardır; skor 𝕏&apos;in iç sıralaması veya erişim garantisi değildir.</AlertDescription></Alert>
     <Card>
       <CardHeader className="gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div><CardTitle>Fırsat masası</CardTitle><CardDescription>Önce postun kararını gör; yalnız fırsatlarda draft üret.</CardDescription></div>
