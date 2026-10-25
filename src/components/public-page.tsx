@@ -30,6 +30,6 @@ export async function PublicPage({ title, summary, children, current }: { title:
   </div>;
 }
 
-export function PublicSection({ title, children }: { title: string; children: ReactNode }) {
-  return <section className="min-w-0 space-y-3"><h2 className="text-xl font-semibold tracking-tight">{title}</h2><div className="space-y-3 text-sm leading-7 text-muted-foreground">{children}</div></section>;
+export function PublicSection({ title, children, id }: { title: string; children: ReactNode; id?: string }) {
+  return <section id={id} className="min-w-0 space-y-3"><h2 className="text-xl font-semibold tracking-tight">{title}</h2><div className="space-y-3 text-sm leading-7 text-muted-foreground">{children}</div></section>;
 }
