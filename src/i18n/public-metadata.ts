@@ -12,7 +12,7 @@ export function publicMetadata(locale: Locale, path: string, title: string, desc
     title, description,
     alternates: { canonical: url, languages: { ...Object.fromEntries(LOCALES.map((code) => [code, `${PUBLIC_ORIGIN}${localizePath(code, path)}`])), "x-default": `${PUBLIC_ORIGIN}${localizePath("tr", path)}` } },
     robots: { index: true, follow: true },
-    openGraph: { title, description, url, siteName: "ISPATLA — The Signal Press", locale: language.replace("-", "_"), type: "website", images: [{ url: image, width: 1200, height: 630, alt: title }] },
+    openGraph: { title, description, url, siteName: "ispatla.tr", locale: language.replace("-", "_"), type: "website", images: [{ url: image, width: 1200, height: 630, alt: title }] },
     twitter: { card: "summary_large_image", title, description, images: [image] },
   };
 }

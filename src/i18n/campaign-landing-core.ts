@@ -1,0 +1,86 @@
+import type { CampaignLandingCopy } from "./campaign-landing-types";
+
+export const campaignLandingCore: Record<"tr" | "en", CampaignLandingCopy> = {
+  tr: {
+    nav: { product: "Ürün", mcp: "MCP", faq: "Sorular", login: "Giriş yap", start: "Başla", dashboard: "Çalışma alanı", menu: "Ana menü" },
+    eyebrow: "𝕏 İÇİN AI KAMPANYA ÇALIŞMA ALANI",
+    headline: "Gündemi yakala.", headlineAccent: "Etkiyi çoğalt.",
+    intro: "Bir konu. Birden fazla hesap. ispatla.tr ile fikirlerini AI destekli kampanyalara dönüştür, içeriklerini birlikte hazırla ve hesaplarını tek yerden yönet.",
+    primaryCta: "Çalışma alanını aç", secondaryCta: "Nasıl çalışır?", heroNote: "Çoklu hesap · AI ile içerik · MCP entegrasyonu",
+    audienceLabel: "Tek hesaptan daha büyük düşünenler için.", audiences: ["Markalar", "İçerik ekipleri", "Ajanslar"],
+    preview: {
+      label: "Ürün önizlemesi · Temsili veriler", title: "Kampanya görünümü", period: "Grafik dönemi", days: ["7 gün", "30 gün", "90 gün"],
+      impressions: "Gösterim", engagement: "Etkileşim", followers: "Takipçi değişimi", accounts: "Hesap portföyü",
+      chartDescription: "Üç hesabın temsili gösterim eğrileri. Gerçek performans veya büyüme tahmini değildir.", chartStart: "Dönem başı", chartEnd: "Dönem sonu",
+      topicLabel: "Kampanya brief'i", topic: "Yeni fikrini konuşmanın parçası yap.", aiLabel: "AI ile hazırlanmış taslaklar",
+      roles: ["Marka hesabı", "Kurucu hesabı", "Topluluk hesabı"],
+      drafts: ["Fikrin ilk adımı: daha az sekme, daha net bir çalışma alanı.", "Bu ürünü neden yaptık? Aynı işi üç kez yapmaktan yorulduk.", "Ekibinizin içerik üretirken en çok zaman harcadığı adım hangisi?"],
+      ready: "Taslak", reviewLabel: "İnceleme görünümü", individual: "Tek tek", bulk: "Toplu", individualNote: "Her hesabın içeriğine ayrı ayrı odaklan.", bulkNote: "Seçili içerikleri aynı görünümde karşılaştır.",
+    },
+    workflow: {
+      eyebrow: "FİKİRDEN KAMPANYAYA", title: "Aynı hedef. Daha geniş bir etki alanı.",
+      intro: "Hesaplar arasında kaybolma. Konuyu, içerikleri ve ekibinin bir sonraki adımını aynı çalışma alanında buluştur.",
+      steps: [
+        { title: "Konuyu belirle.", body: "Gündemdeki bir konuşmadan, bir kaynaktan veya kendi brief'inden başla. Kampanyanın yönünü sen belirle." },
+        { title: "Hesaplarını bir araya getir.", body: "Hedef hesapları seç. AI ile aynı fikir için farklı açılar üret, taslakları birlikte düzenle." },
+        { title: "Akışına sen karar ver.", body: "İçerikleri tek tek incele veya toplu bir görünümde ele al. Yayın durumlarını ve hesap sonuçlarını takip et." },
+      ],
+    },
+    mcp: {
+      eyebrow: "AGENTIC ÇALIŞMA · MCP", title: "AI asistanın da ekibe katılsın.",
+      intro: "MCP ile ispatla.tr'yi araç destekleyen AI asistanına bağla. Fırsatları incele, birden fazla hesap için taslak hazırla ve iş akışını konuşarak yönet.",
+      cta: "MCP bağlantısını keşfet", prompt: "Bu konuyu üç hesabımız için farklı açılardan hazırla.", response: "Hesapları ve brief'i kullanarak taslakları hazırlayabilirim.",
+      steps: ["Fırsatları incele", "Hesaplara taslak üret", "Yayın işlerini takip et"],
+      note: "Kendi çalışma alanın. Kendi AI araçların. Tek bir bağlantı standardı.",
+    },
+    faqTitle: "Aklındaki sorular.",
+    faqs: [
+      { question: "Birden fazla 𝕏 hesabı için kullanabilir miyim?", answer: "Evet. Bağladığın hesapları aynı çalışma alanında yönetebilir ve bir brief'ten birden fazla hesap için taslak oluşturabilirsin. Her hesabın içeriğini ayrıca düzenleyebilirsin." },
+      { question: "AI içerik üretiminin neresinde?", answer: "AI, brief'ini taslaklara dönüştürür ve farklı anlatım açıları hazırlamana yardımcı olur. Metinler düzenlenebilir; hangi hesapla ve nasıl ilerleyeceğini sen belirlersin." },
+      { question: "MCP ile neler yapabilirim?", answer: "MCP sunucusu fırsatları inceleme, kaynakları listeleme, taslak üretme ve yayın işlerini yönetme araçlarını sunar. Yerel bağlantı için kurulum rehberini kullanabilirsin. Yayın işlemleri hesabının izinlerine ve etkin iş akışına bağlıdır." },
+    ],
+    closing: { title: "Bir sonraki konuşmada yerini al.", body: "Fikirlerini, hesaplarını ve AI araçlarını ispatla.tr'de buluştur.", cta: "ispatla.tr ile başla" },
+    footerNote: "𝕏 için AI destekli kampanya çalışma alanı.",
+  },
+  en: {
+    nav: { product: "Product", mcp: "MCP", faq: "FAQ", login: "Sign in", start: "Get started", dashboard: "Workspace", menu: "Main menu" },
+    eyebrow: "THE AI CAMPAIGN WORKSPACE FOR 𝕏",
+    headline: "Catch the conversation.", headlineAccent: "Multiply your impact.",
+    intro: "One topic. Multiple accounts. Turn ideas into AI-assisted campaigns with ispatla.tr. Create content together and manage your accounts in one place.",
+    primaryCta: "Open your workspace", secondaryCta: "See how it works", heroNote: "Multiple accounts · AI content · MCP integration",
+    audienceLabel: "For ambitions bigger than one account.", audiences: ["Brands", "Content teams", "Agencies"],
+    preview: {
+      label: "Product preview · Illustrative data", title: "Campaign overview", period: "Chart period", days: ["7 days", "30 days", "90 days"],
+      impressions: "Impressions", engagement: "Engagement", followers: "Follower change", accounts: "Account portfolio",
+      chartDescription: "Illustrative impression curves for three accounts. Not actual performance or a growth forecast.", chartStart: "Period start", chartEnd: "Period end",
+      topicLabel: "Campaign brief", topic: "Make your new idea part of the conversation.", aiLabel: "AI-assisted drafts",
+      roles: ["Brand account", "Founder account", "Community account"],
+      drafts: ["The first step: fewer tabs, a clearer place to work.", "Why did we build this? We were tired of doing the same work three times.", "Which part of creating content takes your team the most time?"],
+      ready: "Draft", reviewLabel: "Review view", individual: "Individual", bulk: "Together", individualNote: "Focus on each account's content individually.", bulkNote: "Compare selected content in a shared view.",
+    },
+    workflow: {
+      eyebrow: "FROM IDEA TO CAMPAIGN", title: "One direction. A wider reach.",
+      intro: "Stop getting lost between accounts. Bring the topic, the content and your team's next move into one workspace.",
+      steps: [
+        { title: "Choose your topic.", body: "Start with a conversation, a source or your own brief. Set the direction for your campaign." },
+        { title: "Bring your accounts together.", body: "Choose your accounts. Use AI to explore different angles on one idea, then edit the drafts together." },
+        { title: "Make the workflow yours.", body: "Review content individually or in a shared view. Keep track of publication statuses and account results." },
+      ],
+    },
+    mcp: {
+      eyebrow: "AGENTIC WORKFLOWS · MCP", title: "Your AI assistant belongs on the team.",
+      intro: "Connect ispatla.tr to your tool-enabled AI assistant with MCP. Inspect opportunities, prepare drafts for multiple accounts and manage your workflow through conversation.",
+      cta: "Explore the MCP connection", prompt: "Give this topic a different angle for each of our three accounts.", response: "I can use your accounts and brief to prepare the drafts.",
+      steps: ["Inspect opportunities", "Draft for your accounts", "Track publication work"],
+      note: "Your workspace. Your AI tools. One connection standard.",
+    },
+    faqTitle: "Good questions.",
+    faqs: [
+      { question: "Can I use it for multiple 𝕏 accounts?", answer: "Yes. Manage your connected accounts in one workspace and create drafts for multiple accounts from a single brief. You can edit each account's content separately." },
+      { question: "Where does AI fit in?", answer: "AI turns your brief into drafts and helps you explore different angles. The text stays editable; you decide which accounts to use and how to proceed." },
+      { question: "What can I do with MCP?", answer: "The MCP server offers tools to inspect opportunities, list sources, generate drafts and manage publication work. Follow the guide for a local connection. Publication actions depend on account permissions and the enabled workflow." },
+    ],
+    closing: { title: "Be part of the next conversation.", body: "Bring your ideas, accounts and AI tools together in ispatla.tr.", cta: "Get started with ispatla.tr" },
+    footerNote: "The AI-assisted campaign workspace for 𝕏.",
+  },
+};
