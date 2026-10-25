@@ -12,6 +12,7 @@ export type XMetricSnapshot = {
 };
 
 export type XProfile = {
+  id?: string;
   handle: string;
   name: string;
   bio: string;
@@ -39,6 +40,10 @@ export type XPost = {
   metrics: XMetricSnapshot;
   media: XMedia[];
   sensitive: boolean;
+  quotedPost?: XPost;
+  quotedPostId?: string;
+  replyToPostId?: string;
+  replyToPost?: XPost;
   discovery: { quoteAuthor: string; replyTo: string; mentions: string[] };
 };
 
@@ -107,6 +112,7 @@ function verification(value: unknown): XProfile["verification"] {
 function profile(value: unknown): XProfile {
   const item = record(value);
   return {
+    id: /^\d{1,19}$/.test(text(item.id || item.id_str)) ? text(item.id || item.id_str) : undefined,
     handle: handle(item.screen_name || item.username || item.handle),
     name: text(item.name),
     bio: text(item.description || item.bio),
@@ -143,12 +149,12 @@ function mentionHandles(tweet: JsonRecord): string[] {
   }).filter(Boolean))];
 }
 
-export function normalizeFxPost(value: unknown, fallbackHandle = "", capturedAt = Math.floor(Date.now() / 1000)): XPost | null {
+export function normalizeFxPost(value: unknown, fallbackHandle = "", capturedAt = Math.floor(Date.now() / 1000), depth = 0): XPost | null {
   const wrapper = record(value);
   const tweet = record(wrapper.tweet || wrapper.status || wrapper);
   const id = text(tweet.id || wrapper.id);
   const postText = text(tweet.text);
-  if (!/^\d+$/.test(id) || !postText) return null;
+  if (!/^\d{1,19}$/.test(id) || !postText) return null;
   const author = profile(tweet.author);
   const poll = record(tweet.poll);
   const nestedMetrics = record(tweet.metrics);
@@ -183,6 +189,10 @@ export function normalizeFxPost(value: unknown, fallbackHandle = "", capturedAt 
     metrics,
     media: media(tweet.media),
     sensitive: Boolean(tweet.possibly_sensitive) || /^\s*hassas\b/iu.test(postText),
+    quotedPostId: /^\d{1,19}$/.test(text(quote.id)) ? text(quote.id) : undefined,
+    replyToPostId: /^\d{1,19}$/.test(text(tweet.replying_to_status || replyingTo.id)) ? text(tweet.replying_to_status || replyingTo.id) : undefined,
+    quotedPost: depth < 1 ? normalizeFxPost(tweet.quote, "", capturedAt, depth + 1) || undefined : undefined,
+    replyToPost: depth < 1 ? normalizeFxPost(tweet.replying_to, "", capturedAt, depth + 1) || undefined : undefined,
     discovery: {
       quoteAuthor: profile(quote.author).handle,
       replyTo: profile(replyingTo).handle,
@@ -224,6 +234,7 @@ export class FxTwitterReader implements XReader {
     const results = Array.isArray(payload.results) ? payload.results : [];
     const post = normalizeFxPost(payload.tweet || payload.status || results[0], "", Math.floor(Date.now() / 1000));
     if (!post) throw new Error("FxTwitter post schema is missing id or text");
+    if (post.id !== input.externalId) throw new Error("FxTwitter post identity mismatch");
     return post;
   }
 
@@ -231,6 +242,7 @@ export class FxTwitterReader implements XReader {
     const payload = record(await this.fetchJson(`https://api.fxtwitter.com/2/profile/${encodeURIComponent(input.handle)}`));
     const result = profile(payload.user || payload.profile || payload.author);
     if (!result.handle) this.drift(["profile.handle"]);
+    if (input.handle.startsWith("id:") ? result.id !== input.handle.slice(3) : result.handle !== handle(input.handle)) throw new Error("FxTwitter profile identity mismatch");
     return result;
   }
 
@@ -241,7 +253,7 @@ export class FxTwitterReader implements XReader {
   private batch(payload: unknown, fallbackHandle = "", limit = 100): XTimelineBatch {
     const value = record(payload);
     const receivedAt = Math.floor(Date.now() / 1000);
-    const results = Array.isArray(value.results) ? value.results : [];
+    const results = Array.isArray(value.results) ? value.results : Array.isArray(value.tweets) ? value.tweets : [];
     const posts = results.flatMap((entry) => {
       if (record(entry).type && record(entry).type !== "status") return [];
       const post = normalizeFxPost(entry, fallbackHandle, receivedAt);
@@ -255,7 +267,8 @@ export class FxTwitterReader implements XReader {
       missingFields,
       schemaDrift: missingFields.length > 0,
     };
-    return { posts, cursor: text(value.cursor || value.next_cursor || value.nextCursor), receivedAt };
+    const cursor = record(value.cursor);
+    return { posts: [...new Map(posts.map((post) => [post.id, post])).values()], cursor: text(cursor.bottom || value.next_cursor || value.nextCursor || (typeof value.cursor === "string" ? value.cursor : "")), receivedAt };
   }
 
   private drift(missingFields: string[]): void {
@@ -297,6 +310,8 @@ export class FxTwitterReader implements XReader {
         offset += chunk.byteLength;
       }
       const result = JSON.parse(new TextDecoder().decode(bytes)) as unknown;
+      const code = record(result).code;
+      if (code !== undefined && code !== 200) throw new Error(`FxTwitter response code ${String(code)}`);
       this.lastHealth = {
         transport: "fxtwitter", checkedAt: Math.floor(Date.now() / 1000), ok: true,
         latencyMs: Math.round(performance.now() - startedAt), freshnessSeconds: this.lastHealth.freshnessSeconds,

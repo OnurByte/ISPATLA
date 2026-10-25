@@ -5,7 +5,7 @@ import { currentOwnerId } from "@/server/owner-context";
 import { createCipheriv, createDecipheriv, randomBytes, scryptSync } from "node:crypto";
 
 function settingKey(name: string, owner = currentOwnerId()) {
-  return owner && (name.startsWith("ai_") || name.startsWith("jev_") || name === "writing_style_settings")
+  return owner && (name.startsWith("ai_") || name.startsWith("jev_") || name === "writing_style_settings" || name.startsWith("saved_post:"))
     ? `owner:${encodeURIComponent(owner)}:${name}` : name;
 }
 

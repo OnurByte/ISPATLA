@@ -5,7 +5,7 @@ import { getPostgresAccount, getPostgresCategoriesForAccount, getPostgresCategor
 import { withOfficialAccount } from "./publisher";
 import { OfficialXClient } from "./official-x";
 import { currentOwnerId, runAsOwner } from "./owner-context";
-import { getPostgresXAccountAuthState } from "./postgres-x-oauth";
+import { FxTwitterReader } from "./x-reader";
 import { isAuthenticatedUserDisabled } from "./auth";
 
 type AccountCategoryInferenceResult = InferenceResult;
@@ -30,7 +30,6 @@ export function normalizeCategoryInferenceSelection(categoryIds: unknown, weight
   return { categoryIds: selected, weights: weightMap };
 }
 
-const REQUIRED_INFERENCE_SCOPES = ["tweet.read", "users.read"] as const;
 
 function inferenceOwner(): string {
   const current = currentOwnerId();
@@ -255,7 +254,7 @@ export function discoverAccountTopic(input: { bio: string; posts: string[] }): {
 }
 
 /** Runs one durable, owner/account-scoped inference job; completed retries return the same snapshot. */
-export async function runAccountCategoryInference(input: { accountId: number; now?: number; regenerate?: boolean; client?: OfficialXClient }): Promise<InferenceResult> {
+export async function runAccountCategoryInference(input: { accountId: number; now?: number; regenerate?: boolean; client?: OfficialXClient; publicData?: { bio: string; posts: string[] } }): Promise<InferenceResult> {
   const owner = inferenceOwner();
   const account = await getPostgresAccount(owner, input.accountId);
   if (!account?.ownerUserId || await isAuthenticatedUserDisabled(account.ownerUserId)) throw new Error("owned X account not found or owner disabled");
@@ -268,14 +267,15 @@ export async function runAccountCategoryInference(input: { accountId: number; no
     throw new Error("account inference is already running");
   }
   try {
-    const { profile, posts } = await withOfficialAccount(account, async (credential) => {
-      if (!REQUIRED_INFERENCE_SCOPES.every((scope) => credential.scopes.includes(scope))) {
-        throw new Error("X grant does not allow own profile and timeline reads");
-      }
-      const client = input.client || new OfficialXClient();
-      const [profile, posts] = await Promise.all([client.getOwnProfile(credential), client.getOwnTimeline(credential, 100)]);
+    const { profile, posts } = input.publicData ? { profile: { description: input.publicData.bio }, posts: input.publicData.posts } : input.client ? await withOfficialAccount(account, async (credential) => {
+      const [profile, posts] = await Promise.all([input.client!.getOwnProfile(credential), input.client!.getOwnTimeline(credential, 100)]);
       return { profile, posts };
-    });
+    }) : await (async () => {
+      const reader = new FxTwitterReader();
+      const identifier = account.xUserId ? `id:${account.xUserId}` : account.handle;
+      const [profile, timeline] = await Promise.all([reader.fetchProfile({ handle: identifier }), reader.fetchTimeline({ handle: identifier, maxPosts: 100 })]);
+      return { profile: { description: profile.bio }, posts: timeline.posts.filter((post) => account.xUserId ? post.author.id === account.xUserId : post.author.handle === account.handle).map((post) => post.text) };
+    })();
     const styleProfile = account.styleProfile as Record<string, unknown>;
     const result = inferAccountCategories({
       handle: account.handle,
@@ -292,7 +292,7 @@ export async function runAccountCategoryInference(input: { accountId: number; no
           verificationMode: "moderate", description: `Hesap biyografisi ve gönderilerinde tekrar eden “${topic.name}” konusu.`,
           positiveExamples: topic.evidence, negativeExamples: [], keywords: topic.keywords, excludedKeywords: [], seedHandles: [],
           defaultFormats: ["post"], sourcePolicy: {}, riskPolicy: {}, scoringPolicy: {}, publishingPolicy: {},
-          aiContext: "", now,
+          aiContext: "", now, inferred: true,
         });
         result.suggestions = [{ categoryId: category.id, slug: category.slug, name: category.name, confidence: 0.68, evidence: topic.evidence.map((item) => item.slice(0, 80)) }];
         result.status = "ready";
@@ -325,8 +325,7 @@ export async function runPendingAccountCategoryInferences(input: {
     if (!account) continue;
     try {
       const outcome = await runAsOwner(account.ownerUserId, async () => {
-        const grant = await getPostgresXAccountAuthState(account.id, account.ownerUserId);
-        if (!grant?.connected || !REQUIRED_INFERENCE_SCOPES.every((scope) => grant.scopes.includes(scope))) return "skipped" as const;
+        if (!account.enabled) return "skipped" as const;
         const previous = await getOwnAccountInference(account.id);
         if (previous && ["ready", "insufficient_evidence"].includes(previous.status)) return "skipped" as const;
         result.attempted += 1;

@@ -7,7 +7,7 @@ import { getPostgresOwnUserProfile } from "@/server/postgres-profile-dashboard";
 import { runAsOwner } from "@/server/owner-context";
 import { requirePageUser } from "@/server/page-auth";
 
-export default async function ProtectedLayout({ children }: { children: ReactNode }) {
+export default async function ProtectedLayout({ children, postModal }: { children: ReactNode; postModal: ReactNode }) {
   const user = await requirePageUser();
   const requestHeaders = await headers();
   const route = requestHeaders.get("x-ispatla-route") || "/dashboard";
@@ -16,5 +16,5 @@ export default async function ProtectedLayout({ children }: { children: ReactNod
   const profile = await runAsOwner(user.id, () => getPostgresOwnUserProfile());
   const destination = getOnboardingRedirect(profile.onboardingCompleted, route, locale);
   if (destination) redirect(destination);
-  return children;
+  return <>{children}{postModal}</>;
 }

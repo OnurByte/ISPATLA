@@ -1,6 +1,6 @@
 /** Pure serializers and selectors for candidate relevance evidence. */
 
-import type { Account, AccountCategoryConfig, CategoryDefinition, ObservedPost, RecentPost } from "./db-types";
+import type { Account, AccountCategoryConfig, CategoryDefinition, ObservedPost } from "./db-types";
 
 import type { JevCandidate } from "./jev";
 

@@ -8,6 +8,7 @@ import type { InferenceResult } from "@/server/account-inference";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -246,7 +247,7 @@ export function AccountsPage({ initial, categories, connections, policyVersion, 
             <Empty className="border border-dashed py-8">
               <EmptyHeader>
                 <EmptyTitle>Henüz 𝕏 hesabı bağlı değil</EmptyTitle>
-                <EmptyDescription>𝕏’e güvenli biçimde bağlayınca hesap ayarları burada açılır.</EmptyDescription>
+                <EmptyDescription>Kullanıcı adını ekleyin; kategoriler ve yazı tarzı otomatik hazırlansın.</EmptyDescription>
               </EmptyHeader>
             </Empty>
           )}
@@ -282,7 +283,7 @@ export function AccountsPage({ initial, categories, connections, policyVersion, 
       <Card>
         <CardHeader>
           <CardTitle>Hesap ayarları</CardTitle>
-          <CardDescription>Hesap profili 𝕏 bağlantısından gelir. Buradaki editoryal tercihleri bağlantıyı yenilerken koruruz.</CardDescription>
+          <CardDescription>Herkese açık profil, konu ve yazım analizi. Elle seçtiğin tercihleri yeniden analizde koruruz.</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-5">
           {!draft.id ? <Empty className="border border-dashed py-8"><EmptyHeader><EmptyTitle>Hesap ayarları açılmadı</EmptyTitle><EmptyDescription>İlk 𝕏 hesabını bağladığınızda editoryal ayarlar burada görünür.</EmptyDescription></EmptyHeader></Empty> : (
@@ -300,19 +301,20 @@ export function AccountsPage({ initial, categories, connections, policyVersion, 
                 if (!category) return null;
                 const selectedIndex = selectedSuggestions.indexOf(categoryId);
                 return <div key={categoryId} className="flex flex-wrap items-center gap-3 rounded-md border p-3">
-                  <input aria-label={`${category.name} önerisini seç`} type="checkbox" checked={selectedIndex >= 0} onChange={(event) => setSelectedSuggestions((current) => event.target.checked ? [...current, categoryId] : current.filter((id) => id !== categoryId))} />
+                  <Checkbox aria-label={`${category.name} önerisini seç`} checked={selectedIndex >= 0} onCheckedChange={(checked) => setSelectedSuggestions((current) => checked ? [...current, categoryId] : current.filter((id) => id !== categoryId))} />
                   <div className="min-w-0 flex-1"><p className="font-medium">{category.name}</p><p className="text-xs text-muted-foreground">{suggestion ? `Eşleşen ifadeler: ${suggestion.evidence.join(", ")} · Eşleşme gücü %${Math.round(suggestion.confidence * 100)}` : "Senin eklediğin konu"}</p></div>
                   {selectedIndex >= 0 ? <><label className="flex items-center gap-2 text-xs">Ağırlık <input type="range" min="0" max="10" step="0.5" value={categoryWeights[categoryId] ?? 1} onChange={(event) => setCategoryWeights((current) => ({ ...current, [categoryId]: Number(event.target.value) }))} aria-label={`${category.name} ağırlığı`} /></label><Button type="button" size="icon" variant="ghost" aria-label={`${category.name} yukarı taşı`} disabled={selectedIndex === 0} onClick={() => moveSuggestion(selectedIndex, -1)}><ArrowUp aria-hidden="true" /></Button><Button type="button" size="icon" variant="ghost" aria-label={`${category.name} aşağı taşı`} disabled={selectedIndex === selectedSuggestions.length - 1} onClick={() => moveSuggestion(selectedIndex, 1)}><ArrowDown aria-hidden="true" /></Button></> : null}
                 </div>;
               })}
               {availableManualCategories.length ? <div className="flex gap-2"><select value={manualCategoryId} onChange={(event) => setManualCategoryId(event.target.value)} aria-label="Başka konu ekle" className="min-w-0 flex-1 rounded-md border bg-transparent px-3 py-2 text-sm"><option value="">Başka konu ekle</option>{availableManualCategories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select><Button type="button" variant="outline" disabled={!manualCategoryId} onClick={() => { const id = Number(manualCategoryId); setSelectedSuggestions((current) => [...current, id]); setCategoryWeights((current) => ({ ...current, [id]: 1 })); setManualCategoryId(""); }}>Ekle</Button></div> : null}
               {inference?.contentLanguage && inference.contentLanguage !== "unknown" ? <p className="text-sm text-muted-foreground">İçerik dili önerisi: {inference.contentLanguage}</p> : null}
-              {draft.id && <div className="flex flex-wrap gap-2">{inference && (inference.suggestions.length > 0 || selectedSuggestions.length > 0) ? <Button type="button" onClick={acceptSuggestions} disabled={inferencePending}><Save data-icon="inline-start" aria-hidden="true" /> Konularımı kullan</Button> : null}<Button type="button" variant="outline" onClick={() => void loadInference(draft.id!, true, true)} disabled={inferencePending}><RefreshCw data-icon="inline-start" aria-hidden="true" /> Yeniden öner</Button></div>}
+              {draft.id && <div className="flex flex-wrap gap-2">{inference && (inference.suggestions.length > 0 || selectedSuggestions.length > 0) ? <Button type="button" onClick={acceptSuggestions} disabled={inferencePending}><Save data-icon="inline-start" aria-hidden="true" /> Konularımı kullan</Button> : null}<Button type="button" variant="outline" onClick={() => void loadInference(draft.id!, true, true)} disabled={inferencePending}><RefreshCw data-icon="inline-start" aria-hidden="true" /> Yeniden analiz et</Button></div>}
               {inferenceMessage ? <p role="status" className="text-sm text-muted-foreground">{inferenceMessage}</p> : null}
               {inferenceAccepted ? <Link className="text-sm font-medium text-primary underline-offset-4 hover:underline" href="/opportunities">İlk fırsatını gör</Link> : null}
             </CardContent>
           </Card> : null}
           <div className="flex flex-wrap items-center gap-2 text-sm"><Badge variant="secondary">@{draft.handle}</Badge><span className="text-muted-foreground">{draft.displayName}</span></div>
+          <details className="rounded-lg border p-4"><summary className="cursor-pointer font-medium">Hesap ve yazım tercihlerini düzenle</summary><div className="mt-4 flex flex-col gap-5">
           <FieldGroup>
             <div className="grid gap-5 sm:grid-cols-2">
               <Field>
@@ -380,6 +382,8 @@ export function AccountsPage({ initial, categories, connections, policyVersion, 
               </Field>
             </div>
           </FieldGroup>
+
+          </div></details>
 
           {message && (
             <Alert>

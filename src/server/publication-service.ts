@@ -68,6 +68,7 @@ export async function cancelPublicationIntent(id: number, now = Math.floor(Date.
 
 export type DispatchPublicationOptions = { now?: () => number; beforeSend?: () => void | Promise<void> };
 export async function dispatchPublicationIntent(id: number, _options: DispatchPublicationOptions = {}): Promise<PublicationIntent> {
+  void _options;
   const intent = await getPostgresPublicationIntent(id);
   if (!intent) throw new Error("publication intent bulunamadı");
   if (intent.status !== "approved") throw new Error(`publication intent ${intent.status} durumunda gönderilemez`);

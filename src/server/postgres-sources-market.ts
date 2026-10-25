@@ -119,16 +119,18 @@ export async function deletePostgresCompetitor(owner: string, id: number) {
 }
 
 const EMPTY_COUNTS = { opportunities: 0, observed: 0, rejected: 0, sensitive: 0 };
-export async function getPostgresMarketInbox(owner: string, input: { view?: MarketView; limit?: number; offset?: number; now?: number } = {}): Promise<MarketInbox & { scanAvailable: false }> {
+export async function getPostgresMarketInbox(owner: string, input: { view?: MarketView; limit?: number; offset?: number; now?: number } = {}): Promise<MarketInbox & { scanAvailable: boolean }> {
   const view = input.view || "opportunities", limit = Math.max(1, Math.min(100, Math.floor(input.limit || 50))), offset = Math.max(0, Math.floor(input.offset || 0)), now = input.now || Math.floor(Date.now() / 1000);
   const ownedAccounts = await getPostgresDb().select({ id: accounts.id }).from(accounts).where(eq(accounts.ownerUserId, owner));
   const accountIds = ownedAccounts.map((row) => row.id);
-  if (!accountIds.length) return { items: [], total: 0, counts: EMPTY_COUNTS, scanAvailable: false };
+  if (!accountIds.length) return { items: [], total: 0, counts: EMPTY_COUNTS, scanAvailable: true };
   const ownerDrafts = await getPostgresDb().select({ externalId: drafts.externalId, status: drafts.status }).from(drafts).where(and(eq(drafts.ownerUserId, owner), inArray(drafts.accountId, accountIds)));
   const drafted = new Map<string, string>();
   for (const row of ownerDrafts) if (row.externalId) drafted.set(row.externalId, row.status);
-  const posts = await getPostgresDb().select().from(observedPosts).where(gte(observedPosts.observedAt, now - 86_400)).orderBy(desc(observedPosts.observedAt), asc(observedPosts.id)).limit(1000);
-  // Scanner ingestion is currently paused. Do not synthesize a market from stale local state.
+  const selectedSources = await getPostgresDb().select({ handle: accountSources.sourceHandle }).from(accountSources).where(and(inArray(accountSources.accountId, accountIds), eq(accountSources.enabled, 1)));
+  const handles = [...new Set(selectedSources.map((row) => row.handle))];
+  if (!handles.length) return { items: [], total: 0, counts: EMPTY_COUNTS, scanAvailable: true };
+  const posts = await getPostgresDb().select().from(observedPosts).where(and(gte(observedPosts.observedAt, now - 86_400), inArray(observedPosts.sourceHandle, handles))).orderBy(desc(observedPosts.observedAt), asc(observedPosts.id)).limit(1000);
   const items = posts.map((post) => {
     const age = Math.max(0, now - post.createdTimestamp), engagements = post.likes + post.replies + post.reposts + post.quotes;
     const decision = post.sensitive === 1 ? "sensitive" as const : post.score >= 70 ? "opportunity" as const : "below_threshold" as const;
@@ -149,5 +151,5 @@ export async function getPostgresMarketInbox(owner: string, input: { view?: Mark
   const all = posts.map((post) => post.sensitive === 1 ? "sensitive" : post.score >= 70 ? "opportunity" : "rejected");
   const counts = { opportunities: all.filter((item) => item === "opportunity").length, observed: all.filter((item) => item !== "sensitive").length,
     rejected: all.filter((item) => item === "rejected").length, sensitive: all.filter((item) => item === "sensitive").length };
-  return { items: items.slice(offset, offset + limit), total: items.length, counts, scanAvailable: false };
+  return { items: items.slice(offset, offset + limit), total: items.length, counts, scanAvailable: true };
 }

@@ -49,7 +49,7 @@ describe("sidebar search routes", () => {
       for (const entry of readdirSync(directory, { withFileTypes: true })) {
         const path = resolve(directory, entry.name);
         if (entry.isDirectory()) {
-          if (!entry.name.startsWith("[")) visit(path);
+          if (!entry.name.startsWith("[") && !entry.name.startsWith("@")) visit(path);
         } else if (/^page\.(?:js|jsx|ts|tsx)$/.test(entry.name)) {
           const segments = relative(appRoot, path).split(sep).slice(0, -1).filter((segment) => !segment.startsWith("("));
           if (!segments.some((segment) => segment.startsWith("["))) discovered.push(segments.length ? `/${segments.join("/")}` : "/");
@@ -59,7 +59,7 @@ describe("sidebar search routes", () => {
     visit(appRoot);
 
     const indexed = new Set(getSidebarSearchRoutes("tr").map((route) => route.href));
-    expect(discovered.filter((route) => route !== "/settings/profile").sort()).toEqual([...indexed].sort());
+    expect(discovered.filter((route) => !["/settings/profile", "/mcp/authorize"].includes(route)).sort()).toEqual([...indexed].sort());
     expect(indexed.has("/leaderboard")).toBe(true);
   });
 

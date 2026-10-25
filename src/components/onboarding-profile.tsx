@@ -42,8 +42,8 @@ export function OnboardingProfile({ initial, locale }: { initial: OwnUserProfile
     try { savedStep = onboardingStepFromStorage(window.localStorage.getItem("ispatla-onboarding-step")); }
     catch { /* private browsing can deny storage; onboarding remains available at the first step */ }
     const loadStatus = async () => {
-      const accountsResponse = await fetch("/api/x/accounts", { cache: "no-store" });
-      const connected = accountsResponse.ok && ((await accountsResponse.json()) as { accounts?: { matchesProfile?: boolean }[] }).accounts?.some((account) => account.matchesProfile === true) === true;
+      const accountsResponse = await fetch("/api/accounts", { cache: "no-store" });
+      const connected = accountsResponse.ok && ((await accountsResponse.json()) as { enabled: boolean }[]).some((account) => account.enabled) === true;
       setXConnected(connected);
       // Stored wizard progress is only a convenience and cannot bypass the required X connection.
       setStep(connected || savedStep === "profile" ? savedStep : "x");

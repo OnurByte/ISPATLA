@@ -7,15 +7,28 @@ let lastMutationAt = 0;
 
 const MAX_JSON_BODY_BYTES = 1024 * 1024;
 
+export async function readBoundedBody(request: Request, maximum: number): Promise<string> {
+  if (Number(request.headers.get("content-length") || 0) > maximum) throw new Error("Request body too large");
+  if (!request.body) return "";
+  const reader = request.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      size += value.byteLength;
+      if (size > maximum) { await reader.cancel(); throw new Error("Request body too large"); }
+      chunks.push(value);
+    }
+  } finally { reader.releaseLock(); }
+  return Buffer.concat(chunks, size).toString("utf8");
+}
+
 export async function readJsonBody(request: Request): Promise<Record<string, unknown>> {
-  const declared = Number(request.headers.get("content-length") || 0);
-  if (Number.isFinite(declared) && declared > MAX_JSON_BODY_BYTES) {
-    throw new Error("JSON body exceeds 1 MiB");
-  }
-  const text = await request.text();
-  if (Buffer.byteLength(text, "utf8") > MAX_JSON_BODY_BYTES) {
-    throw new Error("JSON body exceeds 1 MiB");
-  }
+  let text: string;
+  try { text = await readBoundedBody(request, MAX_JSON_BODY_BYTES); }
+  catch { throw new Error("JSON body exceeds 1 MiB"); }
   const parsed = text.trim() ? JSON.parse(text) : {};
   return parsed && typeof parsed === "object" && !Array.isArray(parsed)
     ? parsed as Record<string, unknown>

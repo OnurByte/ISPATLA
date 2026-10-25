@@ -43,8 +43,11 @@ test("source scan validates, deterministically scores and owner-scopes bounded P
     statusUrl: `https://x.com/source_one/status/${goodPost.id}`,
     score: expect.any(Number),
     sensitive: 0,
-    rawJson: "{}",
+    rawJson: expect.any(String),
   });
+  const snapshot = JSON.parse(scoreSourcePost("source_one", goodPost as never, now)!.rawJson!);
+  expect(snapshot.metrics.quality).toBe("ok");
+  expect(snapshot.id).toBe(goodPost.id);
   expect(scoreSourcePost("source_one", { ...goodPost, id: "not-an-id" } as never, now)).toBeNull();
 
   const result = await scanPostgresSources({ reader, now });

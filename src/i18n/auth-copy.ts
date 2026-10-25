@@ -141,5 +141,5 @@ export const authCopy: Record<Locale, AuthCopy> = Object.fromEntries(LOCALES.map
   if (!values || values.length !== authKeys.length || values.some(text => !text.trim())) {
     throw new Error("Incomplete auth translation: " + locale);
   }
-  return [locale, Object.fromEntries(authKeys.map((key, index) => [key, values[index]]))];
+  return [locale, Object.fromEntries(authKeys.map((key, index) => [key, values[index].replaceAll("X", "𝕏")]))];
 })) as Record<Locale, AuthCopy>;

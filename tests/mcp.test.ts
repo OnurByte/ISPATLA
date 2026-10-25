@@ -15,9 +15,10 @@ test("exposes the ISPATLA MCP tool surface without a chat transport", async () =
   try {
     const listed = await client.listTools();
     expect(listed.tools.map((tool) => tool.name).sort()).toEqual([
+      "ispatla.accounts.add", "ispatla.accounts.analyze", "ispatla.accounts.list",
       "ispatla.analytics.performance", "ispatla.drafts.generate", "ispatla.drafts.review",
       "ispatla.failures.list", "ispatla.opportunities.list", "ispatla.opportunity.inspect",
-      "ispatla.publications.cancel", "ispatla.publications.queue", "ispatla.sources.health", "ispatla.sources.list",
+      "ispatla.publications.attach_receipt", "ispatla.publications.cancel", "ispatla.publications.prepare", "ispatla.publications.queue", "ispatla.publications.status", "ispatla.publishing.methods", "ispatla.sources.health", "ispatla.sources.list",
     ]);
     const response = await client.callTool({ name: "ispatla.sources.list", arguments: { enabledOnly: true } });
     expect(response.isError).not.toBe(true);
