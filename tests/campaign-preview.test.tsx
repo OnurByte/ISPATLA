@@ -38,6 +38,9 @@ function textContent(node: unknown): string {
 function elements(node: unknown, tag: string): React.ReactElement<Record<string, unknown>>[] {
   if (Array.isArray(node)) return node.flatMap((child) => elements(child, tag));
   if (!React.isValidElement<Record<string, unknown>>(node)) return [];
+  if (typeof node.type === "function" && node.type.name === "CampaignDraftCard") {
+    return elements((node.type as (props:Record<string,unknown>)=>React.ReactNode)(node.props),tag);
+  }
   return [
     ...(node.type === tag ? [node] : []),
     ...elements(node.props.children, tag),
@@ -99,12 +102,20 @@ test("account selection changes the rationale, edits persist, and bulk review ex
   );
   const bulk = reviewButtons.find((button) => textContent(button.props.children) === copy.preview.bulk)!;
   (bulk.props.onClick as () => void)();
-  expect(recordedEvents).toEqual(["demo_start", "demo_complete"]);
+  expect(recordedEvents).toEqual(["demo_start"]);
 
   const { tree: bulkTree } = await renderPreview("en");
   const editors = elements(bulkTree, "textarea");
   expect(editors).toHaveLength(3);
   expect(editors.map((editor) => editor.props.value)).toEqual(copy.demo.drafts);
   (editors[1].props.onChange as (event: { currentTarget: { value: string } }) => void)({ currentTarget: { value: "Edited by a visitor" } });
-  expect(hookValues[2]).toContain("Edited by a visitor");
+  expect(hookValues[2]).toContainEqual({text:"Edited by a visitor",approved:false});
+  const {tree: editedTree}=await renderPreview("en");
+  const approve=elements(editedTree,"button").find(button=>button.props["aria-label"]===`Approve draft ⁜ ${copy.preview.roles[1]}`)!;
+  (approve.props.onClick as ()=>void)();
+  expect(recordedEvents).toEqual(["demo_start","demo_complete"]);
+  const {tree: approvedTree}=await renderPreview("en");
+  const approvedEditor=elements(approvedTree,"textarea")[1];
+  (approvedEditor.props.onChange as (event:{currentTarget:{value:string}})=>void)({currentTarget:{value:"Changed after approval"}});
+  expect((hookValues[2] as {approved:boolean}[])[1].approved).toBe(false);
 });

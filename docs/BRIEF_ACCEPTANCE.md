@@ -48,7 +48,7 @@ On 25 October 2026, `https://api.fxtwitter.com/status/2007731379342291029` retur
 
 ## Local verification
 
-- `bun test --isolate`: **263 passed, 9 opt-in database tests skipped, 0 failed**; 88 files, 11,442 assertions.
+- `bun test --isolate`: **266 passed, 9 opt-in database tests skipped, 0 failed**; 89 files, 11,652 assertions.
 - The nine skipped tests were then run separately on a newly initialized local PostgreSQL with all existing migrations and fixture-only data: **9 passed, 0 failed**, including SDK HTTP MCP scope/Origin/revocation behavior. The HTTP fixture imports the actual `/mcp` route into a Bun adapter; this does not claim a deployed reverse proxy was tested.
 - `bun run lint`: passed. `bun run typecheck` (`--strict`) and the final production build passed.
 - Source-only review found no remaining concrete blocker after correcting a mistaken conflation of application sign-in and the separate paid account-grant flow.
@@ -59,11 +59,11 @@ No production database, mail delivery, real application OAuth callback, live rem
 
 ## Final quality and browser results
 
-Measured 26 October 2026 against the final local production build at `http://localhost:3106/`, Lighthouse 12.8.2:
+Measured 26 October 2026 against the final local production build at `http://localhost:3107/`, Lighthouse 12.8.2:
 
 | Profile | Performance | Accessibility | Best Practices | SEO |
 | --- | --- | --- | --- | --- |
-| Mobile | 93 | 100 | 100 | 100 |
+| Mobile | 96 | 100 | 100 | 100 |
 | Desktop | 100 | 100 | 100 | 100 |
 
 The 90/100/100/100 gates passed. Both profiles had zero cumulative layout shift. Machine-readable metrics are in [quality-summary.json](evidence/quality-summary.json); full HTML/JSON reports are generated under ignored `lighthouse-reports/`. These are lab observations, not field or live-chat embed validation.
@@ -77,3 +77,5 @@ Fresh requests without a locale selection render English even with a Turkish bro
 Optical alignment and responsive grid follow-up: [alignment audit](evidence/alignment-audit.json), 179 final production-build cases across 320/390/768/1280/1440px, including all landing locales, all docs locales on mobile and isolated authenticated application routes. No document-level horizontal overflow; each actual viewport matched its requested size. Font-relative wordmark ink correction and the shared grid are described in [SHAPE_AND_SPACING.md](SHAPE_AND_SPACING.md).
 
 Latest 404/docs/brand follow-up: [ui-polish.json](evidence/ui-polish.json). Unknown handles, opaque profiles and nested unmatched routes return 404 without database configuration. Configured database failures still propagate rather than pretending a profile is missing. The original landing footer is shared, with one locale picker and a full-width top border. Landing workflow, audience, MCP, FAQ and closing sections remain; only the duplicate license/evidence strip and redundant footer description were removed. Canonical visual labels use the site mark with ispatla.tr; plain metadata uses ispatla.tr.
+
+Interactive preview follow-up: the exact Turkish slogan is protected by a regression test. Draft state is separated from rendering, with per-account approval, optional bulk approval, invalidation on edit, clipboard feedback and individual restore. All 20 locales are covered. See [design/research notes](INTERACTIVE_PREVIEW.md) and [final evidence](evidence/interactive-preview.json). Shared inline brand labels now use the outlined wordmark with LTR isolation, including inside CTA buttons and docs prose.

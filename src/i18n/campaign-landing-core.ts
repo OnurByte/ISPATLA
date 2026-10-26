@@ -4,7 +4,7 @@ export const campaignLandingCore: Record<"tr" | "en", Omit<CampaignLandingCopy, 
   tr: {
     nav: { product: "Ürün", mcp: "MCP", faq: "Sorular", login: "Giriş yap", start: "Başla", dashboard: "Çalışma alanı", menu: "Ana menü" },
     eyebrow: "𝕏 KAYNAKLARINDA İÇERİK FIRSATLARI",
-    headline: "Algoritmaya tapma.", headlineAccent: "ispatla.tr.",
+    headline: "Algoritmaya tapma.", headlineAccent: "İspatla.",
     intro: "𝕏 kaynaklarındaki içerik fırsatlarını hesabının bağlamında değerlendir. Kaynağı gör, AI taslağını düzenle; yayın kararını sen ver.",
     primaryCta: "İş akışını gör", secondaryCta: "Hesap oluştur", heroNote: "Kaynağı gör ⁜ Hesabına uyarla ⁜ Taslağı sen düzenle",
     audienceLabel: "Tek hesaptan daha büyük düşünenler için.", audiences: ["Markalar", "İçerik ekipleri", "Ajanslar"],

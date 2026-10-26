@@ -1,0 +1,583 @@
+{
+  "checkedAt": "2026-10-26T14:15:15.757046+00:00",
+  "scope": "Local production preview and browser-only draft state; no provider writes or publishing",
+  "tests": {
+    "passed": 266,
+    "skipped": 9,
+    "failed": 0,
+    "assertions": 11652,
+    "files": 89
+  },
+  "checks": {
+    "lint": "passed",
+    "strictTypes": "passed",
+    "build": "passed"
+  },
+  "browserCases": [
+    {
+      "locale": "en",
+      "viewport": 320,
+      "approved": true,
+      "editors": 3,
+      "inlineBrandDeltas": [
+        0,
+        0.0064449310302734375,
+        0.006249427795410156,
+        0.006249427795410156
+      ],
+      "overflow": false,
+      "slogan": "Don’t worship the algorithm. Prove it.",
+      "width": 320
+    },
+    {
+      "locale": "zh-CN",
+      "viewport": 320,
+      "approved": true,
+      "editors": 3,
+      "inlineBrandDeltas": [
+        0,
+        0.006249427795410156,
+        0.006249427795410156
+      ],
+      "overflow": false,
+      "slogan": "别崇拜算法。 拿出证明。",
+      "width": 320
+    },
+    {
+      "locale": "hi",
+      "viewport": 320,
+      "approved": true,
+      "editors": 3,
+      "inlineBrandDeltas": [
+        0,
+        0.006249427795410156,
+        0.006249427795410156
+      ],
+      "overflow": false,
+      "slogan": "एल्गोरिदम की पूजा मत करो। साबित करो।",
+      "width": 320
+    },
+    {
+      "locale": "es",
+      "viewport": 320,
+      "approved": true,
+      "editors": 3,
+      "inlineBrandDeltas": [
+        0,
+        0.006249427795410156
+      ],
+      "overflow": false,
+      "slogan": "No adores al algoritmo. Demuéstralo.",
+      "width": 320
+    },
+    {
+      "locale": "fr",
+      "viewport": 320,
+      "approved": true,
+      "editors": 3,
+      "inlineBrandDeltas": [
+        0,
+        0.006249427795410156
+      ],
+      "overflow": false,
+      "slogan": "Ne vénère pas l’algorithme. Prouve-le.",
+      "width": 320
+    },
+    {
+      "locale": "ar",
+      "viewport": 320,
+      "approved": true,
+      "editors": 3,
+      "inlineBrandDeltas": [
+        0,
+        0.006249427795410156
+      ],
+      "overflow": false,
+      "slogan": "لا تعبد الخوارزمية. أثبت ذلك.",
+      "width": 320
+    },
+    {
+      "locale": "bn",
+      "viewport": 320,
+      "approved": true,
+      "editors": 3,
+      "inlineBrandDeltas": [
+        0,
+        0.006249427795410156,
+        0.006249427795410156
+      ],
+      "overflow": false,
+      "slogan": "অ্যালগরিদমের পূজা কোরো না। প্রমাণ করো।",
+      "width": 320
+    },
+    {
+      "locale": "pt-BR",
+      "viewport": 320,
+      "approved": true,
+      "editors": 3,
+      "inlineBrandDeltas": [
+        0,
+        0.006249427795410156
+      ],
+      "overflow": false,
+      "slogan": "Não adore o algoritmo. Prove.",
+      "width": 320
+    },
+    {
+      "locale": "ru",
+      "viewport": 320,
+      "approved": true,
+      "editors": 3,
+      "inlineBrandDeltas": [
+        0,
+        0.006249427795410156
+      ],
+      "overflow": false,
+      "slogan": "Не поклоняйся алгоритму. Докажи.",
+      "width": 320
+    },
+    {
+      "locale": "id",
+      "viewport": 320,
+      "approved": true,
+      "editors": 3,
+      "inlineBrandDeltas": [
+        0,
+        0.006249427795410156
+      ],
+      "overflow": false,
+      "slogan": "Jangan memuja algoritma. Buktikan.",
+      "width": 320
+    },
+    {
+      "locale": "ur",
+      "viewport": 320,
+      "approved": true,
+      "editors": 3,
+      "inlineBrandDeltas": [
+        0,
+        0.006249427795410156,
+        0.006249427795410156
+      ],
+      "overflow": false,
+      "slogan": "الگورتھم کی عبادت مت کرو۔ ثابت کرو۔",
+      "width": 320
+    },
+    {
+      "locale": "de",
+      "viewport": 320,
+      "approved": true,
+      "editors": 3,
+      "inlineBrandDeltas": [
+        0,
+        0.006249427795410156,
+        0.006249427795410156
+      ],
+      "overflow": false,
+      "slogan": "Bete den Algorithmus nicht an. Beweise es.",
+      "width": 320
+    },
+    {
+      "locale": "ja",
+      "viewport": 320,
+      "approved": true,
+      "editors": 3,
+      "inlineBrandDeltas": [
+        0,
+        0.006249427795410156,
+        0.006249427795410156
+      ],
+      "overflow": false,
+      "slogan": "アルゴリズムを崇めるな。 証明しよう。",
+      "width": 320
+    },
+    {
+      "locale": "sw",
+      "viewport": 320,
+      "approved": true,
+      "editors": 3,
+      "inlineBrandDeltas": [
+        0,
+        0.006249427795410156
+      ],
+      "overflow": false,
+      "slogan": "Usiabudu algoriti. Thibitisha.",
+      "width": 320
+    },
+    {
+      "locale": "mr",
+      "viewport": 320,
+      "approved": true,
+      "editors": 3,
+      "inlineBrandDeltas": [
+        0,
+        0.006249427795410156,
+        0.006249427795410156
+      ],
+      "overflow": false,
+      "slogan": "अल्गोरिदमची पूजा करू नका. सिद्ध करा.",
+      "width": 320
+    },
+    {
+      "locale": "te",
+      "viewport": 320,
+      "approved": true,
+      "editors": 3,
+      "inlineBrandDeltas": [
+        0,
+        0.006249427795410156,
+        0.006249427795410156
+      ],
+      "overflow": false,
+      "slogan": "అల్గోరిథమ్‌ను పూజించకు. నిరూపించు.",
+      "width": 320
+    },
+    {
+      "locale": "tr",
+      "viewport": 320,
+      "approved": true,
+      "editors": 3,
+      "inlineBrandDeltas": [
+        0,
+        0.006249427795410156,
+        0.006249427795410156
+      ],
+      "overflow": false,
+      "slogan": "Algoritmaya tapma. İspatla.",
+      "width": 320
+    },
+    {
+      "locale": "ta",
+      "viewport": 320,
+      "approved": true,
+      "editors": 3,
+      "inlineBrandDeltas": [
+        0,
+        0.006249427795410156,
+        0.006249427795410156
+      ],
+      "overflow": false,
+      "slogan": "அல்காரிதத்தை வணங்காதே. நிரூபி.",
+      "width": 320
+    },
+    {
+      "locale": "vi",
+      "viewport": 320,
+      "approved": true,
+      "editors": 3,
+      "inlineBrandDeltas": [
+        0,
+        0.006249427795410156
+      ],
+      "overflow": false,
+      "slogan": "Đừng tôn thờ thuật toán. Hãy chứng minh.",
+      "width": 320
+    },
+    {
+      "locale": "ko",
+      "viewport": 320,
+      "approved": true,
+      "editors": 3,
+      "inlineBrandDeltas": [
+        0,
+        0.006249427795410156,
+        0.006249427795410156
+      ],
+      "overflow": false,
+      "slogan": "알고리즘을 숭배하지 마세요. 증명하세요.",
+      "width": 320
+    },
+    {
+      "locale": "en",
+      "viewport": 1440,
+      "approved": true,
+      "editors": 3,
+      "inlineBrandDeltas": [
+        0,
+        0.006299018859863281,
+        0.006249427795410156,
+        0.006249427795410156
+      ],
+      "overflow": false,
+      "slogan": "Don’t worship the algorithm. Prove it.",
+      "width": 1440
+    },
+    {
+      "locale": "zh-CN",
+      "viewport": 1440,
+      "approved": true,
+      "editors": 3,
+      "inlineBrandDeltas": [
+        0,
+        0.00634765625,
+        0.006249427795410156
+      ],
+      "overflow": false,
+      "slogan": "别崇拜算法。 拿出证明。",
+      "width": 1440
+    },
+    {
+      "locale": "hi",
+      "viewport": 1440,
+      "approved": true,
+      "editors": 3,
+      "inlineBrandDeltas": [
+        0,
+        0.00634765625,
+        0.006249427795410156
+      ],
+      "overflow": false,
+      "slogan": "एल्गोरिदम की पूजा मत करो। साबित करो।",
+      "width": 1440
+    },
+    {
+      "locale": "es",
+      "viewport": 1440,
+      "approved": true,
+      "editors": 3,
+      "inlineBrandDeltas": [
+        0,
+        0.006249427795410156
+      ],
+      "overflow": false,
+      "slogan": "No adores al algoritmo. Demuéstralo.",
+      "width": 1440
+    },
+    {
+      "locale": "fr",
+      "viewport": 1440,
+      "approved": true,
+      "editors": 3,
+      "inlineBrandDeltas": [
+        0,
+        0.006249427795410156
+      ],
+      "overflow": false,
+      "slogan": "Ne vénère pas l’algorithme. Prouve-le.",
+      "width": 1440
+    },
+    {
+      "locale": "ar",
+      "viewport": 1440,
+      "approved": true,
+      "editors": 3,
+      "inlineBrandDeltas": [
+        0,
+        0.006249427795410156
+      ],
+      "overflow": false,
+      "slogan": "لا تعبد الخوارزمية. أثبت ذلك.",
+      "width": 1440
+    },
+    {
+      "locale": "bn",
+      "viewport": 1440,
+      "approved": true,
+      "editors": 3,
+      "inlineBrandDeltas": [
+        0,
+        0.00634765625,
+        0.006249427795410156
+      ],
+      "overflow": false,
+      "slogan": "অ্যালগরিদমের পূজা কোরো না। প্রমাণ করো।",
+      "width": 1440
+    },
+    {
+      "locale": "pt-BR",
+      "viewport": 1440,
+      "approved": true,
+      "editors": 3,
+      "inlineBrandDeltas": [
+        0,
+        0.006249427795410156
+      ],
+      "overflow": false,
+      "slogan": "Não adore o algoritmo. Prove.",
+      "width": 1440
+    },
+    {
+      "locale": "ru",
+      "viewport": 1440,
+      "approved": true,
+      "editors": 3,
+      "inlineBrandDeltas": [
+        0,
+        0.006249427795410156
+      ],
+      "overflow": false,
+      "slogan": "Не поклоняйся алгоритму. Докажи.",
+      "width": 1440
+    },
+    {
+      "locale": "id",
+      "viewport": 1440,
+      "approved": true,
+      "editors": 3,
+      "inlineBrandDeltas": [
+        0,
+        0.006249427795410156
+      ],
+      "overflow": false,
+      "slogan": "Jangan memuja algoritma. Buktikan.",
+      "width": 1440
+    },
+    {
+      "locale": "ur",
+      "viewport": 1440,
+      "approved": true,
+      "editors": 3,
+      "inlineBrandDeltas": [
+        0,
+        0.00634765625,
+        0.006249427795410156
+      ],
+      "overflow": false,
+      "slogan": "الگورتھم کی عبادت مت کرو۔ ثابت کرو۔",
+      "width": 1440
+    },
+    {
+      "locale": "de",
+      "viewport": 1440,
+      "approved": true,
+      "editors": 3,
+      "inlineBrandDeltas": [
+        0,
+        0.006103515625,
+        0.006249427795410156
+      ],
+      "overflow": false,
+      "slogan": "Bete den Algorithmus nicht an. Beweise es.",
+      "width": 1440
+    },
+    {
+      "locale": "ja",
+      "viewport": 1440,
+      "approved": true,
+      "editors": 3,
+      "inlineBrandDeltas": [
+        0,
+        0.00634765625,
+        0.006249427795410156
+      ],
+      "overflow": false,
+      "slogan": "アルゴリズムを崇めるな。 証明しよう。",
+      "width": 1440
+    },
+    {
+      "locale": "sw",
+      "viewport": 1440,
+      "approved": true,
+      "editors": 3,
+      "inlineBrandDeltas": [
+        0,
+        0.006249427795410156
+      ],
+      "overflow": false,
+      "slogan": "Usiabudu algoriti. Thibitisha.",
+      "width": 1440
+    },
+    {
+      "locale": "mr",
+      "viewport": 1440,
+      "approved": true,
+      "editors": 3,
+      "inlineBrandDeltas": [
+        0,
+        0.00634765625,
+        0.006249427795410156
+      ],
+      "overflow": false,
+      "slogan": "अल्गोरिदमची पूजा करू नका. सिद्ध करा.",
+      "width": 1440
+    },
+    {
+      "locale": "te",
+      "viewport": 1440,
+      "approved": true,
+      "editors": 3,
+      "inlineBrandDeltas": [
+        0,
+        0.00634765625,
+        0.006249427795410156
+      ],
+      "overflow": false,
+      "slogan": "అల్గోరిథమ్‌ను పూజించకు. నిరూపించు.",
+      "width": 1440
+    },
+    {
+      "locale": "tr",
+      "viewport": 1440,
+      "approved": true,
+      "editors": 3,
+      "inlineBrandDeltas": [
+        0,
+        0.006249427795410156,
+        0.006249427795410156
+      ],
+      "overflow": false,
+      "slogan": "Algoritmaya tapma. İspatla.",
+      "width": 1440
+    },
+    {
+      "locale": "ta",
+      "viewport": 1440,
+      "approved": true,
+      "editors": 3,
+      "inlineBrandDeltas": [
+        0,
+        0.006103515625,
+        0.006249427795410156
+      ],
+      "overflow": false,
+      "slogan": "அல்காரிதத்தை வணங்காதே. நிரூபி.",
+      "width": 1440
+    },
+    {
+      "locale": "vi",
+      "viewport": 1440,
+      "approved": true,
+      "editors": 3,
+      "inlineBrandDeltas": [
+        0,
+        0.006249427795410156
+      ],
+      "overflow": false,
+      "slogan": "Đừng tôn thờ thuật toán. Hãy chứng minh.",
+      "width": 1440
+    },
+    {
+      "locale": "ko",
+      "viewport": 1440,
+      "approved": true,
+      "editors": 3,
+      "inlineBrandDeltas": [
+        0,
+        0.00634765625,
+        0.006249427795410156
+      ],
+      "overflow": false,
+      "slogan": "알고리즘을 숭배하지 마세요. 증명하세요.",
+      "width": 1440
+    }
+  ],
+  "clipboard": "Actual browser clipboard matched edited draft; success feedback shown",
+  "reviewBehavior": "Editing revoked only the changed approval; account changes preserved text; bulk approval approved all three; restore reset one draft while preserving other approvals",
+  "inlineBrandChecks": {
+    "landingMaxCenterDeltaCssPx": 0.0064449310302734375,
+    "docsCases": 10,
+    "docsLocales": [
+      "en",
+      "tr",
+      "ar",
+      "ja",
+      "de"
+    ],
+    "docsViewportWidths": [
+      320,
+      1440
+    ],
+    "docsMaxCenterDeltaCssPx": 0.0003905296325683594,
+    "docsOverflowCases": 0
+  }
+}

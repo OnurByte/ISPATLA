@@ -37,3 +37,5 @@ Shared shape standard: 4px small details, 6px compact elements, 8px controls, 12
 The shared BrandLogo uses a 40px mark / 24px wordmark on mobile and 48px / 28px from the small breakpoint upward. Navigation must not override these dimensions per page; wrap the header contents when needed.
 
 All shared navigation/footer wordmarks use public/brand/wordmark.svg, outlined from the supplied Libron Bold with tight visible-ink bounds. CSS font-line-box offsets are not used. Shared page starts use site-container; reading forms keep their maximum width without recentering away from the header.
+
+The slogan’s “İspatla.” is the Turkish verb, not a brand label. Never substitute ispatla.tr into a slogan or transform the hero headline through BrandText.
