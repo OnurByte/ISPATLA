@@ -24,7 +24,7 @@ export async function PublicPage({ title, summary, children, current }: { title:
     <footer className="border-t border-border">
       <div className="mx-auto flex max-w-7xl flex-wrap justify-between gap-4 px-5 py-7 text-xs text-muted-foreground sm:px-8">
         <BrandLogo href={path("/")} ariaLabel={landing.brand} className="focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring" />
-        <a href="https://github.com/OnurByte/Ispatla" target="_blank" rel="noreferrer" className="underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring">{landing.sourceCode} · AGPL-3.0-or-later</a>
+        <a href="https://github.com/OnurByte/Ispatla" target="_blank" rel="noreferrer" className="underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring">{landing.sourceCode} ⁜ AGPL-3.0-or-later</a>
       </div>
     </footer>
   </div>;

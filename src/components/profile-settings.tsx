@@ -21,7 +21,7 @@ export function ProfileSettings({ initial: profile }: { initial: OwnUserProfile 
           {profile.xHandle && <a className="text-sm text-muted-foreground underline" href={`https://x.com/${encodeURIComponent(profile.xHandle)}`} target="_blank" rel="noreferrer">@{profile.xHandle}</a>}
         </div>
       </div>
-      {profile.bio && <div className="rounded-lg border p-3 text-sm"><span className="text-muted-foreground">Bio · 𝕏</span><p className="mt-1 whitespace-pre-wrap">{profile.bio}</p></div>}
+      {profile.bio && <div className="rounded-lg border p-3 text-sm"><span className="text-muted-foreground">Bio ⁜ 𝕏</span><p className="mt-1 whitespace-pre-wrap">{profile.bio}</p></div>}
       <div className="rounded-lg border p-3 text-sm">
         <span className="text-muted-foreground">Profil bağlantısı</span>
         <p className="mt-1 break-all font-mono"><a href={profile.profilePath} className="underline">{PUBLIC_ORIGIN}{profile.profilePath}</a></p>

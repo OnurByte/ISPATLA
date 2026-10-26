@@ -15,6 +15,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { BrandLogo } from "@/components/brand-logo";
+import { PublicHeaderContent } from "@/components/public-header-content";
 import { SidebarSearch } from "@/components/sidebar-search";
 import { DEFAULT_LOCALE, localeFromPath, localizePath, stripLocalePrefix } from "@/i18n/config";
 import { getDictionary } from "@/i18n/dictionaries";
@@ -136,10 +137,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </Sidebar>
 
       <SidebarInset>
-        <header className="sticky top-0 z-20 flex h-12 items-center gap-2 border-b bg-background/90 px-4 backdrop-blur md:hidden">
-          <SidebarTrigger aria-label={dict.nav.menuOpen} />
-          <BrandLogo href={localizePath(locale, "/dashboard")} />
-        </header>
+        <PublicHeaderContent locale={locale} authenticated leading={<span className="md:hidden"><SidebarTrigger aria-label={dict.nav.menuOpen} /></span>} />
         {children}
       </SidebarInset>
     </SidebarProvider>

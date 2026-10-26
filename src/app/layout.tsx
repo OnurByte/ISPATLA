@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { preload } from "react-dom";
 import { headers } from "next/headers";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthSessionSync } from "@/components/auth-session-sync";
@@ -12,12 +13,14 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   metadataBase: new URL(PUBLIC_ORIGIN),
-  title: "ispatla.tr — 𝕏 için AI kampanya çalışma alanı",
-  description: "Fikirlerini AI destekli kampanyalara dönüştür. Çoklu 𝕏 hesaplarını, içeriklerini ve MCP araçlarını tek çalışma alanında buluştur.",
+  title: "ispatla.tr ⁜ Content research for 𝕏",
+  description: "Review 𝕏 source context, assess account fit, shape an editable draft, and inspect what happened.",
   icons: SITE_ICON_METADATA,
 };
 
 export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+  preload("/fonts/libron-regular.woff2", { as: "font", type: "font/woff2", crossOrigin: "anonymous" });
+  preload("/fonts/libron-bold.woff2", { as: "font", type: "font/woff2", crossOrigin: "anonymous" });
   const requestHeaders = await headers();
   const requestedLocale = requestHeaders.get("x-ispatla-locale") || DEFAULT_LOCALE;
   const locale = isLocale(requestedLocale) ? requestedLocale : DEFAULT_LOCALE;

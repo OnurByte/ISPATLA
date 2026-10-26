@@ -26,9 +26,9 @@ function timestamp(value: number) { return new Date(value * 1000).toLocaleString
 function outcomeText(row: PredictionRow) {
   if (!row.outcomes.length) return "Henüz gözlenen sonuç yok";
   const latest = row.outcomes[row.outcomes.length - 1];
-  const metrics = Object.entries(latest.metrics).map(([name, value]) => `${name}: ${value === null ? "bilinmiyor" : value.toLocaleString("tr-TR")}`).join(" · ");
-  const censored = latest.censored.length ? ` · sansürlü: ${latest.censored.join(", ")}` : "";
-  return `${metrics}${censored} · ${timestamp(latest.observedAt)}`;
+  const metrics = Object.entries(latest.metrics).map(([name, value]) => `${name}: ${value === null ? "bilinmiyor" : value.toLocaleString("tr-TR")}`).join(" ⁜ ");
+  const censored = latest.censored.length ? ` ⁜ sansürlü: ${latest.censored.join(", ")}` : "";
+  return `${metrics}${censored} ⁜ ${timestamp(latest.observedAt)}`;
 }
 
 export function EvaluationPage() {
@@ -98,7 +98,7 @@ export function EvaluationPage() {
         <div className="flex flex-wrap items-center gap-2">
           <label className="sr-only" htmlFor="evaluation-account">Hesap</label>
           <select id="evaluation-account" className="h-9 rounded-md border bg-background px-3 text-sm" value={accountId} onChange={(event) => { setAccountId(event.target.value); void load(event.target.value, modelKey); }}>
-            {data?.accounts.map((account) => <option key={account.id} value={account.id}>@{account.handle} · {account.displayName}</option>)}
+            {data?.accounts.map((account) => <option key={account.id} value={account.id}>@{account.handle} ⁜ {account.displayName}</option>)}
           </select>
           <label className="sr-only" htmlFor="evaluation-model">Model</label>
           <select id="evaluation-model" className="h-9 rounded-md border bg-background px-3 text-sm" value={modelKey} onChange={(event) => { setModelKey(event.target.value); void load(accountId, event.target.value); }}>
@@ -116,7 +116,7 @@ export function EvaluationPage() {
         {rows.length ? <div className="overflow-x-auto"><table className="w-full min-w-[1100px] border-collapse text-left text-sm">
           <thead><tr className="border-b text-xs text-muted-foreground"><th className="p-3">Aday / model</th><th className="p-3">Karar / neden</th><th className="p-3">Skor / risk</th><th className="p-3">Split / seçim</th><th className="p-3">Gözlenen sonuç</th><th className="p-3">Etiket</th></tr></thead>
           <tbody>{rows.map((row) => <tr key={row.id} className="border-b align-top last:border-0">
-            <td className="p-3"><div className="font-medium">{row.candidateId}</div><div className="max-w-56 truncate text-xs text-muted-foreground" title={row.modelKey}>{row.modelKey}</div><div className="mt-1 text-xs text-muted-foreground">{timestamp(row.createdAt)} · {row.due ? "vade geçti" : `vade ${timestamp(row.resolveBy)}`}</div></td>
+            <td className="p-3"><div className="font-medium">{row.candidateId}</div><div className="max-w-56 truncate text-xs text-muted-foreground" title={row.modelKey}>{row.modelKey}</div><div className="mt-1 text-xs text-muted-foreground">{timestamp(row.createdAt)} ⁜ {row.due ? "vade geçti" : `vade ${timestamp(row.resolveBy)}`}</div></td>
             <td className="max-w-64 p-3"><Badge variant="outline">{row.decision}</Badge><p className="mt-2 text-xs text-muted-foreground">{row.reason}</p></td>
             <td className="p-3 tabular-nums"><div>Ham: {row.rawScore}</div><div className="text-xs text-muted-foreground">Risk: {row.riskTier || "unknown"}</div>{row.calibratedProbability !== null ? <div className="mt-1 text-xs">Kalibre edilmiş tahmin: {(row.calibratedProbability * 100).toFixed(1)}%</div> : <div className="mt-1 text-xs text-muted-foreground">Olasılık gösterilmez</div>}</td>
             <td className="p-3"><Badge variant="secondary">{row.split}</Badge><div className="mt-2 text-xs text-muted-foreground">Seçim propensity: {row.selectionPropensity === null ? "unknown" : row.selectionPropensity}</div></td>
@@ -131,8 +131,8 @@ export function EvaluationPage() {
       <CardContent className="flex flex-col gap-4">
         <div className="grid gap-3 sm:grid-cols-3">
           <div className="rounded-lg border p-3"><div className="text-xs text-muted-foreground">Kalibrasyon durumu</div><div className="mt-1 font-medium">{calibration?.status === "calibrated" ? "Kalibre edildi" : calibration ? "Örnek yetersiz" : "Henüz profil yok"}</div><div className="text-xs text-muted-foreground">{calibration?.sampleCount ?? 0} etiketli örnek</div></div>
-          <div className="rounded-lg border p-3"><div className="text-xs text-muted-foreground">Kalibrasyon aralıkları</div>{calibration?.status === "calibrated" && calibration.mapping.length ? <div className="mt-1 space-y-1 text-xs">{calibration.mapping.map((bin, index) => <div key={`${bin.upperScore}:${index}`}>Ham skor ≤ {bin.upperScore}: {(bin.probability * 100).toFixed(1)}% · n={bin.count}</div>)}</div> : <div className="mt-1 text-sm">Yetersiz kanıt; olasılık gösterilmiyor</div>}</div>
-          <div className="rounded-lg border p-3"><div className="text-xs text-muted-foreground">Holdout kayıtları</div><div className="mt-1 text-sm">{data?.replays.length || 0} replay kaydı</div>{data?.replays.slice(0, 3).map((replay) => <div key={replay.id} className="mt-1 text-xs text-muted-foreground">{timestamp(replay.createdAt)} · {replay.sampleCount} örnek · Brier {replay.brier ?? "—"} · log loss {replay.logLoss ?? "—"} · ECE {replay.ece ?? "—"}</div>)}</div>
+          <div className="rounded-lg border p-3"><div className="text-xs text-muted-foreground">Kalibrasyon aralıkları</div>{calibration?.status === "calibrated" && calibration.mapping.length ? <div className="mt-1 space-y-1 text-xs">{calibration.mapping.map((bin, index) => <div key={`${bin.upperScore}:${index}`}>Ham skor ≤ {bin.upperScore}: {(bin.probability * 100).toFixed(1)}% ⁜ n={bin.count}</div>)}</div> : <div className="mt-1 text-sm">Yetersiz kanıt; olasılık gösterilmiyor</div>}</div>
+          <div className="rounded-lg border p-3"><div className="text-xs text-muted-foreground">Holdout kayıtları</div><div className="mt-1 text-sm">{data?.replays.length || 0} replay kaydı</div>{data?.replays.slice(0, 3).map((replay) => <div key={replay.id} className="mt-1 text-xs text-muted-foreground">{timestamp(replay.createdAt)} ⁜ {replay.sampleCount} örnek ⁜ Brier {replay.brier ?? "—"} ⁜ log loss {replay.logLoss ?? "—"} ⁜ ECE {replay.ece ?? "—"}</div>)}</div>
         </div>
         <Button className="self-start" disabled={!accountId || !modelKey || Boolean(pending)} onClick={() => void act("replay", { accountId, modelKey })}>{pending === "replay" ? "Replay çalışıyor…" : "Kalibrasyonu hesapla ve ayrı holdout verisinde değerlendir"}</Button>
         <p className="text-xs text-muted-foreground">Policy/challenger karşı-olguları bu ekranda hesaplanmıyor. Yetersiz karşılaştırma kanıtından nedensel etki veya model üstünlüğü çıkarılmaz.</p>

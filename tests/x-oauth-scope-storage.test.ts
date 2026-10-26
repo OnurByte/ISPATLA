@@ -4,6 +4,7 @@ test("X OAuth start, account provisioning and refresh bind scopes as PostgreSQL 
   const result = Bun.spawnSync({ cmd: [process.execPath, "-e", `
     import { mock } from "bun:test";
     import assert from "node:assert/strict";
+    mock.module("./src/server/official-x-access.ts", () => ({ assertOfficialXCallsAvailable: () => undefined }));
     import { PgDialect } from "drizzle-orm/pg-core/dialect";
     const dialect = new PgDialect();
     const scopeQueries = [];

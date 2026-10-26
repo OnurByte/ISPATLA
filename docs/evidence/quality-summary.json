@@ -1,0 +1,40 @@
+{
+  "checkedAt": "2026-10-26T00:08:44.500249+00:00",
+  "scope": "Local production build; not deployed field data",
+  "profiles": {
+    "mobile": {
+      "lighthouseVersion": "12.8.2",
+      "fetchTime": "2026-10-26T00:08:13.651Z",
+      "url": "http://localhost:3101/",
+      "scores": {
+        "performance": 90,
+        "accessibility": 100,
+        "best-practices": 100,
+        "seo": 100
+      },
+      "metrics": {
+        "first-contentful-paint": 1065.1663,
+        "largest-contentful-paint": 3390.1663,
+        "total-blocking-time": 146.70842500000026,
+        "cumulative-layout-shift": 0
+      }
+    },
+    "desktop": {
+      "lighthouseVersion": "12.8.2",
+      "fetchTime": "2026-10-26T00:08:25.719Z",
+      "url": "http://localhost:3101/",
+      "scores": {
+        "performance": 100,
+        "accessibility": 100,
+        "best-practices": 100,
+        "seo": 100
+      },
+      "metrics": {
+        "first-contentful-paint": 291.4071,
+        "largest-contentful-paint": 691.4071,
+        "total-blocking-time": 4.5,
+        "cumulative-layout-shift": 0
+      }
+    }
+  }
+}

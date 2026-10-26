@@ -3,6 +3,7 @@ import { sql } from "drizzle-orm";
 import { getPostgresDb } from "@/server/postgres";
 import { isLocale } from "@/i18n/config";
 import { X_CONSENT_COPY_VERSION, X_POLICY_VERSION } from "./x-policy";
+import { assertOfficialXCallsAvailable } from "./official-x-access";
 
 // pg returns dynamic row shapes from raw SQL, which callers validate per query.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -98,6 +99,7 @@ export async function startPostgresXOAuth(input: {
 }): Promise<{ authorizationUrl: string; expiresAt: number }> {
   if (!input.ownerUserId.trim() || !input.sessionId.trim()) throw new Error("authenticated app session required");
   const env = input.env || process.env;
+  assertOfficialXCallsAvailable();
   const oauth = config(env);
   const state = randomBytes(32).toString("base64url");
   const verifier = randomBytes(32).toString("base64url");
@@ -140,6 +142,7 @@ export async function completePostgresXOAuth(input: {
 }): Promise<{ accountId: number; handle: string; displayName: string; returnTo: string }> {
   if (!input.ownerUserId.trim() || !input.sessionId.trim()) throw new Error("authenticated app session required");
   const env = input.env || process.env;
+  assertOfficialXCallsAvailable();
   const oauth = config(env);
   const url = new URL(input.request.url);
   const state = url.searchParams.get("state") || "";

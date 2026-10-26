@@ -3,6 +3,7 @@ import { PublicPage, PublicSection } from "@/components/public-page";
 import { requestPublicLocale } from "@/components/public-header";
 import { LOCALE_CONFIG, localizePath } from "@/i18n/config";
 import { docsCopy } from "@/i18n/docs-copy";
+import { mcpEvidenceCopy, mcpHelpCopy } from "@/i18n/mcp-help-copy";
 import { publicMetadata } from "@/i18n/public-metadata";
 
 export async function generateMetadata() {
@@ -15,9 +16,8 @@ export default async function DocsPage() {
   const locale = await requestPublicLocale();
   const copy = docsCopy[locale];
   const language = LOCALE_CONFIG[locale];
-  const mcpCopy = locale === "tr"
-    ? { title: "MCP bağlantısı (yerel stdio)", body: "MCP istemcinizi kendi ispatla.tr oturumunuza bağlayın. Bu, bilgisayarınızda çalışan yerel bir stdio sürecidir; herkese açık, barındırılan bir MCP hizmeti değildir.", secret: "MCP istemcinizin süreç ortamında ISPATLA_MCP_SESSION_COOKIE değişkenine etkin uygulama oturum çerezinizi verin. Çerezi parola gibi koruyun ve Git'e eklemeyin." }
-    : { title: "MCP connection (local stdio)", body: "Connect your MCP client to your own ispatla.tr session. This runs a local stdio process; it is not a hosted public MCP service.", secret: "Set ISPATLA_MCP_SESSION_COOKIE in your MCP client's process environment to your active application session cookie. Treat the cookie like a password and never commit it to Git." };
+  const mcpCopy = mcpHelpCopy[locale];
+  const mcpEvidence = mcpEvidenceCopy[locale];
   const repo = "https://github.com/OnurByte/ISPATLA";
   return <PublicPage current="docs" title={copy.title} summary={copy.summary}>
     <div lang={locale} dir={language.dir} className="space-y-10">
@@ -29,10 +29,20 @@ export default async function DocsPage() {
         <p>{copy.testLimit}</p>
       </PublicSection>
       <PublicSection id="mcp" title={mcpCopy.title}>
-        <p>{mcpCopy.body}</p>
+        <p>{mcpCopy.intro}</p>
+        <h3 className="text-base font-semibold">{mcpCopy.localTitle}</h3>
+        <p>{mcpCopy.localBody}</p>
+        <pre dir="ltr" className="overflow-x-auto rounded-md border bg-muted/40 p-4 font-mono text-xs text-foreground">{'{"mcpServers":{"ispatla":{"command":"bun","args":["run","mcp"],"env":{"ISPATLA_MCP_SESSION_COOKIE":"<session-cookie>"}}}'}</pre>
         <p>{mcpCopy.secret}</p>
-        <pre dir="ltr" className="overflow-x-auto rounded-md border bg-muted/40 p-4 font-mono text-xs text-foreground">{'ISPATLA_MCP_SESSION_COOKIE="<your-session-cookie>" bun run mcp'}</pre>
-        <p><a className="underline underline-offset-4" href={`${repo}/blob/main/README.md`} target="_blank" rel="noopener noreferrer">{locale === "tr" ? "MCP kurulum ayrıntıları" : "MCP setup details"}</a></p>
+        <h3 className="text-base font-semibold">{mcpCopy.remoteTitle}</h3>
+        <p>{mcpCopy.remoteBody}</p>
+        <pre dir="ltr" className="overflow-x-auto rounded-md border bg-muted/40 p-4 font-mono text-xs text-foreground">{'MCP endpoint: https://<your-deployment-origin>/mcp\nOAuth metadata: https://<your-deployment-origin>/.well-known/oauth-authorization-server'}</pre>
+        <h3 className="text-base font-semibold">{mcpCopy.scopesTitle}</h3>
+        <p>{mcpCopy.scopesBody}</p>
+        <h3 className="text-base font-semibold">{mcpCopy.limitsTitle}</h3>
+        <p>{mcpCopy.limitsBody}</p>
+        <h3 className="text-base font-semibold">{mcpEvidence.title}</h3>
+        <p>{mcpEvidence.body}</p>
       </PublicSection>
     </div>
     <aside lang={locale} dir={language.dir} className="h-fit space-y-4 rounded-lg border bg-muted/30 p-5 text-sm">

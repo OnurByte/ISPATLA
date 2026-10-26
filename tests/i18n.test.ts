@@ -38,21 +38,17 @@ test("all twenty locales have complete, translated navigation and landing dictio
     expect(Object.values(dictionary.nav).every((text) => text.trim().length > 0), `${locale} navigation`).toBe(true);
     expect(Object.entries(dictionary.landing).every(([key, text]) => key === "partialNotice" ? text === "" : text.trim().length > 0), `${locale} landing`).toBe(true);
     expect(dictionary.status.partial.trim().length, `${locale} partial status`).toBeGreaterThan(0);
+    expect(dictionary.landing.brand, `${locale} consistent brand`).toBe("ispatla.tr");
     expect(dictionary.landing.partialNotice, `${locale} localized landing notice`).toBe("");
     if (locale !== "en") {
       expect(dictionary.nav.login, `${locale} sign-in label`).not.toBe(dictionaries.en.nav.login);
-      expect(dictionary.landing.headlineFirst, `${locale} landing headline`).not.toBe(dictionaries.en.landing.headlineFirst);
+      expect(dictionary.landing.menuLabel, `${locale} public menu`).not.toBe(dictionaries.en.landing.menuLabel);
       expect(dictionary.status.partial, `${locale} status translation`).not.toBe(dictionaries.en.status.partial);
     }
   }
-  expect(dictionaries["zh-CN"].landing.headlineFirst).toBe("别再讨好算法。");
   expect(dictionaries.hi.nav.login).toBe("साइन इन");
-  expect(dictionaries.es.landing.headlineSecond).toBe("Haz que tu próximo paso cuente.");
   expect(dictionaries.ar.nav.login).toBe("تسجيل الدخول");
-  expect(dictionaries.ur.landing.headlineSecond).toBe("اپنے اگلے قدم کو معنی دیں۔");
-  expect(dictionaries.sw.landing.headlineFirst).toBe("Acha kuisihi algoriti.");
   expect(dictionaries.ta.nav.login).toBe("உள்நுழை");
-  expect(dictionaries.tr.landing.headlineSecond).toBe("Kendi oyununu kur.");
   expect(LOCALE_CONFIG.ar.dir).toBe("rtl");
   expect(LOCALE_CONFIG.ur.dir).toBe("rtl");
   expect(LOCALE_CONFIG["zh-CN"].nativeName).toBe("简体中文");
@@ -66,11 +62,11 @@ test("locale path helpers preserve flat routes and safely add or remove a locale
   expect(localeFromPath("/zh-CN/settings")).toBe("zh-CN");
   expect(localeFromPath("/settings")).toBeNull();
   expect(stripLocalePrefix("/zh-CN/settings")).toBe("/settings");
-  expect(localizePath("en", "/settings?tab=profile")).toBe("/en/settings?tab=profile");
-  expect(localizePath("tr", "/en")).toBe("/");
-  expect(localizePath("tr", "/")).toBe("/");
-  expect(localizePath("tr", "/accounts")).toBe("/accounts");
-  expect(localizePath("en", "/accounts")).toBe("/en/accounts");
+  expect(localizePath("en", "/settings?tab=profile")).toBe("/settings?tab=profile");
+  expect(localizePath("tr", "/en")).toBe("/tr");
+  expect(localizePath("tr", "/")).toBe("/tr");
+  expect(localizePath("tr", "/accounts")).toBe("/tr/accounts");
+  expect(localizePath("en", "/accounts")).toBe("/accounts");
 });
 
 test("system language matching honors browser preference order and supported language fallbacks", () => {
@@ -84,24 +80,24 @@ test("system language matching honors browser preference order and supported lan
 test("localized landing metadata provides one canonical path and hreflang entry per supported locale", () => {
   const metadata = landingAlternates("zh-CN");
   expect(metadata.canonical).toBe("/zh-CN");
-  expect(metadata.languages).toMatchObject({ "zh-CN": "/zh-CN", "pt-BR": "/pt-BR", tr: "/", en: "/en", "x-default": "/" });
+  expect(metadata.languages).toMatchObject({ "zh-CN": "/zh-CN", "pt-BR": "/pt-BR", tr: "/tr", en: "/", "x-default": "/" });
   expect(Object.keys(metadata.languages)).toHaveLength(LOCALES.length + 1);
 });
 
 test("proxy canonicalizes the default locale, remembers language choice, protects app routes, and leaves API callbacks flat", () => {
-  const defaultLocaleCanonical = proxy(new Request("http://localhost:3000/tr/accounts?tab=connections"));
+  const defaultLocaleCanonical = proxy(new Request("http://localhost:3000/en/accounts?tab=connections"));
   expect(defaultLocaleCanonical.status).toBe(307);
   expect(defaultLocaleCanonical.headers.get("location")).toBe("http://localhost:3000/accounts?tab=connections");
-  expect(defaultLocaleCanonical.headers.get("set-cookie")).toContain("ispatla-locale=tr");
+  expect(defaultLocaleCanonical.headers.get("set-cookie")).toContain("ispatla-locale=en");
 
   const localized = proxy(new Request("http://localhost:3000/ar/privacy?from=mail"));
   expect(localized.headers.get("x-middleware-rewrite")).toBe("http://localhost:3000/privacy?from=mail");
   expect(localized.headers.get("x-middleware-request-x-ispatla-locale")).toBe("ar");
   expect(localized.headers.get("set-cookie")).toContain("ispatla-locale=ar");
 
-  const protectedPage = proxy(new Request("http://localhost:3000/en/settings/profile"));
+  const protectedPage = proxy(new Request("http://localhost:3000/tr/settings/profile"));
   expect(protectedPage.status).toBe(307);
-  expect(protectedPage.headers.get("location")).toBe("http://localhost:3000/en/login?next=%2Fsettings%2Fprofile");
+  expect(protectedPage.headers.get("location")).toBe("http://localhost:3000/tr/login?next=%2Fsettings%2Fprofile");
 
   const protectedDashboard = proxy(new Request("http://localhost:3000/dashboard?tab=recent"));
   expect(protectedDashboard.headers.get("location")).toBe("http://localhost:3000/login?next=%2Fdashboard%3Ftab%3Drecent");
@@ -109,7 +105,7 @@ test("proxy canonicalizes the default locale, remembers language choice, protect
   expect(validSessionRoute.status).toBe(200);
   expect(validSessionRoute.headers.get("location")).toBeNull();
   expect(validSessionRoute.headers.get("x-middleware-rewrite")).toBeNull();
-  const localizedDashboard = proxy(new Request("http://localhost:3000/en/dashboard", { headers: { cookie: "better-auth.session_token=present" } }));
+  const localizedDashboard = proxy(new Request("http://localhost:3000/tr/dashboard", { headers: { cookie: "better-auth.session_token=present" } }));
   expect(localizedDashboard.headers.get("x-middleware-rewrite")).toBe("http://localhost:3000/dashboard");
   const unsupportedLegacyDashboard = proxy(new Request("http://localhost:3000/app/dashboard"));
   expect(unsupportedLegacyDashboard.status).toBe(200);
@@ -135,10 +131,10 @@ test("proxy canonicalizes the default locale, remembers language choice, protect
   expect(selectedLanguage.headers.get("x-middleware-request-x-ispatla-locale")).toBe("fr");
   const remembered = proxy(new Request("http://localhost:3000/privacy", { headers: { cookie: "better-auth.session_token=valid; ispatla-locale=ja" } }));
   expect(remembered.headers.get("x-middleware-request-x-ispatla-locale")).toBe("ja");
-  const explicitWins = proxy(new Request("http://localhost:3000/en/privacy", { headers: { cookie: "ispatla-locale=ja" } }));
-  expect(explicitWins.headers.get("x-middleware-request-x-ispatla-locale")).toBe("en");
+  const explicitWins = proxy(new Request("http://localhost:3000/de/privacy", { headers: { cookie: "ispatla-locale=ja" } }));
+  expect(explicitWins.headers.get("x-middleware-request-x-ispatla-locale")).toBe("de");
   const invalidCookie = proxy(new Request("http://localhost:3000/privacy", { headers: { cookie: "ispatla-locale=../../api" } }));
-  expect(invalidCookie.headers.get("x-middleware-request-x-ispatla-locale")).toBe("tr");
+  expect(invalidCookie.headers.get("x-middleware-request-x-ispatla-locale")).toBe("en");
 });
 
 
@@ -158,4 +154,16 @@ test("public product-tour navigation shares the brand and preserves every locale
     expect(authenticatedMarkup).not.toContain(dictionaries[locale].nav.signOut);
     expect(authenticatedMarkup).not.toContain(`href="${localizePath(locale, "/signup")}"`);
   }
+});
+
+test("English is the unselected language even when the browser prefers Turkish", () => {
+  expect(DEFAULT_LOCALE).toBe("en");
+  const requests: Record<string, string>[] = [{}, {"accept-language":"tr-TR,tr;q=0.9"}, {cookie:"ispatla-locale=invalid"}];
+  for (const headers of requests) {
+    const response = proxy(new Request("http://localhost:3000/", {headers}));
+    expect(response.headers.get("x-middleware-request-x-ispatla-locale")).toBe("en");
+  }
+  const turkish = proxy(new Request("http://localhost:3000/tr/docs"));
+  expect(turkish.headers.get("x-middleware-request-x-ispatla-locale")).toBe("tr");
+  expect(turkish.headers.get("x-middleware-rewrite")).toBe("http://localhost:3000/docs");
 });

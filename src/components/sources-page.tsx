@@ -264,8 +264,8 @@ export function SourcesPage({ accounts, initial, initialAvailable, initialDelete
               <span className="flex items-center gap-1 truncate font-medium">{identityValid ? source.name : source.handle}{identityValid && source.profile.blueCheckStatus && source.profile.blueCheckStatus !== "not_verified" && source.profile.blueCheckStatus !== "unknown" ? <BadgeCheck className={verificationClass(source.profile.blueCheckStatus)} aria-label={verificationLabel(source.profile.blueCheckStatus)} /> : null}</span>
               {source.profile.pinned ? <Pin aria-label="Sabitlenmiş kaynak" /> : null}
             </span>
-            <span className="w-full truncate text-xs text-muted-foreground">@{source.handle}{identityValid ? ` · ${Number(source.profile.followers || 0).toLocaleString("tr-TR")} takipçi` : " · profil kimliği doğrulanıyor"}</span>
-            <span className="w-full truncate text-xs text-muted-foreground">{source.profile.niche || source.profile.topics?.join(" · ") || "Niş tanımlı değil"}</span>
+            <span className="w-full truncate text-xs text-muted-foreground">@{source.handle}{identityValid ? ` ⁜ ${Number(source.profile.followers || 0).toLocaleString("tr-TR")} takipçi` : " ⁜ profil kimliği doğrulanıyor"}</span>
+            <span className="w-full truncate text-xs text-muted-foreground">{source.profile.niche || source.profile.topics?.join(" ⁜ ") || "Niş tanımlı değil"}</span>
             <Progress value={score} aria-label={`${source.name} kaynak skoru`} className="w-full" />
           </div>
           <span className="flex flex-col items-end gap-1">
@@ -283,7 +283,7 @@ export function SourcesPage({ accounts, initial, initialAvailable, initialDelete
   const evidenceLabel = selectedEvidence > 0
     ? `keşif kanıtı ${selectedEvidence}`
     : selected?.profile.origin === "seed"
-      ? "keşif kanıtı yok · başlangıç"
+      ? "keşif kanıtı yok ⁜ başlangıç"
       : "kanıt bekleniyor";
   const selectedDescription = selected?.profile.scoreReason || (
     selected?.profile.status === "candidate"
@@ -294,8 +294,8 @@ export function SourcesPage({ accounts, initial, initialAvailable, initialDelete
   return (
     <div className="space-y-5">
       {accounts.length ? <div className="flex flex-wrap items-end gap-3 rounded-lg border p-4">
-        <div className="min-w-64 flex-1"><FieldLabel htmlFor="sources-account">Yayın hesabı</FieldLabel><Select value={String(accountId)} onValueChange={switchAccount}><SelectTrigger id="sources-account" className="mt-2 w-full"><SelectValue /></SelectTrigger><SelectContent><SelectGroup>{accounts.map((account) => <SelectItem key={account.id} value={String(account.id)}>{account.displayName} · @{account.handle}</SelectItem>)}</SelectGroup></SelectContent></Select></div>
-        <div className="min-w-64 flex-1"><FieldLabel htmlFor="account-source-add">Bu hesaba kaynak ekle</FieldLabel><Select value={sourceToAdd} onValueChange={(value) => setSourceToAdd(value || "")}><SelectTrigger id="account-source-add" className="mt-2 w-full"><SelectValue placeholder="Kaynak seç" /></SelectTrigger><SelectContent><SelectGroup>{available.map((source) => <SelectItem key={source.handle} value={source.handle}>@{source.handle} · {source.name}</SelectItem>)}</SelectGroup></SelectContent></Select></div>
+        <div className="min-w-64 flex-1"><FieldLabel htmlFor="sources-account">Yayın hesabı</FieldLabel><Select value={String(accountId)} onValueChange={switchAccount}><SelectTrigger id="sources-account" className="mt-2 w-full"><SelectValue /></SelectTrigger><SelectContent><SelectGroup>{accounts.map((account) => <SelectItem key={account.id} value={String(account.id)}>{account.displayName} ⁜ @{account.handle}</SelectItem>)}</SelectGroup></SelectContent></Select></div>
+        <div className="min-w-64 flex-1"><FieldLabel htmlFor="account-source-add">Bu hesaba kaynak ekle</FieldLabel><Select value={sourceToAdd} onValueChange={(value) => setSourceToAdd(value || "")}><SelectTrigger id="account-source-add" className="mt-2 w-full"><SelectValue placeholder="Kaynak seç" /></SelectTrigger><SelectContent><SelectGroup>{available.map((source) => <SelectItem key={source.handle} value={source.handle}>@{source.handle} ⁜ {source.name}</SelectItem>)}</SelectGroup></SelectContent></Select></div>
         <Button onClick={addSource} disabled={!sourceToAdd || pending}><Plus data-icon="inline-start" aria-hidden="true" />Ekle</Button>
       </div> : <Alert><AlertDescription>Kaynak bağlamak için önce bir 𝕏 yayın hesabı ekle.</AlertDescription></Alert>}
       <div className="grid gap-5 xl:grid-cols-[minmax(320px,0.9fr)_minmax(0,1.1fr)]">
@@ -303,7 +303,7 @@ export function SourcesPage({ accounts, initial, initialAvailable, initialDelete
           <CardHeader className="flex-row items-start justify-between gap-3">
           <div>
             <CardTitle>@{accounts.find((account) => account.id === accountId)?.handle || "—"} kaynakları</CardTitle>
-            <CardDescription>{active.length} aktif · {candidates.length} keşif adayı · seçimler yalnız bu yayın hesabına uygulanır.</CardDescription>
+            <CardDescription>{active.length} aktif ⁜ {candidates.length} keşif adayı ⁜ seçimler yalnız bu yayın hesabına uygulanır.</CardDescription>
           </div>
           <div className="flex gap-2">
             <Button size="icon" variant="outline" onClick={scanSources} disabled={!accountId || scanning} aria-label="Kaynak postlarını tara" title="Kaynak postlarını tara">
@@ -326,7 +326,7 @@ export function SourcesPage({ accounts, initial, initialAvailable, initialDelete
               {warnings.length ? warnings.map((item) => <div key={`${item.handle}-${item.deletedAt}`} className="rounded-lg border border-dashed p-3 text-sm"><div className="font-medium">@{item.handle}</div><div className="text-xs text-muted-foreground">{item.reason}</div></div>) : <Empty className="border border-dashed py-8"><EmptyHeader><EmptyTitle>Teknik uyarı yok</EmptyTitle><EmptyDescription>Kimlik ve transport hataları burada görünür; kaynak silinmez.</EmptyDescription></EmptyHeader></Empty>}
             </TabsContent>
             <TabsContent value="deleted" className="flex flex-col gap-2 pt-3">
-              {deleted.length ? deleted.map((item) => <div key={`${item.handle}-${item.deletedAt}`} className="rounded-lg border border-dashed p-3 text-sm"><div className="font-medium">@{item.handle}</div><div className="text-xs text-muted-foreground">Skor {item.score} · {item.reason || "manuel kaldırma"}</div></div>) : <Empty className="border border-dashed py-8"><EmptyHeader><EmptyTitle>Kaldırılan kaynak yok</EmptyTitle><EmptyDescription>Manuel silmeler burada tutulur.</EmptyDescription></EmptyHeader></Empty>}
+              {deleted.length ? deleted.map((item) => <div key={`${item.handle}-${item.deletedAt}`} className="rounded-lg border border-dashed p-3 text-sm"><div className="font-medium">@{item.handle}</div><div className="text-xs text-muted-foreground">Skor {item.score} ⁜ {item.reason || "manuel kaldırma"}</div></div>) : <Empty className="border border-dashed py-8"><EmptyHeader><EmptyTitle>Kaldırılan kaynak yok</EmptyTitle><EmptyDescription>Manuel silmeler burada tutulur.</EmptyDescription></EmptyHeader></Empty>}
             </TabsContent>
           </Tabs>
         </CardContent>

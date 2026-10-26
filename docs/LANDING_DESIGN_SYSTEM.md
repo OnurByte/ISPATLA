@@ -1,71 +1,25 @@
-# The Signal Press landing design system
+# ispatla.tr landing design system
 
-This visual direction is implemented on the landing and shared through the site theme. The original brand symbol remains, while Libron is the locally served site and wordmark font. See [the evidence register](SIGNAL_PRESS_STATUS.md) for verified boundaries.
+Current standard: [brand.md](../brand.md). Product rationale: [PRODUCT_STRATEGY.md](PRODUCT_STRATEGY.md). Earlier Signal Press compositions are historical, not a template to restore.
 
-## Art direction
+## First view
 
-Underground editorial meets an intelligence laboratory: independent print,
-archival paperwork, measurement marks and original signal diagrams. Use an
-asymmetric editorial grid with large quiet areas and deliberate line breaks.
-Avoid generic SaaS cards, glass, blur, glow, gradient-heavy surfaces and abstract
-3D spheres. The supplied campaign artwork is original SVG and uses no external
-image or font service.
+Exact Turkish slogan, one concrete explanation, an action into the interactive workspace, and a secondary signup path. No AI-workspace eyebrow, “demo example” banner, fabricated author/engagement result or long evidence taxonomy above the fold.
 
-| Token | Value | Use |
-|---|---|---|
-| Archive paper | `#F0EDE5` | Main paper surfaces |
-| Carbon ink | `#16191E` | Text and dark surfaces |
-| Signal cobalt | `#315BF5` | Primary action and signal marks |
-| Warm archive | `#9A9A91` | Secondary labels |
-| Rejected | `#BC453D` | Rejected state, with text label |
-| Verified | `#477865` | Verified state, with text label |
+The interactive surface is marketing: visitors change account context, edit drafts and compare account content. Every control changes meaningful state. A period selector that only changes a label is not acceptable.
 
-Libron is the only site font for interface text, editorial headings, the brand wordmark, measurement labels and code. Font files are served locally under the SIL Open Font License; no third-party font service is loaded at runtime.
+## Narrative
 
-## Page narrative
+The source network is 𝕏. Connect source/topic, account relevance, reasoning and writing. Individual/bulk review is optional. Method, evidence and cost details belong in help or native details. GitHub links identify code, not a content-source card.
 
-1. **Editorial hero:** “HERKES AKIŞI GÖRÜR. SEN SİNYALİ YAKALA.” Explain source
-   research, opportunity assessment, editable drafts and evidence tracking. Link
-   to discovery, source code and a demo only when that demo is reachable.
-2. **Signal Detector:** clearly synthetic examples, source, decision and reasons.
-   A decision score is not virality probability or observed performance.
-3. **Writing Room:** show editable draft variants, account context and revision
-   differences; preserve approval as the user's decision.
-4. **Proof Room:** label `confirmed`, `unknown`, `blocked`, `pending` and `failed`
-   in text. No success seal without confirmation evidence.
-5. **Open-source manifesto:** repository, AGPL-3.0-or-later, self-host docs,
-   architecture, contributions and limitations. Open source is not a hosting,
-   API or AI cost promise.
-6. **Evidence-led comparisons:** see [COMPETITOR_RESEARCH.md](COMPETITOR_RESEARCH.md).
-7. **Editorial colophon:** identity, repository, license, docs, security/privacy,
-   version evidence and creator signature.
+Close with concise workflow, useful AI/MCP connection, source/license/help links and one next action. No competitor/research wall or restored Math Campaign/Excuse Burner.
 
-## Localization and search
+## Contract
 
-Ship complete landing copy and SEO metadata in all 20 required locales; do not
-fall back to Turkish or English for an untranslated locale. Each localized page
-needs its translated title, description, canonical URL and reciprocal hreflang
-links. Keep structured data factual and localized, and never add Review or
-aggregate-rating data without eligible evidence. Comparison pages cite dated
-sources in every locale where exposed. Verify sitemap and robots coverage for all
-20 locales, and test RTL rendering for Arabic and Urdu.
+Libron and paper/carbon/cobalt are the base. Use supplied logo/brain assets with theme contrast and the exact 𝕏 mark. Marketing/title/metadata separators are **⁜**. Flat surfaces and editorial space carry hierarchy.
 
-## Interaction and accessibility
+Essential copy and links are server-rendered. Inputs need labels, keyboard support and visible focus. Controls have 44px targets. RTL, 320px layout, long translations, reduced motion and missing media remain readable. No hover-only meaning.
 
-All essential copy and links remain semantic HTML and work without JavaScript.
-The demo is keyboard operable, announces state changes, uses visible focus, and
-does not rely on hover. Preserve 44px minimum action targets and avoid horizontal
-overflow at 320px. Honor reduced-motion preferences; movement never carries
-meaning by itself. Keep contrast sufficient and pair each color state with text.
+All 20 locales need complete copy, canonical/hreflang and social metadata. Structured data cannot invent ratings/customers. Existing aggregate measurement is preserved; no fingerprint, visitor ID or anonymous-user attribution is added.
 
-No analytics SDK, third-party tracker, fingerprint, persistent visitor ID, or
-unnecessary external request belongs on the landing. The first-party measurement
-endpoint records allowlisted aggregate event counts only; its limits are in the
-[status register](SIGNAL_PRESS_STATUS.md).
-
-## Responsive and runtime checks
-
-Check Turkish and English at 320px, tablet and desktop; long titles; missing demo
-data; no-JavaScript reading; keyboard path; reduced motion; and image/network
-failure. A local build or DOM check does not establish browser geometry, Lighthouse
-scores or production behavior. Record each proof separately.
+Lighthouse/SEO reports, local browser observations and production evidence are identified separately in [BRIEF_ACCEPTANCE.md](BRIEF_ACCEPTANCE.md).

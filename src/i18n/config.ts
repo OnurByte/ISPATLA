@@ -1,5 +1,5 @@
 export const LOCALES = ["en", "zh-CN", "hi", "es", "fr", "ar", "bn", "pt-BR", "ru", "id", "ur", "de", "ja", "sw", "mr", "te", "tr", "ta", "vi", "ko"] as const;
-export const DEFAULT_LOCALE = "tr" as const;
+export const DEFAULT_LOCALE = "en" as const;
 export type Locale = (typeof LOCALES)[number];
 
 export const LOCALE_CONFIG: Record<Locale, { label: string; nativeName: string; flag: string; dir: "ltr" | "rtl" }> = {

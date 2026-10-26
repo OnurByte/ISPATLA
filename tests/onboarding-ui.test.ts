@@ -6,6 +6,8 @@ import { filterSidebarSearchRoutes, getSidebarSearchRoutes } from "@/components/
 import { LOCALES } from "@/i18n/config";
 import { getDictionary } from "@/i18n/dictionaries";
 import { onboardingStepFromStorage } from "@/components/onboarding-profile";
+import { firstValueCopy } from "@/i18n/first-value-copy";
+import { mcpEvidenceCopy, mcpHelpCopy } from "@/i18n/mcp-help-copy";
 
 test("provides localized onboarding copy in every supported locale", () => {
   const copyFor = (locale: (typeof LOCALES)[number]) =>
@@ -19,6 +21,19 @@ test("provides localized onboarding copy in every supported locale", () => {
   }
 });
 
+test("localizes first-value and MCP setup guidance in every supported locale", () => {
+  for (const locale of LOCALES) {
+    expect(Object.values(firstValueCopy[locale]).every((value) => value.trim().length > 0)).toBe(true);
+    expect(Object.values(mcpHelpCopy[locale]).every((value) => value.trim().length > 0)).toBe(true);
+    expect(Object.values(mcpEvidenceCopy[locale]).every((value) => value.trim().length > 0)).toBe(true);
+  }
+  expect(firstValueCopy.en.accountDescription).toContain("does not verify account ownership");
+  expect(firstValueCopy.en.aiOptional).toContain("optional");
+  expect(mcpHelpCopy.en.remoteBody).toContain("/.well-known/oauth-authorization-server");
+  expect(mcpHelpCopy.en.scopesBody).toContain("receipts:write");
+  expect(mcpEvidenceCopy.en.body).toContain("not official confirmation from 𝕏");
+});
+
 describe("onboarding access and progress", () => {
   test("keeps onboarding revisitable and permits linked setup destinations", () => {
     expect(getOnboardingRedirect(true, "/onboarding", "tr")).toBeNull();
@@ -29,8 +44,8 @@ describe("onboarding access and progress", () => {
   });
 
   test("sends incomplete profiles away from core workspace routes in their locale", () => {
-    expect(getOnboardingRedirect(false, "/dashboard", "tr")).toBe("/onboarding");
-    expect(getOnboardingRedirect(false, "/drafts", "en")).toBe("/en/onboarding");
+    expect(getOnboardingRedirect(false, "/dashboard", "tr")).toBe("/tr/onboarding");
+    expect(getOnboardingRedirect(false, "/drafts", "en")).toBe("/onboarding");
     expect(getOnboardingRedirect(true, "/drafts", "tr")).toBeNull();
   });
 

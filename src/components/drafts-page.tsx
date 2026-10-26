@@ -324,7 +324,7 @@ export function DraftsPage({ initial, accounts, selectedDraftId, sourcePostId }:
                 <Button key={draft.id} type="button" variant={selected ? "secondary" : "ghost"} className="h-auto min-h-28 flex-col items-stretch gap-2 border border-transparent p-3 text-left" data-selected={selected} onClick={() => { if (form.id !== draft.id) setRevisions([]); setForm(asForm(draft)); }}>
                   <span className="flex items-center justify-between gap-2"><span className="flex items-center gap-1.5"><Badge variant="outline">{draft.format}</Badge>{draft.evaluation ? <Badge variant="secondary">draft {draft.evaluation.score}</Badge> : null}</span><Badge variant={draft.status === "ready" ? "default" : draft.status === "blocked" ? "destructive" : "secondary"}>{draft.status}</Badge></span>
                   <span className="line-clamp-3 text-sm font-normal">{draft.text}</span>
-                  <span className="text-xs font-normal text-muted-foreground">@{draft.accountHandle} · {draft.origin || "manual"}{draft.batchId ? ` · ${draft.batchId.slice(0, 12)}` : ""}</span>
+                  <span className="text-xs font-normal text-muted-foreground">@{draft.accountHandle} ⁜ {draft.origin || "manual"}{draft.batchId ? ` ⁜ ${draft.batchId.slice(0, 12)}` : ""}</span>
                 </Button>
               );
             })}
@@ -349,7 +349,7 @@ export function DraftsPage({ initial, accounts, selectedDraftId, sourcePostId }:
             {form.id ? <section aria-label="Draft sürüm geçmişi" className="rounded-lg border p-4">
               <div className="mb-3 flex items-center justify-between gap-3"><h3 className="text-sm font-medium">Sürüm geçmişi</h3><Badge variant="outline">{revisions.length} sürüm</Badge></div>
               {revisions.length ? <ol className="flex flex-col gap-3">{revisions.map((revision) => <li key={revision.id} className="rounded-md bg-muted/30 p-3">
-                <div className="flex flex-wrap items-center justify-between gap-2"><div className="flex items-center gap-2"><Badge variant={revision.revision === revisions[0]?.revision ? "secondary" : "outline"}>v{revision.revision}{revision.revision === revisions[0]?.revision ? " · güncel" : ""}</Badge><span className="text-xs text-muted-foreground">{revision.format}{revision.accountId ? ` · hesap #${revision.accountId}` : " · hesapsız"}</span></div><time className="text-xs text-muted-foreground" dateTime={new Date(revision.createdAt * 1000).toISOString()}>{new Intl.DateTimeFormat("tr-TR", { dateStyle: "medium", timeStyle: "short" }).format(revision.createdAt * 1000)}</time></div>
+                <div className="flex flex-wrap items-center justify-between gap-2"><div className="flex items-center gap-2"><Badge variant={revision.revision === revisions[0]?.revision ? "secondary" : "outline"}>v{revision.revision}{revision.revision === revisions[0]?.revision ? " ⁜ güncel" : ""}</Badge><span className="text-xs text-muted-foreground">{revision.format}{revision.accountId ? ` ⁜ hesap #${revision.accountId}` : " ⁜ hesapsız"}</span></div><time className="text-xs text-muted-foreground" dateTime={new Date(revision.createdAt * 1000).toISOString()}>{new Intl.DateTimeFormat("tr-TR", { dateStyle: "medium", timeStyle: "short" }).format(revision.createdAt * 1000)}</time></div>
                 <p className="mt-2 whitespace-pre-wrap text-sm">{revision.text}</p>
               </li>)}</ol> : <p className="text-sm text-muted-foreground">Henüz sürüm kaydı yok.</p>}
             </section> : null}
@@ -362,7 +362,7 @@ export function DraftsPage({ initial, accounts, selectedDraftId, sourcePostId }:
                   </div>
                   <div className="flex gap-2">
                     <Badge>{form.evaluation.score}/100</Badge>
-                    <Badge variant="outline">ham güven {form.evaluation.confidence}/100 · kalibre edilmedi</Badge>
+                    <Badge variant="outline">ham güven {form.evaluation.confidence}/100 ⁜ kalibre edilmedi</Badge>
                   </div>
                 </div>
                 <div className="mt-4 grid gap-3 sm:grid-cols-3">

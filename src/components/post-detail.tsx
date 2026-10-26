@@ -28,7 +28,7 @@ function PostBody({ post, locale }: { post: XPost; locale: Locale }) {
 export function PostDetail({ view, locale }: { view: PostView; locale: Locale }) {
   const tr = locale === "tr";
   return <Card className="mx-auto w-full max-w-3xl">
-    <CardHeader><CardTitle><h1>{tr ? 'Gönderi inceleyici' : 'Post viewer'}</h1></CardTitle><CardDescription>FXTwitter · {tr ? 'Son gözlem' : 'Last observation'}: {new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' }).format(view.observedAt * 1000)}</CardDescription></CardHeader>
+    <CardHeader><CardTitle><h1>{tr ? 'Gönderi inceleyici' : 'Post viewer'}</h1></CardTitle><CardDescription>FXTwitter ⁜ {tr ? 'Son gözlem' : 'Last observation'}: {new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' }).format(view.observedAt * 1000)}</CardDescription></CardHeader>
     <CardContent className="flex flex-col gap-6">
       {view.stale && <Alert><AlertDescription>{tr ? 'Kaynak şu anda alınamadı. Son kaydedilen gözlem gösteriliyor.' : 'The source could not be refreshed. Showing the last saved observation.'}</AlertDescription></Alert>}
       {view.post.sensitive && <Badge variant="outline">{tr ? 'Hassas içerik' : 'Sensitive content'}</Badge>}

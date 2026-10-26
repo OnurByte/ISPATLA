@@ -1,88 +1,77 @@
 # İSPATLA
 
-İSPATLA, X üzerindeki kaynak sinyallerini fırsatlara dönüştüren, hesap için özgün
-taslak hazırlayan ve yayın sonucunu kanıtla doğrulayan bir kontrol odasıdır.
-Erişim, virallik veya gelir garantisi vermez.
+## Algoritmaya tapma. İspatla.
 
-Uygulama oturumu Better Auth ile yönetilir. X hesabı ayrı, oturuma bağlı OAuth
-2.0 PKCE akışıyla bağlanır. OAuth izni otomatik yayın izni sayılmaz: her hesap ve
-eylem için Observe, Assist veya Off tercihleri ayrı tutulur. Auto arayüzde henüz
-etkin değildir; kazanılmış özerklik kabul koşulları uygulama durum belgesindedir.
+𝕏 kaynaklarını incele. Hesaplarına uygun konuları seç, AI taslağını kendi sesinle düzenle.
 
-## Katkı
+[ispatla.tr](https://ispatla.tr) ⁜ [Kurulum ve yardım](https://ispatla.tr/docs) ⁜ [Ürün ve marka stratejisi](docs/PRODUCT_STRATEGY.md)
 
-Lisans: AGPL-3.0-or-later ([LICENSE](LICENSE)). Sentetik demo komutu kaldırıldı;
-demo verisi PostgreSQL üzerinde güvenli ve yalıtılmış biçimde sağlanana kadar demo yolu
-kullanılamaz. Ayrıntılar [CONTRIBUTING.md](CONTRIBUTING.md).
+İSPATLA; kaynak gönderiyi, hesap uyumunu, karar gerekçesini ve düzenlenebilir taslağı aynı çalışma alanında tutar. Birden fazla hesap için çalışabilir; içerikleri tek tek ya da birlikte inceleyebilirsin. Kaynak ağı 𝕏'tir. Bu GitHub deposu ürünün kodu, yöntemi ve katkı kanalıdır.
+
+- Public handle üzerinden hesap ekleme, konu ve yazım tarzı analizi.
+- Hesaba bağlı kaynaklar, fırsatlar ve kaynak gönderi inceleyicisi.
+- Kendi AI sağlayıcın/anahtarınla taslak üretme ve düzenleme.
+- Kullanıcı tarafından paylaşım hazırlığı ve veri kökeni korunan sonuç gözlemi.
+- Yerel stdio ve OAuth ile yetkilendirilen uzak MCP bağlantısı.
+
+Puanlar viral olasılık değildir. Public FxTwitter gözlemi resmî 𝕏 API doğrulaması sayılmaz. AI ve altyapı ücretleri kullanılan sağlayıcıya bağlıdır. AGPL-3.0-or-later lisansı hizmetlerin ücretsiz olduğu anlamına gelmez.
 
 ## Yerel başlangıç
 
-Node.js 22.5+ ve Bun gerekir. Kaynak listesini kendi yapılandırmanıza
-göre düzenleyin; bu komut mevcut dosyayı değiştirmez:
+Node.js 22.5+ ve Bun kullanılır. Repo kökünde çalıştırın:
 
 ```sh
 bun install --frozen-lockfile
 ```
 
-Ortam değişkenlerini süreçte veya yerel, Git'e eklenmeyen ortam dosyasında ayarlayın:
+Yerel, Git'e eklenmeyen ortam dosyanızda veya süreç ortamında yapılandırın:
 
 ```text
 BETTER_AUTH_SECRET=<en az 32 karakterlik rastgele gizli değer>
 BETTER_AUTH_URL=http://localhost:3000
 ISPATLA_TOKEN_KEY_CURRENT=<rastgele token şifreleme anahtarı>
 ISPATLA_SECRET_KEY=<AI kasası için ayrı rastgele anahtar>
-ISPATLA_PRIVATE_BETA=1
 ISPATLA_AUTOMATION=0
-DATABASE_URL=postgresql://<role>:<password>@<host>:6543/postgres
+DATABASE_URL=postgresql://<role>:<password>@<host>:<port>/<database>
 ```
 
-Private beta seçeneği e-posta doğrulamasını açıkça kapatır. Normal kayıt ve parola
-sıfırlama için sunucu tarafındaki e-posta taşıyıcısını yapılandırın:
-`ISPATLA_MAIL_API_URL` ve `ISPATLA_MAIL_API_TOKEN`. Taşıyıcı HTTPS JSON POST kabul
-etmelidir; içerik `to`, `subject`, `text` alanlarını içerir. Gerçek e-posta
-sağlayıcısının teslimi ayrıca doğrulanmalıdır.
+Boş geliştirme veritabanına `supabase/migrations/` dosyalarını ad sırasıyla uygulayın. Mevcut üretim veritabanı üzerinde deneme yapmayın. Supabase kullanılıyorsa Connect panelindeki tam transaction-pooler URI'sini alın; host/parola tahmin etmeyin. Uygulama Supabase bağlantılarında TLS sertifikasını doğrular. Landing veritabanı olmadan okunabilir; oturum ve özel çalışma alanı veritabanına ihtiyaç duyar.
 
 ```sh
 bun run dev
 ```
 
-Kamusal sayfa `/`, özel kontrol odası `/app`, kayıt ve giriş `/signup` ve `/login`.
-Uygulama PostgreSQL'e Drizzle ORM ile bağlanır; çalıştırmadan önce Supabase
-projesinin **Connect → Transaction pooler** bölümündeki tam URI'yi `DATABASE_URL`
-olarak kullanın. Biçimi `postgresql://postgres.<PROJECT_REF>:<DB_PASSWORD>@<POOLER_HOST>:6543/postgres` şeklindedir; kullanıcı, parola, host ve portu bu paneldeki URI'den kopyalayın, pooler hostunu tahmin etmeyin. Vercel için de aynı transaction pooler URI'sini kullanın.
-Supabase PostgreSQL bağlantısı uygulamada Supabase'in veritabanı kök sertifikasıyla doğrulanır.
+Landing `/`, kayıt `/signup`, giriş `/login`, çalışma alanı `/dashboard`, fırsatlar `/opportunities`, hesaplar `/accounts`, taslaklar `/drafts` adreslerindedir. Yerelleştirilmiş rotalar 20 dili destekler; varsayılan İngilizce rotası öneksizdir; Türkçe `/tr` altındadır.
 
-## Resmi X bağlantısı
+Mail gönderimi için `ISPATLA_MAIL_API_URL` ve `ISPATLA_MAIL_API_TOKEN` kullanılır. HTTPS JSON taşıyıcısı `to`, `subject`, `text` alanlarını kabul etmelidir. Gerçek teslim ayrıca doğrulanır. `ISPATLA_PRIVATE_BETA=1`, e-posta doğrulamasını kapatan geliştirme/beta tercihidir.
 
-X Developer Console'da callback adresini tam eşleşmeyle kaydedin:
+## Hesap, giriş ve yayın
+
+Public kullanıcı adını eklemek OAuth veya 𝕏 parolası gerektirmez. Profil ve public gönderiler FxTwitter üzerinden analiz edilir; eksik veri partial sonuç üretebilir. Handle eklemek sahiplik kanıtı değildir. Sahiplik ayrı doğrulanır. Manuel konu ve ses tercihleri yeniden analizde korunur.
+
+𝕏 ile uygulamaya giriş, `X_OAUTH_CLIENT_ID` ve `X_OAUTH_CLIENT_SECRET` yapılandırıldığında kullanılabilir. Developer Console callback adresi:
 
 ```text
-X_OAUTH_CLIENT_ID=<uygulama client ID>
-X_OAUTH_CLIENT_SECRET=<sunucu client secret>
-X_OAUTH_REDIRECT_URI=http://localhost:3000/api/x/oauth/callback
+http://localhost:3000/api/auth/callback/twitter
 ```
 
-Üretimde uygulama origin'i ve callback HTTPS olmalıdır. `/app/accounts` içindeki
-“X hesabı bağla” akışı gerçek kullanıcı kimliğini `/2/users/me` üzerinden çözer;
-istemcinin girdiği bir hesap kimliği yayın yetkisi vermez. Baseline kapsamları
-`tweet.read tweet.write users.read media.write offline.access`.
+Üretimde kendi HTTPS origin'inizi kullanın. Giriş salt okuma scope'ları ve PKCE kullanır; giriş grant'i otomatik yayın izni vermez. Girişteki `/2/users/me` çağrısının maliyeti için sıfır ücret iddiası yapılmaz.
 
-Tokenlar ayrı tabloda AES-256-GCM ile saklanır; UI yalnız bağlantı metadatasını
-görür. `ISPATLA_TOKEN_KEY_PREVIOUS_<key_id>` eski anahtarlarla okuma için kullanılabilir.
-Bağlantı kaldırıldığında yerel token ve yenileme kiraları önce iptal edilir;
-uzak sağlayıcı iptalinin sonucu ayrıca gösterilir.
+**Prime öncesinde resmî ücretli veri/yayın istemcisi kapalıdır.** Bir ortam değişkeni, OAuth scope'u veya MCP parametresi bu sınırı açmaz. Prime entitlement ve bütçe doğrulaması henüz uygulanmadığından bu işlemler kullanılabilir gösterilmez. Public FxTwitter okuma ve kullanıcı tarafından tamamlanan paylaşım hazırlığı ayrı akışlardır. [Resmî API sınırı](docs/evidence/official-api-boundary.md).
 
-Resmi API yayın kabulü, yayın doğrulaması sayılmaz. İş ve hesap kiraları aynı
-bilinçli gönderimin tekrarlanmasını önler; bağlantı kopması ve belirsiz sunucu
-hataları incelemeye alınır. Doğrulama oturumdaki X kimliği, metin, hedef ilişki ve
-zaman penceresi üzerinden resmi okuma uçlarıyla yapılır. Yeniden yayınlar için
-bağlı kullanıcının hedefi yeniden yayınladığına dair pozitif kanıt gerekir.
+Web Intent veya zamanlama ekranının açılması yayın başarı kanıtı değildir. Public receipt author/metin/hedef bağlamıyla ilişkilendirilir; belirsiz işlem kör yeniden denenmez. Otomatik like, DM ve spam kampanyaları ürün yolu değildir.
 
-Yanıtlar, hedef yazarın hesabı mention veya quote ile çağırdığına dair kayıtlı
-uygunluk kanıtı gerektirir. Quote yetkisi bilinmiyorsa kapalıdır. Otomatik like ve
-DM desteklenmez. Güncel API koşulları [resmi yayın belgesinde](https://docs.x.com/x-api/posts/manage-tweets/introduction),
-OAuth akışı [resmi PKCE belgesinde](https://docs.x.com/fundamentals/authentication/oauth-2-0/authorization-code)
-açıklanır.
+## MCP
+
+Yerel stdio sunucusu:
+
+```sh
+bun run mcp
+```
+
+İstemci süreç ortamındaki `ISPATLA_MCP_SESSION_COOKIE`, gerçek uygulama oturumunu temsil eder. Parola gibi koruyun; Git, log veya paylaşılan ayarlara koymayın.
+
+Uzak istemciye dağıtımınızın `https://<origin>/mcp` adresini ekleyin. OAuth discovery, PKCE, açık consent ve iptal edilebilir scopes kullanılır: `read`, `drafts:write`, `analysis:write`, `publishing:prepare`, `receipts:write`. Taslak veya yayın hazırlama yetkisi otomatik gönderim yetkisi değildir. Erişim `/settings/security` üzerinden iptal edilebilir. [Bağlantı rehberi](https://ispatla.tr/docs#mcp).
 
 ## Kontroller ve worker
 
@@ -90,21 +79,29 @@ açıklanır.
 bun test --isolate
 bun run lint
 bun run typecheck
+bun run test:seo
 bun run build
-bun run automation:worker
 ```
 
-Worker ve web zamanlayıcısı tek kalıcı çalışma kilidini paylaşır. İşler ayrıca
-süreli kira, heartbeat, deneme sayısı, backoff, hata kuyruğu ve olay çizelgesi tutar.
-Kaynak radar verisi ortaktır; hesap taslakları, kullanım, sırlar, işler ve yayın
-niyetleri oturum sahibinin kapsamındadır. Eski yerel veritabanı taşınmaz; hesap, ayar,
-taslak ve diğer uygulama verileri PostgreSQL'de yeni başlar.
+Kaynak taraması `bun run automation:scan`, kalıcı worker `bun run automation:worker` ile çalışır. Kaynaklar, owner sınırları ve veritabanı hazır olmalıdır; bir sürecin başlaması veri kalitesini veya gerçek yayını kanıtlamaz. [Worker rehberi](docs/RUN-WORKER.md).
 
-Stdio MCP araçları her çağrıda `ISPATLA_MCP_SESSION_COOKIE` ile gerçek uygulama
-oturumunu tekrar doğrular. Bu değer bir gizli oturum bilgisidir; paylaşmayın ve
-Git'e eklemeyin. Başlatma: `bun run mcp`.
+Günlük pazarlama raporu `bun scripts/landing-report.ts` ile alınır. Olay sayıları kişi sayısı değildir; anonim landing ziyareti kayıt/taslak sahibiyle eşlenmez. İlk kalıcı taslak süreleri mevcut kayıtların anlık görüntüsüdür.
 
-Tam sözleşme [V3 planında](docs/ISPATLA_MASTER_PLAN_V3.md), tamamlanma ve kanıt
-sınırları [uygulama durumunda](docs/V3_IMPLEMENTATION_STATUS.md) tutulur.
-Yerel fixture testleri gerçek X grant'i, e-posta teslimi, üretim yayını veya
-üretim dağıtımı kanıtı değildir.
+[Mimari](docs/ARCHITECTURE.md) ⁜ [Brief kabul kaydı](docs/BRIEF_ACCEPTANCE.md) ⁜ [Katkı](CONTRIBUTING.md) ⁜ [Lisans](LICENSE)
+
+Yerel fixture, test, Lighthouse veya build sonucu canlı OAuth, mail teslimi, sağlayıcı faturası ve üretim davranışının yerine geçmez. Bu kanıtlar kabul kaydında ayrı tutulur.
+
+## Lighthouse ve SEO
+
+`bun run test:seo`; 20 dilde canonical/hreflang, robots/sitemap, sosyal resim ve oEmbed sınırlarını doğrular. Typecheck komutu `--strict` ile çalışır.
+
+Lighthouse için önce üretim derlemesini yerelde başlatın; geliştirme sunucusunu ölçmeyin:
+
+```sh
+bun run build
+bun run start
+# Ayrı terminalde:
+LIGHTHOUSE_URL=http://localhost:3000/ bun run quality:lighthouse
+```
+
+Chrome/Chromium gerekir; `CHROME_PATH` ile seçilebilir. Mobile ve desktop HTML/JSON raporları `lighthouse-reports/` altına yazılır. Eşikler: performans en az 90; erişilebilirlik, Best Practices ve SEO 100. İhlal komutu başarısız yapar. Bunlar yerel laboratuvar ölçümleridir; saha Core Web Vitals veya üretim erişilebilirliği kanıtı değildir. Ölçülen origin sunucunun yapılandırılmış origin'iyle eşleşmelidir.

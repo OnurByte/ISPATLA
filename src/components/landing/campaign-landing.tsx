@@ -3,12 +3,13 @@ import { ArrowDown, ArrowRight, ArrowUpRight, Check, ChevronDown } from "lucide-
 import { BrandLogo, BrandMark } from "@/components/brand-logo";
 import { AiIcon } from "@/components/ai-icon";
 import { CampaignPreview } from "@/components/landing/campaign-preview";
+import { PublicHeaderContent } from "@/components/public-header-content";
 import { LocaleSwitcher } from "@/i18n/locale-switcher";
 import { getDictionary } from "@/i18n/dictionaries";
 import { localizePath, LOCALE_CONFIG, type Locale } from "@/i18n/config";
 import type { CampaignLandingCopy } from "@/i18n/campaign-landing-types";
 
-const mcpTools = ["ispatla.opportunities.list", "ispatla.drafts.generate", "ispatla.failures.list"];
+const mcpTools = ["ispatla.opportunities.list", "ispatla.drafts.generate"];
 
 export function CampaignLanding({ locale, copy, authenticated }: {
   locale: Locale; copy: CampaignLandingCopy; authenticated: boolean;
@@ -17,30 +18,30 @@ export function CampaignLanding({ locale, copy, authenticated }: {
   const startHref = path(authenticated ? "/dashboard" : "/signup");
   const dictionary = getDictionary(locale);
   return <div className="campaign-landing" lang={locale} dir={LOCALE_CONFIG[locale].dir}>
-    <header className="campaign-header">
-      <div className="campaign-container campaign-header-inner">
-        <BrandLogo href={path("/")} ariaLabel="ispatla.tr" className="campaign-logo" />
-        <nav className="campaign-nav" aria-label={copy.nav.menu}>
-          <a href="#workflow" className="campaign-nav-section">{copy.nav.product}</a>
-          <a href="#mcp" className="campaign-nav-section">{copy.nav.mcp}</a>
-          <a href="#faq" className="campaign-nav-section">{copy.nav.faq}</a>
-          {!authenticated && <Link href={path("/login")} className="campaign-login">{copy.nav.login}</Link>}
-          <Link href={startHref} className="campaign-button campaign-button-small">{authenticated ? copy.nav.dashboard : copy.nav.start}<ArrowUpRight size={16} aria-hidden="true" /></Link>
-        </nav>
-      </div>
-    </header>
+    <PublicHeaderContent locale={locale} authenticated={authenticated} />
     <main>
       <section className="campaign-hero campaign-container" aria-labelledby="campaign-heading">
-        <p className="campaign-eyebrow">{copy.eyebrow}</p>
         <h1 id="campaign-heading">{copy.headline}<span>{copy.headlineAccent}</span></h1>
         <p className="campaign-hero-intro">{copy.intro}</p>
         <div className="campaign-actions">
-          <Link href={startHref} className="campaign-button">{copy.primaryCta}<ArrowUpRight size={19} aria-hidden="true" /></Link>
-          <a href="#workflow" className="campaign-text-button">{copy.secondaryCta}<ArrowDown size={17} aria-hidden="true" /></a>
+          <a href="#campaign-opportunity" className="campaign-button">{copy.primaryCta}<ArrowDown size={19} aria-hidden="true" /></a>
+          <Link href={startHref} className="campaign-text-button">{copy.secondaryCta}<ArrowUpRight size={17} aria-hidden="true" /></Link>
         </div>
       </section>
-      <section className="campaign-container campaign-product" aria-label={copy.preview.title}>
-        <div className="campaign-product-frame"><CampaignPreview locale={locale} copy={copy.preview} /></div>
+      <section className="campaign-container campaign-product" aria-label={copy.demo.topicTitle}>
+        <div className="campaign-product-frame"><CampaignPreview locale={locale} copy={copy.preview} demo={copy.demo} /></div>
+      </section>
+      <section id="method" className="campaign-container campaign-proof">
+        <nav className="campaign-proof-links" aria-label={copy.demo.openSourceLabel}>
+          <a href="https://github.com/OnurByte/ISPATLA" target="_blank" rel="noopener noreferrer" data-landing-event="github_click" data-landing-page="/">GitHub<ArrowUpRight size={14} aria-hidden="true" /></a>
+          <a href="https://github.com/OnurByte/ISPATLA/blob/main/LICENSE" target="_blank" rel="noopener noreferrer">{copy.demo.licenseLabel}</a>
+          <Link href={`${path("/docs")}#mcp`}>{copy.mcp.cta}<ArrowUpRight size={14} aria-hidden="true" /></Link>
+        </nav>
+        <details className="campaign-proof-details">
+          <summary>{copy.demo.methodTitle}<ChevronDown size={17} aria-hidden="true" /></summary>
+          <p>{copy.demo.methodBody}</p>
+          <p>{copy.demo.limitsBody}</p>
+        </details>
       </section>
       <section className="campaign-container campaign-audience" aria-label={copy.audienceLabel}>
         <ul>{copy.audiences.map((audience) => <li key={audience}>{audience}</li>)}</ul>

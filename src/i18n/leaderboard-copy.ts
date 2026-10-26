@@ -9,7 +9,7 @@ export type LeaderboardCopy = Record<typeof leaderboardKeys[number], string>;
 
 const rows: Record<Locale, readonly string[]> = {
   en: [
-    "Manage participation","Official X data · Opt-in only","Real progress, relative to your account.","Posts are ranked against each account's earlier performance, not by total likes. Public sharing and leaderboard participation are separate choices.",
+    "Manage participation","Official X data ⁜ Opt-in only","Real progress, relative to your account.","Posts are ranked against each account's earlier performance, not by total likes. Public sharing and leaderboard participation are separate choices.",
     "This week's hits","This month's hits","Top account performance","Most improved users","Ranking type",
     "No opted-in result meets the official evidence threshold for this period. Posts with insufficient history or incomparable observation times are excluded.",
     "Relative to own history","Engagement per follower","earlier observations","hours after publication","Engagement rate vs. previous month","Median performance vs. own history","official comparable posts this month",
@@ -19,7 +19,7 @@ const rows: Record<Locale, readonly string[]> = {
     "Account ranking uses the median relative performance of at least 5 comparable posts this month, including lower unshared results. Improvement compares medians from the current and previous months, each with at least 5 posts. Private post texts and IDs are never disclosed; participation is voluntary and does not guarantee future results.",
   ],
   "zh-CN": [
-    "管理参与","X 官方数据 · 自愿参与","衡量自己账号的真实进步。","帖子与账号自身的历史表现比较，而不是按点赞总数排名。公开分享和参与榜单是两个独立选择。",
+    "管理参与","X 官方数据 ⁜ 自愿参与","衡量自己账号的真实进步。","帖子与账号自身的历史表现比较，而不是按点赞总数排名。公开分享和参与榜单是两个独立选择。",
     "本周热门","本月热门","最佳账号表现","进步最快的用户","榜单类型",
     "本期暂无自愿参与且达到官方证据门槛的结果。历史数据不足或观察时间不可比的帖子不计入排名。",
     "相对历史表现","每位粉丝的互动","条历史观察","发布后小时数","相对上月的互动率","相对历史的表现中位数","本月可比的官方帖子",
@@ -29,7 +29,7 @@ const rows: Record<Locale, readonly string[]> = {
     "账号排名基于本月至少5条可比帖子的相对表现中位数，也包含未分享的低表现结果。进步榜比较本月和上月各至少5条帖子的中位数。不公开私人历史帖子的内容和ID；参与自愿且不保证未来表现。",
   ],
   hi: [
-    "भागीदारी प्रबंधित करें","आधिकारिक X डेटा · स्वैच्छिक भागीदारी","अपने खाते के मुकाबले असली प्रगति।","पोस्ट कुल लाइक से नहीं, उसी खाते के पिछले परिणामों से तुलना करके रैंक होती हैं। सार्वजनिक शेयरिंग और रैंकिंग में भागीदारी अलग विकल्प हैं।",
+    "भागीदारी प्रबंधित करें","आधिकारिक X डेटा ⁜ स्वैच्छिक भागीदारी","अपने खाते के मुकाबले असली प्रगति।","पोस्ट कुल लाइक से नहीं, उसी खाते के पिछले परिणामों से तुलना करके रैंक होती हैं। सार्वजनिक शेयरिंग और रैंकिंग में भागीदारी अलग विकल्प हैं।",
     "इस सप्ताह के हिट","इस महीने के हिट","श्रेष्ठ खाता प्रदर्शन","सबसे अधिक सुधार","रैंकिंग का प्रकार",
     "इस अवधि में कोई स्वैच्छिक परिणाम आधिकारिक प्रमाण मानदंड पूरा नहीं करता। अपर्याप्त इतिहास या अलग निरीक्षण समय वाली पोस्ट शामिल नहीं होतीं।",
     "अपने इतिहास के मुकाबले","प्रति फ़ॉलोअर एंगेजमेंट","पिछले निरीक्षण","प्रकाशन के बाद घंटे","पिछले महीने के मुकाबले एंगेजमेंट दर","इतिहास के मुकाबले माध्यिका प्रदर्शन","इस महीने की तुलनीय आधिकारिक पोस्ट",
@@ -39,7 +39,7 @@ const rows: Record<Locale, readonly string[]> = {
     "खाता रैंकिंग इस महीने की कम से कम 5 तुलनीय पोस्ट की माध्यिका से होती है; शेयर न किए गए कम परिणाम भी गिने जाते हैं। सुधार में इस महीने और पिछले महीने की कम से कम 5-5 पोस्ट की तुलना होती है। निजी टेक्स्ट और ID नहीं दिखाए जाते। भविष्य की सफलता की गारंटी नहीं है।",
   ],
   es: [
-    "Gestionar participación","Datos oficiales de X · Participación voluntaria","Progreso real frente a tu historial.","Las publicaciones se comparan con resultados anteriores de la misma cuenta, no por número total de me gusta. Compartir y participar en la clasificación son decisiones independientes.",
+    "Gestionar participación","Datos oficiales de X ⁜ Participación voluntaria","Progreso real frente a tu historial.","Las publicaciones se comparan con resultados anteriores de la misma cuenta, no por número total de me gusta. Compartir y participar en la clasificación son decisiones independientes.",
     "Éxitos de la semana","Éxitos del mes","Mejor rendimiento de cuentas","Usuarios que más mejoran","Tipo de clasificación",
     "No hay resultados con participación voluntaria que cumplan el umbral de prueba oficial en este período. Se excluyen historiales insuficientes u observaciones no comparables.",
     "Respecto al historial","Interacciones por seguidor","observaciones anteriores","horas tras publicar","Tasa de interacción frente al mes anterior","Mediana de rendimiento frente al historial","publicaciones oficiales comparables este mes",
@@ -49,7 +49,7 @@ const rows: Record<Locale, readonly string[]> = {
     "La clasificación de cuentas usa la mediana de al menos 5 publicaciones comparables este mes, incluso resultados bajos no compartidos. La mejora compara medianas de este mes y el anterior, con al menos 5 publicaciones cada uno. No se muestran textos ni ID privados; participar no garantiza resultados.",
   ],
   fr: [
-    "Gérer la participation","Données officielles X · Sur inscription volontaire","Des progrès réels par rapport à votre compte.","Les publications sont classées selon les résultats antérieurs du même compte, pas le total de mentions J'aime. Partage public et participation au classement sont distincts.",
+    "Gérer la participation","Données officielles X ⁜ Sur inscription volontaire","Des progrès réels par rapport à votre compte.","Les publications sont classées selon les résultats antérieurs du même compte, pas le total de mentions J'aime. Partage public et participation au classement sont distincts.",
     "Succès de la semaine","Succès du mois","Meilleures performances de compte","Plus fortes progressions","Type de classement",
     "Aucun résultat volontaire ne satisfait le seuil de preuve officielle pour cette période. Les historiques insuffisants et les observations non comparables sont exclus.",
     "Par rapport à l'historique","Engagement par abonné","observations antérieures","heures après publication","Taux d'engagement par rapport au mois dernier","Performance médiane par rapport à l'historique","publications officielles comparables ce mois-ci",
@@ -59,7 +59,7 @@ const rows: Record<Locale, readonly string[]> = {
     "Le score des comptes repose sur la médiane d'au moins 5 publications comparables ce mois-ci, y compris les résultats faibles non partagés. La progression compare ce mois-ci au précédent, avec au moins 5 publications chacun. Les textes et ID privés restent cachés ; aucun résultat futur n'est garanti.",
   ],
   ar: [
-    "إدارة المشاركة","بيانات X الرسمية · مشاركة اختيارية","تقدّم حقيقي مقارنة بسجل حسابك.","تُرتّب المنشورات وفق أدائها السابق للحساب نفسه، لا مجموع الإعجابات. مشاركة البطاقة والانضمام للتصنيف خياران مستقلان.",
+    "إدارة المشاركة","بيانات X الرسمية ⁜ مشاركة اختيارية","تقدّم حقيقي مقارنة بسجل حسابك.","تُرتّب المنشورات وفق أدائها السابق للحساب نفسه، لا مجموع الإعجابات. مشاركة البطاقة والانضمام للتصنيف خياران مستقلان.",
     "نجاحات الأسبوع","نجاحات الشهر","أفضل أداء للحسابات","الأكثر تحسنًا","نوع التصنيف",
     "لا توجد نتيجة مشاركة طوعًا تستوفي حد الدليل الرسمي لهذه الفترة. تُستبعد المنشورات ذات التاريخ غير الكافي أو أوقات الرصد غير القابلة للمقارنة.",
     "مقارنة بسجل الحساب","التفاعل لكل متابع","ملاحظات سابقة","ساعة بعد النشر","معدل التفاعل مقارنة بالشهر السابق","الأداء الوسيط مقارنة بالسجل","منشورات رسمية قابلة للمقارنة هذا الشهر",
@@ -69,7 +69,7 @@ const rows: Record<Locale, readonly string[]> = {
     "تصنيف الحساب يعتمد وسيط أداء 5 منشورات قابلة للمقارنة على الأقل هذا الشهر، بما فيها النتائج الضعيفة غير المشاركة. يُقارن التحسن بوسيط الشهر الماضي مع 5 منشورات على الأقل في كل شهر. لا تُكشف نصوص المنشورات الخاصة أو معرّفاتها، ولا ضمان للنتائج المقبلة.",
   ],
   bn: [
-    "অংশগ্রহণ পরিচালনা","অফিশিয়াল X ডেটা · স্বেচ্ছায় অংশগ্রহণ","নিজের অ্যাকাউন্টের তুলনায় প্রকৃত উন্নতি।","মোট লাইক নয়, একই অ্যাকাউন্টের আগের ফলের ভিত্তিতে পোস্ট র‍্যাঙ্ক করা হয়। পাবলিক শেয়ার ও র‍্যাঙ্কিংয়ে যোগ দেওয়া আলাদা সিদ্ধান্ত।",
+    "অংশগ্রহণ পরিচালনা","অফিশিয়াল X ডেটা ⁜ স্বেচ্ছায় অংশগ্রহণ","নিজের অ্যাকাউন্টের তুলনায় প্রকৃত উন্নতি।","মোট লাইক নয়, একই অ্যাকাউন্টের আগের ফলের ভিত্তিতে পোস্ট র‍্যাঙ্ক করা হয়। পাবলিক শেয়ার ও র‍্যাঙ্কিংয়ে যোগ দেওয়া আলাদা সিদ্ধান্ত।",
     "সপ্তাহের সফল পোস্ট","মাসের সফল পোস্ট","সেরা অ্যাকাউন্ট পারফরম্যান্স","সবচেয়ে উন্নতি করেছে যারা","র‍্যাঙ্কিংয়ের ধরন",
     "এই সময়ে কোনো স্বেচ্ছায় শেয়ার করা ফল অফিশিয়াল প্রমাণের শর্ত পূরণ করেনি। পর্যাপ্ত ইতিহাস বা তুলনাযোগ্য পর্যবেক্ষণ নেই এমন পোস্ট বাদ দেওয়া হয়।",
     "নিজস্ব ইতিহাসের তুলনায়","প্রতি ফলোয়ারে এনগেজমেন্ট","আগের পর্যবেক্ষণ","প্রকাশের পর ঘণ্টা","গত মাসের তুলনায় এনগেজমেন্টের হার","নিজস্ব ইতিহাসের তুলনায় মধ্যম পারফরম্যান্স","এ মাসের তুলনাযোগ্য অফিশিয়াল পোস্ট",
@@ -79,7 +79,7 @@ const rows: Record<Locale, readonly string[]> = {
     "অ্যাকাউন্ট র‍্যাঙ্কে এ মাসের অন্তত ৫টি তুলনাযোগ্য পোস্টের মধ্যম মান লাগে, শেয়ার না করা কম ফলও অন্তর্ভুক্ত। উন্নতিতে এ মাস ও আগের মাসে ৫টি করে পোস্ট তুলনা করা হয়। ব্যক্তিগত পোস্টের লেখা বা ID দেখানো হয় না; ভবিষ্যৎ ফলের নিশ্চয়তা নেই।",
   ],
   "pt-BR": [
-    "Gerenciar participação","Dados oficiais do X · Participação voluntária","Progresso real em relação à sua conta.","Os posts são classificados em relação ao histórico da própria conta, não pelo total de curtidas. Compartilhar e entrar no ranking são decisões separadas.",
+    "Gerenciar participação","Dados oficiais do X ⁜ Participação voluntária","Progresso real em relação à sua conta.","Os posts são classificados em relação ao histórico da própria conta, não pelo total de curtidas. Compartilhar e entrar no ranking são decisões separadas.",
     "Destaques da semana","Destaques do mês","Melhor desempenho das contas","Usuários que mais evoluíram","Tipo de ranking",
     "Nenhum resultado voluntário atende ao mínimo de provas oficiais neste período. Histórico insuficiente e horários de observação não comparáveis são excluídos.",
     "Em relação ao histórico","Engajamento por seguidor","observações anteriores","horas após a publicação","Taxa de engajamento versus mês anterior","Desempenho mediano versus histórico","posts oficiais comparáveis neste mês",
@@ -89,7 +89,7 @@ const rows: Record<Locale, readonly string[]> = {
     "O ranking de contas usa a mediana de pelo menos 5 posts comparáveis neste mês, incluindo resultados baixos não compartilhados. A evolução compara o mês atual ao anterior, cada um com pelo menos 5 posts. Textos e IDs privados não são divulgados; não há garantia de resultado futuro.",
   ],
   ru: [
-    "Управлять участием","Официальные данные X · Добровольное участие","Реальный прогресс относительно своей истории.","Посты ранжируются по сравнению с прошлыми результатами самого аккаунта, а не по общему числу лайков. Публикация карточки и участие в рейтинге — отдельные решения.",
+    "Управлять участием","Официальные данные X ⁜ Добровольное участие","Реальный прогресс относительно своей истории.","Посты ранжируются по сравнению с прошлыми результатами самого аккаунта, а не по общему числу лайков. Публикация карточки и участие в рейтинге — отдельные решения.",
     "Хиты недели","Хиты месяца","Лучшие аккаунты","Наибольший рост","Тип рейтинга",
     "За этот период нет добровольно опубликованных результатов, соответствующих порогу официальных доказательств. Посты с недостаточной историей или несопоставимым временем наблюдения исключены.",
     "Относительно истории","Взаимодействия на подписчика","предыдущих наблюдений","часов после публикации","Вовлечённость относительно прошлого месяца","Медианная эффективность относительно истории","официальных сопоставимых постов за этот месяц",
@@ -99,7 +99,7 @@ const rows: Record<Locale, readonly string[]> = {
     "Рейтинг аккаунтов основан на медиане минимум 5 сопоставимых постов за месяц, включая неопубликованные низкие результаты. Рост сравнивает текущий и прошлый месяцы, минимум по 5 постов. Приватные тексты и ID не раскрываются, будущий успех не гарантируется.",
   ],
   id: [
-    "Kelola partisipasi","Data resmi X · Partisipasi sukarela","Perkembangan nyata dibanding riwayat akun.","Kiriman dibandingkan dengan hasil sebelumnya pada akun yang sama, bukan jumlah suka. Berbagi dan mengikuti peringkat adalah pilihan terpisah.",
+    "Kelola partisipasi","Data resmi X ⁜ Partisipasi sukarela","Perkembangan nyata dibanding riwayat akun.","Kiriman dibandingkan dengan hasil sebelumnya pada akun yang sama, bukan jumlah suka. Berbagi dan mengikuti peringkat adalah pilihan terpisah.",
     "Hit minggu ini","Hit bulan ini","Performa akun terbaik","Pengguna paling berkembang","Jenis peringkat",
     "Belum ada hasil sukarela yang memenuhi ambang bukti resmi pada periode ini. Riwayat yang kurang dan waktu pengamatan tak sebanding tidak dihitung.",
     "Dibanding riwayat sendiri","Interaksi per pengikut","pengamatan sebelumnya","jam setelah terbit","Tingkat interaksi vs bulan lalu","Performa median vs riwayat sendiri","kiriman resmi sebanding bulan ini",
@@ -109,7 +109,7 @@ const rows: Record<Locale, readonly string[]> = {
     "Peringkat akun memakai median minimal 5 kiriman sebanding bulan ini, termasuk hasil rendah yang tak dibagikan. Peningkatan membandingkan median bulan ini dan bulan lalu, masing-masing minimal 5 kiriman. Teks dan ID privat tidak ditampilkan; hasil mendatang tidak dijamin.",
   ],
   ur: [
-    "شرکت کا انتظام","سرکاری X ڈیٹا · رضاکارانہ شرکت","اپنے اکاؤنٹ کے مقابلے میں حقیقی ترقی۔","پوسٹس کی درجہ بندی کل پسند کی تعداد سے نہیں، اپنے اکاؤنٹ کے پچھلے نتائج سے ہوتی ہے۔ شیئرنگ اور درجہ بندی میں شامل ہونا الگ انتخاب ہیں۔",
+    "شرکت کا انتظام","سرکاری X ڈیٹا ⁜ رضاکارانہ شرکت","اپنے اکاؤنٹ کے مقابلے میں حقیقی ترقی۔","پوسٹس کی درجہ بندی کل پسند کی تعداد سے نہیں، اپنے اکاؤنٹ کے پچھلے نتائج سے ہوتی ہے۔ شیئرنگ اور درجہ بندی میں شامل ہونا الگ انتخاب ہیں۔",
     "اس ہفتے کی کامیاب پوسٹس","اس مہینے کی کامیاب پوسٹس","بہترین اکاؤنٹ کارکردگی","سب سے زیادہ ترقی","درجہ بندی کی قسم",
     "اس دور میں کوئی رضاکارانہ نتیجہ سرکاری ثبوت کی شرط پوری نہیں کرتا۔ ناکافی سابقہ ریکارڈ یا غیر یکساں مشاہدے والی پوسٹس شامل نہیں ہوتیں۔",
     "اپنی تاریخ کے مقابلے میں","فی فالوور تعامل","پچھلے مشاہدات","اشاعت کے بعد گھنٹے","گزشتہ ماہ کے مقابلے میں تعامل کی شرح","تاریخی اوسطِ وسطی کارکردگی","اس ماہ کی قابلِ موازنہ سرکاری پوسٹس",
@@ -119,7 +119,7 @@ const rows: Record<Locale, readonly string[]> = {
     "اکاؤنٹ درجہ بندی میں اس ماہ کی کم از کم 5 قابلِ موازنہ پوسٹس کی درمیانی قدر استعمال ہوتی ہے، غیر شیئر شدہ کم نتائج بھی۔ ترقی موجودہ اور گزشتہ ماہ کے کم از کم 5-5 نتائج کا موازنہ کرتی ہے۔ نجی متن یا ID ظاہر نہیں کیے جاتے؛ آئندہ نتیجے کی ضمانت نہیں۔",
   ],
   de: [
-    "Teilnahme verwalten","Offizielle X-Daten · Freiwillige Teilnahme","Echter Fortschritt gegenüber deinem Konto.","Beiträge werden mit früheren Ergebnissen desselben Kontos verglichen, nicht nach der Gesamtzahl der Likes sortiert. Teilen und Teilnahme am Ranking sind getrennte Entscheidungen.",
+    "Teilnahme verwalten","Offizielle X-Daten ⁜ Freiwillige Teilnahme","Echter Fortschritt gegenüber deinem Konto.","Beiträge werden mit früheren Ergebnissen desselben Kontos verglichen, nicht nach der Gesamtzahl der Likes sortiert. Teilen und Teilnahme am Ranking sind getrennte Entscheidungen.",
     "Hits der Woche","Hits des Monats","Beste Kontoperformance","Größter Fortschritt","Ranking-Typ",
     "Für diesen Zeitraum erfüllt kein freiwillig geteiltes Ergebnis die offizielle Beweisschwelle. Beiträge mit zu wenig Historie oder nicht vergleichbaren Messzeiten werden ausgeschlossen.",
     "Gegenüber eigener Historie","Interaktionen pro Follower","frühere Beobachtungen","Stunden nach Veröffentlichung","Engagement-Rate gegenüber Vormonat","Medianleistung gegenüber Historie","offizielle vergleichbare Beiträge in diesem Monat",
@@ -129,7 +129,7 @@ const rows: Record<Locale, readonly string[]> = {
     "Das Kontoranking nutzt den Median von mindestens 5 vergleichbaren Beiträgen dieses Monats, einschließlich nicht geteilter schwacher Ergebnisse. Der Fortschritt vergleicht aktuellen und vorherigen Monat mit je mindestens 5 Beiträgen. Private Texte und IDs bleiben verborgen; zukünftige Erfolge sind nicht garantiert.",
   ],
   ja: [
-    "参加を管理","X 公式データ · 任意参加","自分のアカウントの過去と比べた成長。","総いいね数ではなく、同じアカウントの過去の結果と比較して順位を付けます。公開共有とランキング参加は別々の設定です。",
+    "参加を管理","X 公式データ ⁜ 任意参加","自分のアカウントの過去と比べた成長。","総いいね数ではなく、同じアカウントの過去の結果と比較して順位を付けます。公開共有とランキング参加は別々の設定です。",
     "今週のヒット","今月のヒット","アカウントの上位実績","改善率の高いユーザー","ランキングの種類",
     "この期間には、任意で参加し公式証拠の基準を満たす結果がありません。履歴不足や観測時間が比較できない投稿は除外されます。",
     "自身の過去との比較","フォロワーあたりの反応","件の過去観測","公開後の時間","先月とのエンゲージメント率比較","過去との相対成果の中央値","今月の比較可能な公式投稿",
@@ -139,7 +139,7 @@ const rows: Record<Locale, readonly string[]> = {
     "アカウント順位は今月の比較可能な5件以上の相対成果の中央値を使用し、非公開の低成績も含みます。改善率は今月と先月の各5件以上を比較します。非公開投稿の本文やIDは表示せず、将来の成果を保証しません。",
   ],
   sw: [
-    "Dhibiti ushiriki","Data rasmi za X · Ushiriki wa hiari","Ukuaji halisi dhidi ya historia ya akaunti yako.","Machapisho hupangwa dhidi ya matokeo ya awali ya akaunti ileile, si jumla ya zilizopendwa. Kushiriki hadharani na kuingia kwenye orodha ni maamuzi tofauti.",
+    "Dhibiti ushiriki","Data rasmi za X ⁜ Ushiriki wa hiari","Ukuaji halisi dhidi ya historia ya akaunti yako.","Machapisho hupangwa dhidi ya matokeo ya awali ya akaunti ileile, si jumla ya zilizopendwa. Kushiriki hadharani na kuingia kwenye orodha ni maamuzi tofauti.",
     "Machapisho bora ya wiki","Machapisho bora ya mwezi","Utendaji bora wa akaunti","Watumiaji walioimarika zaidi","Aina ya orodha",
     "Hakuna matokeo yaliyoshirikiwa kwa hiari yanayofikia kiwango cha ushahidi rasmi kipindi hiki. Historia isiyotosha au nyakati zisizolinganishika huondolewa.",
     "Dhidi ya historia yako","Mwingiliano kwa mfuasi","uchunguzi wa awali","saa baada ya kuchapisha","Kiwango cha mwingiliano dhidi ya mwezi uliopita","Utendaji wa kati dhidi ya historia","machapisho rasmi yanayolinganishika mwezi huu",
@@ -149,7 +149,7 @@ const rows: Record<Locale, readonly string[]> = {
     "Orodha ya akaunti hutumia wastani wa kati wa machapisho 5 yanayolinganishika mwezi huu, hata matokeo ya chini yasiyoshirikiwa. Ukuaji hulinganisha mwezi huu na uliopita kwa angalau machapisho 5 kila moja. Maandishi na ID za faragha hazionyeshwi; matokeo yajayo hayajahakikishwa.",
   ],
   mr: [
-    "सहभाग व्यवस्थापित करा","अधिकृत X डेटा · ऐच्छिक सहभाग","तुमच्या खात्याच्या इतिहासाच्या तुलनेत खरी प्रगती.","पोस्टची क्रमवारी एकूण लाइक्सवर नाही तर त्याच खात्याच्या मागील कामगिरीवर ठरते. सार्वजनिक शेअर आणि क्रमवारीतील सहभाग स्वतंत्र निवडी आहेत.",
+    "सहभाग व्यवस्थापित करा","अधिकृत X डेटा ⁜ ऐच्छिक सहभाग","तुमच्या खात्याच्या इतिहासाच्या तुलनेत खरी प्रगती.","पोस्टची क्रमवारी एकूण लाइक्सवर नाही तर त्याच खात्याच्या मागील कामगिरीवर ठरते. सार्वजनिक शेअर आणि क्रमवारीतील सहभाग स्वतंत्र निवडी आहेत.",
     "या आठवड्यातील हिट्स","या महिन्यातील हिट्स","उत्तम खाते कामगिरी","सर्वाधिक प्रगती","क्रमवारी प्रकार",
     "या काळात कोणताही ऐच्छिक निकाल अधिकृत पुराव्याची अट पूर्ण करत नाही. कमी इतिहास किंवा असमान निरीक्षण वेळ असलेल्या पोस्ट वगळल्या जातात.",
     "स्वतःच्या इतिहासाच्या तुलनेत","प्रति फॉलोअर प्रतिसाद","मागील निरीक्षणे","प्रकाशनानंतर तास","मागील महिन्याच्या तुलनेत प्रतिसाद दर","इतिहासाच्या तुलनेत मध्यमान कामगिरी","या महिन्यातील तुलनायोग्य अधिकृत पोस्ट",
@@ -159,7 +159,7 @@ const rows: Record<Locale, readonly string[]> = {
     "खाते क्रमवारीत या महिन्यातील किमान 5 तुलनायोग्य पोस्टच्या गुणोत्तराचे मध्यमान वापरले जाते, शेअर न केलेले कमी निकालही धरले जातात. सुधारणा सध्याचा व मागील महिना तुलना करते, प्रत्येकी 5 पोस्ट हव्यात. खाजगी मजकूर आणि ID उघड होत नाहीत; भविष्यातील निकालाची हमी नाही.",
   ],
   te: [
-    "పాల్గొనడాన్ని నిర్వహించు","అధికారిక X డేటా · స్వచ్ఛంద భాగస్వామ్యం","మీ ఖాతా చరిత్రతో పోల్చిన నిజమైన పురోగతి.","పోస్ట్‌లను మొత్తం లైకుల ఆధారంగా కాకుండా అదే ఖాతా గత ఫలితాలతో పోల్చి ర్యాంక్ చేస్తాం. బహిరంగ షేరింగ్, ర్యాంకింగ్‌లో భాగస్వామ్యం వేర్వేరు ఎంపికలు.",
+    "పాల్గొనడాన్ని నిర్వహించు","అధికారిక X డేటా ⁜ స్వచ్ఛంద భాగస్వామ్యం","మీ ఖాతా చరిత్రతో పోల్చిన నిజమైన పురోగతి.","పోస్ట్‌లను మొత్తం లైకుల ఆధారంగా కాకుండా అదే ఖాతా గత ఫలితాలతో పోల్చి ర్యాంక్ చేస్తాం. బహిరంగ షేరింగ్, ర్యాంకింగ్‌లో భాగస్వామ్యం వేర్వేరు ఎంపికలు.",
     "ఈ వారం హిట్లు","ఈ నెల హిట్లు","ఉత్తమ ఖాతా పనితీరు","అత్యధిక పురోగతి","ర్యాంకింగ్ రకం",
     "ఈ కాలంలో అధికారిక ఆధార ప్రమాణాన్ని చేరిన స్వచ్ఛంద ఫలితాలు లేవు. తగిన చరిత్ర లేని లేదా పోల్చలేని పరిశీలన సమయాలున్న పోస్ట్‌లు చేరవు.",
     "సొంత చరిత్రతో పోల్చితే","ఫాలోవర్‌కు స్పందన","మునుపటి పరిశీలనలు","పోస్ట్ తరువాత గంటలు","గత నెలతో పోల్చిన స్పందన రేటు","చరిత్రతో పోల్చిన మధ్యస్థ పనితీరు","ఈ నెల పోల్చదగిన అధికారిక పోస్ట్‌లు",
@@ -169,7 +169,7 @@ const rows: Record<Locale, readonly string[]> = {
     "ఖాతా ర్యాంకింగ్ ఈ నెల కనీసం 5 పోల్చదగిన పోస్ట్‌ల మధ్యస్థాన్ని ఉపయోగిస్తుంది; షేర్ చేయని తక్కువ ఫలితాలు కూడా లెక్కలోకి వస్తాయి. పురోగతి ఈ నెల, గత నెలలో కనీసం 5 పోస్ట్‌ల చొప్పున పోలుస్తుంది. ప్రైవేట్ పోస్టుల వచనాలు, IDలు బయటపెట్టం; భవిష్యత్ ఫలితాలకు హామీ లేదు.",
   ],
   tr: [
-    "Katılımı yönet","Resmî X verisi · Gönüllü katılım","Hesabına göre gerçek gelişim.","Gönderiler toplam beğeniyle değil, kendi hesabının önceki sonuçlarına göre sıralanır. Paylaşım ve sıralamaya katılım ayrı seçimlerdir.",
+    "Katılımı yönet","Resmî X verisi ⁜ Gönüllü katılım","Hesabına göre gerçek gelişim.","Gönderiler toplam beğeniyle değil, kendi hesabının önceki sonuçlarına göre sıralanır. Paylaşım ve sıralamaya katılım ayrı seçimlerdir.",
     "Haftanın hitleri","Ayın hitleri","En iyi hesap performansı","En çok gelişen kullanıcılar","Sıralama türü",
     "Bu dönem için kanıt eşiğini karşılayan ve katılımı açık bir sonuç henüz yok. Yeterli geçmişi veya karşılaştırılabilir gözlem zamanı olmayan gönderiler sıralanmaz.",
     "Kendi geçmişine göre","Takipçi başına etkileşim","önceki gözlem","yayın sonrası saat","Önceki aya göre etkileşim oranı","Kendi geçmişine göre medyan performans","bu ay karşılaştırılabilir resmî gönderi",
@@ -179,7 +179,7 @@ const rows: Record<Locale, readonly string[]> = {
     "Hesap sıralaması bu ayki en az 5 karşılaştırılabilir gönderinin medyanını kullanır; paylaşılmayan düşük sonuçlar da dahildir. Gelişim bu ayla önceki ayı karşılaştırır; ikisinde de en az 5 gönderi gerekir. Özel geçmiş metinleri ve kimlikleri açıklanmaz; katılım isteğe bağlıdır ve gelecek sonuç garantisi vermez.",
   ],
   ta: [
-    "பங்கேற்பை நிர்வகி","அதிகாரப்பூர்வ X தரவு · விருப்பப் பங்கேற்பு","உங்கள் கணக்கின் கடந்த நிலையுடன் ஒப்பிட்ட உண்மையான முன்னேற்றம்.","மொத்த விருப்பங்களால் அல்லாமல் அதே கணக்கின் முந்தைய முடிவுகளுடன் ஒப்பிட்டுப் பதிவுகள் வரிசைப்படுத்தப்படும். பகிர்வும் தரவரிசையில் சேர்வதும் வெவ்வேறு முடிவுகள்.",
+    "பங்கேற்பை நிர்வகி","அதிகாரப்பூர்வ X தரவு ⁜ விருப்பப் பங்கேற்பு","உங்கள் கணக்கின் கடந்த நிலையுடன் ஒப்பிட்ட உண்மையான முன்னேற்றம்.","மொத்த விருப்பங்களால் அல்லாமல் அதே கணக்கின் முந்தைய முடிவுகளுடன் ஒப்பிட்டுப் பதிவுகள் வரிசைப்படுத்தப்படும். பகிர்வும் தரவரிசையில் சேர்வதும் வெவ்வேறு முடிவுகள்.",
     "இந்த வாரச் சிறந்த பதிவுகள்","இந்த மாதச் சிறந்த பதிவுகள்","சிறந்த கணக்கு செயல்திறன்","அதிக முன்னேற்றம்","தரவரிசை வகை",
     "இந்தக் காலத்தில் அதிகாரப்பூர்வ ஆதாரத் தரத்தை அடைந்த விருப்பப் பங்கேற்பு முடிவுகள் இல்லை. வரலாறு போதாத அல்லது ஒப்பிட முடியாத கண்காணிப்பு நேரமுள்ள பதிவுகள் சேராது.",
     "சொந்த வரலாற்றுடன் ஒப்பிடுகையில்","பின்தொடர்பவர் ஒன்றுக்கு ஈடுபாடு","முந்தைய கண்காணிப்புகள்","வெளியிட்ட பின் மணிநேரம்","கடந்த மாதத்துடன் ஒப்பிடும் ஈடுபாட்டு விகிதம்","வரலாற்றுடன் ஒப்பிடும் இடைநிலை செயல்திறன்","இந்த மாதத்தின் ஒப்பிடத்தக்க அதிகாரப்பூர்வ பதிவுகள்",
@@ -189,7 +189,7 @@ const rows: Record<Locale, readonly string[]> = {
     "கணக்கு தரவரிசை இந்த மாதத்தின் குறைந்தது 5 ஒப்பிடத்தக்க பதிவுகளின் இடைநிலையைப் பயன்படுத்தும்; பகிராத குறைந்த முடிவுகளும் சேரும். முன்னேற்றம் இந்த மாதத்தையும் கடந்த மாதத்தையும் ஒவ்வொன்றிலும் 5 பதிவுகளுடன் ஒப்பிடும். தனிப்பட்ட உரைகள் மற்றும் IDகள் வெளியிடப்படாது; எதிர்கால முடிவுக்கு உத்தரவாதமில்லை.",
   ],
   vi: [
-    "Quản lý tham gia","Dữ liệu X chính thức · Tự nguyện tham gia","Tiến bộ thực so với lịch sử tài khoản.","Bài đăng được xếp theo kết quả trước đây của chính tài khoản, không phải tổng lượt thích. Chia sẻ công khai và tham gia bảng xếp hạng là hai lựa chọn riêng.",
+    "Quản lý tham gia","Dữ liệu X chính thức ⁜ Tự nguyện tham gia","Tiến bộ thực so với lịch sử tài khoản.","Bài đăng được xếp theo kết quả trước đây của chính tài khoản, không phải tổng lượt thích. Chia sẻ công khai và tham gia bảng xếp hạng là hai lựa chọn riêng.",
     "Bài nổi bật tuần này","Bài nổi bật tháng này","Hiệu suất tài khoản tốt nhất","Người cải thiện nhiều nhất","Loại bảng xếp hạng",
     "Chưa có kết quả tự nguyện tham gia nào đạt ngưỡng bằng chứng chính thức kỳ này. Bài thiếu lịch sử hoặc thời điểm quan sát không thể so sánh sẽ bị loại.",
     "So với lịch sử của mình","Tương tác trên mỗi người theo dõi","quan sát trước","giờ sau khi đăng","Tỷ lệ tương tác so với tháng trước","Hiệu suất trung vị so với lịch sử","bài đăng chính thức có thể so sánh tháng này",
@@ -199,7 +199,7 @@ const rows: Record<Locale, readonly string[]> = {
     "Xếp hạng tài khoản dùng trung vị của ít nhất 5 bài có thể so sánh tháng này, kể cả kết quả thấp chưa chia sẻ. Mức cải thiện so tháng này với tháng trước, mỗi tháng ít nhất 5 bài. Không công khai nội dung hay ID bài riêng tư; không bảo đảm kết quả tương lai.",
   ],
   ko: [
-    "참여 관리","X 공식 데이터 · 자발적 참여","내 계정의 과거와 비교한 실제 성장.","전체 좋아요 수가 아닌 같은 계정의 이전 결과와 비교하여 순위를 정합니다. 카드 공유와 랭킹 참여는 별도의 선택입니다.",
+    "참여 관리","X 공식 데이터 ⁜ 자발적 참여","내 계정의 과거와 비교한 실제 성장.","전체 좋아요 수가 아닌 같은 계정의 이전 결과와 비교하여 순위를 정합니다. 카드 공유와 랭킹 참여는 별도의 선택입니다.",
     "이번 주 히트","이번 달 히트","우수 계정 성과","가장 많이 성장한 사용자","랭킹 유형",
     "이 기간에는 자발적으로 참여하고 공식 증거 기준을 충족한 결과가 없습니다. 기록이 부족하거나 관측 시점이 비교되지 않는 게시물은 제외됩니다.",
     "내 과거 대비","팔로워당 참여","개 이전 관측","게시 후 경과 시간","지난달 대비 참여율","과거 대비 성과 중앙값","이번 달 비교 가능한 공식 게시물",

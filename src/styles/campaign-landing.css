@@ -3,18 +3,11 @@
 .campaign-landing * { box-sizing: border-box; }
 .campaign-landing section[id] { scroll-margin-top: 2rem; }
 .campaign-container { width: min(100% - 3rem, 1160px); margin-inline: auto; }
-.campaign-header { border-bottom: 1px solid var(--border); }
-.campaign-header-inner { display: flex; min-height: 96px; align-items: center; justify-content: space-between; gap: 2rem; }
 .campaign-logo .brand-mark { width: 34px !important; height: 34px !important; }
 .campaign-logo .brand-wordmark { font-size: 27px; }
-.campaign-nav { display: flex; align-items: center; gap: 1.8rem; font-size: 15px; }
-.campaign-nav > a:not(.campaign-button) { display: inline-flex; min-height: 44px; align-items: center; gap: 6px; }
-.campaign-nav a:hover { color: var(--campaign-accent); }
-.campaign-login { margin-inline-start: 1rem; }
 .campaign-button { display: inline-flex; min-height: 52px; max-width: 100%; align-items: center; justify-content: center; gap: 14px; padding: 14px 23px; background: var(--campaign-accent); color: var(--background); border: 1px solid transparent; font-size: 16px; font-weight: 700; text-align: center; line-height: 1.35; transition: background-color .18s, transform .18s; }
 .campaign-button svg, .campaign-text-button svg { flex-shrink: 0; }
 .campaign-button:hover { background: var(--foreground); color: var(--background) !important; }
-.campaign-button-small { min-height: 44px; padding: 10px 16px; font-size: 15px; }
 .campaign-landing a:focus-visible, .campaign-landing summary:focus-visible { outline: 2px solid var(--campaign-accent); outline-offset: 5px; }
 .campaign-text-button { display: inline-flex; min-height: 48px; align-items: center; justify-content: center; gap: 12px; font-size: 16px; padding-block: 10px; }
 .campaign-text-button:hover { text-decoration: underline; text-underline-offset: 5px; }
@@ -27,6 +20,17 @@
 .campaign-actions { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 24px; margin-top: 30px; }
 .campaign-product { padding-block: 12px 0; }
 .campaign-product-frame { padding: 0; }
+.campaign-proof { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 18px 30px; padding-block: 24px; border-top: 1px solid var(--border); }
+.campaign-proof-links { display: flex; flex-wrap: wrap; gap: 4px 20px; }
+.campaign-proof-links a { display: inline-flex; min-height: 44px; align-items: center; gap: 7px; color: var(--campaign-accent); font-size: 14px; font-weight: 700; }
+.campaign-proof-links a:hover { text-decoration: underline; text-underline-offset: 4px; }
+.campaign-proof-details { width: min(100%, 700px); color: var(--muted-foreground); font-size: 13px; line-height: 1.7; }
+.campaign-proof-details summary { display: flex; min-height: 44px; align-items: center; justify-content: flex-end; gap: 7px; cursor: pointer; color: var(--muted-foreground); }
+.campaign-proof-details summary svg { transition: transform .18s; }
+.campaign-proof-details[open] summary svg { transform: rotate(180deg); }
+.campaign-proof-details > p { margin-top: 11px; }
+.campaign-proof-details h3 { margin-top: 18px; color: var(--foreground); font-size: 13px; }
+.campaign-evidence-list { display: flex; flex-wrap: wrap; gap: 6px 18px; margin-top: 7px; }
 .campaign-audience { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding-block: 43px 50px; }
 .campaign-audience ul { display: flex; justify-content: center; gap: clamp(24px, 5vw, 70px); flex-wrap: wrap; width: 100%; }
 .campaign-audience li { display: flex; align-items: center; gap: 12px; font-size: 20px; }
@@ -81,9 +85,8 @@
 .campaign-footer-bottom nav a { display: inline-flex; align-items: center; gap: 4px; min-height: 44px; }
 .campaign-footer-bottom nav a:hover { color: var(--campaign-accent); }
 @media (max-width: 900px) {
-  .campaign-nav { gap: 18px; }
-  .campaign-nav-section { display: none !important; }
   .campaign-section-heading, .campaign-mcp { gap: 32px; }
+  .campaign-proof { gap: 12px; }
   .campaign-agent-panel { padding: 22px; }
   .campaign-faq { gap: 36px; }
   .campaign-audience { flex-direction: column; text-align: center; }
@@ -91,13 +94,8 @@
 }
 @media (max-width: 640px) {
   .campaign-container { width: min(100% - 2rem, 1160px); }
-  .campaign-header-inner { min-height: 78px; gap: 8px; }
   .campaign-logo .brand-wordmark { font-size: 21px; }
   .campaign-logo .brand-mark { width: 27px !important; height: 27px !important; }
-  .campaign-nav { gap: 12px; font-size: 13px; }
-  .campaign-login { display: none !important; }
-  .campaign-button-small { padding: 10px 12px; font-size: 13px; gap: 8px; }
-  .campaign-button-small > svg { display: none; }
   .campaign-hero { padding-block: 48px 30px; }
   .campaign-eyebrow { font-size: 10px; letter-spacing: .065em; }
   .campaign-hero h1 { margin-top: 22px; font-size: clamp(38px, 9vw, 58px); line-height: 1.12; letter-spacing: -.04em; }
@@ -108,6 +106,8 @@
   .campaign-audience li { font-size: 16px; gap: 8px; }
   .campaign-workflow { padding-block: 48px; }
   .campaign-section-heading { grid-template-columns: 1fr; gap: 20px; }
+  .campaign-proof { gap: 8px; padding-block: 14px; }
+  .campaign-proof-details { width: 100%; }
   .campaign-section-heading > p, .campaign-body { font-size: 16px; }
   .campaign-steps { grid-template-columns: 1fr; margin-top: 30px; gap: 30px; }
   .campaign-step-top { margin-bottom: 18px; }

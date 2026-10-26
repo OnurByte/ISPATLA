@@ -4,7 +4,7 @@ import { requestOpenGraphLocale } from "@/i18n/og-locale";
 import { leaderboardCopy } from "@/i18n/leaderboard-copy";
 
 export const runtime = "nodejs";
-export const alt = "İSPATLA · Resmî X verilerine dayalı herkese açık sıralama";
+export const alt = "İSPATLA ⁜ Resmî X verilerine dayalı herkese açık sıralama";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 

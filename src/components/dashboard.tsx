@@ -38,7 +38,7 @@ function PostRow({ post }: { post: RecentPost }) {
           <Link className="line-clamp-2 font-medium leading-5 hover:underline" href={internalPostUrl(post.externalId)}>
             {post.text}
           </Link>
-          <span className="text-xs text-muted-foreground">@{post.sourceHandle} · {formatAge(post.observedAt)}</span>
+          <span className="text-xs text-muted-foreground">@{post.sourceHandle} ⁜ {formatAge(post.observedAt)}</span>
         </div>
       </TableCell>
       <TableCell className="text-right tabular-nums">{Math.round(post.score)}</TableCell>
@@ -139,8 +139,8 @@ export function Dashboard({ initial, canRunScan }: { initial: DashboardView; can
         <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4" aria-label="Teknik metrikler">
           <MetricCard icon={Database} label="Kaynaklar" value={`${summary.sourcesObserved}/${summary.sourcesConfigured}`} detail="Enabled config / state içinde görülen" />
           <MetricCard icon={Activity} label="Gözlenen post" value={summary.postsObserved} detail={`${summary.postsLast24h} son 24 saatte`} />
-          <MetricCard icon={Radar} label="Fırsatlar" value={summary.opportunities} detail="Skor ≥ 70, sensitive değil · listeyi aç" href="/opportunities" />
-          <MetricCard icon={Send} label="Reconciliation kuyruğu" value={summary.attemptsPending} detail={`${summary.publishedConfirmed} confirmed · ${summary.publishBlocked} blocked`} />
+          <MetricCard icon={Radar} label="Fırsatlar" value={summary.opportunities} detail="Skor ≥ 70, sensitive değil ⁜ listeyi aç" href="/opportunities" />
+          <MetricCard icon={Send} label="Reconciliation kuyruğu" value={summary.attemptsPending} detail={`${summary.publishedConfirmed} confirmed ⁜ ${summary.publishBlocked} blocked`} />
         </section>
 
         {!summary.dbAvailable && (
@@ -171,13 +171,13 @@ export function Dashboard({ initial, canRunScan }: { initial: DashboardView; can
               <CardDescription>Canlı dış sistemlerin kanıtlanabilir durumu.</CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col gap-4">
-              <div className="flex flex-wrap items-center justify-between gap-4"><span className="flex items-center gap-2 text-sm"><TimerReset className="size-4 text-muted-foreground" aria-hidden="true" /> Radar</span><Badge variant={summary.automationRuntime.healthy ? "default" : "outline"}>{summary.automationRuntime.healthy ? `${summary.automationRuntime.owner} heartbeat ${summary.automationRuntime.lagSeconds} sn önce` : "çalışmıyor · heartbeat yok"}</Badge></div>
+              <div className="flex flex-wrap items-center justify-between gap-4"><span className="flex items-center gap-2 text-sm"><TimerReset className="size-4 text-muted-foreground" aria-hidden="true" /> Radar</span><Badge variant={summary.automationRuntime.healthy ? "default" : "outline"}>{summary.automationRuntime.healthy ? `${summary.automationRuntime.owner} heartbeat ${summary.automationRuntime.lagSeconds} sn önce` : "çalışmıyor ⁜ heartbeat yok"}</Badge></div>
               <Separator />
               <div className="flex items-center justify-between gap-4"><span className="flex items-center gap-2 text-sm"><AiIcon size={16} className="text-muted-foreground" /> {summary.aiProvider === "codex" ? "Codex" : summary.aiProvider === "compatible" ? "Özel AI endpoint" : summary.aiProvider === "chatgpt" ? "ChatGPT planı" : summary.aiProvider === "anthropic" ? "Claude API" : "OpenAI Responses"}</span><Badge variant={!summary.aiEnabled ? "secondary" : summary.aiConfigured ? "default" : "destructive"}>{!summary.aiEnabled ? "kapalı" : summary.aiConfigured ? "hazır" : summary.aiProvider === "codex" ? "login yok" : "key / endpoint yok"}</Badge></div>
               <div className="flex items-center justify-between gap-4"><span className="flex items-center gap-2 text-sm"><Send className="size-4 text-muted-foreground" aria-hidden="true" /> Official 𝕏 grant</span><Badge variant={summary.officialX.postWriteReadyAccounts ? "default" : "secondary"}>{summary.officialX.postWriteReadyAccounts} write hazır</Badge></div>
               <div className="flex items-center justify-between gap-4"><span className="flex items-center gap-2 text-sm"><ShieldCheck className="size-4 text-muted-foreground" aria-hidden="true" /> Publisher yapılandırması</span><Badge variant={summary.officialPublisherConfigured ? "default" : "destructive"}>{summary.officialPublisherConfigured ? "sunucu hazır" : "sunucu yapılandırması eksik"}</Badge></div>
-              <div className="flex items-center justify-between gap-4"><span className="flex items-center gap-2 text-sm"><ShieldCheck className="size-4 text-muted-foreground" aria-hidden="true" /> Açık Auto post izni</span><Badge variant={summary.officialX.autoConsentedPostAccounts ? "default" : "secondary"}>{summary.officialX.autoConsentedPostAccounts} hesap · {summary.officialX.connectedAccounts} bağlı</Badge></div>
-              <div className="flex items-center justify-between gap-4"><span className="flex items-center gap-2 text-sm"><ShieldCheck className="size-4 text-muted-foreground" aria-hidden="true" /> Yayın politikası</span><Badge variant="secondary">≥70 · 6/gün</Badge></div>
+              <div className="flex items-center justify-between gap-4"><span className="flex items-center gap-2 text-sm"><ShieldCheck className="size-4 text-muted-foreground" aria-hidden="true" /> Açık Auto post izni</span><Badge variant={summary.officialX.autoConsentedPostAccounts ? "default" : "secondary"}>{summary.officialX.autoConsentedPostAccounts} hesap ⁜ {summary.officialX.connectedAccounts} bağlı</Badge></div>
+              <div className="flex items-center justify-between gap-4"><span className="flex items-center gap-2 text-sm"><ShieldCheck className="size-4 text-muted-foreground" aria-hidden="true" /> Yayın politikası</span><Badge variant="secondary">≥70 ⁜ 6/gün</Badge></div>
               <Alert>
                 <ShieldCheck aria-hidden="true" />
                 <AlertDescription>Otomatik taslak için bağlı 𝕏 hesabı, tweet.write yetkisi ve güncel açık post izni gerekir. Her gönderim anında bağlantı, izin ve yayın politikası yeniden denetlenir.</AlertDescription>
