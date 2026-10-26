@@ -10,8 +10,8 @@ const recordedEvents: string[] = [];
 
 function mockState<T>(initial: T): [T, (next: T) => void] {
   const index = hookCursor++;
-  if (!(index in hookValues)) hookValues[index] = initial;
-  return [hookValues[index] as T, (next) => { hookValues[index] = next; }];
+  if (!(index in hookValues)) hookValues[index] = typeof initial === "function" ? (initial as () => T)() : initial;
+  return [hookValues[index] as T, (next) => { hookValues[index] = typeof next === "function" ? (next as (previous: T) => T)(hookValues[index] as T) : next; }];
 }
 
 function mockRef<T>(initial: T) {
@@ -48,7 +48,7 @@ async function renderPreview(locale: (typeof LOCALES)[number]) {
   const { CampaignPreview } = await import("../src/components/landing/campaign-preview");
   const copy = getCampaignLandingCopy(locale);
   hookCursor = 0;
-  return { copy, tree: CampaignPreview({ locale, copy: copy.preview }) };
+  return { copy, tree: CampaignPreview({ locale, copy: copy.preview, demo: copy.demo }) };
 }
 
 beforeEach(() => {
@@ -56,54 +56,55 @@ beforeEach(() => {
   recordedEvents.length = 0;
 });
 
-test("server-rendered preview exposes its illustrative label, all accounts, periods, and review choices in every locale", async () => {
+test("localized workbench shows topic, account fit, and distinct editable drafts without synthetic source metrics", async () => {
   const { CampaignPreview } = await import("../src/components/landing/campaign-preview");
   for (const locale of LOCALES) {
     const copy = getCampaignLandingCopy(locale);
-    const markup = renderToStaticMarkup(<CampaignPreview locale={locale} copy={copy.preview} />);
-    expect(markup).toContain(copy.preview.label);
-    expect(markup).toContain(copy.preview.chartDescription);
+    const markup = renderToStaticMarkup(<CampaignPreview locale={locale} copy={copy.preview} demo={copy.demo} />);
+    expect(markup).toContain(copy.demo.topicTitle);
+    expect(markup).toContain(copy.demo.topicBrief);
+    expect(markup).toContain("Just released a major upgrade to @Grok Imagine!");
+    expect(markup).toContain("Another major upgrade coming in 3 weeks.");
+    expect(markup).toContain("href=\"https://x.com/elonmusk/status/2007731379342291029\"");
+    expect(markup).toContain("href=\"https://x.com/elonmusk\"");
+    expect(markup).toContain("dateTime=\"2026-01-04T08:30:37Z\"");
+    expect(markup).toContain(copy.demo.sourceLinkLabel);
+    expect(markup).toContain(copy.demo.fitReasons[0]);
+    expect(markup).toContain(copy.demo.drafts[0]);
+    expect(copy.demo.drafts).toHaveLength(3);
+    expect(new Set(copy.demo.drafts).size).toBe(3);
     for (const role of copy.preview.roles) expect(markup).toContain(role);
-    for (const day of copy.preview.days) expect(markup).toContain(day);
     expect(markup).toContain(copy.preview.individual);
     expect(markup).toContain(copy.preview.bulk);
+    expect(markup).toContain("<textarea");
     expect(markup).toContain('aria-pressed="true"');
+    expect(markup).not.toContain(copy.preview.impressions);
+    expect(markup).not.toContain(copy.preview.followers);
+    expect(markup).not.toContain("@exampledev");
+    expect(markup).not.toContain("source link");
   }
 });
 
-test("chart paths stay finite for valid points and ignore nonfinite samples", async () => {
-  const { campaignChartPath } = await import("../src/components/landing/campaign-preview");
-  for (const points of [[0, 50, 100], [-15, 35, 120], [0, Number.NaN, 100, Number.POSITIVE_INFINITY]]) {
-    const path = campaignChartPath(points);
-    expect(path).not.toMatch(/NaN|Infinity/);
-    expect(path).toMatch(/^M/);
-  }
-  expect(campaignChartPath([Number.NaN, Number.POSITIVE_INFINITY])).toBe("");
-});
-
-test("preview interaction emits aggregate start once and completion once for review-mode change", async () => {
+test("account selection changes the rationale, edits persist, and bulk review exposes all account drafts", async () => {
   const { copy, tree } = await renderPreview("en");
-  const periodButtons = elements(tree, "button").filter((button) => button.props["aria-pressed"] !== undefined && textContent(button.props.children).includes("day"));
-  const currentPeriod = periodButtons.find((button) => button.props["aria-pressed"] === true)!;
-  (currentPeriod.props.onClick as () => void)();
-  expect(recordedEvents).toEqual([]);
-
-  const otherPeriod = periodButtons.find((button) => button !== currentPeriod)!;
-  (otherPeriod.props.onClick as () => void)();
+  const accountButtons = elements(tree, "button").filter((button) => copy.preview.roles.includes(textContent(button.props.children)));
+  const nextAccount = accountButtons.find((button) => button.props["aria-pressed"] === false)!;
+  (nextAccount.props.onClick as () => void)();
   expect(recordedEvents).toEqual(["demo_start"]);
 
-  const { tree: updatedTree } = await renderPreview("en");
-  const reviewButtons = elements(updatedTree, "button").filter((button) =>
+  const { tree: selectedTree } = await renderPreview("en");
+  expect(textContent(selectedTree)).toContain(copy.demo.fitReasons[1]);
+  const reviewButtons = elements(selectedTree, "button").filter((button) =>
     button.props["aria-pressed"] !== undefined && [copy.preview.individual, copy.preview.bulk].includes(textContent(button.props.children)),
   );
-  const individual = reviewButtons.find((button) => textContent(button.props.children) === copy.preview.individual)!;
-  (individual.props.onClick as () => void)();
+  const bulk = reviewButtons.find((button) => textContent(button.props.children) === copy.preview.bulk)!;
+  (bulk.props.onClick as () => void)();
   expect(recordedEvents).toEqual(["demo_start", "demo_complete"]);
 
-  const { tree: individualTree } = await renderPreview("en");
-  const accountButtons = elements(individualTree, "button").filter((button) => copy.preview.roles.includes(textContent(button.props.children)));
-  const selectedAccount = accountButtons.find((button) => button.props["aria-pressed"] === true)!;
-  (selectedAccount.props.onClick as () => void)();
-  expect(recordedEvents).toEqual(["demo_start", "demo_complete"]);
-  expect(copy.preview.roles).toHaveLength(3);
+  const { tree: bulkTree } = await renderPreview("en");
+  const editors = elements(bulkTree, "textarea");
+  expect(editors).toHaveLength(3);
+  expect(editors.map((editor) => editor.props.value)).toEqual(copy.demo.drafts);
+  (editors[1].props.onChange as (event: { currentTarget: { value: string } }) => void)({ currentTarget: { value: "Edited by a visitor" } });
+  expect(hookValues[2]).toContain("Edited by a visitor");
 });

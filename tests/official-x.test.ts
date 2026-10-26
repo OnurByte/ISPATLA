@@ -1,9 +1,10 @@
-import { describe, expect, test } from "bun:test";
-import { OfficialXClient, OfficialXError } from "../src/server/official-x";
+import { describe, expect, mock, test } from "bun:test";
+
+mock.module("../src/server/official-x-access", () => ({ assertOfficialXCallsAvailable: () => undefined }));
+const { OfficialXClient, OfficialXError } = await import("../src/server/official-x");
 
 const credentials = { accessToken: "test-access-token", xUserId: "12345" };
 const ok = (data: unknown, status = 200, headers?: HeadersInit) => new Response(JSON.stringify({ data }), { status, headers });
-
 describe("Official X write client", () => {
   test("creates posts, eligible replies, and reposts using current v2 endpoints", async () => {
     const seen: Array<{ url: string; init: RequestInit }> = [];

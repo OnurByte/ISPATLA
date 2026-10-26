@@ -6,6 +6,7 @@ node_modules/
 .next-demo/
 out/
 coverage/
+lighthouse-reports/
 .turbo/
 .jpm_tree/
 jpm_tree/

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSessionCookie } from "better-auth/cookies";
-import { DEFAULT_LOCALE, isLocale, localeFromAcceptLanguage } from "@/i18n/config";
+import { DEFAULT_LOCALE, isLocale } from "@/i18n/config";
 
 const PRIVATE_PAGES = new Set(["/mcp/authorize", "/accounts", "/analytics", "/categories", "/dashboard", "/drafts", "/evaluation", "/onboarding", "/opportunities", "/profile", "/queue", "/settings", "/settings/appearance", "/settings/automation", "/settings/keys", "/settings/profile", "/settings/security", "/settings/style", "/sources"]);
 
@@ -15,7 +15,7 @@ export function proxy(request: Request): NextResponse {
   const cookieLocale = localeCookie || "";
   const locale = isLocale(firstSegment) ? firstSegment
     : isLocale(cookieLocale) ? cookieLocale
-      : localeFromAcceptLanguage(request.headers.get("accept-language")) || DEFAULT_LOCALE;
+      : DEFAULT_LOCALE;
   const hasLocalePrefix = isLocale(firstSegment);
   const appPath = hasLocalePrefix ? url.pathname.slice(locale.length + 1) || "/" : url.pathname;
   if (url.pathname === "/api" || url.pathname.startsWith("/api/")) return NextResponse.next();
@@ -47,6 +47,10 @@ export function proxy(request: Request): NextResponse {
   requestHeaders.set("x-ispatla-search", url.search);
   if (!hasLocalePrefix) return NextResponse.next({ request: { headers: requestHeaders } });
 
+  // Preserve the explicit selection if Next processes the rewritten URL again.
+  const forwardedCookies = (requestHeaders.get("cookie") || "").split(";").map((item) => item.trim()).filter((item) => item && !item.startsWith("ispatla-locale="));
+  forwardedCookies.push(`ispatla-locale=${locale}`);
+  requestHeaders.set("cookie", forwardedCookies.join("; "));
   url.pathname = appPath;
   const response = NextResponse.rewrite(url, { request: { headers: requestHeaders } });
   response.cookies.set("ispatla-locale", locale, {

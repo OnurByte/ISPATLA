@@ -21,12 +21,12 @@ function displayTime(value: number, locale: Locale): string {
 export async function generateMetadata({ params }: { params: Promise<{ publicId: string }> }): Promise<Metadata> {
   const { publicId } = await params;
   const share = await readPublicXPostShare(publicId);
-  if (!share) return { title: "Paylaşım bulunamadı · İSPATLA", robots: { index: false, follow: false } };
+  if (!share) return { title: "Paylaşım bulunamadı ⁜ İSPATLA", robots: { index: false, follow: false } };
   const path = "/h/" + publicId;
   const url = publicShareUrl(path);
   const image = publicSocialImageUrl(path);
   const locale = await requestPublicLocale();
-  const title = "@" + share.accountHandle + " · " + socialCopy[locale].observation;
+  const title = "@" + share.accountHandle + " ⁜ " + socialCopy[locale].observation;
   const description = share.text.slice(0, 180) || socialCopy[locale].observation;
   return {
     title, description,
@@ -35,7 +35,7 @@ export async function generateMetadata({ params }: { params: Promise<{ publicId:
       title, description, type: "article", url, siteName: "İSPATLA",
       publishedTime: new Date(share.publishedAt * 1000).toISOString(),
       modifiedTime: new Date(share.observedAt * 1000).toISOString(),
-      images: [{ url: image, width: 1200, height: 630, alt: socialCopy[locale].observation + " · İSPATLA" }],
+      images: [{ url: image, width: 1200, height: 630, alt: socialCopy[locale].observation + " ⁜ İSPATLA" }],
     },
     twitter: { card: "summary_large_image", title, description, images: [image] },
   };
@@ -53,7 +53,7 @@ export default async function SharedObservedPostPage({ params }: { params: Promi
       <header className="flex flex-col gap-2">
         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">{words.observation}</p>
         <h1 className="text-2xl font-semibold">{words.publishedBy} @{share.accountHandle}</h1>
-        <p className="text-sm text-muted-foreground">{words.publishedAt}: {displayTime(share.publishedAt, locale)} · {words.observedAt}: {displayTime(share.observedAt, locale)}</p>
+        <p className="text-sm text-muted-foreground">{words.publishedAt}: {displayTime(share.publishedAt, locale)} ⁜ {words.observedAt}: {displayTime(share.observedAt, locale)}</p>
       </header>
       <blockquote className="whitespace-pre-wrap break-words rounded-2xl bg-muted/40 p-5 text-base leading-7">{share.text}</blockquote>
       <a className="w-fit text-sm font-semibold underline underline-offset-4" href={share.postUrl} rel="noopener noreferrer">{words.openX}</a>
@@ -68,7 +68,7 @@ export default async function SharedObservedPostPage({ params }: { params: Promi
           ))}
         </dl>
       </section>
-      <section className="border-t border-border pt-5" aria-label={words.options}><h2 className="mb-3 text-lg font-semibold">{words.shareProof}</h2><ShareActions url={publicShareUrl("/h/" + publicId)} text={"@" + share.accountHandle + " · " + words.shareText} locale={locale} imageUrl={publicSocialImageUrl("/h/" + publicId)} /></section>
+      <section className="border-t border-border pt-5" aria-label={words.options}><h2 className="mb-3 text-lg font-semibold">{words.shareProof}</h2><ShareActions url={publicShareUrl("/h/" + publicId)} text={"@" + share.accountHandle + " ⁜ " + words.shareText} locale={locale} imageUrl={publicSocialImageUrl("/h/" + publicId)} /></section>
       <p className="text-xs leading-5 text-muted-foreground">{words.disclaimer}</p>
     </article>
   </main></>;

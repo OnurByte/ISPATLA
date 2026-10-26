@@ -5,7 +5,6 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, ArrowRight, Check } from "lucide-react";
-import { AiIcon } from "@/components/ai-icon";
 import { BrandLogo } from "@/components/brand-logo";
 import { AppearanceSettings } from "@/components/appearance-settings";
 import { XConnectButton } from "@/components/x-connection-controls";
@@ -14,6 +13,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import type { OwnUserProfile } from "@/server/db-types";
 import { localizePath, type Locale } from "@/i18n/config";
 import { getDictionary } from "@/i18n/dictionaries";
+import { firstValueCopy } from "@/i18n/first-value-copy";
 
 type Step = "profile" | "x" | "ai" | "appearance";
 const STEP_ORDER: Step[] = ["profile", "x", "ai", "appearance"];
@@ -25,6 +25,7 @@ export function onboardingStepFromStorage(value: string | null): Step {
 export function OnboardingProfile({ initial, locale }: { initial: OwnUserProfile; locale: Locale }) {
   const router = useRouter();
   const copy = getDictionary(locale).onboarding;
+  const firstValue = firstValueCopy[locale];
   const steps: { id: Step; title: string; detail: string }[] = [
     { id: "profile", title: copy.stepProfile, detail: copy.stepProfileDetail },
     { id: "x", title: copy.stepX, detail: copy.stepXDetail },
@@ -92,25 +93,25 @@ export function OnboardingProfile({ initial, locale }: { initial: OwnUserProfile
   return <main className="min-h-screen bg-background px-4 py-8 sm:py-12">
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-8">
       <header className="flex items-center justify-between gap-4"><BrandLogo href={localizePath(locale, "/")} /><Link href={localizePath(locale, "/dashboard")} className="text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline">{copy.workspaceLink}</Link></header>
-      <div className="space-y-2"><p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">{copy.firstSteps} · {currentIndex + 1} / {STEP_ORDER.length}</p><h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">{copy.pageTitle}</h1><p className="max-w-2xl text-sm leading-6 text-muted-foreground">{copy.pageIntro}</p></div>
+      <div className="space-y-2"><p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">{copy.firstSteps} ⁜ {currentIndex + 1} / {STEP_ORDER.length}</p><h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">{copy.pageTitle}</h1><p className="max-w-2xl text-sm leading-6 text-muted-foreground">{copy.pageIntro}</p></div>
       <nav aria-label={copy.stepsLabel} className="grid grid-cols-2 gap-2 sm:grid-cols-4">{steps.map((item, index) => { const locked = index > 1 && (!xConnected || !profileSaved); return <button key={item.id} type="button" onClick={() => { if (!locked) selectStep(item.id); }} disabled={locked} aria-current={step === item.id ? "step" : undefined} className={`flex min-h-16 items-start gap-2 rounded-md border p-3 text-start transition-colors focus-visible:outline-2 focus-visible:outline-ring disabled:cursor-not-allowed disabled:opacity-50 ${step === item.id ? "border-primary bg-accent" : "bg-card hover:bg-accent/50"}`}><span className={`mt-0.5 grid size-5 shrink-0 place-items-center rounded-full border text-[11px] ${completed[item.id] ? "border-primary bg-primary text-primary-foreground" : "text-muted-foreground"}`}>{completed[item.id] ? <Check aria-hidden="true" className="size-3" /> : index + 1}</span><span className="min-w-0"><strong className="block text-sm">{item.title}</strong><span className="mt-0.5 block text-xs text-muted-foreground">{item.detail}</span></span></button>; })}</nav>
 
       {step === "profile" && <Card>
         <CardHeader><CardTitle>{copy.profileTitle}</CardTitle></CardHeader>
         <CardContent className="flex flex-col gap-5">
           <div className="flex items-center gap-4 rounded-md border p-4">{profile.avatarUrl ? <Image src={profile.avatarUrl} alt={copy.avatarAlt} width={64} height={64} unoptimized className="size-16 rounded-full object-cover" /> : <div aria-hidden="true" className="size-16 rounded-full bg-muted" />}<div><p className="font-medium">{profile.displayName || profile.xHandle || copy.xNotConnected}</p>{profile.xHandle && <p className="text-sm text-muted-foreground">@{profile.xHandle}</p>}</div></div>
-          {profile.bio && <div className="rounded-md border p-4 text-sm"><p className="text-muted-foreground">{copy.bio} · 𝕏</p><p className="mt-1 whitespace-pre-wrap">{profile.bio}</p></div>}
+          {profile.bio && <div className="rounded-md border p-4 text-sm"><p className="text-muted-foreground">{copy.bio} ⁜ 𝕏</p><p className="mt-1 whitespace-pre-wrap">{profile.bio}</p></div>}
           {!profile.xHandle && <p className="text-sm text-muted-foreground">{copy.xNotConnected} {copy.privateDescription}</p>}
           {message && <p role="alert" className="text-sm text-destructive">{message}</p>}
           <div className="flex justify-end"><Button type="button" onClick={saveProfile}>{copy.continue}<ArrowRight data-icon="inline-end" aria-hidden="true" /></Button></div>
         </CardContent>
       </Card>}
 
-      {step === "x" && <Card><CardHeader><CardTitle>{copy.xTitle}</CardTitle><CardDescription>{copy.xDescription}</CardDescription></CardHeader><CardContent className="flex flex-col gap-4"><div className="flex items-center gap-3 rounded-md border p-4"><span className={`size-2.5 rounded-full ${xConnected ? "bg-emerald-500" : "bg-muted-foreground/50"}`} /><p className="text-sm">{xConnected ? copy.xConnected : copy.xNotConnected}</p></div>{message && <p role="alert" className="text-sm text-destructive">{message}</p>}<div className="flex flex-wrap justify-between gap-3"><Button variant="outline" onClick={goBack}><ArrowLeft data-icon="inline-start" aria-hidden="true" />{copy.back}</Button><div className="flex flex-wrap items-center gap-2">{!xConnected && <XConnectButton returnTo={localizePath(locale, "/onboarding?step=x")} size="sm" />}<Button onClick={goNext} disabled={!xConnected || pending}>{pending ? copy.saving : copy.continue}<ArrowRight data-icon="inline-end" aria-hidden="true" /></Button></div></div></CardContent></Card>}
+      {step === "x" && <Card><CardHeader><CardTitle>{firstValue.accountTitle}</CardTitle><CardDescription>{firstValue.accountDescription}</CardDescription></CardHeader><CardContent className="flex flex-col gap-4"><div className="flex items-center gap-3 rounded-md border p-4"><span className={`size-2.5 rounded-full ${xConnected ? "bg-emerald-500" : "bg-muted-foreground/50"}`} /><p className="text-sm">{xConnected ? copy.xConnected : firstValue.accountMissing}</p></div><p className="text-sm text-muted-foreground">{firstValue.analysisNote}</p>{message && <p role="alert" className="text-sm text-destructive">{message}</p>}<div className="flex flex-wrap justify-between gap-3"><Button variant="outline" onClick={goBack}><ArrowLeft data-icon="inline-start" aria-hidden="true" />{copy.back}</Button><div className="flex flex-wrap items-center gap-2">{!xConnected && <XConnectButton returnTo={localizePath(locale, "/onboarding?step=x")} size="sm" />}<Button onClick={goNext} disabled={!xConnected || pending}>{pending ? copy.saving : copy.continue}<ArrowRight data-icon="inline-end" aria-hidden="true" /></Button></div></div></CardContent></Card>}
 
-      {step === "ai" && <Card><CardHeader><CardTitle>{copy.aiTitle}</CardTitle><CardDescription>{copy.aiDescription}</CardDescription></CardHeader><CardContent className="flex flex-col gap-4"><div className="flex items-center gap-3 rounded-md border p-4"><AiIcon size={16} className="text-muted-foreground" /><p className="text-sm">AI sağlayıcı ayarları PostgreSQL&apos;e henüz taşınmadı.</p></div><div className="flex flex-wrap justify-between gap-3"><Button variant="outline" onClick={goBack}><ArrowLeft data-icon="inline-start" aria-hidden="true" />{copy.back}</Button><Button onClick={goNext}>{copy.continue}<ArrowRight data-icon="inline-end" aria-hidden="true" /></Button></div></CardContent></Card>}
+      {step === "ai" && <Card><CardHeader><CardTitle>{copy.aiTitle}</CardTitle><CardDescription>{firstValue.aiOptional}</CardDescription></CardHeader><CardContent className="flex flex-col gap-4"><div className="flex flex-wrap items-center gap-3"><Link className="min-h-11 inline-flex items-center underline underline-offset-4" href={localizePath(locale, "/settings/keys")}>{copy.manageProviders}</Link><p className="text-sm text-muted-foreground">{copy.aiDescription}</p></div><div className="flex flex-wrap justify-between gap-3"><Button variant="outline" onClick={goBack}><ArrowLeft data-icon="inline-start" aria-hidden="true" />{copy.back}</Button><Button onClick={goNext}>{copy.continue}<ArrowRight data-icon="inline-end" aria-hidden="true" /></Button></div></CardContent></Card>}
 
-      {step === "appearance" && <div className="flex flex-col gap-4"><AppearanceSettings locale={locale} /><div className="flex justify-between"><Button variant="outline" onClick={goBack}><ArrowLeft data-icon="inline-start" aria-hidden="true" />{copy.back}</Button><Button onClick={() => { router.push(localizePath(locale, "/dashboard")); router.refresh(); }}>{copy.openWorkspace}<ArrowRight data-icon="inline-end" aria-hidden="true" /></Button></div></div>}
+      {step === "appearance" && <div className="flex flex-col gap-4"><AppearanceSettings locale={locale} /><p className="text-sm text-muted-foreground">{firstValue.analysisNote}</p><div className="flex justify-between"><Button variant="outline" onClick={goBack}><ArrowLeft data-icon="inline-start" aria-hidden="true" />{copy.back}</Button><Button onClick={() => { router.push(localizePath(locale, "/opportunities")); router.refresh(); }}>{firstValue.firstOpportunity}<ArrowRight data-icon="inline-end" aria-hidden="true" /></Button></div></div>}
     </div>
   </main>;
 }

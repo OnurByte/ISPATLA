@@ -221,7 +221,7 @@ export function KeysPage({ initialKeys, initialVaultReady, initialAi }: { initia
     && (aiProvider !== "compatible" || (ai.compatible.baseUrl === compatibleBaseUrl && ai.compatible.name === compatibleName));
   const canTestConnection = selectedSettingsAreSaved && (aiProvider === "compatible" ? compatibleCredentialsReady : aiReady) && pending === "";
   const providerCards: Array<{ id: AiProvider; name: string; detail: string; brand?: string; ready: boolean; disabled?: boolean }> = [
-    { id: "openrouter", name: "OpenRouter", detail: "Hesabını bağla · modelleri tek yerden seç", brand: "/brand/openrouter.svg", ready: ai.openrouterConfigured, disabled: ai.runtimeAvailable === false },
+    { id: "openrouter", name: "OpenRouter", detail: "Hesabını bağla ⁜ modelleri tek yerden seç", brand: "/brand/openrouter.svg", ready: ai.openrouterConfigured, disabled: ai.runtimeAvailable === false },
     { id: "api", name: "OpenAI API", detail: "Kendi API anahtarın", brand: "/brand/openai.svg", ready: ai.apiConfigured, disabled: ai.runtimeAvailable === false },
     { id: "anthropic", name: "Claude API", detail: "Kendi Console anahtarın", brand: "/brand/anthropic.svg", ready: ai.anthropicConfigured, disabled: ai.runtimeAvailable === false },
     { id: "chatgpt", name: "ChatGPT hesabı", detail: ai.chatgpt.available ? "Hesabını bağla" : "Bu sunucuda kullanılamıyor", brand: "/brand/openai.svg", ready: ai.chatgpt.connected, disabled: !ai.chatgpt.available },
@@ -248,7 +248,7 @@ export function KeysPage({ initialKeys, initialVaultReady, initialAi }: { initia
       <Card>
         <CardHeader><CardTitle>Kendi hesabını kullan</CardTitle><CardDescription>OpenAI veya Claude API anahtarını aşağıdan bağlayabilirsin. Yerel kurulumda ChatGPT planına da doğrudan izin verebilirsin.</CardDescription></CardHeader>
         <CardContent className="space-y-4">
-          <p className="text-sm">{ai.chatgpt.connected ? `ChatGPT bağlı${ai.chatgpt.email ? ` · ${ai.chatgpt.email}` : ""}` : "ChatGPT hesabı bağlı değil."}</p>
+          <p className="text-sm">{ai.chatgpt.connected ? `ChatGPT bağlı${ai.chatgpt.email ? ` ⁜ ${ai.chatgpt.email}` : ""}` : "ChatGPT hesabı bağlı değil."}</p>
           {ai.chatgpt.available ? <div className="flex flex-wrap gap-2">
             <Button onClick={() => void chatgptConnection("POST")} disabled={pending !== "" || Boolean(authorizationUrl)}>ChatGPT bağlantısını başlat</Button>
             <Button variant="outline" onClick={() => void chatgptConnection("GET")} disabled={pending !== ""}>Bağlantıyı ve modelleri yenile</Button>
@@ -294,7 +294,7 @@ export function KeysPage({ initialKeys, initialVaultReady, initialAi }: { initia
                   <span className={`size-2 shrink-0 rounded-full ${provider.ready ? "bg-emerald-500" : "bg-muted-foreground/40"}`} aria-label={provider.ready ? "Bağlı" : "Bağlı değil"} />
                 </button>)}
               </div>
-              <FieldDescription>Seçili: {providerName}{aiProvider === "compatible" ? " · Chat Completions ve JSON Schema destekli HTTPS endpoint gerekir." : aiProvider === "openrouter" ? " · OpenRouter’daki bağlantın ve kullanım ücretlerin geçerlidir." : aiProvider === "chatgpt" ? " · Hesabında kullanılabilen modeller bağlantı yenilendiğinde listelenir." : aiProvider === "anthropic" ? " · Claude Console API kullanır; sohbet aboneliği API kullanımını kapsamaz." : aiProvider === "codex" ? " · Yalnız bu sunucuda izin verilen yerel oturum kullanılır." : " · Kişisel API anahtarın güvenli kasadan okunur."}</FieldDescription>
+              <FieldDescription>Seçili: {providerName}{aiProvider === "compatible" ? " ⁜ Chat Completions ve JSON Schema destekli HTTPS endpoint gerekir." : aiProvider === "openrouter" ? " ⁜ OpenRouter’daki bağlantın ve kullanım ücretlerin geçerlidir." : aiProvider === "chatgpt" ? " ⁜ Hesabında kullanılabilen modeller bağlantı yenilendiğinde listelenir." : aiProvider === "anthropic" ? " ⁜ Claude Console API kullanır; sohbet aboneliği API kullanımını kapsamaz." : aiProvider === "codex" ? " ⁜ Yalnız bu sunucuda izin verilen yerel oturum kullanılır." : " ⁜ Kişisel API anahtarın güvenli kasadan okunur."}</FieldDescription>
             </Field>
             {aiProvider === "compatible" && <>
               <Field>
@@ -364,11 +364,11 @@ export function KeysPage({ initialKeys, initialVaultReady, initialAi }: { initia
         </CardHeader>
         <CardContent className="space-y-4">
           {arena.available ? <>
-            <p className="text-sm text-muted-foreground">Sunucu, Hugging Face Arena’nın doğrulanmış gerçek sıralamasını düzenli olarak yeniler{arena.updatedAt ? ` · ${arena.updatedAt}` : ""}. Arena adları sağlayıcı model kimlikleriyle her zaman eşleşmez; bu sıralama karşılaştırma içindir.</p>
+            <p className="text-sm text-muted-foreground">Sunucu, Hugging Face Arena’nın doğrulanmış gerçek sıralamasını düzenli olarak yeniler{arena.updatedAt ? ` ⁜ ${arena.updatedAt}` : ""}. Arena adları sağlayıcı model kimlikleriyle her zaman eşleşmez; bu sıralama karşılaştırma içindir.</p>
             <div className="grid gap-3 sm:grid-cols-2">
               {arena.models.map((model) => <article key={`${model.rank}-${model.name}`} className="flex min-h-24 items-center gap-3 rounded-xl border bg-card p-4 text-left">
                 <span className="grid size-9 shrink-0 place-items-center rounded-full bg-muted font-semibold tabular-nums">{model.rank}</span>
-                <span className="min-w-0 flex-1"><span className="block truncate font-medium">{model.name}</span><span className="block text-sm text-muted-foreground">{model.organization} · {model.votes.toLocaleString("tr-TR")} oy</span></span>
+                <span className="min-w-0 flex-1"><span className="block truncate font-medium">{model.name}</span><span className="block text-sm text-muted-foreground">{model.organization} ⁜ {model.votes.toLocaleString("tr-TR")} oy</span></span>
                 <span className="text-right"><span className="block font-semibold tabular-nums">{model.rating.toFixed(1)}</span><span className="text-xs text-muted-foreground">Arena</span></span>
               </article>)}
             </div>

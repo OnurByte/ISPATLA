@@ -4,6 +4,7 @@ import {
   markPostgresXAccountReauthorizationRequired,
   type PostgresXCredential,
 } from "./postgres-x-oauth";
+import { assertOfficialXCallsAvailable } from "./official-x-access";
 
 export const X_OAUTH_SCOPES = ["tweet.read", "tweet.write", "users.read", "media.write", "offline.access"] as const;
 const TOKEN_ENDPOINT = "https://api.x.com/2/oauth2/token";
@@ -65,6 +66,7 @@ export async function refreshXToken<T>(input: {
   bufferSeconds?: number;
 }, work: (credential: PostgresXCredential) => Promise<T>): Promise<T> {
   const env = input.env || process.env;
+  assertOfficialXCallsAvailable();
   const config = oauthConfig(env);
   const fetcher = input.fetcher || fetch;
   return withPostgresXTokenRefresh({ ...input, refresh: async (refreshToken, current) => {

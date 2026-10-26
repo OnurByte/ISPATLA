@@ -1,4 +1,6 @@
-/** Minimal X API v2 write client. Credentials are supplied per call and never retained. */
+import { assertOfficialXCallsAvailable } from "./official-x-access";
+
+/** Minimal X API v2 client. Credentials are supplied per call and never retained. */
 export type OfficialXErrorCode =
   | "reauth" | "capability" | "rate_limited" | "known_retryable"
   | "unknown_remote_state" | "remote_validation" | "invalid_media"
@@ -81,6 +83,11 @@ export class OfficialXClient {
 
   private async request(credentials: OfficialXCredentials, path: string, init: RequestInit, write: boolean): Promise<Response> {
     if(process.env.ISPATLA_DEMO === "1") throw new Error("Official 𝕏 requests are disabled in demo mode");
+    try {
+      assertOfficialXCallsAvailable();
+    } catch {
+      throw new OfficialXError({ code: "policy_blocked", message: "Official 𝕏 API data and publishing are unavailable until Prime is enabled.", safeToRetry: false, remoteStateKnown: true });
+    }
     credentialsValid(credentials);
     try {
       const response = await this.fetcher(`${API}${path}`, {

@@ -14,7 +14,7 @@ export async function generateMetadata({ params }: { params: Promise<{ handle: s
   const profile = await findPublicProfileByPath(handle);
   if (!profile) return { robots: { index: false, follow: false } };
   const locale = await requestPublicLocale();
-  const title = `${profile.displayName || socialCopy[locale].profile}${profile.xHandle ? ` (@${profile.xHandle})` : ""} · ispatla.tr`;
+  const title = `${profile.displayName || socialCopy[locale].profile}${profile.xHandle ? ` (@${profile.xHandle})` : ""} ⁜ ispatla.tr`;
   return {
     title,
     description: profile.bio?.slice(0, 200) || title,
@@ -30,5 +30,5 @@ export default async function PublicHandlePage({ params }: { params: Promise<{ h
   const profile = await findPublicProfileByPath(handle);
   const locale = await requestPublicLocale();
   if (!profile) notFound();
-  return <><PublicHeader locale={locale} /><PublicProfileView profile={profile} locale={locale} /><div className="mx-auto w-full max-w-2xl px-4 pb-12 sm:px-6"><ShareActions url={publicShareUrl(profile.profilePath)} text={(profile.displayName || socialCopy[locale].profile) + " · İSPATLA"} locale={locale} imageUrl={publicSocialImageUrl(profile.profilePath)} /></div></>;
+  return <><PublicHeader locale={locale} /><PublicProfileView profile={profile} locale={locale} /><div className="mx-auto w-full max-w-2xl px-4 pb-12 sm:px-6"><ShareActions url={publicShareUrl(profile.profilePath)} text={(profile.displayName || socialCopy[locale].profile) + " ⁜ İSPATLA"} locale={locale} imageUrl={publicSocialImageUrl(profile.profilePath)} /></div></>;
 }

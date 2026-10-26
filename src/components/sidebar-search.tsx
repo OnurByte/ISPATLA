@@ -79,7 +79,7 @@ export function getSidebarSearchRoutes(locale: Locale): SearchRoute[] {
         ? nav.primary
         : locale === "tr" ? "Sayfalar" : "Pages";
     const detail = PAGE_DETAILS[segment] ?? { icon: FileText, en: `Open ${label}.`, tr: `${label} sayfasını aç.` };
-    return { href, label, group, keywords: `${href.replaceAll("/", " ")} ${SEARCH_TERMS[segment] || ""}`, icon: detail.icon, description: locale === "tr" ? detail.tr : locale === "en" ? detail.en : `${label} · ${group}` };
+    return { href, label, group, keywords: `${href.replaceAll("/", " ")} ${SEARCH_TERMS[segment] || ""}`, icon: detail.icon, description: locale === "tr" ? detail.tr : locale === "en" ? detail.en : `${label} ⁜ ${group}` };
   });
 }
 

@@ -16,7 +16,7 @@ async function requestLocale(): Promise<Locale> {
 export async function generateMetadata(): Promise<Metadata> {
   const locale = await requestLocale();
   const copy = getCampaignLandingCopy(locale);
-  return publicMetadata(locale, "/", `${copy.headline} ${copy.headlineAccent} · ispatla.tr`, copy.intro);
+  return publicMetadata(locale, "/", `${copy.headline} ${copy.headlineAccent} ⁜ ispatla.tr`, copy.intro);
 }
 
 export default async function Home() {

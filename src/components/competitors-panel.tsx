@@ -62,7 +62,7 @@ export function CompetitorsPanel({ initial, canManage = false }: { initial: Comp
         <div className="flex flex-col gap-2">
           {items.length ? items.map((item) => (
             <div key={item.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border p-3 text-sm">
-              <div className="min-w-0"><div className="font-medium">@{item.handle} {item.name && item.name !== item.handle ? `· ${item.name}` : ""}</div><div className="text-xs text-muted-foreground">{item.category || "kategorisiz"}{item.lastError ? ` · son hata: ${item.lastError}` : item.lastSuccessAt ? " · güncel veri alındı" : " · ilk tarama bekliyor"}</div></div>
+              <div className="min-w-0"><div className="font-medium">@{item.handle} {item.name && item.name !== item.handle ? `· ${item.name}` : ""}</div><div className="text-xs text-muted-foreground">{item.category || "kategorisiz"}{item.lastError ? ` ⁜ son hata: ${item.lastError}` : item.lastSuccessAt ? " ⁜ güncel veri alındı" : " ⁜ ilk tarama bekliyor"}</div></div>
               <div className="flex items-center gap-2"><Badge variant={item.enabled ? "secondary" : "outline"}>{item.enabled ? "izleniyor" : "pasif"}</Badge>{canManage ? <Button size="icon" variant="ghost" disabled={pending} onClick={() => remove(item)} aria-label={`@${item.handle} sil`}><Trash2 aria-hidden="true" /></Button> : null}</div>
             </div>
           )) : <p className="text-sm text-muted-foreground">Henüz izlenen rakip yok.</p>}

@@ -3,6 +3,7 @@ import { OfficialXClient, OfficialXError, type OfficialXCredentials, type Offici
 import { refreshXToken } from "./x-oauth";
 import { getPostgresXAccountAuthState, type PostgresXCredential } from "./postgres-x-oauth";
 import { currentOwnerId } from "./owner-context";
+import { describeOfficialXCapabilities, isOfficialXCallsAvailable } from "./official-x-access";
 
 type OwnedAccount = { id: number; ownerUserId?: string | null; handle: string };
 
@@ -19,6 +20,7 @@ export class OfficialXPublisher {
   constructor(readonly client: OfficialXClient = new OfficialXClient()) {}
 
   async health(account: OwnedAccount): Promise<{ ok: boolean; reason: string }> {
+    if (!isOfficialXCallsAvailable()) return { ok: false, reason: "Official 𝕏 publishing is unavailable until Prime entitlements and budget enforcement are implemented" };
     if (!account.ownerUserId) return { ok: false, reason: "𝕏 account owner is not bound" };
     const state = await getPostgresXAccountAuthState(account.id, account.ownerUserId);
     if (!state?.connected) return { ok: false, reason: "𝕏 account requires connection or reauthorization" };
@@ -26,12 +28,12 @@ export class OfficialXPublisher {
   }
 
   capabilities(scopes: readonly string[] = []): PublisherCapabilities {
-    const write = scopes.includes("tweet.write");
+    const { capabilities } = describeOfficialXCapabilities(scopes);
     return {
-      post: write,
-      repost: write,
-      reply: write && scopes.includes("tweet.read"),
-      media: scopes.includes("media.write"),
+      post: capabilities.post,
+      repost: capabilities.repost,
+      reply: capabilities.reply && scopes.includes("tweet.read"),
+      media: capabilities.media,
       quote: "unknown",
     };
   }

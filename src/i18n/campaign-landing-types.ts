@@ -1,4 +1,7 @@
+import type { CampaignLandingDemoCopy } from "./campaign-landing-demo";
+
 export type CampaignLandingCopy = {
+  demo: CampaignLandingDemoCopy;
   nav: { product: string; mcp: string; faq: string; login: string; start: string; dashboard: string; menu: string };
   eyebrow: string;
   headline: string;

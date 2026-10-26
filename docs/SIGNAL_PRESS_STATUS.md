@@ -1,3 +1,5 @@
+> Historical record, 9 October 2026. Active marketing and product state: [PRODUCT_STRATEGY.md](PRODUCT_STRATEGY.md) and [BRIEF_ACCEPTANCE.md](BRIEF_ACCEPTANCE.md). Old acceptance statements below do not prove the current build or production.
+
 > Son logo düzeltmesi: Mevcut logo ve logo yazı fontu aynen korunur. Yeni tasarım dili logo işaretini değiştirmez.
 
 > Latest user direction: no comparison section and no SuperX product content. Hero uses a synthetic X growth desk. Paper/carbon/cobalt theme applies globally. The original logo and its wordmark font remain unchanged.

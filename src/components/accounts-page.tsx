@@ -270,7 +270,7 @@ export function AccountsPage({ initial, categories, connections, policyVersion, 
                 <span className="flex min-w-0 flex-1 flex-col items-start gap-1">
                   <span className="flex w-full items-center gap-1 truncate text-sm font-medium">@{account.handle}{account.publicVerificationStatus && account.publicVerificationStatus !== "not_verified" && account.publicVerificationStatus !== "unknown" ? <BadgeCheck className={verificationClass(account.publicVerificationStatus)} aria-label={verificationLabel(account.publicVerificationStatus)} /> : null}</span>
                   <span className="w-full truncate text-xs text-muted-foreground">{account.displayName || account.accountKey}</span>
-                  {Array.isArray(account.styleProfile.categories) && account.styleProfile.categories.length ? <span className="w-full truncate text-xs text-muted-foreground">{account.styleProfile.categories.map(String).join(" · ")}</span> : null}
+                  {Array.isArray(account.styleProfile.categories) && account.styleProfile.categories.length ? <span className="w-full truncate text-xs text-muted-foreground">{account.styleProfile.categories.map(String).join(" ⁜ ")}</span> : null}
                 </span>
                 {account.defaultAccount && <Badge variant="secondary">default</Badge>}
                 <Badge variant={account.enabled ? "default" : "outline"}>{account.enabled ? "aktif" : "pasif"}</Badge>
@@ -302,7 +302,7 @@ export function AccountsPage({ initial, categories, connections, policyVersion, 
                 const selectedIndex = selectedSuggestions.indexOf(categoryId);
                 return <div key={categoryId} className="flex flex-wrap items-center gap-3 rounded-md border p-3">
                   <Checkbox aria-label={`${category.name} önerisini seç`} checked={selectedIndex >= 0} onCheckedChange={(checked) => setSelectedSuggestions((current) => checked ? [...current, categoryId] : current.filter((id) => id !== categoryId))} />
-                  <div className="min-w-0 flex-1"><p className="font-medium">{category.name}</p><p className="text-xs text-muted-foreground">{suggestion ? `Eşleşen ifadeler: ${suggestion.evidence.join(", ")} · Eşleşme gücü %${Math.round(suggestion.confidence * 100)}` : "Senin eklediğin konu"}</p></div>
+                  <div className="min-w-0 flex-1"><p className="font-medium">{category.name}</p><p className="text-xs text-muted-foreground">{suggestion ? `Eşleşen ifadeler: ${suggestion.evidence.join(", ")} ⁜ Eşleşme gücü %${Math.round(suggestion.confidence * 100)}` : "Senin eklediğin konu"}</p></div>
                   {selectedIndex >= 0 ? <><label className="flex items-center gap-2 text-xs">Ağırlık <input type="range" min="0" max="10" step="0.5" value={categoryWeights[categoryId] ?? 1} onChange={(event) => setCategoryWeights((current) => ({ ...current, [categoryId]: Number(event.target.value) }))} aria-label={`${category.name} ağırlığı`} /></label><Button type="button" size="icon" variant="ghost" aria-label={`${category.name} yukarı taşı`} disabled={selectedIndex === 0} onClick={() => moveSuggestion(selectedIndex, -1)}><ArrowUp aria-hidden="true" /></Button><Button type="button" size="icon" variant="ghost" aria-label={`${category.name} aşağı taşı`} disabled={selectedIndex === selectedSuggestions.length - 1} onClick={() => moveSuggestion(selectedIndex, 1)}><ArrowDown aria-hidden="true" /></Button></> : null}
                 </div>;
               })}
