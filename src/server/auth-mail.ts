@@ -21,7 +21,7 @@ export async function sendAuthEmail(
     && ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname);
   if (url.protocol !== "https:" && !localHttp) throw new Error("authentication email transport must use HTTPS");
 
-  const subject = kind === "verification" ? "Verify your İSPATLA email" : "Reset your İSPATLA password";
+  const subject = kind === "verification" ? "Verify your ispatla.tr email" : "Reset your ispatla.tr password";
   const action = kind === "verification" ? "verify your email" : "reset your password";
   const response = await fetch(url, {
     method: "POST",

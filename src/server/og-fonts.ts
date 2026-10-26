@@ -27,7 +27,7 @@ function load(name: ScriptFont): Promise<Buffer> {
 
 export async function ogFontsForText(text: string) {
   return Promise.all(ogFontNames(text).map(async name => ({
-    name: "ISPATLA " + name,
+    name: "ispatla.tr " + name,
     data: await load(name),
     weight: 400 as const,
     style: "normal" as const,

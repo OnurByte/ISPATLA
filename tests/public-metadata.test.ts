@@ -23,7 +23,7 @@ test("all twenty locales have self canonicals and complete reciprocal hreflang m
       const openGraph = metadata.openGraph!;
       const twitter = metadata.twitter!;
       expect(openGraph.locale).toBe(OPEN_GRAPH_LOCALES[locale]);
-      expect(openGraph.siteName).toBe("İSPATLA");
+      expect(openGraph.siteName).toBe("ispatla.tr");
       expect(openGraph.alternateLocale).toHaveLength(LOCALES.length - 1);
       expect(openGraph.url).toBe(canonical);
       expect(openGraph.title).toBe("Title ⁜ Part ⁜ Name");

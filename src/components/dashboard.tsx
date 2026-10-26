@@ -1,4 +1,5 @@
 "use client";
+import { BrandText } from "@/components/brand-text";
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
@@ -96,7 +97,7 @@ export function Dashboard({ initial, canRunScan }: { initial: DashboardView; can
           <div className="flex max-w-3xl flex-col gap-4">
             <div className="flex items-center gap-3 text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
               <span className="inline-flex size-2 rounded-full bg-primary" />
-              İspatla / Senin masan
+              <BrandText text="ispatla.tr / Senin masan" />
             </div>
             <div className="flex flex-col gap-2">
               <h1 className="text-4xl font-semibold tracking-tight sm:text-5xl">Bir sonraki gönderin burada başlar.</h1>

@@ -733,7 +733,7 @@ export async function requestAiScore(input: {
     kind: "score:source",
     schemaName: "ispatla_score",
     schema: SOURCE_SCORE_SCHEMA,
-    instructions: "Ispatla için Türkçe kaynak hesabı değerlendirmesi yap. score, risk ve confidence alanlarını 0-100 arasında ver; X'in iç sıralama skorunu bildiğini veya erişim garantisi verdiğini iddia etme. Kaynağın açıkça yayımladığı niş, tekrar eden konular ve gözlenebilir yazım tonunu kısa ve somut biçimde tanımla. Siyasi görüş veya ideolojik sınıflandırma çıkarma.",
+    instructions: "ispatla.tr için Türkçe kaynak hesabı değerlendirmesi yap. score, risk ve confidence alanlarını 0-100 arasında ver; X'in iç sıralama skorunu bildiğini veya erişim garantisi verdiğini iddia etme. Kaynağın açıkça yayımladığı niş, tekrar eden konular ve gözlenebilir yazım tonunu kısa ve somut biçimde tanımla. Siyasi görüş veya ideolojik sınıflandırma çıkarma.",
     prompt: `Görev: kaynak hesabı kalitesi ve seçili niş uyumu\n\nKanıt:\n${input.evidence.slice(0, 30_000)}${input.prior ? `\n\nÖnceki görüş:\n${JSON.stringify(input.prior)}` : ""}`,
   });
   const result = parseAiScore(value, model, provider);

@@ -26,7 +26,9 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
   const locale = isLocale(requestedLocale) ? requestedLocale : DEFAULT_LOCALE;
   const direction = LOCALE_CONFIG[locale].dir;
   const dictionary = getDictionary(locale);
-  const notice = requestHeaders.get("x-ispatla-route") === "/" ? dictionary.landing.partialNotice : dictionary.status.partial;
+  const route = requestHeaders.get("x-ispatla-route") || "/";
+  const workspaceRoute = /^\/(dashboard|opportunities|accounts|drafts|queue|analytics|categories|sources|settings|profile|evaluation)(\/|$)/.test(route);
+  const notice = workspaceRoute ? dictionary.status.partial : "";
   let forceSystemTheme = false;
   if (requestHeaders.get("x-ispatla-route") === "/") {
     try {

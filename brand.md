@@ -1,6 +1,6 @@
 # İSPATLA brand standard
 
-The product is **İSPATLA**. The wordmark and domain are **ispatla.tr**.
+The displayed product name is **ispatla.tr**, paired with the supplied site mark in visual brand labels. Do not display the legacy uppercase ISPATLA/İSPATLA name. Plain-text titles and metadata use ispatla.tr.
 
 The exact Turkish slogan is **Algoritmaya tapma. İspatla.** Preserve its punctuation. The English rendering is **Don’t worship the algorithm. Prove it.** Every landing locale preserves this challenge-and-proof meaning in its headline; keep product explanation in the intro.
 
@@ -36,4 +36,4 @@ Shared shape standard: 4px small details, 6px compact elements, 8px controls, 12
 
 The shared BrandLogo uses a 40px mark / 24px wordmark on mobile and 48px / 28px from the small breakpoint upward. Navigation must not override these dimensions per page; wrap the header contents when needed.
 
-All shared navigation/footer wordmarks use the font-derived optical-center correction in globals.css. Shared page starts use site-container; reading forms keep their maximum width without recentering away from the header.
+All shared navigation/footer wordmarks use public/brand/wordmark.svg, outlined from the supplied Libron Bold with tight visible-ink bounds. CSS font-line-box offsets are not used. Shared page starts use site-container; reading forms keep their maximum width without recentering away from the header.

@@ -9,7 +9,7 @@ export function isPublicProfileSlug(value: string): boolean {
 }
 
 export async function findPublicProfile(username: string): Promise<PublicUserProfile | null> {
-  if (!isPublicProfileSlug(username)) return null;
+  if (!isPublicProfileSlug(username) || !process.env.DATABASE_URL) return null;
   return getPostgresPublicUserProfile(username);
 }
 
@@ -21,10 +21,10 @@ export function isPublicProfileHandle(value: string): boolean {
 export async function findPublicProfileByPath(path: string): Promise<PublicUserProfile | null> {
   const normalized = path.replace(/^\/+|\/+$/g, "");
   if (normalized.startsWith("u/")) return findPublicProfile(normalized.slice(2));
-  if (!isPublicProfileHandle(normalized)) return null;
+  if (!isPublicProfileHandle(normalized) || !process.env.DATABASE_URL) return null;
   return getPostgresPublicUserProfileByHandle(normalized);
 }
 
 export function validateProfileCompletion(value: Record<string, unknown>): void {
-  if (Object.keys(value).length) throw new Error("𝕏 profil bilgileri Ispatla üzerinden değiştirilemez");
+  if (Object.keys(value).length) throw new Error("𝕏 profil bilgileri ispatla.tr üzerinden değiştirilemez");
 }

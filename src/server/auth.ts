@@ -121,7 +121,7 @@ function authOptions(env: Record<string, string | undefined>): BetterAuthOptions
   const twitterProvider = twitterSignInProvider(env);
 
   return {
-    appName: "İSPATLA",
+    appName: "ispatla.tr",
     baseURL: baseURL.origin,
     secret,
     trustedOrigins: [...trustedOrigins],

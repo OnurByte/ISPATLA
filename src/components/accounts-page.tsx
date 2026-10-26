@@ -1,4 +1,5 @@
 "use client";
+import { BrandText } from "@/components/brand-text";
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
@@ -228,7 +229,7 @@ export function AccountsPage({ initial, categories, connections, policyVersion, 
     setAccounts(next);
     setDraft(next[0] ? accountDraft(next[0]) : blankAccount());
     setMessage(body.disconnected === true && body.providerRevoked === false
-      ? "Hesap silindi ve yerel erişim kapatıldı. 𝕏 erişimi iptal edilemedi; 𝕏 ayarlarından İSPATLA erişimini kaldırın."
+      ? "Hesap silindi ve yerel erişim kapatıldı. 𝕏 erişimi iptal edilemedi; 𝕏 ayarlarından ispatla.tr erişimini kaldırın."
       : body.disconnected === true ? "Hesap silindi ve 𝕏 bağlantısı kapatıldı." : "Hesap silindi.");
   }
 
@@ -387,7 +388,7 @@ export function AccountsPage({ initial, categories, connections, policyVersion, 
 
           {message && (
             <Alert>
-              <AlertDescription>{message}</AlertDescription>
+              <AlertDescription><BrandText text={message} /></AlertDescription>
             </Alert>
           )}
 

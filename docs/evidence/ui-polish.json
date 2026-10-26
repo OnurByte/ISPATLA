@@ -1,0 +1,2508 @@
+{
+  "checkedAt": "2026-10-26T02:15:57.777600+00:00",
+  "scope": "Final local production build. HTTP and browser 404/docs checks run without DATABASE_URL; Lighthouse uses isolated PostgreSQL fixture, not production services.",
+  "httpCases": [
+    {
+      "path": "/olmayan",
+      "status": 404
+    },
+    {
+      "path": "/missing/nested/path",
+      "status": 404
+    },
+    {
+      "path": "/docs",
+      "status": 200
+    },
+    {
+      "path": "/zh-CN/olmayan",
+      "status": 404
+    },
+    {
+      "path": "/zh-CN/missing/nested/path",
+      "status": 404
+    },
+    {
+      "path": "/zh-CN/docs",
+      "status": 200
+    },
+    {
+      "path": "/hi/olmayan",
+      "status": 404
+    },
+    {
+      "path": "/hi/missing/nested/path",
+      "status": 404
+    },
+    {
+      "path": "/hi/docs",
+      "status": 200
+    },
+    {
+      "path": "/es/olmayan",
+      "status": 404
+    },
+    {
+      "path": "/es/missing/nested/path",
+      "status": 404
+    },
+    {
+      "path": "/es/docs",
+      "status": 200
+    },
+    {
+      "path": "/fr/olmayan",
+      "status": 404
+    },
+    {
+      "path": "/fr/missing/nested/path",
+      "status": 404
+    },
+    {
+      "path": "/fr/docs",
+      "status": 200
+    },
+    {
+      "path": "/ar/olmayan",
+      "status": 404
+    },
+    {
+      "path": "/ar/missing/nested/path",
+      "status": 404
+    },
+    {
+      "path": "/ar/docs",
+      "status": 200
+    },
+    {
+      "path": "/bn/olmayan",
+      "status": 404
+    },
+    {
+      "path": "/bn/missing/nested/path",
+      "status": 404
+    },
+    {
+      "path": "/bn/docs",
+      "status": 200
+    },
+    {
+      "path": "/pt-BR/olmayan",
+      "status": 404
+    },
+    {
+      "path": "/pt-BR/missing/nested/path",
+      "status": 404
+    },
+    {
+      "path": "/pt-BR/docs",
+      "status": 200
+    },
+    {
+      "path": "/ru/olmayan",
+      "status": 404
+    },
+    {
+      "path": "/ru/missing/nested/path",
+      "status": 404
+    },
+    {
+      "path": "/ru/docs",
+      "status": 200
+    },
+    {
+      "path": "/id/olmayan",
+      "status": 404
+    },
+    {
+      "path": "/id/missing/nested/path",
+      "status": 404
+    },
+    {
+      "path": "/id/docs",
+      "status": 200
+    },
+    {
+      "path": "/ur/olmayan",
+      "status": 404
+    },
+    {
+      "path": "/ur/missing/nested/path",
+      "status": 404
+    },
+    {
+      "path": "/ur/docs",
+      "status": 200
+    },
+    {
+      "path": "/de/olmayan",
+      "status": 404
+    },
+    {
+      "path": "/de/missing/nested/path",
+      "status": 404
+    },
+    {
+      "path": "/de/docs",
+      "status": 200
+    },
+    {
+      "path": "/ja/olmayan",
+      "status": 404
+    },
+    {
+      "path": "/ja/missing/nested/path",
+      "status": 404
+    },
+    {
+      "path": "/ja/docs",
+      "status": 200
+    },
+    {
+      "path": "/sw/olmayan",
+      "status": 404
+    },
+    {
+      "path": "/sw/missing/nested/path",
+      "status": 404
+    },
+    {
+      "path": "/sw/docs",
+      "status": 200
+    },
+    {
+      "path": "/mr/olmayan",
+      "status": 404
+    },
+    {
+      "path": "/mr/missing/nested/path",
+      "status": 404
+    },
+    {
+      "path": "/mr/docs",
+      "status": 200
+    },
+    {
+      "path": "/te/olmayan",
+      "status": 404
+    },
+    {
+      "path": "/te/missing/nested/path",
+      "status": 404
+    },
+    {
+      "path": "/te/docs",
+      "status": 200
+    },
+    {
+      "path": "/tr/olmayan",
+      "status": 404
+    },
+    {
+      "path": "/tr/missing/nested/path",
+      "status": 404
+    },
+    {
+      "path": "/tr/docs",
+      "status": 200
+    },
+    {
+      "path": "/ta/olmayan",
+      "status": 404
+    },
+    {
+      "path": "/ta/missing/nested/path",
+      "status": 404
+    },
+    {
+      "path": "/ta/docs",
+      "status": 200
+    },
+    {
+      "path": "/vi/olmayan",
+      "status": 404
+    },
+    {
+      "path": "/vi/missing/nested/path",
+      "status": 404
+    },
+    {
+      "path": "/vi/docs",
+      "status": 200
+    },
+    {
+      "path": "/ko/olmayan",
+      "status": 404
+    },
+    {
+      "path": "/ko/missing/nested/path",
+      "status": 404
+    },
+    {
+      "path": "/ko/docs",
+      "status": 200
+    }
+  ],
+  "opaqueProfile404": true,
+  "browserCaseCount": 80,
+  "landingCaseCount": 40,
+  "maxLogoCenterDeltaCssPx": 0.0001621246337890625,
+  "browserCases": [
+    {
+      "route": "/en/docs",
+      "expectedLocale": "en",
+      "viewport": 320,
+      "border": "0.666667px",
+      "brokenAnchors": 0,
+      "footers": 1,
+      "legacy": false,
+      "locale": "en",
+      "logoDeltas": [
+        -1.9073486328125e-06,
+        0.0001621246337890625
+      ],
+      "overflow": false,
+      "scrollbar": "rgb(174, 190, 255) rgb(22, 25, 30)",
+      "selection": "rgb(174, 190, 255)",
+      "selectors": 1,
+      "title": "Documentation",
+      "width": 320
+    },
+    {
+      "route": "/en/olmayan",
+      "expectedLocale": "en",
+      "viewport": 320,
+      "border": "0.666667px",
+      "brokenAnchors": 0,
+      "footers": 1,
+      "legacy": false,
+      "locale": "en",
+      "logoDeltas": [
+        -1.9073486328125e-06,
+        4.00543212890625e-05
+      ],
+      "overflow": false,
+      "scrollbar": "rgb(174, 190, 255) rgb(22, 25, 30)",
+      "selection": "rgb(174, 190, 255)",
+      "selectors": 1,
+      "title": "Nothing here to prove.",
+      "width": 320
+    },
+    {
+      "route": "/zh-CN/docs",
+      "expectedLocale": "zh-CN",
+      "viewport": 320,
+      "border": "0.666667px",
+      "brokenAnchors": 0,
+      "footers": 1,
+      "legacy": false,
+      "locale": "zh-CN",
+      "logoDeltas": [
+        -1.9073486328125e-06,
+        0.0001621246337890625
+      ],
+      "overflow": false,
+      "scrollbar": "rgb(174, 190, 255) rgb(22, 25, 30)",
+      "selection": "rgb(174, 190, 255)",
+      "selectors": 1,
+      "title": "文档",
+      "width": 320
+    },
+    {
+      "route": "/zh-CN/olmayan",
+      "expectedLocale": "zh-CN",
+      "viewport": 320,
+      "border": "0.666667px",
+      "brokenAnchors": 0,
+      "footers": 1,
+      "legacy": false,
+      "locale": "zh-CN",
+      "logoDeltas": [
+        -1.9073486328125e-06,
+        4.00543212890625e-05
+      ],
+      "overflow": false,
+      "scrollbar": "rgb(174, 190, 255) rgb(22, 25, 30)",
+      "selection": "rgb(174, 190, 255)",
+      "selectors": 1,
+      "title": "这里没有可证明的内容。",
+      "width": 320
+    },
+    {
+      "route": "/hi/docs",
+      "expectedLocale": "hi",
+      "viewport": 320,
+      "border": "0.666667px",
+      "brokenAnchors": 0,
+      "footers": 1,
+      "legacy": false,
+      "locale": "hi",
+      "logoDeltas": [
+        -1.9073486328125e-06,
+        0.0001621246337890625
+      ],
+      "overflow": false,
+      "scrollbar": "rgb(174, 190, 255) rgb(22, 25, 30)",
+      "selection": "rgb(174, 190, 255)",
+      "selectors": 1,
+      "title": "दस्तावेज़",
+      "width": 320
+    },
+    {
+      "route": "/hi/olmayan",
+      "expectedLocale": "hi",
+      "viewport": 320,
+      "border": "0.666667px",
+      "brokenAnchors": 0,
+      "footers": 1,
+      "legacy": false,
+      "locale": "hi",
+      "logoDeltas": [
+        -1.9073486328125e-06,
+        4.00543212890625e-05
+      ],
+      "overflow": false,
+      "scrollbar": "rgb(174, 190, 255) rgb(22, 25, 30)",
+      "selection": "rgb(174, 190, 255)",
+      "selectors": 1,
+      "title": "यहाँ साबित करने को कुछ नहीं है।",
+      "width": 320
+    },
+    {
+      "route": "/es/docs",
+      "expectedLocale": "es",
+      "viewport": 320,
+      "border": "0.666667px",
+      "brokenAnchors": 0,
+      "footers": 1,
+      "legacy": false,
+      "locale": "es",
+      "logoDeltas": [
+        -1.9073486328125e-06,
+        0.0001621246337890625
+      ],
+      "overflow": false,
+      "scrollbar": "rgb(174, 190, 255) rgb(22, 25, 30)",
+      "selection": "rgb(174, 190, 255)",
+      "selectors": 1,
+      "title": "Documentación",
+      "width": 320
+    },
+    {
+      "route": "/es/olmayan",
+      "expectedLocale": "es",
+      "viewport": 320,
+      "border": "0.666667px",
+      "brokenAnchors": 0,
+      "footers": 1,
+      "legacy": false,
+      "locale": "es",
+      "logoDeltas": [
+        -1.9073486328125e-06,
+        4.00543212890625e-05
+      ],
+      "overflow": false,
+      "scrollbar": "rgb(174, 190, 255) rgb(22, 25, 30)",
+      "selection": "rgb(174, 190, 255)",
+      "selectors": 1,
+      "title": "Aquí no hay nada que demostrar.",
+      "width": 320
+    },
+    {
+      "route": "/fr/docs",
+      "expectedLocale": "fr",
+      "viewport": 320,
+      "border": "0.666667px",
+      "brokenAnchors": 0,
+      "footers": 1,
+      "legacy": false,
+      "locale": "fr",
+      "logoDeltas": [
+        -1.9073486328125e-06,
+        0.0001621246337890625
+      ],
+      "overflow": false,
+      "scrollbar": "rgb(174, 190, 255) rgb(22, 25, 30)",
+      "selection": "rgb(174, 190, 255)",
+      "selectors": 1,
+      "title": "Documentation",
+      "width": 320
+    },
+    {
+      "route": "/fr/olmayan",
+      "expectedLocale": "fr",
+      "viewport": 320,
+      "border": "0.666667px",
+      "brokenAnchors": 0,
+      "footers": 1,
+      "legacy": false,
+      "locale": "fr",
+      "logoDeltas": [
+        -1.9073486328125e-06,
+        4.00543212890625e-05
+      ],
+      "overflow": false,
+      "scrollbar": "rgb(174, 190, 255) rgb(22, 25, 30)",
+      "selection": "rgb(174, 190, 255)",
+      "selectors": 1,
+      "title": "Rien à prouver ici.",
+      "width": 320
+    },
+    {
+      "route": "/ar/docs",
+      "expectedLocale": "ar",
+      "viewport": 320,
+      "border": "0.666667px",
+      "brokenAnchors": 0,
+      "footers": 1,
+      "legacy": false,
+      "locale": "ar",
+      "logoDeltas": [
+        -1.9073486328125e-06,
+        0.0001621246337890625
+      ],
+      "overflow": false,
+      "scrollbar": "rgb(174, 190, 255) rgb(22, 25, 30)",
+      "selection": "rgb(174, 190, 255)",
+      "selectors": 1,
+      "title": "التوثيق",
+      "width": 320
+    },
+    {
+      "route": "/ar/olmayan",
+      "expectedLocale": "ar",
+      "viewport": 320,
+      "border": "0.666667px",
+      "brokenAnchors": 0,
+      "footers": 1,
+      "legacy": false,
+      "locale": "ar",
+      "logoDeltas": [
+        -1.9073486328125e-06,
+        4.00543212890625e-05
+      ],
+      "overflow": false,
+      "scrollbar": "rgb(174, 190, 255) rgb(22, 25, 30)",
+      "selection": "rgb(174, 190, 255)",
+      "selectors": 1,
+      "title": "لا شيء لإثباته هنا.",
+      "width": 320
+    },
+    {
+      "route": "/bn/docs",
+      "expectedLocale": "bn",
+      "viewport": 320,
+      "border": "0.666667px",
+      "brokenAnchors": 0,
+      "footers": 1,
+      "legacy": false,
+      "locale": "bn",
+      "logoDeltas": [
+        -1.9073486328125e-06,
+        0.0001621246337890625
+      ],
+      "overflow": false,
+      "scrollbar": "rgb(174, 190, 255) rgb(22, 25, 30)",
+      "selection": "rgb(174, 190, 255)",
+      "selectors": 1,
+      "title": "নথি",
+      "width": 320
+    },
+    {
+      "route": "/bn/olmayan",
+      "expectedLocale": "bn",
+      "viewport": 320,
+      "border": "0.666667px",
+      "brokenAnchors": 0,
+      "footers": 1,
+      "legacy": false,
+      "locale": "bn",
+      "logoDeltas": [
+        -1.9073486328125e-06,
+        4.00543212890625e-05
+      ],
+      "overflow": false,
+      "scrollbar": "rgb(174, 190, 255) rgb(22, 25, 30)",
+      "selection": "rgb(174, 190, 255)",
+      "selectors": 1,
+      "title": "এখানে প্রমাণ করার কিছু নেই।",
+      "width": 320
+    },
+    {
+      "route": "/pt-BR/docs",
+      "expectedLocale": "pt-BR",
+      "viewport": 320,
+      "border": "0.666667px",
+      "brokenAnchors": 0,
+      "footers": 1,
+      "legacy": false,
+      "locale": "pt-BR",
+      "logoDeltas": [
+        -1.9073486328125e-06,
+        0.0001621246337890625
+      ],
+      "overflow": false,
+      "scrollbar": "rgb(174, 190, 255) rgb(22, 25, 30)",
+      "selection": "rgb(174, 190, 255)",
+      "selectors": 1,
+      "title": "Documentação",
+      "width": 320
+    },
+    {
+      "route": "/pt-BR/olmayan",
+      "expectedLocale": "pt-BR",
+      "viewport": 320,
+      "border": "0.666667px",
+      "brokenAnchors": 0,
+      "footers": 1,
+      "legacy": false,
+      "locale": "pt-BR",
+      "logoDeltas": [
+        -1.9073486328125e-06,
+        4.00543212890625e-05
+      ],
+      "overflow": false,
+      "scrollbar": "rgb(174, 190, 255) rgb(22, 25, 30)",
+      "selection": "rgb(174, 190, 255)",
+      "selectors": 1,
+      "title": "Nada para provar aqui.",
+      "width": 320
+    },
+    {
+      "route": "/ru/docs",
+      "expectedLocale": "ru",
+      "viewport": 320,
+      "border": "0.666667px",
+      "brokenAnchors": 0,
+      "footers": 1,
+      "legacy": false,
+      "locale": "ru",
+      "logoDeltas": [
+        -1.9073486328125e-06,
+        0.0001621246337890625
+      ],
+      "overflow": false,
+      "scrollbar": "rgb(174, 190, 255) rgb(22, 25, 30)",
+      "selection": "rgb(174, 190, 255)",
+      "selectors": 1,
+      "title": "Документация",
+      "width": 320
+    },
+    {
+      "route": "/ru/olmayan",
+      "expectedLocale": "ru",
+      "viewport": 320,
+      "border": "0.666667px",
+      "brokenAnchors": 0,
+      "footers": 1,
+      "legacy": false,
+      "locale": "ru",
+      "logoDeltas": [
+        -1.9073486328125e-06,
+        4.00543212890625e-05
+      ],
+      "overflow": false,
+      "scrollbar": "rgb(174, 190, 255) rgb(22, 25, 30)",
+      "selection": "rgb(174, 190, 255)",
+      "selectors": 1,
+      "title": "Здесь нечего доказывать.",
+      "width": 320
+    },
+    {
+      "route": "/id/docs",
+      "expectedLocale": "id",
+      "viewport": 320,
+      "border": "0.666667px",
+      "brokenAnchors": 0,
+      "footers": 1,
+      "legacy": false,
+      "locale": "id",
+      "logoDeltas": [
+        -1.9073486328125e-06,
+        0.0001621246337890625
+      ],
+      "overflow": false,
+      "scrollbar": "rgb(174, 190, 255) rgb(22, 25, 30)",
+      "selection": "rgb(174, 190, 255)",
+      "selectors": 1,
+      "title": "Dokumentasi",
+      "width": 320
+    },
+    {
+      "route": "/id/olmayan",
+      "expectedLocale": "id",
+      "viewport": 320,
+      "border": "0.666667px",
+      "brokenAnchors": 0,
+      "footers": 1,
+      "legacy": false,
+      "locale": "id",
+      "logoDeltas": [
+        -1.9073486328125e-06,
+        4.00543212890625e-05
+      ],
+      "overflow": false,
+      "scrollbar": "rgb(174, 190, 255) rgb(22, 25, 30)",
+      "selection": "rgb(174, 190, 255)",
+      "selectors": 1,
+      "title": "Tidak ada yang perlu dibuktikan di sini.",
+      "width": 320
+    },
+    {
+      "route": "/ur/docs",
+      "expectedLocale": "ur",
+      "viewport": 320,
+      "border": "0.666667px",
+      "brokenAnchors": 0,
+      "footers": 1,
+      "legacy": false,
+      "locale": "ur",
+      "logoDeltas": [
+        -1.9073486328125e-06,
+        0.0001621246337890625
+      ],
+      "overflow": false,
+      "scrollbar": "rgb(174, 190, 255) rgb(22, 25, 30)",
+      "selection": "rgb(174, 190, 255)",
+      "selectors": 1,
+      "title": "دستاویزات",
+      "width": 320
+    },
+    {
+      "route": "/ur/olmayan",
+      "expectedLocale": "ur",
+      "viewport": 320,
+      "border": "0.666667px",
+      "brokenAnchors": 0,
+      "footers": 1,
+      "legacy": false,
+      "locale": "ur",
+      "logoDeltas": [
+        -1.9073486328125e-06,
+        4.00543212890625e-05
+      ],
+      "overflow": false,
+      "scrollbar": "rgb(174, 190, 255) rgb(22, 25, 30)",
+      "selection": "rgb(174, 190, 255)",
+      "selectors": 1,
+      "title": "یہاں ثابت کرنے کو کچھ نہیں۔",
+      "width": 320
+    },
+    {
+      "route": "/de/docs",
+      "expectedLocale": "de",
+      "viewport": 320,
+      "border": "0.666667px",
+      "brokenAnchors": 0,
+      "footers": 1,
+      "legacy": false,
+      "locale": "de",
+      "logoDeltas": [
+        -1.9073486328125e-06,
+        0.0001621246337890625
+      ],
+      "overflow": false,
+      "scrollbar": "rgb(174, 190, 255) rgb(22, 25, 30)",
+      "selection": "rgb(174, 190, 255)",
+      "selectors": 1,
+      "title": "Dokumentation",
+      "width": 320
+    },
+    {
+      "route": "/de/olmayan",
+      "expectedLocale": "de",
+      "viewport": 320,
+      "border": "0.666667px",
+      "brokenAnchors": 0,
+      "footers": 1,
+      "legacy": false,
+      "locale": "de",
+      "logoDeltas": [
+        -1.9073486328125e-06,
+        4.00543212890625e-05
+      ],
+      "overflow": false,
+      "scrollbar": "rgb(174, 190, 255) rgb(22, 25, 30)",
+      "selection": "rgb(174, 190, 255)",
+      "selectors": 1,
+      "title": "Hier gibt es nichts zu beweisen.",
+      "width": 320
+    },
+    {
+      "route": "/ja/docs",
+      "expectedLocale": "ja",
+      "viewport": 320,
+      "border": "0.666667px",
+      "brokenAnchors": 0,
+      "footers": 1,
+      "legacy": false,
+      "locale": "ja",
+      "logoDeltas": [
+        -1.9073486328125e-06,
+        0.0001621246337890625
+      ],
+      "overflow": false,
+      "scrollbar": "rgb(174, 190, 255) rgb(22, 25, 30)",
+      "selection": "rgb(174, 190, 255)",
+      "selectors": 1,
+      "title": "ドキュメント",
+      "width": 320
+    },
+    {
+      "route": "/ja/olmayan",
+      "expectedLocale": "ja",
+      "viewport": 320,
+      "border": "0.666667px",
+      "brokenAnchors": 0,
+      "footers": 1,
+      "legacy": false,
+      "locale": "ja",
+      "logoDeltas": [
+        -1.9073486328125e-06,
+        4.00543212890625e-05
+      ],
+      "overflow": false,
+      "scrollbar": "rgb(174, 190, 255) rgb(22, 25, 30)",
+      "selection": "rgb(174, 190, 255)",
+      "selectors": 1,
+      "title": "ここには証明するものがありません。",
+      "width": 320
+    },
+    {
+      "route": "/sw/docs",
+      "expectedLocale": "sw",
+      "viewport": 320,
+      "border": "0.666667px",
+      "brokenAnchors": 0,
+      "footers": 1,
+      "legacy": false,
+      "locale": "sw",
+      "logoDeltas": [
+        -1.9073486328125e-06,
+        0.0001621246337890625
+      ],
+      "overflow": false,
+      "scrollbar": "rgb(174, 190, 255) rgb(22, 25, 30)",
+      "selection": "rgb(174, 190, 255)",
+      "selectors": 1,
+      "title": "Nyaraka",
+      "width": 320
+    },
+    {
+      "route": "/sw/olmayan",
+      "expectedLocale": "sw",
+      "viewport": 320,
+      "border": "0.666667px",
+      "brokenAnchors": 0,
+      "footers": 1,
+      "legacy": false,
+      "locale": "sw",
+      "logoDeltas": [
+        -1.9073486328125e-06,
+        4.00543212890625e-05
+      ],
+      "overflow": false,
+      "scrollbar": "rgb(174, 190, 255) rgb(22, 25, 30)",
+      "selection": "rgb(174, 190, 255)",
+      "selectors": 1,
+      "title": "Hakuna cha kuthibitisha hapa.",
+      "width": 320
+    },
+    {
+      "route": "/mr/docs",
+      "expectedLocale": "mr",
+      "viewport": 320,
+      "border": "0.666667px",
+      "brokenAnchors": 0,
+      "footers": 1,
+      "legacy": false,
+      "locale": "mr",
+      "logoDeltas": [
+        -1.9073486328125e-06,
+        0.0001621246337890625
+      ],
+      "overflow": false,
+      "scrollbar": "rgb(174, 190, 255) rgb(22, 25, 30)",
+      "selection": "rgb(174, 190, 255)",
+      "selectors": 1,
+      "title": "दस्तऐवज",
+      "width": 320
+    },
+    {
+      "route": "/mr/olmayan",
+      "expectedLocale": "mr",
+      "viewport": 320,
+      "border": "0.666667px",
+      "brokenAnchors": 0,
+      "footers": 1,
+      "legacy": false,
+      "locale": "mr",
+      "logoDeltas": [
+        -1.9073486328125e-06,
+        4.00543212890625e-05
+      ],
+      "overflow": false,
+      "scrollbar": "rgb(174, 190, 255) rgb(22, 25, 30)",
+      "selection": "rgb(174, 190, 255)",
+      "selectors": 1,
+      "title": "इथे सिद्ध करण्यासारखे काही नाही.",
+      "width": 320
+    },
+    {
+      "route": "/te/docs",
+      "expectedLocale": "te",
+      "viewport": 320,
+      "border": "0.666667px",
+      "brokenAnchors": 0,
+      "footers": 1,
+      "legacy": false,
+      "locale": "te",
+      "logoDeltas": [
+        -1.9073486328125e-06,
+        0.0001621246337890625
+      ],
+      "overflow": false,
+      "scrollbar": "rgb(174, 190, 255) rgb(22, 25, 30)",
+      "selection": "rgb(174, 190, 255)",
+      "selectors": 1,
+      "title": "పత్రాలు",
+      "width": 320
+    },
+    {
+      "route": "/te/olmayan",
+      "expectedLocale": "te",
+      "viewport": 320,
+      "border": "0.666667px",
+      "brokenAnchors": 0,
+      "footers": 1,
+      "legacy": false,
+      "locale": "te",
+      "logoDeltas": [
+        -1.9073486328125e-06,
+        4.00543212890625e-05
+      ],
+      "overflow": false,
+      "scrollbar": "rgb(174, 190, 255) rgb(22, 25, 30)",
+      "selection": "rgb(174, 190, 255)",
+      "selectors": 1,
+      "title": "ఇక్కడ నిరూపించడానికి ఏమీ లేదు.",
+      "width": 320
+    },
+    {
+      "route": "/tr/docs",
+      "expectedLocale": "tr",
+      "viewport": 320,
+      "border": "0.666667px",
+      "brokenAnchors": 0,
+      "footers": 1,
+      "legacy": false,
+      "locale": "tr",
+      "logoDeltas": [
+        -1.9073486328125e-06,
+        0.0001621246337890625
+      ],
+      "overflow": false,
+      "scrollbar": "rgb(174, 190, 255) rgb(22, 25, 30)",
+      "selection": "rgb(174, 190, 255)",
+      "selectors": 1,
+      "title": "Belgeler",
+      "width": 320
+    },
+    {
+      "route": "/tr/olmayan",
+      "expectedLocale": "tr",
+      "viewport": 320,
+      "border": "0.666667px",
+      "brokenAnchors": 0,
+      "footers": 1,
+      "legacy": false,
+      "locale": "tr",
+      "logoDeltas": [
+        -1.9073486328125e-06,
+        4.00543212890625e-05
+      ],
+      "overflow": false,
+      "scrollbar": "rgb(174, 190, 255) rgb(22, 25, 30)",
+      "selection": "rgb(174, 190, 255)",
+      "selectors": 1,
+      "title": "Burada ispatlanacak bir şey yok.",
+      "width": 320
+    },
+    {
+      "route": "/ta/docs",
+      "expectedLocale": "ta",
+      "viewport": 320,
+      "border": "0.666667px",
+      "brokenAnchors": 0,
+      "footers": 1,
+      "legacy": false,
+      "locale": "ta",
+      "logoDeltas": [
+        -1.9073486328125e-06,
+        0.0001621246337890625
+      ],
+      "overflow": false,
+      "scrollbar": "rgb(174, 190, 255) rgb(22, 25, 30)",
+      "selection": "rgb(174, 190, 255)",
+      "selectors": 1,
+      "title": "ஆவணங்கள்",
+      "width": 320
+    },
+    {
+      "route": "/ta/olmayan",
+      "expectedLocale": "ta",
+      "viewport": 320,
+      "border": "0.666667px",
+      "brokenAnchors": 0,
+      "footers": 1,
+      "legacy": false,
+      "locale": "ta",
+      "logoDeltas": [
+        -1.9073486328125e-06,
+        4.00543212890625e-05
+      ],
+      "overflow": false,
+      "scrollbar": "rgb(174, 190, 255) rgb(22, 25, 30)",
+      "selection": "rgb(174, 190, 255)",
+      "selectors": 1,
+      "title": "இங்கே நிரூபிக்க எதுவும் இல்லை.",
+      "width": 320
+    },
+    {
+      "route": "/vi/docs",
+      "expectedLocale": "vi",
+      "viewport": 320,
+      "border": "0.666667px",
+      "brokenAnchors": 0,
+      "footers": 1,
+      "legacy": false,
+      "locale": "vi",
+      "logoDeltas": [
+        -1.9073486328125e-06,
+        0.0001621246337890625
+      ],
+      "overflow": false,
+      "scrollbar": "rgb(174, 190, 255) rgb(22, 25, 30)",
+      "selection": "rgb(174, 190, 255)",
+      "selectors": 1,
+      "title": "Tài liệu",
+      "width": 320
+    },
+    {
+      "route": "/vi/olmayan",
+      "expectedLocale": "vi",
+      "viewport": 320,
+      "border": "0.666667px",
+      "brokenAnchors": 0,
+      "footers": 1,
+      "legacy": false,
+      "locale": "vi",
+      "logoDeltas": [
+        -1.9073486328125e-06,
+        4.00543212890625e-05
+      ],
+      "overflow": false,
+      "scrollbar": "rgb(174, 190, 255) rgb(22, 25, 30)",
+      "selection": "rgb(174, 190, 255)",
+      "selectors": 1,
+      "title": "Không có gì để chứng minh ở đây.",
+      "width": 320
+    },
+    {
+      "route": "/ko/docs",
+      "expectedLocale": "ko",
+      "viewport": 320,
+      "border": "0.666667px",
+      "brokenAnchors": 0,
+      "footers": 1,
+      "legacy": false,
+      "locale": "ko",
+      "logoDeltas": [
+        -1.9073486328125e-06,
+        0.0001621246337890625
+      ],
+      "overflow": false,
+      "scrollbar": "rgb(174, 190, 255) rgb(22, 25, 30)",
+      "selection": "rgb(174, 190, 255)",
+      "selectors": 1,
+      "title": "문서",
+      "width": 320
+    },
+    {
+      "route": "/ko/olmayan",
+      "expectedLocale": "ko",
+      "viewport": 320,
+      "border": "0.666667px",
+      "brokenAnchors": 0,
+      "footers": 1,
+      "legacy": false,
+      "locale": "ko",
+      "logoDeltas": [
+        -1.9073486328125e-06,
+        4.00543212890625e-05
+      ],
+      "overflow": false,
+      "scrollbar": "rgb(174, 190, 255) rgb(22, 25, 30)",
+      "selection": "rgb(174, 190, 255)",
+      "selectors": 1,
+      "title": "여기에는 증명할 것이 없습니다.",
+      "width": 320
+    },
+    {
+      "route": "/en/docs",
+      "expectedLocale": "en",
+      "viewport": 1440,
+      "border": "0.666667px",
+      "brokenAnchors": 0,
+      "footers": 1,
+      "legacy": false,
+      "locale": "en",
+      "logoDeltas": [
+        -1.9073486328125e-06,
+        -8.20159912109375e-05
+      ],
+      "overflow": false,
+      "scrollbar": "rgb(174, 190, 255) rgb(22, 25, 30)",
+      "selection": "rgb(174, 190, 255)",
+      "selectors": 1,
+      "title": "Documentation",
+      "width": 1440
+    },
+    {
+      "route": "/en/olmayan",
+      "expectedLocale": "en",
+      "viewport": 1440,
+      "border": "0.666667px",
+      "brokenAnchors": 0,
+      "footers": 1,
+      "legacy": false,
+      "locale": "en",
+      "logoDeltas": [
+        -1.9073486328125e-06,
+        4.00543212890625e-05
+      ],
+      "overflow": false,
+      "scrollbar": "rgb(174, 190, 255) rgb(22, 25, 30)",
+      "selection": "rgb(174, 190, 255)",
+      "selectors": 1,
+      "title": "Nothing here to prove.",
+      "width": 1440
+    },
+    {
+      "route": "/zh-CN/docs",
+      "expectedLocale": "zh-CN",
+      "viewport": 1440,
+      "border": "0.666667px",
+      "brokenAnchors": 0,
+      "footers": 1,
+      "legacy": false,
+      "locale": "zh-CN",
+      "logoDeltas": [
+        -1.9073486328125e-06,
+        -8.20159912109375e-05
+      ],
+      "overflow": false,
+      "scrollbar": "rgb(174, 190, 255) rgb(22, 25, 30)",
+      "selection": "rgb(174, 190, 255)",
+      "selectors": 1,
+      "title": "文档",
+      "width": 1440
+    },
+    {
+      "route": "/zh-CN/olmayan",
+      "expectedLocale": "zh-CN",
+      "viewport": 1440,
+      "border": "0.666667px",
+      "brokenAnchors": 0,
+      "footers": 1,
+      "legacy": false,
+      "locale": "zh-CN",
+      "logoDeltas": [
+        -1.9073486328125e-06,
+        4.00543212890625e-05
+      ],
+      "overflow": false,
+      "scrollbar": "rgb(174, 190, 255) rgb(22, 25, 30)",
+      "selection": "rgb(174, 190, 255)",
+      "selectors": 1,
+      "title": "这里没有可证明的内容。",
+      "width": 1440
+    },
+    {
+      "route": "/hi/docs",
+      "expectedLocale": "hi",
+      "viewport": 1440,
+      "border": "0.666667px",
+      "brokenAnchors": 0,
+      "footers": 1,
+      "legacy": false,
+      "locale": "hi",
+      "logoDeltas": [
+        -1.9073486328125e-06,
+        -8.20159912109375e-05
+      ],
+      "overflow": false,
+      "scrollbar": "rgb(174, 190, 255) rgb(22, 25, 30)",
+      "selection": "rgb(174, 190, 255)",
+      "selectors": 1,
+      "title": "दस्तावेज़",
+      "width": 1440
+    },
+    {
+      "route": "/hi/olmayan",
+      "expectedLocale": "hi",
+      "viewport": 1440,
+      "border": "0.666667px",
+      "brokenAnchors": 0,
+      "footers": 1,
+      "legacy": false,
+      "locale": "hi",
+      "logoDeltas": [
+        -1.9073486328125e-06,
+        4.00543212890625e-05
+      ],
+      "overflow": false,
+      "scrollbar": "rgb(174, 190, 255) rgb(22, 25, 30)",
+      "selection": "rgb(174, 190, 255)",
+      "selectors": 1,
+      "title": "यहाँ साबित करने को कुछ नहीं है।",
+      "width": 1440
+    },
+    {
+      "route": "/es/docs",
+      "expectedLocale": "es",
+      "viewport": 1440,
+      "border": "0.666667px",
+      "brokenAnchors": 0,
+      "footers": 1,
+      "legacy": false,
+      "locale": "es",
+      "logoDeltas": [
+        -1.9073486328125e-06,
+        -8.20159912109375e-05
+      ],
+      "overflow": false,
+      "scrollbar": "rgb(174, 190, 255) rgb(22, 25, 30)",
+      "selection": "rgb(174, 190, 255)",
+      "selectors": 1,
+      "title": "Documentación",
+      "width": 1440
+    },
+    {
+      "route": "/es/olmayan",
+      "expectedLocale": "es",
+      "viewport": 1440,
+      "border": "0.666667px",
+      "brokenAnchors": 0,
+      "footers": 1,
+      "legacy": false,
+      "locale": "es",
+      "logoDeltas": [
+        -1.9073486328125e-06,
+        4.00543212890625e-05
+      ],
+      "overflow": false,
+      "scrollbar": "rgb(174, 190, 255) rgb(22, 25, 30)",
+      "selection": "rgb(174, 190, 255)",
+      "selectors": 1,
+      "title": "Aquí no hay nada que demostrar.",
+      "width": 1440
+    },
+    {
+      "route": "/fr/docs",
+      "expectedLocale": "fr",
+      "viewport": 1440,
+      "border": "0.666667px",
+      "brokenAnchors": 0,
+      "footers": 1,
+      "legacy": false,
+      "locale": "fr",
+      "logoDeltas": [
+        -1.9073486328125e-06,
+        -8.20159912109375e-05
+      ],
+      "overflow": false,
+      "scrollbar": "rgb(174, 190, 255) rgb(22, 25, 30)",
+      "selection": "rgb(174, 190, 255)",
+      "selectors": 1,
+      "title": "Documentation",
+      "width": 1440
+    },
+    {
+      "route": "/fr/olmayan",
+      "expectedLocale": "fr",
+      "viewport": 1440,
+      "border": "0.666667px",
+      "brokenAnchors": 0,
+      "footers": 1,
+      "legacy": false,
+      "locale": "fr",
+      "logoDeltas": [
+        -1.9073486328125e-06,
+        4.00543212890625e-05
+      ],
+      "overflow": false,
+      "scrollbar": "rgb(174, 190, 255) rgb(22, 25, 30)",
+      "selection": "rgb(174, 190, 255)",
+      "selectors": 1,
+      "title": "Rien à prouver ici.",
+      "width": 1440
+    },
+    {
+      "route": "/ar/docs",
+      "expectedLocale": "ar",
+      "viewport": 1440,
+      "border": "0.666667px",
+      "brokenAnchors": 0,
+      "footers": 1,
+      "legacy": false,
+      "locale": "ar",
+      "logoDeltas": [
+        -1.9073486328125e-06,
+        -8.20159912109375e-05
+      ],
+      "overflow": false,
+      "scrollbar": "rgb(174, 190, 255) rgb(22, 25, 30)",
+      "selection": "rgb(174, 190, 255)",
+      "selectors": 1,
+      "title": "التوثيق",
+      "width": 1440
+    },
+    {
+      "route": "/ar/olmayan",
+      "expectedLocale": "ar",
+      "viewport": 1440,
+      "border": "0.666667px",
+      "brokenAnchors": 0,
+      "footers": 1,
+      "legacy": false,
+      "locale": "ar",
+      "logoDeltas": [
+        -1.9073486328125e-06,
+        4.00543212890625e-05
+      ],
+      "overflow": false,
+      "scrollbar": "rgb(174, 190, 255) rgb(22, 25, 30)",
+      "selection": "rgb(174, 190, 255)",
+      "selectors": 1,
+      "title": "لا شيء لإثباته هنا.",
+      "width": 1440
+    },
+    {
+      "route": "/bn/docs",
+      "expectedLocale": "bn",
+      "viewport": 1440,
+      "border": "0.666667px",
+      "brokenAnchors": 0,
+      "footers": 1,
+      "legacy": false,
+      "locale": "bn",
+      "logoDeltas": [
+        -1.9073486328125e-06,
+        -8.20159912109375e-05
+      ],
+      "overflow": false,
+      "scrollbar": "rgb(174, 190, 255) rgb(22, 25, 30)",
+      "selection": "rgb(174, 190, 255)",
+      "selectors": 1,
+      "title": "নথি",
+      "width": 1440
+    },
+    {
+      "route": "/bn/olmayan",
+      "expectedLocale": "bn",
+      "viewport": 1440,
+      "border": "0.666667px",
+      "brokenAnchors": 0,
+      "footers": 1,
+      "legacy": false,
+      "locale": "bn",
+      "logoDeltas": [
+        -1.9073486328125e-06,
+        4.00543212890625e-05
+      ],
+      "overflow": false,
+      "scrollbar": "rgb(174, 190, 255) rgb(22, 25, 30)",
+      "selection": "rgb(174, 190, 255)",
+      "selectors": 1,
+      "title": "এখানে প্রমাণ করার কিছু নেই।",
+      "width": 1440
+    },
+    {
+      "route": "/pt-BR/docs",
+      "expectedLocale": "pt-BR",
+      "viewport": 1440,
+      "border": "0.666667px",
+      "brokenAnchors": 0,
+      "footers": 1,
+      "legacy": false,
+      "locale": "pt-BR",
+      "logoDeltas": [
+        -1.9073486328125e-06,
+        -8.20159912109375e-05
+      ],
+      "overflow": false,
+      "scrollbar": "rgb(174, 190, 255) rgb(22, 25, 30)",
+      "selection": "rgb(174, 190, 255)",
+      "selectors": 1,
+      "title": "Documentação",
+      "width": 1440
+    },
+    {
+      "route": "/pt-BR/olmayan",
+      "expectedLocale": "pt-BR",
+      "viewport": 1440,
+      "border": "0.666667px",
+      "brokenAnchors": 0,
+      "footers": 1,
+      "legacy": false,
+      "locale": "pt-BR",
+      "logoDeltas": [
+        -1.9073486328125e-06,
+        4.00543212890625e-05
+      ],
+      "overflow": false,
+      "scrollbar": "rgb(174, 190, 255) rgb(22, 25, 30)",
+      "selection": "rgb(174, 190, 255)",
+      "selectors": 1,
+      "title": "Nada para provar aqui.",
+      "width": 1440
+    },
+    {
+      "route": "/ru/docs",
+      "expectedLocale": "ru",
+      "viewport": 1440,
+      "border": "0.666667px",
+      "brokenAnchors": 0,
+      "footers": 1,
+      "legacy": false,
+      "locale": "ru",
+      "logoDeltas": [
+        -1.9073486328125e-06,
+        -8.20159912109375e-05
+      ],
+      "overflow": false,
+      "scrollbar": "rgb(174, 190, 255) rgb(22, 25, 30)",
+      "selection": "rgb(174, 190, 255)",
+      "selectors": 1,
+      "title": "Документация",
+      "width": 1440
+    },
+    {
+      "route": "/ru/olmayan",
+      "expectedLocale": "ru",
+      "viewport": 1440,
+      "border": "0.666667px",
+      "brokenAnchors": 0,
+      "footers": 1,
+      "legacy": false,
+      "locale": "ru",
+      "logoDeltas": [
+        -1.9073486328125e-06,
+        4.00543212890625e-05
+      ],
+      "overflow": false,
+      "scrollbar": "rgb(174, 190, 255) rgb(22, 25, 30)",
+      "selection": "rgb(174, 190, 255)",
+      "selectors": 1,
+      "title": "Здесь нечего доказывать.",
+      "width": 1440
+    },
+    {
+      "route": "/id/docs",
+      "expectedLocale": "id",
+      "viewport": 1440,
+      "border": "0.666667px",
+      "brokenAnchors": 0,
+      "footers": 1,
+      "legacy": false,
+      "locale": "id",
+      "logoDeltas": [
+        -1.9073486328125e-06,
+        -8.20159912109375e-05
+      ],
+      "overflow": false,
+      "scrollbar": "rgb(174, 190, 255) rgb(22, 25, 30)",
+      "selection": "rgb(174, 190, 255)",
+      "selectors": 1,
+      "title": "Dokumentasi",
+      "width": 1440
+    },
+    {
+      "route": "/id/olmayan",
+      "expectedLocale": "id",
+      "viewport": 1440,
+      "border": "0.666667px",
+      "brokenAnchors": 0,
+      "footers": 1,
+      "legacy": false,
+      "locale": "id",
+      "logoDeltas": [
+        -1.9073486328125e-06,
+        4.00543212890625e-05
+      ],
+      "overflow": false,
+      "scrollbar": "rgb(174, 190, 255) rgb(22, 25, 30)",
+      "selection": "rgb(174, 190, 255)",
+      "selectors": 1,
+      "title": "Tidak ada yang perlu dibuktikan di sini.",
+      "width": 1440
+    },
+    {
+      "route": "/ur/docs",
+      "expectedLocale": "ur",
+      "viewport": 1440,
+      "border": "0.666667px",
+      "brokenAnchors": 0,
+      "footers": 1,
+      "legacy": false,
+      "locale": "ur",
+      "logoDeltas": [
+        -1.9073486328125e-06,
+        -8.20159912109375e-05
+      ],
+      "overflow": false,
+      "scrollbar": "rgb(174, 190, 255) rgb(22, 25, 30)",
+      "selection": "rgb(174, 190, 255)",
+      "selectors": 1,
+      "title": "دستاویزات",
+      "width": 1440
+    },
+    {
+      "route": "/ur/olmayan",
+      "expectedLocale": "ur",
+      "viewport": 1440,
+      "border": "0.666667px",
+      "brokenAnchors": 0,
+      "footers": 1,
+      "legacy": false,
+      "locale": "ur",
+      "logoDeltas": [
+        -1.9073486328125e-06,
+        4.00543212890625e-05
+      ],
+      "overflow": false,
+      "scrollbar": "rgb(174, 190, 255) rgb(22, 25, 30)",
+      "selection": "rgb(174, 190, 255)",
+      "selectors": 1,
+      "title": "یہاں ثابت کرنے کو کچھ نہیں۔",
+      "width": 1440
+    },
+    {
+      "route": "/de/docs",
+      "expectedLocale": "de",
+      "viewport": 1440,
+      "border": "0.666667px",
+      "brokenAnchors": 0,
+      "footers": 1,
+      "legacy": false,
+      "locale": "de",
+      "logoDeltas": [
+        -1.9073486328125e-06,
+        -8.20159912109375e-05
+      ],
+      "overflow": false,
+      "scrollbar": "rgb(174, 190, 255) rgb(22, 25, 30)",
+      "selection": "rgb(174, 190, 255)",
+      "selectors": 1,
+      "title": "Dokumentation",
+      "width": 1440
+    },
+    {
+      "route": "/de/olmayan",
+      "expectedLocale": "de",
+      "viewport": 1440,
+      "border": "0.666667px",
+      "brokenAnchors": 0,
+      "footers": 1,
+      "legacy": false,
+      "locale": "de",
+      "logoDeltas": [
+        -1.9073486328125e-06,
+        4.00543212890625e-05
+      ],
+      "overflow": false,
+      "scrollbar": "rgb(174, 190, 255) rgb(22, 25, 30)",
+      "selection": "rgb(174, 190, 255)",
+      "selectors": 1,
+      "title": "Hier gibt es nichts zu beweisen.",
+      "width": 1440
+    },
+    {
+      "route": "/ja/docs",
+      "expectedLocale": "ja",
+      "viewport": 1440,
+      "border": "0.666667px",
+      "brokenAnchors": 0,
+      "footers": 1,
+      "legacy": false,
+      "locale": "ja",
+      "logoDeltas": [
+        -1.9073486328125e-06,
+        -8.20159912109375e-05
+      ],
+      "overflow": false,
+      "scrollbar": "rgb(174, 190, 255) rgb(22, 25, 30)",
+      "selection": "rgb(174, 190, 255)",
+      "selectors": 1,
+      "title": "ドキュメント",
+      "width": 1440
+    },
+    {
+      "route": "/ja/olmayan",
+      "expectedLocale": "ja",
+      "viewport": 1440,
+      "border": "0.666667px",
+      "brokenAnchors": 0,
+      "footers": 1,
+      "legacy": false,
+      "locale": "ja",
+      "logoDeltas": [
+        -1.9073486328125e-06,
+        4.00543212890625e-05
+      ],
+      "overflow": false,
+      "scrollbar": "rgb(174, 190, 255) rgb(22, 25, 30)",
+      "selection": "rgb(174, 190, 255)",
+      "selectors": 1,
+      "title": "ここには証明するものがありません。",
+      "width": 1440
+    },
+    {
+      "route": "/sw/docs",
+      "expectedLocale": "sw",
+      "viewport": 1440,
+      "border": "0.666667px",
+      "brokenAnchors": 0,
+      "footers": 1,
+      "legacy": false,
+      "locale": "sw",
+      "logoDeltas": [
+        -1.9073486328125e-06,
+        -8.20159912109375e-05
+      ],
+      "overflow": false,
+      "scrollbar": "rgb(174, 190, 255) rgb(22, 25, 30)",
+      "selection": "rgb(174, 190, 255)",
+      "selectors": 1,
+      "title": "Nyaraka",
+      "width": 1440
+    },
+    {
+      "route": "/sw/olmayan",
+      "expectedLocale": "sw",
+      "viewport": 1440,
+      "border": "0.666667px",
+      "brokenAnchors": 0,
+      "footers": 1,
+      "legacy": false,
+      "locale": "sw",
+      "logoDeltas": [
+        -1.9073486328125e-06,
+        4.00543212890625e-05
+      ],
+      "overflow": false,
+      "scrollbar": "rgb(174, 190, 255) rgb(22, 25, 30)",
+      "selection": "rgb(174, 190, 255)",
+      "selectors": 1,
+      "title": "Hakuna cha kuthibitisha hapa.",
+      "width": 1440
+    },
+    {
+      "route": "/mr/docs",
+      "expectedLocale": "mr",
+      "viewport": 1440,
+      "border": "0.666667px",
+      "brokenAnchors": 0,
+      "footers": 1,
+      "legacy": false,
+      "locale": "mr",
+      "logoDeltas": [
+        -1.9073486328125e-06,
+        -8.20159912109375e-05
+      ],
+      "overflow": false,
+      "scrollbar": "rgb(174, 190, 255) rgb(22, 25, 30)",
+      "selection": "rgb(174, 190, 255)",
+      "selectors": 1,
+      "title": "दस्तऐवज",
+      "width": 1440
+    },
+    {
+      "route": "/mr/olmayan",
+      "expectedLocale": "mr",
+      "viewport": 1440,
+      "border": "0.666667px",
+      "brokenAnchors": 0,
+      "footers": 1,
+      "legacy": false,
+      "locale": "mr",
+      "logoDeltas": [
+        -1.9073486328125e-06,
+        4.00543212890625e-05
+      ],
+      "overflow": false,
+      "scrollbar": "rgb(174, 190, 255) rgb(22, 25, 30)",
+      "selection": "rgb(174, 190, 255)",
+      "selectors": 1,
+      "title": "इथे सिद्ध करण्यासारखे काही नाही.",
+      "width": 1440
+    },
+    {
+      "route": "/te/docs",
+      "expectedLocale": "te",
+      "viewport": 1440,
+      "border": "0.666667px",
+      "brokenAnchors": 0,
+      "footers": 1,
+      "legacy": false,
+      "locale": "te",
+      "logoDeltas": [
+        -1.9073486328125e-06,
+        -8.20159912109375e-05
+      ],
+      "overflow": false,
+      "scrollbar": "rgb(174, 190, 255) rgb(22, 25, 30)",
+      "selection": "rgb(174, 190, 255)",
+      "selectors": 1,
+      "title": "పత్రాలు",
+      "width": 1440
+    },
+    {
+      "route": "/te/olmayan",
+      "expectedLocale": "te",
+      "viewport": 1440,
+      "border": "0.666667px",
+      "brokenAnchors": 0,
+      "footers": 1,
+      "legacy": false,
+      "locale": "te",
+      "logoDeltas": [
+        -1.9073486328125e-06,
+        4.00543212890625e-05
+      ],
+      "overflow": false,
+      "scrollbar": "rgb(174, 190, 255) rgb(22, 25, 30)",
+      "selection": "rgb(174, 190, 255)",
+      "selectors": 1,
+      "title": "ఇక్కడ నిరూపించడానికి ఏమీ లేదు.",
+      "width": 1440
+    },
+    {
+      "route": "/tr/docs",
+      "expectedLocale": "tr",
+      "viewport": 1440,
+      "border": "0.666667px",
+      "brokenAnchors": 0,
+      "footers": 1,
+      "legacy": false,
+      "locale": "tr",
+      "logoDeltas": [
+        -1.9073486328125e-06,
+        -8.20159912109375e-05
+      ],
+      "overflow": false,
+      "scrollbar": "rgb(174, 190, 255) rgb(22, 25, 30)",
+      "selection": "rgb(174, 190, 255)",
+      "selectors": 1,
+      "title": "Belgeler",
+      "width": 1440
+    },
+    {
+      "route": "/tr/olmayan",
+      "expectedLocale": "tr",
+      "viewport": 1440,
+      "border": "0.666667px",
+      "brokenAnchors": 0,
+      "footers": 1,
+      "legacy": false,
+      "locale": "tr",
+      "logoDeltas": [
+        -1.9073486328125e-06,
+        4.00543212890625e-05
+      ],
+      "overflow": false,
+      "scrollbar": "rgb(174, 190, 255) rgb(22, 25, 30)",
+      "selection": "rgb(174, 190, 255)",
+      "selectors": 1,
+      "title": "Burada ispatlanacak bir şey yok.",
+      "width": 1440
+    },
+    {
+      "route": "/ta/docs",
+      "expectedLocale": "ta",
+      "viewport": 1440,
+      "border": "0.666667px",
+      "brokenAnchors": 0,
+      "footers": 1,
+      "legacy": false,
+      "locale": "ta",
+      "logoDeltas": [
+        -1.9073486328125e-06,
+        -8.20159912109375e-05
+      ],
+      "overflow": false,
+      "scrollbar": "rgb(174, 190, 255) rgb(22, 25, 30)",
+      "selection": "rgb(174, 190, 255)",
+      "selectors": 1,
+      "title": "ஆவணங்கள்",
+      "width": 1440
+    },
+    {
+      "route": "/ta/olmayan",
+      "expectedLocale": "ta",
+      "viewport": 1440,
+      "border": "0.666667px",
+      "brokenAnchors": 0,
+      "footers": 1,
+      "legacy": false,
+      "locale": "ta",
+      "logoDeltas": [
+        -1.9073486328125e-06,
+        4.00543212890625e-05
+      ],
+      "overflow": false,
+      "scrollbar": "rgb(174, 190, 255) rgb(22, 25, 30)",
+      "selection": "rgb(174, 190, 255)",
+      "selectors": 1,
+      "title": "இங்கே நிரூபிக்க எதுவும் இல்லை.",
+      "width": 1440
+    },
+    {
+      "route": "/vi/docs",
+      "expectedLocale": "vi",
+      "viewport": 1440,
+      "border": "0.666667px",
+      "brokenAnchors": 0,
+      "footers": 1,
+      "legacy": false,
+      "locale": "vi",
+      "logoDeltas": [
+        -1.9073486328125e-06,
+        -8.20159912109375e-05
+      ],
+      "overflow": false,
+      "scrollbar": "rgb(174, 190, 255) rgb(22, 25, 30)",
+      "selection": "rgb(174, 190, 255)",
+      "selectors": 1,
+      "title": "Tài liệu",
+      "width": 1440
+    },
+    {
+      "route": "/vi/olmayan",
+      "expectedLocale": "vi",
+      "viewport": 1440,
+      "border": "0.666667px",
+      "brokenAnchors": 0,
+      "footers": 1,
+      "legacy": false,
+      "locale": "vi",
+      "logoDeltas": [
+        -1.9073486328125e-06,
+        4.00543212890625e-05
+      ],
+      "overflow": false,
+      "scrollbar": "rgb(174, 190, 255) rgb(22, 25, 30)",
+      "selection": "rgb(174, 190, 255)",
+      "selectors": 1,
+      "title": "Không có gì để chứng minh ở đây.",
+      "width": 1440
+    },
+    {
+      "route": "/ko/docs",
+      "expectedLocale": "ko",
+      "viewport": 1440,
+      "border": "0.666667px",
+      "brokenAnchors": 0,
+      "footers": 1,
+      "legacy": false,
+      "locale": "ko",
+      "logoDeltas": [
+        -1.9073486328125e-06,
+        -8.20159912109375e-05
+      ],
+      "overflow": false,
+      "scrollbar": "rgb(174, 190, 255) rgb(22, 25, 30)",
+      "selection": "rgb(174, 190, 255)",
+      "selectors": 1,
+      "title": "문서",
+      "width": 1440
+    },
+    {
+      "route": "/ko/olmayan",
+      "expectedLocale": "ko",
+      "viewport": 1440,
+      "border": "0.666667px",
+      "brokenAnchors": 0,
+      "footers": 1,
+      "legacy": false,
+      "locale": "ko",
+      "logoDeltas": [
+        -1.9073486328125e-06,
+        4.00543212890625e-05
+      ],
+      "overflow": false,
+      "scrollbar": "rgb(174, 190, 255) rgb(22, 25, 30)",
+      "selection": "rgb(174, 190, 255)",
+      "selectors": 1,
+      "title": "여기에는 증명할 것이 없습니다.",
+      "width": 1440
+    }
+  ],
+  "landingCases": [
+    {
+      "locale": "en",
+      "viewport": 320,
+      "audiences": true,
+      "closing": true,
+      "faq": true,
+      "footerBorder": "0.666667px",
+      "footers": 1,
+      "legacy": false,
+      "licenseLink": false,
+      "mcp": true,
+      "overflow": false,
+      "proofStripe": false,
+      "selectors": 1,
+      "workflow": true
+    },
+    {
+      "locale": "zh-CN",
+      "viewport": 320,
+      "audiences": true,
+      "closing": true,
+      "faq": true,
+      "footerBorder": "0.666667px",
+      "footers": 1,
+      "legacy": false,
+      "licenseLink": false,
+      "mcp": true,
+      "overflow": false,
+      "proofStripe": false,
+      "selectors": 1,
+      "workflow": true
+    },
+    {
+      "locale": "hi",
+      "viewport": 320,
+      "audiences": true,
+      "closing": true,
+      "faq": true,
+      "footerBorder": "0.666667px",
+      "footers": 1,
+      "legacy": false,
+      "licenseLink": false,
+      "mcp": true,
+      "overflow": false,
+      "proofStripe": false,
+      "selectors": 1,
+      "workflow": true
+    },
+    {
+      "locale": "es",
+      "viewport": 320,
+      "audiences": true,
+      "closing": true,
+      "faq": true,
+      "footerBorder": "0.666667px",
+      "footers": 1,
+      "legacy": false,
+      "licenseLink": false,
+      "mcp": true,
+      "overflow": false,
+      "proofStripe": false,
+      "selectors": 1,
+      "workflow": true
+    },
+    {
+      "locale": "fr",
+      "viewport": 320,
+      "audiences": true,
+      "closing": true,
+      "faq": true,
+      "footerBorder": "0.666667px",
+      "footers": 1,
+      "legacy": false,
+      "licenseLink": false,
+      "mcp": true,
+      "overflow": false,
+      "proofStripe": false,
+      "selectors": 1,
+      "workflow": true
+    },
+    {
+      "locale": "ar",
+      "viewport": 320,
+      "audiences": true,
+      "closing": true,
+      "faq": true,
+      "footerBorder": "0.666667px",
+      "footers": 1,
+      "legacy": false,
+      "licenseLink": false,
+      "mcp": true,
+      "overflow": false,
+      "proofStripe": false,
+      "selectors": 1,
+      "workflow": true
+    },
+    {
+      "locale": "bn",
+      "viewport": 320,
+      "audiences": true,
+      "closing": true,
+      "faq": true,
+      "footerBorder": "0.666667px",
+      "footers": 1,
+      "legacy": false,
+      "licenseLink": false,
+      "mcp": true,
+      "overflow": false,
+      "proofStripe": false,
+      "selectors": 1,
+      "workflow": true
+    },
+    {
+      "locale": "pt-BR",
+      "viewport": 320,
+      "audiences": true,
+      "closing": true,
+      "faq": true,
+      "footerBorder": "0.666667px",
+      "footers": 1,
+      "legacy": false,
+      "licenseLink": false,
+      "mcp": true,
+      "overflow": false,
+      "proofStripe": false,
+      "selectors": 1,
+      "workflow": true
+    },
+    {
+      "locale": "ru",
+      "viewport": 320,
+      "audiences": true,
+      "closing": true,
+      "faq": true,
+      "footerBorder": "0.666667px",
+      "footers": 1,
+      "legacy": false,
+      "licenseLink": false,
+      "mcp": true,
+      "overflow": false,
+      "proofStripe": false,
+      "selectors": 1,
+      "workflow": true
+    },
+    {
+      "locale": "id",
+      "viewport": 320,
+      "audiences": true,
+      "closing": true,
+      "faq": true,
+      "footerBorder": "0.666667px",
+      "footers": 1,
+      "legacy": false,
+      "licenseLink": false,
+      "mcp": true,
+      "overflow": false,
+      "proofStripe": false,
+      "selectors": 1,
+      "workflow": true
+    },
+    {
+      "locale": "ur",
+      "viewport": 320,
+      "audiences": true,
+      "closing": true,
+      "faq": true,
+      "footerBorder": "0.666667px",
+      "footers": 1,
+      "legacy": false,
+      "licenseLink": false,
+      "mcp": true,
+      "overflow": false,
+      "proofStripe": false,
+      "selectors": 1,
+      "workflow": true
+    },
+    {
+      "locale": "de",
+      "viewport": 320,
+      "audiences": true,
+      "closing": true,
+      "faq": true,
+      "footerBorder": "0.666667px",
+      "footers": 1,
+      "legacy": false,
+      "licenseLink": false,
+      "mcp": true,
+      "overflow": false,
+      "proofStripe": false,
+      "selectors": 1,
+      "workflow": true
+    },
+    {
+      "locale": "ja",
+      "viewport": 320,
+      "audiences": true,
+      "closing": true,
+      "faq": true,
+      "footerBorder": "0.666667px",
+      "footers": 1,
+      "legacy": false,
+      "licenseLink": false,
+      "mcp": true,
+      "overflow": false,
+      "proofStripe": false,
+      "selectors": 1,
+      "workflow": true
+    },
+    {
+      "locale": "sw",
+      "viewport": 320,
+      "audiences": true,
+      "closing": true,
+      "faq": true,
+      "footerBorder": "0.666667px",
+      "footers": 1,
+      "legacy": false,
+      "licenseLink": false,
+      "mcp": true,
+      "overflow": false,
+      "proofStripe": false,
+      "selectors": 1,
+      "workflow": true
+    },
+    {
+      "locale": "mr",
+      "viewport": 320,
+      "audiences": true,
+      "closing": true,
+      "faq": true,
+      "footerBorder": "0.666667px",
+      "footers": 1,
+      "legacy": false,
+      "licenseLink": false,
+      "mcp": true,
+      "overflow": false,
+      "proofStripe": false,
+      "selectors": 1,
+      "workflow": true
+    },
+    {
+      "locale": "te",
+      "viewport": 320,
+      "audiences": true,
+      "closing": true,
+      "faq": true,
+      "footerBorder": "0.666667px",
+      "footers": 1,
+      "legacy": false,
+      "licenseLink": false,
+      "mcp": true,
+      "overflow": false,
+      "proofStripe": false,
+      "selectors": 1,
+      "workflow": true
+    },
+    {
+      "locale": "tr",
+      "viewport": 320,
+      "audiences": true,
+      "closing": true,
+      "faq": true,
+      "footerBorder": "0.666667px",
+      "footers": 1,
+      "legacy": false,
+      "licenseLink": false,
+      "mcp": true,
+      "overflow": false,
+      "proofStripe": false,
+      "selectors": 1,
+      "workflow": true
+    },
+    {
+      "locale": "ta",
+      "viewport": 320,
+      "audiences": true,
+      "closing": true,
+      "faq": true,
+      "footerBorder": "0.666667px",
+      "footers": 1,
+      "legacy": false,
+      "licenseLink": false,
+      "mcp": true,
+      "overflow": false,
+      "proofStripe": false,
+      "selectors": 1,
+      "workflow": true
+    },
+    {
+      "locale": "vi",
+      "viewport": 320,
+      "audiences": true,
+      "closing": true,
+      "faq": true,
+      "footerBorder": "0.666667px",
+      "footers": 1,
+      "legacy": false,
+      "licenseLink": false,
+      "mcp": true,
+      "overflow": false,
+      "proofStripe": false,
+      "selectors": 1,
+      "workflow": true
+    },
+    {
+      "locale": "ko",
+      "viewport": 320,
+      "audiences": true,
+      "closing": true,
+      "faq": true,
+      "footerBorder": "0.666667px",
+      "footers": 1,
+      "legacy": false,
+      "licenseLink": false,
+      "mcp": true,
+      "overflow": false,
+      "proofStripe": false,
+      "selectors": 1,
+      "workflow": true
+    },
+    {
+      "locale": "en",
+      "viewport": 1440,
+      "audiences": true,
+      "closing": true,
+      "faq": true,
+      "footerBorder": "0.666667px",
+      "footers": 1,
+      "legacy": false,
+      "licenseLink": false,
+      "mcp": true,
+      "overflow": false,
+      "proofStripe": false,
+      "selectors": 1,
+      "workflow": true
+    },
+    {
+      "locale": "zh-CN",
+      "viewport": 1440,
+      "audiences": true,
+      "closing": true,
+      "faq": true,
+      "footerBorder": "0.666667px",
+      "footers": 1,
+      "legacy": false,
+      "licenseLink": false,
+      "mcp": true,
+      "overflow": false,
+      "proofStripe": false,
+      "selectors": 1,
+      "workflow": true
+    },
+    {
+      "locale": "hi",
+      "viewport": 1440,
+      "audiences": true,
+      "closing": true,
+      "faq": true,
+      "footerBorder": "0.666667px",
+      "footers": 1,
+      "legacy": false,
+      "licenseLink": false,
+      "mcp": true,
+      "overflow": false,
+      "proofStripe": false,
+      "selectors": 1,
+      "workflow": true
+    },
+    {
+      "locale": "es",
+      "viewport": 1440,
+      "audiences": true,
+      "closing": true,
+      "faq": true,
+      "footerBorder": "0.666667px",
+      "footers": 1,
+      "legacy": false,
+      "licenseLink": false,
+      "mcp": true,
+      "overflow": false,
+      "proofStripe": false,
+      "selectors": 1,
+      "workflow": true
+    },
+    {
+      "locale": "fr",
+      "viewport": 1440,
+      "audiences": true,
+      "closing": true,
+      "faq": true,
+      "footerBorder": "0.666667px",
+      "footers": 1,
+      "legacy": false,
+      "licenseLink": false,
+      "mcp": true,
+      "overflow": false,
+      "proofStripe": false,
+      "selectors": 1,
+      "workflow": true
+    },
+    {
+      "locale": "ar",
+      "viewport": 1440,
+      "audiences": true,
+      "closing": true,
+      "faq": true,
+      "footerBorder": "0.666667px",
+      "footers": 1,
+      "legacy": false,
+      "licenseLink": false,
+      "mcp": true,
+      "overflow": false,
+      "proofStripe": false,
+      "selectors": 1,
+      "workflow": true
+    },
+    {
+      "locale": "bn",
+      "viewport": 1440,
+      "audiences": true,
+      "closing": true,
+      "faq": true,
+      "footerBorder": "0.666667px",
+      "footers": 1,
+      "legacy": false,
+      "licenseLink": false,
+      "mcp": true,
+      "overflow": false,
+      "proofStripe": false,
+      "selectors": 1,
+      "workflow": true
+    },
+    {
+      "locale": "pt-BR",
+      "viewport": 1440,
+      "audiences": true,
+      "closing": true,
+      "faq": true,
+      "footerBorder": "0.666667px",
+      "footers": 1,
+      "legacy": false,
+      "licenseLink": false,
+      "mcp": true,
+      "overflow": false,
+      "proofStripe": false,
+      "selectors": 1,
+      "workflow": true
+    },
+    {
+      "locale": "ru",
+      "viewport": 1440,
+      "audiences": true,
+      "closing": true,
+      "faq": true,
+      "footerBorder": "0.666667px",
+      "footers": 1,
+      "legacy": false,
+      "licenseLink": false,
+      "mcp": true,
+      "overflow": false,
+      "proofStripe": false,
+      "selectors": 1,
+      "workflow": true
+    },
+    {
+      "locale": "id",
+      "viewport": 1440,
+      "audiences": true,
+      "closing": true,
+      "faq": true,
+      "footerBorder": "0.666667px",
+      "footers": 1,
+      "legacy": false,
+      "licenseLink": false,
+      "mcp": true,
+      "overflow": false,
+      "proofStripe": false,
+      "selectors": 1,
+      "workflow": true
+    },
+    {
+      "locale": "ur",
+      "viewport": 1440,
+      "audiences": true,
+      "closing": true,
+      "faq": true,
+      "footerBorder": "0.666667px",
+      "footers": 1,
+      "legacy": false,
+      "licenseLink": false,
+      "mcp": true,
+      "overflow": false,
+      "proofStripe": false,
+      "selectors": 1,
+      "workflow": true
+    },
+    {
+      "locale": "de",
+      "viewport": 1440,
+      "audiences": true,
+      "closing": true,
+      "faq": true,
+      "footerBorder": "0.666667px",
+      "footers": 1,
+      "legacy": false,
+      "licenseLink": false,
+      "mcp": true,
+      "overflow": false,
+      "proofStripe": false,
+      "selectors": 1,
+      "workflow": true
+    },
+    {
+      "locale": "ja",
+      "viewport": 1440,
+      "audiences": true,
+      "closing": true,
+      "faq": true,
+      "footerBorder": "0.666667px",
+      "footers": 1,
+      "legacy": false,
+      "licenseLink": false,
+      "mcp": true,
+      "overflow": false,
+      "proofStripe": false,
+      "selectors": 1,
+      "workflow": true
+    },
+    {
+      "locale": "sw",
+      "viewport": 1440,
+      "audiences": true,
+      "closing": true,
+      "faq": true,
+      "footerBorder": "0.666667px",
+      "footers": 1,
+      "legacy": false,
+      "licenseLink": false,
+      "mcp": true,
+      "overflow": false,
+      "proofStripe": false,
+      "selectors": 1,
+      "workflow": true
+    },
+    {
+      "locale": "mr",
+      "viewport": 1440,
+      "audiences": true,
+      "closing": true,
+      "faq": true,
+      "footerBorder": "0.666667px",
+      "footers": 1,
+      "legacy": false,
+      "licenseLink": false,
+      "mcp": true,
+      "overflow": false,
+      "proofStripe": false,
+      "selectors": 1,
+      "workflow": true
+    },
+    {
+      "locale": "te",
+      "viewport": 1440,
+      "audiences": true,
+      "closing": true,
+      "faq": true,
+      "footerBorder": "0.666667px",
+      "footers": 1,
+      "legacy": false,
+      "licenseLink": false,
+      "mcp": true,
+      "overflow": false,
+      "proofStripe": false,
+      "selectors": 1,
+      "workflow": true
+    },
+    {
+      "locale": "tr",
+      "viewport": 1440,
+      "audiences": true,
+      "closing": true,
+      "faq": true,
+      "footerBorder": "0.666667px",
+      "footers": 1,
+      "legacy": false,
+      "licenseLink": false,
+      "mcp": true,
+      "overflow": false,
+      "proofStripe": false,
+      "selectors": 1,
+      "workflow": true
+    },
+    {
+      "locale": "ta",
+      "viewport": 1440,
+      "audiences": true,
+      "closing": true,
+      "faq": true,
+      "footerBorder": "0.666667px",
+      "footers": 1,
+      "legacy": false,
+      "licenseLink": false,
+      "mcp": true,
+      "overflow": false,
+      "proofStripe": false,
+      "selectors": 1,
+      "workflow": true
+    },
+    {
+      "locale": "vi",
+      "viewport": 1440,
+      "audiences": true,
+      "closing": true,
+      "faq": true,
+      "footerBorder": "0.666667px",
+      "footers": 1,
+      "legacy": false,
+      "licenseLink": false,
+      "mcp": true,
+      "overflow": false,
+      "proofStripe": false,
+      "selectors": 1,
+      "workflow": true
+    },
+    {
+      "locale": "ko",
+      "viewport": 1440,
+      "audiences": true,
+      "closing": true,
+      "faq": true,
+      "footerBorder": "0.666667px",
+      "footers": 1,
+      "legacy": false,
+      "licenseLink": false,
+      "mcp": true,
+      "overflow": false,
+      "proofStripe": false,
+      "selectors": 1,
+      "workflow": true
+    }
+  ],
+  "footerLanguageSwitch": "Turkish docs -> English retained /docs with English content and one selector",
+  "forcedColors": "System selection and scrollbar colors respected; masked brand remains CanvasText",
+  "tests": {
+    "passed": 263,
+    "skipped": 9,
+    "failed": 0,
+    "assertions": 11442,
+    "files": 88
+  },
+  "checks": {
+    "lint": "passed",
+    "strictTypes": "passed",
+    "build": "passed"
+  }
+}

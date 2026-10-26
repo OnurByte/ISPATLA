@@ -7,7 +7,7 @@ import { socialCopy } from "@/i18n/social-copy";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
-export const alt = "İSPATLA herkese açık profil kartı";
+export const alt = "ispatla.tr herkese açık profil kartı";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -25,7 +25,7 @@ export default async function ProfileImage({ params }: { params: Promise<{ handl
   return new ImageResponse(
     <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", justifyContent: "space-between", padding: "55px 65px", borderTop: "18px solid #315BF5", background: "#F0EDE5", color: "#16191E", fontFamily: fonts.map(f => f.name).join(", ") }}>
       <div style={{ display: "flex", justifyContent: "space-between", fontSize: 23, letterSpacing: 3 }}>
-        <span>ISPATLA</span><span style={{ color: "#315BF5" }}>PUBLIC PROFILE</span>
+        <span>ispatla.tr</span><span style={{ color: "#315BF5" }}>PUBLIC PROFILE</span>
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
         <div style={{ fontSize: name.length > 35 ? 53 : 70, lineHeight: 1.1, maxHeight: 180, overflow: "hidden" }}>{name}</div>

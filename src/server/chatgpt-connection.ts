@@ -134,7 +134,7 @@ export function chatGPTAuthorizationUrl(input: {
     code_challenge: createHash("sha256").update(input.verifier).digest("base64url"),
     ext_agent_host_id: input.hostId,
   };
-  if (input.clientId === "dynamic_agent_client") values.agent_name_hint = "Ispatla";
+  if (input.clientId === "dynamic_agent_client") values.agent_name_hint = "ispatla.tr";
   if (input.priorIdToken) values.id_token_hint = input.priorIdToken;
   for (const [key, value] of Object.entries(values)) url.searchParams.set(key, value);
   return url.toString();
@@ -180,7 +180,7 @@ function finishFlow(state: string, flow: PendingFlow): void {
 
 function htmlResponse(ok: boolean): { status: number; html: string } {
   const heading = ok ? "ChatGPT account connected" : "ChatGPT connection was not completed";
-  const detail = ok ? "You can close this tab and return to Ispatla." : "Return to Ispatla and try connecting again.";
+  const detail = ok ? "You can close this tab and return to ispatla.tr." : "Return to ispatla.tr and try connecting again.";
   return { status: ok ? 200 : 400, html: `<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>${heading}</title><body><main><h1>${heading}</h1><p>${detail}</p></main></body></html>` };
 }
 

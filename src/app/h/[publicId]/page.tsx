@@ -21,7 +21,7 @@ function displayTime(value: number, locale: Locale): string {
 export async function generateMetadata({ params }: { params: Promise<{ publicId: string }> }): Promise<Metadata> {
   const { publicId } = await params;
   const share = await readPublicXPostShare(publicId);
-  if (!share) return { title: "Paylaşım bulunamadı ⁜ İSPATLA", robots: { index: false, follow: false } };
+  if (!share) return { title: "Paylaşım bulunamadı ⁜ ispatla.tr", robots: { index: false, follow: false } };
   const path = "/h/" + publicId;
   const url = publicShareUrl(path);
   const image = publicSocialImageUrl(path);
@@ -32,10 +32,10 @@ export async function generateMetadata({ params }: { params: Promise<{ publicId:
     title, description,
     alternates: { canonical: url },
     openGraph: {
-      title, description, type: "article", url, siteName: "İSPATLA",
+      title, description, type: "article", url, siteName: "ispatla.tr",
       publishedTime: new Date(share.publishedAt * 1000).toISOString(),
       modifiedTime: new Date(share.observedAt * 1000).toISOString(),
-      images: [{ url: image, width: 1200, height: 630, alt: socialCopy[locale].observation + " ⁜ İSPATLA" }],
+      images: [{ url: image, width: 1200, height: 630, alt: socialCopy[locale].observation + " ⁜ ispatla.tr" }],
     },
     twitter: { card: "summary_large_image", title, description, images: [image] },
   };

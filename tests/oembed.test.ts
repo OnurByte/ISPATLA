@@ -37,9 +37,9 @@ test("oEmbed discovery and responses match every supported locale and public lan
       expect(payload).toMatchObject({
         version: "1.0",
         type: "link",
-        provider_name: "İSPATLA",
+        provider_name: "ispatla.tr",
         provider_url: PUBLIC_ORIGIN,
-        author_name: "İSPATLA",
+        author_name: "ispatla.tr",
         author_url: PUBLIC_ORIGIN,
         title: expected.title,
         description: expected.description,

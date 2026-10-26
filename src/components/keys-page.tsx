@@ -196,7 +196,7 @@ export function KeysPage({ initialKeys, initialVaultReady, initialAi }: { initia
         if (target.origin !== "https://openrouter.ai") throw new Error("Bağlantı adresi doğrulanamadı.");
         window.location.assign(target.toString()); return;
       }
-      setMessage("Ispatla bağlantısı kaldırıldı. Sağlayıcı tarafındaki anahtarı OpenRouter hesabından da iptal edebilirsin."); await loadAi();
+      setMessage("ispatla.tr bağlantısı kaldırıldı. Sağlayıcı tarafındaki anahtarı OpenRouter hesabından da iptal edebilirsin."); await loadAi();
     } catch (error) { setMessage(error instanceof Error ? error.message : "OpenRouter bağlantısı değişmedi."); }
     finally { setPending(""); }
   }
@@ -360,7 +360,7 @@ export function KeysPage({ initialKeys, initialVaultReady, initialAi }: { initia
       <Card>
         <CardHeader>
           <CardTitle>Model seçmeden önce karşılaştır</CardTitle>
-          <CardDescription>Arena’nın metin tarzı kontrollü sıralamasına bak; ardından kendi içeriklerinle bağlantı ve kalite testi yap. Sıralama, Ispatla’da başarı garantisi değildir.</CardDescription>
+          <CardDescription>Arena’nın metin tarzı kontrollü sıralamasına bak; ardından kendi içeriklerinle bağlantı ve kalite testi yap. Sıralama, ispatla.tr’da başarı garantisi değildir.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {arena.available ? <>

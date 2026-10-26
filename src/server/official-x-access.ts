@@ -13,7 +13,7 @@ export function assertOfficialXCallsAvailable(): void {
   }
 }
 
-/** Distinguish granted X scopes from operations İSPATLA currently permits. */
+/** Distinguish granted X scopes from operations ispatla.tr currently permits. */
 export function describeOfficialXCapabilities(scopes: readonly string[]) {
   const providerCapabilities = {
     post: scopes.includes("tweet.write"),

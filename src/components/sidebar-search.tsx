@@ -40,7 +40,7 @@ const PAGE_DETAILS: Record<string, { icon: LucideIcon; en: string; tr: string }>
   privacy: { icon: ShieldCheck, en: "Read how account and usage data is handled.", tr: "Hesap ve kullanım verilerinin nasıl işlendiğini oku." },
   "research/xpatla-consumer-complaints-2026": { icon: FileText, en: "Read the 𝕏Patla consumer complaint research.", tr: "𝕏Patla tüketici şikâyetleri araştırmasını oku." },
   "reset-password": { icon: LockKeyhole, en: "Choose a new password for your account.", tr: "Hesabın için yeni bir şifre belirle." },
-  signup: { icon: UserRound, en: "Create your Ispatla account.", tr: "Ispatla hesabını oluştur." },
+  signup: { icon: UserRound, en: "Create your ispatla.tr account.", tr: "ispatla.tr hesabını oluştur." },
   terms: { icon: FileText, en: "Read the service terms.", tr: "Hizmet koşullarını oku." },
   transparency: { icon: ShieldCheck, en: "Review product transparency information.", tr: "Ürün şeffaflığı bilgilerini incele." },
 };

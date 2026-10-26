@@ -1,8 +1,8 @@
+import { isProtectedWorkspaceRoute } from "@/lib/workspace-routes";
 import { NextResponse } from "next/server";
 import { getSessionCookie } from "better-auth/cookies";
 import { DEFAULT_LOCALE, isLocale } from "@/i18n/config";
 
-const PRIVATE_PAGES = new Set(["/mcp/authorize", "/accounts", "/analytics", "/categories", "/dashboard", "/drafts", "/evaluation", "/onboarding", "/opportunities", "/profile", "/queue", "/settings", "/settings/appearance", "/settings/automation", "/settings/keys", "/settings/profile", "/settings/security", "/settings/style", "/sources"]);
 
 /**
  * Fast sign-in redirect only. Pages and API handlers verify the DB session and
@@ -33,7 +33,7 @@ export function proxy(request: Request): NextResponse {
     return response;
   }
 
-  if ((PRIVATE_PAGES.has(appPath) || appPath.startsWith("/post/")) && !getSessionCookie(request)) {
+  if (isProtectedWorkspaceRoute(appPath) && !getSessionCookie(request)) {
     const loginUrl = new URL(`${hasLocalePrefix ? `/${locale}` : ""}/login`, url);
     loginUrl.searchParams.set("next", `${appPath}${url.search}`);
     return NextResponse.redirect(loginUrl);
