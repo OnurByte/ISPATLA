@@ -12,7 +12,7 @@ export const GET = withUser(async () => NextResponse.json(await getPostgresOwnUs
 export const PUT = withUser(async (request: Request) => {
   try {
     const body = await readJsonBody(request);
-    if (Object.keys(body).length) throw new Error("𝕏 profil bilgileri Ispatla üzerinden değiştirilemez");
+    if (Object.keys(body).length) throw new Error("𝕏 profil bilgileri ispatla.tr üzerinden değiştirilemez");
     const ownerUserId = currentOwnerId();
     const accounts = ownerUserId ? await getPostgresAccounts(ownerUserId) : [];
     if (!accounts.some((account) => account.enabled)) return NextResponse.json({ error: "Önce bir herkese açık 𝕏 hesabı ekleyin." }, { status: 409 });

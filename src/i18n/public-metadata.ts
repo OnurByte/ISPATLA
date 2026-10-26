@@ -39,7 +39,7 @@ export function publicMetadata(locale: Locale, path: string, title: string, desc
       title: metadataTitle,
       description: metadataDescription,
       url,
-      siteName: "İSPATLA",
+      siteName: "ispatla.tr",
       locale: OPEN_GRAPH_LOCALES[locale],
       alternateLocale: LOCALES.filter((code) => code !== locale).map((code) => OPEN_GRAPH_LOCALES[code]),
       type: "website",

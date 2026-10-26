@@ -13,12 +13,12 @@ export async function generateMetadata(): Promise<Metadata> {
   const locale = await requestPublicLocale();
   const words = leaderboardCopy[locale];
   return {
-    title: words.title + " ⁜ İSPATLA",
+    title: words.title + " ⁜ ispatla.tr",
     description: words.intro,
     alternates: { canonical: publicShareUrl("/leaderboard") },
     openGraph: {
-      type: "website", title: words.title + " ⁜ İSPATLA", description: words.intro,
-      url: publicShareUrl("/leaderboard"), siteName: "İSPATLA",
+      type: "website", title: words.title + " ⁜ ispatla.tr", description: words.intro,
+      url: publicShareUrl("/leaderboard"), siteName: "ispatla.tr",
       images: [{ url: publicSocialImageUrl("/leaderboard"), width: 1200, height: 630, alt: words.title }],
     },
     twitter: { card: "summary_large_image", title: words.title, description: words.intro, images: [publicSocialImageUrl("/leaderboard")] },
@@ -33,5 +33,5 @@ export default async function LeaderboardPage({ searchParams }: { searchParams: 
   let authenticated = false;
   try { authenticated = Boolean(await getOptionalPageUser()); } catch { /* The public ranking remains available if session lookup is unavailable. */ }
   const board = await getLeaderboard();
-  return <>{authenticated ? null : <PublicHeader locale={locale} authenticated={false} />}<div className="mx-auto w-full max-w-4xl px-4 pt-7"><ShareActions url={publicShareUrl("/leaderboard")} text={"İSPATLA ⁜ " + leaderboardCopy[locale].title} locale={locale} imageUrl={publicSocialImageUrl("/leaderboard")} /></div><LeaderboardContent locale={locale} tab={tab} board={board} /></>;
+  return <>{authenticated ? null : <PublicHeader locale={locale} authenticated={false} />}<div className="mx-auto w-full max-w-4xl px-4 pt-7"><ShareActions url={publicShareUrl("/leaderboard")} text={"ispatla.tr ⁜ " + leaderboardCopy[locale].title} locale={locale} imageUrl={publicSocialImageUrl("/leaderboard")} /></div><LeaderboardContent locale={locale} tab={tab} board={board} /></>;
 }

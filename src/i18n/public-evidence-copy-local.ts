@@ -4,14 +4,14 @@ import type { PartialEvidenceCopy } from "./public-evidence-copy-types";
 export const publicEvidenceCopyLocal: PartialEvidenceCopy = {
   tr: {
     pages: {
-      openSource: { title: "Açık kaynak: kodu incele, kendin çalıştır", description: "ISPATLA'nın AGPL-3.0-or-later lisansı, yerel demo yolu ve bilinen sınırları.", summary: "Kaynak kodunu, lisansı ve yerel demo yolunu doğrudan incele. Açık kod; ücretsiz sunucu, hazır üretim hizmeti veya kusursuz güvenlik vaadi değildir.", sections: [
+      openSource: { title: "Açık kaynak: kodu incele, kendin çalıştır", description: "ispatla.tr'nın AGPL-3.0-or-later lisansı, yerel demo yolu ve bilinen sınırları.", summary: "Kaynak kodunu, lisansı ve yerel demo yolunu doğrudan incele. Açık kod; ücretsiz sunucu, hazır üretim hizmeti veya kusursuz güvenlik vaadi değildir.", sections: [
         { heading: "Lisans ve kaynak", body: "Ana uygulama deposu herkese açıktır ve AGPL-3.0-or-later lisansını kullanır. Tam lisans metnini LICENSE dosyasından okuyun; üçüncü taraf paketler kendi lisanslarına tabidir." },
         { heading: "Yerel kurulum", body: "README, Node.js 22.5+ ve Bun ile yerel kurulumu PostgreSQL bağlantısı gereksinimiyle belgeliyor. Hazır sentetik demo verisi sunulmuyor." },
         { heading: "Maliyetler", body: "Kod lisansının ücreti yoktur. Sunucu/barındırma, 𝕏 API erişimi ve AI sağlayıcı kullanımı ayrıca maliyet yaratabilir; ücretler sağlayıcıya göre değişir." },
         { heading: "Açık kaynak sınırları", body: "Açık kod her kurulumun güvenli, güncel veya doğru yapılandırılmış olduğunu; destek, SLA veya kesintisiz 𝕏 erişimi bulunduğunu garanti etmez. Canlı sağlayıcı çalışması ayrıca doğrulanmalıdır." },
         { heading: "Katkı ve düzeltme", body: "Katkı, güvenlik bildirimi ve düzeltme yolları depoda açıklanır. Hata veya yeni kaynak için herkese açık GitHub kaydını kullanın." },
       ] },
-      transparency: { title: "Ürün durumu, kanıt ve sınırlar", description: "ISPATLA'nın belgelenen iş akışını ve test edilmemiş canlı sınırlarını kaynaklarıyla açıkla.", summary: "Kod ve proje belgelerinde görünen durumu canlı hizmet, sağlayıcı erişimi veya dağıtım kanıtından ayrı tutuyoruz. İçerik kontrolü: 9 Ekim 2026.", sections: [
+      transparency: { title: "Ürün durumu, kanıt ve sınırlar", description: "ispatla.tr'nın belgelenen iş akışını ve test edilmemiş canlı sınırlarını kaynaklarıyla açıkla.", summary: "Kod ve proje belgelerinde görünen durumu canlı hizmet, sağlayıcı erişimi veya dağıtım kanıtından ayrı tutuyoruz. İçerik kontrolü: 9 Ekim 2026.", sections: [
         { heading: "Kod ve belgelerde bulunanlar", body: "Kaynak keşfi, fırsat değerlendirme, taslak düzenleme ve kontrollü yayın akışları kod ve belgelerde yer alır. Sentetik yerel demo gerçek 𝕏 verisi kullanmaz." },
         { heading: "Canlı çalışma sınırı", body: "Bu sayfa 𝕏 OAuth, gerçek 𝕏 gönderisi, uzaktan doğrulama, AI sağlayıcı çağrısı veya üretim dağıtımını test etmedi. Yerel testler bu sonuçların kanıtı değildir." },
         { heading: "Veri ve dış servisler", body: "𝕏 hesabı resmi OAuth ile ayrı bağlanır; kod tokenları şifreli saklar ve yayın öncesi ayrı tercih/kanıt kapıları kullanır. AI sağlayıcı ve saklama davranışı kurulum yapılandırmasına bağlıdır." },
@@ -26,7 +26,7 @@ export const publicEvidenceCopyLocal: PartialEvidenceCopy = {
       research: { title: "Xpatla tüketici iddiaları: kaynaklı araştırma dosyası", description: "Abonelik ve iade hakkındaki kullanıcı beyanlarını şirket açıklamaları ve doğrulama sınırlarıyla ayırır.", summary: "Bu dosya bireysel kullanıcı iddialarını, şirketin kendi güncel beyanlarını ve çözümlenmemiş noktaları ayırır. Şikâyet kaydı mahkeme kararı veya bağımsız ürün testi değildir.", sections: [
         { heading: "Okuma ilkesi", body: "Kullanıcı kayıtları taraf beyanıdır; olayın bağımsız teyidi değildir. Kişisel tanımlayıcıları tekrar yayımlamıyoruz. Bu beyanlardan suç, hukuka aykırılık veya genel müşteri deneyimi sonucu çıkarılamaz." },
         { heading: "Şirketin açıkladığı durum", body: "10 Temmuz 2026 tarihli koşullar yeni kayıt/satış ve 𝕏 bağlantısı/verisi/yayınını askıda; mevcut üyeler için çevrimdışı taslağı kullanılabilir gösterir. Platform bütünlüğü sayfası Circle ve Growth Credit askısını, engagement pazarının kapatılmasını bildirir." },
-        { heading: "Yanıt ve düzeltme", body: "Xpatla'nın yayımladığı support kanalıyla yanıt gönderebilir. ISPATLA bu dosyanın yayıncısıdır; Xpatla/Fast AI Labs ile bağı veya onayı yoktur ve bu araştırma bağımsız bir kurumca hazırlanmadı. Hata ya da yanıt için açık kayıt kullanın." },
+        { heading: "Yanıt ve düzeltme", body: "Xpatla'nın yayımladığı support kanalıyla yanıt gönderebilir. ispatla.tr bu dosyanın yayıncısıdır; Xpatla/Fast AI Labs ile bağı veya onayı yoktur ve bu araştırma bağımsız bir kurumca hazırlanmadı. Hata ya da yanıt için açık kayıt kullanın." },
         { heading: "Kaynak sınırı", body: "Üçüncü taraf derleme, olası çıkar çatışması nedeniyle bu kanıt listesine alınmadı. Şikâyet platformundaki kayıtlar zamanla değişebilir; özgün kayıtları açıp tarihlerini kontrol edin." },
       ] },
     },
@@ -37,14 +37,14 @@ export const publicEvidenceCopyLocal: PartialEvidenceCopy = {
   },
   ur: {
     pages: {
-      openSource: { title: "اوپن سورس: کوڈ دیکھیں اور خود چلائیں", description: "ISPATLA کا AGPL-3.0-or-later لائسنس، مقامی ڈیمو اور معلوم حدود۔", summary: "کوڈ، لائسنس اور مقامی ڈیمو کا راستہ دیکھیں۔ اوپن سورس مفت سرور یا کامل حفاظت کی ضمانت نہیں۔", sections: [
+      openSource: { title: "اوپن سورس: کوڈ دیکھیں اور خود چلائیں", description: "ispatla.tr کا AGPL-3.0-or-later لائسنس، مقامی ڈیمو اور معلوم حدود۔", summary: "کوڈ، لائسنس اور مقامی ڈیمو کا راستہ دیکھیں۔ اوپن سورس مفت سرور یا کامل حفاظت کی ضمانت نہیں۔", sections: [
         { heading: "لائسنس اور سورس", body: "اصل ایپ کا ذخیرہ عوامی ہے اور AGPL-3.0-or-later استعمال کرتا ہے۔ مکمل لائسنس LICENSE میں ہے؛ تیسرے فریق کے پیکجز کے الگ لائسنس ہیں۔" },
         { heading: "مقامی تنصیب", body: "README، Node.js 22.5+ اور Bun کے ساتھ مقامی تنصیب کے لیے PostgreSQL کنکشن کی ضرورت بتاتا ہے۔ تیار مصنوعی ڈیمو ڈیٹا فراہم نہیں کیا جاتا۔" },
         { heading: "اخراجات", body: "سورس لائسنس کی فیس نہیں۔ سرور/میزبانی، 𝕏 API اور AI فراہم کنندہ کے اخراجات الگ ہو سکتے ہیں اور فراہم کنندہ کے لحاظ سے بدلتے ہیں۔" },
         { heading: "اوپن سورس کی حدود", body: "کھلا کوڈ ہر تنصیب کی حفاظت، تازگی یا درست ترتیب؛ معاونت، SLA یا 𝕏 تک مسلسل رسائی کی ضمانت نہیں۔ براہ راست فراہم کنندہ کا استعمال الگ جانچیں۔" },
         { heading: "تعاون اور تصحیح", body: "تعاون، سیکیورٹی رپورٹ اور تصحیح کے طریقے ذخیرے میں درج ہیں۔ غلطی یا نیا ماخذ عوامی GitHub ریکارڈ میں شامل کریں۔" },
       ] },
-      transparency: { title: "مصنوعات کی حالت، ثبوت اور حدود", description: "ISPATLA کے درج شدہ ورک فلو اور غیر آزمودہ عملی حدود کے ماخذ۔", summary: "کوڈ اور دستاویزات میں موجود بات کو براہ راست سروس، فراہم کنندہ رسائی یا تعیناتی کے ثبوت سے الگ رکھتے ہیں۔ جائزہ: 9 اکتوبر 2026۔", sections: [
+      transparency: { title: "مصنوعات کی حالت، ثبوت اور حدود", description: "ispatla.tr کے درج شدہ ورک فلو اور غیر آزمودہ عملی حدود کے ماخذ۔", summary: "کوڈ اور دستاویزات میں موجود بات کو براہ راست سروس، فراہم کنندہ رسائی یا تعیناتی کے ثبوت سے الگ رکھتے ہیں۔ جائزہ: 9 اکتوبر 2026۔", sections: [
         { heading: "کوڈ اور دستاویزات میں موجود", body: "سورس تلاش، موقع کا جائزہ، مسودہ ترمیم اور کنٹرول شدہ اشاعت کوڈ اور دستاویزات میں ہیں۔ مصنوعی مقامی ڈیمو حقیقی 𝕏 ڈیٹا استعمال نہیں کرتا۔" },
         { heading: "براہ راست استعمال کی حد", body: "اس صفحے نے 𝕏 OAuth، حقیقی پوسٹ، دور دراز تصدیق، AI فراہم کنندہ کال یا پروڈکشن تعیناتی نہیں آزمائی۔ مقامی ٹیسٹ ان کا ثبوت نہیں۔" },
         { heading: "ڈیٹا اور بیرونی خدمات", body: "𝕏 اکاؤنٹ سرکاری OAuth سے الگ جڑتا ہے؛ کوڈ ٹوکن خفیہ رکھتا اور اشاعت سے پہلے الگ اجازت/ثبوت کی شرط لگاتا ہے۔ AI اور ڈیٹا محفوظ رکھنے کا طریقہ تنصیب کی ترتیب پر منحصر ہے۔" },
@@ -59,7 +59,7 @@ export const publicEvidenceCopyLocal: PartialEvidenceCopy = {
       research: { title: "Xpatla صارف دعوے: ماخذی تحقیق", description: "سبسکرپشن اور رقم واپسی کے صارف بیانات کو کمپنی کے جواب اور تصدیق کی حد سے الگ دکھائیں۔", summary: "یہ فائل صارف کے انفرادی دعوے، کمپنی کے اپنے موجودہ بیان اور غیر حل شدہ نکات الگ کرتی ہے۔ شکایت عدالتی فیصلہ یا آزادانہ مصنوعات کا امتحان نہیں۔", sections: [
         { heading: "پڑھنے کا طریقہ", body: "صارف کے ریکارڈ ان کے اپنے دعوے ہیں، آزادانہ تصدیق نہیں۔ ذاتی شناختی معلومات دوبارہ شائع نہیں کی جاتی۔ ان سے جرم، غیرقانونی عمل یا عمومی صارف تجربے کا نتیجہ نہیں نکلتا۔" },
         { heading: "کمپنی کا موجودہ بیان", body: "10 جولائی 2026 کی شرائط میں نئے اکاؤنٹس/خریداری، 𝕏 کنکشن/ڈیٹا/اشاعت معطل ہیں؛ موجودہ اراکین کے لیے آف لائن مسودہ جاری بتایا گیا۔ پلیٹ فارم صفحہ Circle اور Growth Credit کی معطلی اور engagement بازار بند ہونے کی وضاحت کرتا ہے۔" },
-        { heading: "جواب اور تصحیح", body: "Xpatla کا شائع کردہ سپورٹ چینل جواب کے لیے ہے۔ ISPATLA اس فائل کا ناشر ہے، Xpatla/Fast AI Labs سے وابستہ یا منظور شدہ نہیں؛ یہ آزاد ادارے کی تحقیق نہیں۔ غلطی یا جواب کے لیے عوامی ریکارڈ استعمال کریں۔" },
+        { heading: "جواب اور تصحیح", body: "Xpatla کا شائع کردہ سپورٹ چینل جواب کے لیے ہے۔ ispatla.tr اس فائل کا ناشر ہے، Xpatla/Fast AI Labs سے وابستہ یا منظور شدہ نہیں؛ یہ آزاد ادارے کی تحقیق نہیں۔ غلطی یا جواب کے لیے عوامی ریکارڈ استعمال کریں۔" },
         { heading: "ماخذ کی حد", body: "ممکنہ مفاداتی ٹکراؤ کے باعث تیسرے فریق کی تالیف کو ثبوت کی فہرست میں شامل نہیں کیا گیا۔ شکایت کے صفحات بدل سکتے ہیں؛ اصل ریکارڈ اور تاریخ دیکھیں۔" },
       ] },
     },
@@ -70,14 +70,14 @@ export const publicEvidenceCopyLocal: PartialEvidenceCopy = {
   },
   de: {
     pages: {
-      openSource: { title: "Open Source: Code prüfen und selbst betreiben", description: "Ispatlas AGPL-3.0-or-later-Lizenz, lokaler Demo-Weg und bekannte Grenzen.", summary: "Prüfen Sie Quellcode, Lizenz und lokale Demo direkt. Open Source verspricht weder kostenloses Hosting noch perfekte Sicherheit.", sections: [
+      openSource: { title: "Open Source: Code prüfen und selbst betreiben", description: "Die AGPL-3.0-or-later-Lizenz von ispatla.tr, lokaler Demo-Weg und bekannte Grenzen.", summary: "Prüfen Sie Quellcode, Lizenz und lokale Demo direkt. Open Source verspricht weder kostenloses Hosting noch perfekte Sicherheit.", sections: [
         { heading: "Lizenz und Quellcode", body: "Das Hauptanwendungs-Repository ist öffentlich und steht unter AGPL-3.0-or-later. Den Lizenztext finden Sie in LICENSE; Drittanbieterpakete haben eigene Lizenzen." },
         { heading: "Lokale Einrichtung", body: "Die README beschreibt die lokale Einrichtung mit Node.js 22.5+ und Bun und nennt PostgreSQL als Voraussetzung. Es werden keine synthetischen Demodaten bereitgestellt." },
         { heading: "Kosten", body: "Für die Quellcode-Lizenz fällt keine Gebühr an. Server/Hosting, 𝕏-API-Zugang und KI-Anbieter können zusätzliche Kosten verursachen." },
         { heading: "Grenzen von Open Source", body: "Offener Code garantiert weder Sicherheit, Aktualität und korrekte Konfiguration jeder Installation noch Support, SLA oder dauerhaften 𝕏-Zugang. Live-Anbieterzugriff muss separat geprüft werden." },
         { heading: "Beiträge und Korrekturen", body: "Hinweise zu Beiträgen, Sicherheitsmeldungen und Korrekturen stehen im Repository. Melden Sie Fehler und Quellen über den öffentlichen GitHub-Eintrag." },
       ] },
-      transparency: { title: "Produktstatus, Belege und Grenzen", description: "Dokumentierte Ispatla-Abläufe und ungeprüfte Live-Grenzen mit Quellen.", summary: "Wir trennen den Stand in Code und Dokumentation von Nachweisen eines Live-Dienstes, Anbieterzugangs oder Deployments. Geprüft am 9. Oktober 2026.", sections: [
+      transparency: { title: "Produktstatus, Belege und Grenzen", description: "Dokumentierte ispatla.tr-Abläufe und ungeprüfte Live-Grenzen mit Quellen.", summary: "Wir trennen den Stand in Code und Dokumentation von Nachweisen eines Live-Dienstes, Anbieterzugangs oder Deployments. Geprüft am 9. Oktober 2026.", sections: [
         { heading: "In Code und Dokumentation", body: "Quellensuche, Chancenbewertung, Entwurfsbearbeitung und kontrollierte Veröffentlichung sind dokumentiert. Die synthetische lokale Demo nutzt keine echten 𝕏-Daten." },
         { heading: "Grenze des Live-Betriebs", body: "Diese Seite hat weder 𝕏 OAuth, einen echten 𝕏-Post, Remote-Verifikation, einen KI-Anbieteraufruf noch ein Produktions-Deployment getestet. Lokale Tests belegen dies nicht." },
         { heading: "Daten und externe Dienste", body: "𝕏-Konten werden separat über offizielles OAuth verbunden. Der Code beschreibt verschlüsselte Tokens und zusätzliche Freigabe-/Nachweisprüfungen vor dem Veröffentlichen. KI- und Speicherverhalten hängen von der Umgebung ab." },
@@ -92,7 +92,7 @@ export const publicEvidenceCopyLocal: PartialEvidenceCopy = {
       research: { title: "Xpatla-Verbraucheraussagen: Recherche mit Quellen", description: "Nutzerberichte zu Kündigung und Erstattung, getrennt von Unternehmensangaben und Prüfgrenzen.", summary: "Dieses Dossier trennt einzelne Nutzeraussagen, aktuelle Aussagen des Unternehmens und offene Punkte. Ein Beschwerdeeintrag ist kein Gerichtsurteil und kein unabhängiger Produkttest.", sections: [
         { heading: "Lesehinweis", body: "Die Einträge geben Aussagen der jeweiligen Nutzer wieder und sind nicht unabhängig bestätigt. Personenbezogene Angaben veröffentlichen wir nicht erneut. Daraus folgt keine Feststellung von Fehlverhalten, Rechtswidrigkeit oder allgemeiner Kundenerfahrung." },
         { heading: "Vom Unternehmen veröffentlichter Status", body: "Die Bedingungen vom 10. Juli 2026 nennen neue Registrierungen/Käufe und 𝕏-Verknüpfung/Daten/Veröffentlichung als ausgesetzt; Offline-Entwürfe bleiben für bestehende Mitglieder verfügbar. Die Integritätsseite nennt ausgesetztes Circle und Growth Credit sowie einen geschlossenen Engagement-Marktplatz." },
-        { heading: "Antwort und Korrektur", body: "Xpatlas veröffentlichter Supportkanal ermöglicht eine Antwort. ISPATLA veröffentlicht dieses Dossier, ist nicht mit Xpatla/Fast AI Labs verbunden oder von ihnen bestätigt; die Recherche stammt nicht von einer unabhängigen Stelle. Nutzen Sie den öffentlichen Tracker für Korrekturen oder Antworten." },
+        { heading: "Antwort und Korrektur", body: "Xpatlas veröffentlichter Supportkanal ermöglicht eine Antwort. ispatla.tr veröffentlicht dieses Dossier, ist nicht mit Xpatla/Fast AI Labs verbunden oder von ihnen bestätigt; die Recherche stammt nicht von einer unabhängigen Stelle. Nutzen Sie den öffentlichen Tracker für Korrekturen oder Antworten." },
         { heading: "Quellengrenzen", body: "Eine Drittanbieter-Zusammenstellung wurde wegen möglicher Interessenkonflikte nicht als Beleg verwendet. Beschwerdeseiten können sich ändern; öffnen Sie die Originaleinträge und prüfen Sie die Daten." },
       ] },
     },
@@ -103,14 +103,14 @@ export const publicEvidenceCopyLocal: PartialEvidenceCopy = {
   },
   ja: {
     pages: {
-      openSource: { title: "オープンソース：コードを確認して自分で運用", description: "Ispatla の AGPL-3.0-or-later ライセンス、ローカルデモ、既知の制限。", summary: "ソース、ライセンス、ローカルデモの手順を確認できます。オープンソースは無料ホスティングや完全な安全性を保証しません。", sections: [
+      openSource: { title: "オープンソース：コードを確認して自分で運用", description: "ispatla.tr の AGPL-3.0-or-later ライセンス、ローカルデモ、既知の制限。", summary: "ソース、ライセンス、ローカルデモの手順を確認できます。オープンソースは無料ホスティングや完全な安全性を保証しません。", sections: [
         { heading: "ライセンスとソース", body: "主要アプリのリポジトリは公開され、AGPL-3.0-or-later で提供されています。LICENSE で全文を確認してください。サードパーティのパッケージには個別のライセンスがあります。" },
         { heading: "ローカル設定", body: "README は Node.js 22.5 以降と Bun によるローカル設定を説明し、PostgreSQL 接続が必要だと記載しています。合成デモデータは提供していません。" },
         { heading: "費用", body: "ソースライセンス料はありません。サーバー/ホスティング、𝕏 API、AI プロバイダーには別途費用が発生する場合があります。" },
         { heading: "オープンソースの限界", body: "公開コードは全環境の安全性、更新、正しい設定、サポート、SLA、𝕏 への継続アクセスを保証しません。実プロバイダー接続は別途確認が必要です。" },
         { heading: "貢献と訂正", body: "貢献、セキュリティ報告、訂正の方法はリポジトリにあります。誤りや新しい出典は公開 GitHub 記録に追加してください。" },
       ] },
-      transparency: { title: "製品の状態、証拠、限界", description: "Ispatla の文書化されたワークフローと未検証の実環境の境界を出典付きで説明。", summary: "コードや文書に記載された内容と、実サービス、プロバイダー接続、デプロイの証明を区別します。確認日：2026年10月9日。", sections: [
+      transparency: { title: "製品の状態、証拠、限界", description: "ispatla.tr の文書化されたワークフローと未検証の実環境の境界を出典付きで説明。", summary: "コードや文書に記載された内容と、実サービス、プロバイダー接続、デプロイの証明を区別します。確認日：2026年10月9日。", sections: [
         { heading: "コードと文書にあるもの", body: "ソース探索、機会の評価、下書き編集、制御された投稿の流れが実装/文書化されています。合成ローカルデモは実際の 𝕏 データを使いません。" },
         { heading: "実運用の未確認事項", body: "このページでは 𝕏 OAuth、実際の投稿、リモート検証、AI プロバイダー呼び出し、本番デプロイをテストしていません。ローカルテストはその証明ではありません。" },
         { heading: "データと外部サービス", body: "𝕏 アカウントは公式 OAuth で別途接続します。コードではトークンを暗号化し、投稿前に追加の許可/証拠確認を行います。AI と保存の動作は環境設定によります。" },
@@ -125,7 +125,7 @@ export const publicEvidenceCopyLocal: PartialEvidenceCopy = {
       research: { title: "Xpatla の消費者申告：出典付き調査", description: "解約・返金に関する利用者の申告と会社の説明、確認の限界を区別します。", summary: "個々の利用者の申告、会社自身の最新説明、未解決事項を区別します。苦情記録は裁判所の判断や独立した製品試験ではありません。", sections: [
         { heading: "読み方", body: "投稿は利用者本人の説明で、独立検証ではありません。個人を特定する情報は再掲しません。これらから不正、違法性、一般的な顧客体験を断定できません。" },
         { heading: "会社が公開する現在の状態", body: "2026年7月10日の規約では新規登録/購入と 𝕏 接続/データ/投稿は停止中で、既存会員向けオフライン下書きは利用可能とされています。整合性ページは Circle と Growth Credit の停止、engagement 市場の閉鎖を説明します。" },
-        { heading: "回答と訂正", body: "Xpatla が公開するサポート窓口から回答できます。ISPATLA は本調査の公開者で、Xpatla/Fast AI Labs と提携・承認関係はなく、独立機関による調査でもありません。訂正や回答は公開記録へ。" },
+        { heading: "回答と訂正", body: "Xpatla が公開するサポート窓口から回答できます。ispatla.tr は本調査の公開者で、Xpatla/Fast AI Labs と提携・承認関係はなく、独立機関による調査でもありません。訂正や回答は公開記録へ。" },
         { heading: "情報源の限界", body: "利益相反の可能性がある第三者まとめは証拠に含めませんでした。苦情ページは変わる場合があるため、原文と日付を確認してください。" },
       ] },
     },
@@ -136,14 +136,14 @@ export const publicEvidenceCopyLocal: PartialEvidenceCopy = {
   },
   sw: {
     pages: {
-      openSource: { title: "Chanzo wazi: kagua msimbo na uendeshe mwenyewe", description: "Leseni ya AGPL-3.0-or-later ya Ispatla, demo ya ndani na mipaka inayojulikana.", summary: "Kagua msimbo, leseni na hatua za demo ya ndani. Chanzo wazi hakiahidi seva ya bure au usalama kamili.", sections: [
+      openSource: { title: "Chanzo wazi: kagua msimbo na uendeshe mwenyewe", description: "Leseni ya AGPL-3.0-or-later ya ispatla.tr, demo ya ndani na mipaka inayojulikana.", summary: "Kagua msimbo, leseni na hatua za demo ya ndani. Chanzo wazi hakiahidi seva ya bure au usalama kamili.", sections: [
         { heading: "Leseni na msimbo", body: "Hazina kuu ya programu iko wazi kwa umma na ina leseni ya AGPL-3.0-or-later. Soma LICENSE; vifurushi vya wengine vina leseni zao." },
         { heading: "Usanidi wa ndani", body: "README inaeleza usanidi wa ndani kwa Node.js 22.5+ na Bun na hitaji la muunganisho wa PostgreSQL. Data ya demo ya kubuni haijatolewa." },
         { heading: "Gharama", body: "Hakuna ada ya leseni ya msimbo. Seva/hosting, 𝕏 API na huduma za AI zinaweza kuwa na gharama tofauti kulingana na mtoa huduma." },
         { heading: "Mipaka ya chanzo wazi", body: "Msimbo wazi hauhakikishi usalama, usasishaji au usanidi sahihi wa kila usakinishaji, usaidizi, SLA, au ufikiaji endelevu wa 𝕏. Jaribu muunganisho wa mtoa huduma kivyake." },
         { heading: "Michango na marekebisho", body: "Maelekezo ya michango, taarifa za usalama na marekebisho yako kwenye hazina. Tumia rekodi ya GitHub ya umma kuwasilisha hitilafu au chanzo." },
       ] },
-      transparency: { title: "Hali ya bidhaa, ushahidi na mipaka", description: "Ushahidi kuhusu mtiririko ulioandikwa wa Ispatla na mipaka ambayo haikujaribiwa moja kwa moja.", summary: "Tunatenganisha hali inayoonekana kwenye msimbo/nyaraka na ushahidi wa huduma hai, ufikiaji wa mtoa huduma au deployment. Ilikaguliwa 9 Oktoba 2026.", sections: [
+      transparency: { title: "Hali ya bidhaa, ushahidi na mipaka", description: "Ushahidi kuhusu mtiririko ulioandikwa wa ispatla.tr na mipaka ambayo haikujaribiwa moja kwa moja.", summary: "Tunatenganisha hali inayoonekana kwenye msimbo/nyaraka na ushahidi wa huduma hai, ufikiaji wa mtoa huduma au deployment. Ilikaguliwa 9 Oktoba 2026.", sections: [
         { heading: "Kilicho kwenye msimbo na nyaraka", body: "Ugunduzi wa vyanzo, tathmini ya fursa, uhariri wa rasimu na uchapishaji unaodhibitiwa vimeandikwa. Demo ya kubuni ya ndani haitumii data halisi ya 𝕏." },
         { heading: "Mipaka ya matumizi hai", body: "Ukurasa huu haukujaribu 𝕏 OAuth, chapisho halisi, uthibitishaji wa mbali, ombi la AI au deployment ya uzalishaji. Majaribio ya ndani hayathibitishi hayo." },
         { heading: "Data na huduma za nje", body: "Akaunti za 𝕏 huunganishwa tofauti kupitia OAuth rasmi. Msimbo unaeleza tokeni zilizofichwa na ukaguzi wa idhini/ushahidi kabla ya kuchapisha. Tabia ya AI na uhifadhi hutegemea usanidi wa mazingira." },
@@ -158,7 +158,7 @@ export const publicEvidenceCopyLocal: PartialEvidenceCopy = {
       research: { title: "Madai ya watumiaji kuhusu Xpatla: faili yenye vyanzo", description: "Tenganisha madai ya watumiaji kuhusu usajili na marejesho na maelezo ya kampuni na mipaka ya uthibitishaji.", summary: "Faili hii hutenganisha madai ya watu binafsi, kauli za sasa za kampuni na mambo yasiyotatuliwa. Rekodi ya malalamiko si uamuzi wa mahakama wala jaribio huru la bidhaa.", sections: [
         { heading: "Jinsi ya kusoma", body: "Rekodi hizi ni maelezo ya watumiaji wenyewe, si uthibitisho huru. Hatuchapishi tena taarifa binafsi zinazoweza kumtambua mtu. Haziwezi kuthibitisha kosa, uvunjaji wa sheria, au uzoefu wa jumla wa wateja." },
         { heading: "Hali iliyochapishwa na kampuni", body: "Masharti ya 10 Julai 2026 yanasema usajili/manunuzi mapya na kuunganisha/kupata data/kuchapisha 𝕏 vimesimamishwa; rasimu za nje ya mtandao zinaendelea kwa wanachama waliopo. Ukurasa wa uadilifu unasema Circle na Growth Credit zimesimamishwa, na soko la engagement limefungwa." },
-        { heading: "Jibu na marekebisho", body: "Tumia kituo cha usaidizi kilichochapishwa na Xpatla kujibu. ISPATLA huchapisha faili hii; haijaunganishwa wala kuidhinishwa na Xpatla/Fast AI Labs, na si utafiti wa taasisi huru. Tumia rekodi ya umma kwa marekebisho au majibu." },
+        { heading: "Jibu na marekebisho", body: "Tumia kituo cha usaidizi kilichochapishwa na Xpatla kujibu. ispatla.tr huchapisha faili hii; haijaunganishwa wala kuidhinishwa na Xpatla/Fast AI Labs, na si utafiti wa taasisi huru. Tumia rekodi ya umma kwa marekebisho au majibu." },
         { heading: "Mipaka ya vyanzo", body: "Ripoti ya mkusanyiko wa mtu mwingine haikutumiwa kwa sababu ya mgongano wa maslahi unaowezekana. Kurasa za malalamiko zinaweza kubadilika; fungua rekodi za awali na uhakiki tarehe." },
       ] },
     },
@@ -169,14 +169,14 @@ export const publicEvidenceCopyLocal: PartialEvidenceCopy = {
   },
   mr: {
     pages: {
-      openSource: { title: "मुक्त स्रोत: कोड तपासा आणि स्वतः चालवा", description: "ISPATLA चा AGPL-3.0-or-later परवाना, स्थानिक डेमो आणि ज्ञात मर्यादा.", summary: "स्रोत कोड, परवाना आणि स्थानिक डेमोची पद्धत तपासा. मुक्त स्रोत मोफत सर्व्हर किंवा पूर्ण सुरक्षिततेची हमी देत नाही.", sections: [
+      openSource: { title: "मुक्त स्रोत: कोड तपासा आणि स्वतः चालवा", description: "ispatla.tr चा AGPL-3.0-or-later परवाना, स्थानिक डेमो आणि ज्ञात मर्यादा.", summary: "स्रोत कोड, परवाना आणि स्थानिक डेमोची पद्धत तपासा. मुक्त स्रोत मोफत सर्व्हर किंवा पूर्ण सुरक्षिततेची हमी देत नाही.", sections: [
         { heading: "परवाना आणि स्रोत", body: "मुख्य अॅपचे रेपॉझिटरी सार्वजनिक असून AGPL-3.0-or-later परवान्याखाली आहे. LICENSE मधील मजकूर वाचा; तृतीय-पक्ष पॅकेजचे परवाने स्वतंत्र आहेत." },
         { heading: "स्थानिक सेटअप", body: "README मध्ये Node.js 22.5+ आणि Bun सह स्थानिक सेटअप व PostgreSQL कनेक्शनची गरज स्पष्ट केली आहे. कृत्रिम डेमो डेटा दिलेला नाही." },
         { heading: "खर्च", body: "स्रोत परवान्यासाठी शुल्क नाही. सर्व्हर/होस्टिंग, 𝕏 API आणि AI सेवा स्वतंत्र खर्च करू शकतात." },
         { heading: "मुक्त स्रोताच्या मर्यादा", body: "मुक्त कोड प्रत्येक स्थापनेची सुरक्षा, अद्ययावत स्थिती किंवा योग्य मांडणी; सहाय्य, SLA किंवा 𝕏 ची सतत उपलब्धता यांची हमी देत नाही. प्रत्यक्ष सेवा स्वतंत्रपणे तपासा." },
         { heading: "योगदान आणि दुरुस्ती", body: "योगदान, सुरक्षा अहवाल आणि दुरुस्तीची माहिती रेपॉझिटरीत आहे. त्रुटी किंवा नवा स्रोत सार्वजनिक GitHub नोंदीत द्या." },
       ] },
-      transparency: { title: "उत्पादन स्थिती, पुरावे आणि मर्यादा", description: "ISPATLA चा दस्तऐवजीकृत प्रवाह आणि न तपासलेल्या प्रत्यक्ष मर्यादा स्रोतांसह.", summary: "कोड/दस्तऐवजातील स्थिती आणि प्रत्यक्ष सेवा, प्रदाता प्रवेश किंवा तैनातीचा पुरावा वेगळा दाखवतो. तपासणी: 9 ऑक्टोबर 2026.", sections: [
+      transparency: { title: "उत्पादन स्थिती, पुरावे आणि मर्यादा", description: "ispatla.tr चा दस्तऐवजीकृत प्रवाह आणि न तपासलेल्या प्रत्यक्ष मर्यादा स्रोतांसह.", summary: "कोड/दस्तऐवजातील स्थिती आणि प्रत्यक्ष सेवा, प्रदाता प्रवेश किंवा तैनातीचा पुरावा वेगळा दाखवतो. तपासणी: 9 ऑक्टोबर 2026.", sections: [
         { heading: "कोड आणि दस्तऐवजात", body: "स्रोत शोध, संधीचे मूल्यमापन, मसुदा संपादन आणि नियंत्रित प्रकाशन प्रवाह कोड/दस्तऐवजात आहेत. कृत्रिम स्थानिक डेमोमध्ये खरा 𝕏 डेटा नाही." },
         { heading: "प्रत्यक्ष वापराची मर्यादा", body: "या पानावर 𝕏 OAuth, प्रत्यक्ष पोस्ट, दूरस्थ पडताळणी, AI प्रदात्याची विनंती किंवा उत्पादन तैनातीची चाचणी केलेली नाही. स्थानिक चाचण्या याचा पुरावा नाहीत." },
         { heading: "डेटा आणि बाह्य सेवा", body: "𝕏 खाते अधिकृत OAuth ने स्वतंत्र जोडले जाते. कोडमध्ये टोकनचे कूटबद्ध संचयन आणि प्रकाशनापूर्वी परवानगी/पुरावा तपासणी आहे. AI व संचयनाचे वर्तन वातावरणावर अवलंबून आहे." },
@@ -191,7 +191,7 @@ export const publicEvidenceCopyLocal: PartialEvidenceCopy = {
       research: { title: "Xpatla ग्राहक दावे: स्रोतांसह संशोधन", description: "रद्द करणे आणि परताव्याविषयी वापरकर्त्यांचे दावे कंपनीच्या निवेदनांपासून आणि पडताळणीच्या मर्यादांपासून वेगळे.", summary: "या संचिकेत वैयक्तिक वापरकर्ता दावे, कंपनीची वर्तमान निवेदने आणि न सुटलेले मुद्दे वेगळे आहेत. तक्रार नोंद म्हणजे न्यायालयाचा निर्णय किंवा स्वतंत्र उत्पादन चाचणी नाही.", sections: [
         { heading: "कसे वाचावे", body: "नोंदी वापरकर्त्यांचे स्वतःचे म्हणणे आहेत; स्वतंत्र पडताळणी नाही. वैयक्तिक ओळख तपशील पुन्हा दिलेले नाहीत. यातून गैरवर्तन, बेकायदेशीरता किंवा सर्वसाधारण ग्राहक अनुभवाचा निष्कर्ष काढू नये." },
         { heading: "कंपनीने सांगितलेली वर्तमान स्थिती", body: "10 जुलै 2026 च्या अटींनुसार नवीन नोंदणी/खरेदी आणि 𝕏 जोडणी/डेटा/प्रकाशन स्थगित आहे; विद्यमान सदस्यांसाठी ऑफलाइन मसुदे उपलब्ध आहेत. अखंडता पान Circle आणि Growth Credit स्थगित व engagement बाजार बंद असल्याचे सांगते." },
-        { heading: "उत्तर आणि दुरुस्ती", body: "Xpatla चे प्रकाशित सहाय्य संपर्क उत्तरासाठी उपलब्ध आहे. ISPATLA हा या नोंदीचा प्रकाशक असून Xpatla/Fast AI Labs शी संलग्न किंवा त्यांच्याकडून मान्यताप्राप्त नाही; हा स्वतंत्र संस्थेचा अभ्यास नाही. उत्तर किंवा दुरुस्तीसाठी सार्वजनिक नोंद वापरा." },
+        { heading: "उत्तर आणि दुरुस्ती", body: "Xpatla चे प्रकाशित सहाय्य संपर्क उत्तरासाठी उपलब्ध आहे. ispatla.tr हा या नोंदीचा प्रकाशक असून Xpatla/Fast AI Labs शी संलग्न किंवा त्यांच्याकडून मान्यताप्राप्त नाही; हा स्वतंत्र संस्थेचा अभ्यास नाही. उत्तर किंवा दुरुस्तीसाठी सार्वजनिक नोंद वापरा." },
         { heading: "स्रोत मर्यादा", body: "हितसंबंध संघर्षाची शक्यता असल्याने तृतीय-पक्ष संकलन पुरावा म्हणून वापरले नाही. तक्रार पृष्ठे बदलू शकतात; मूळ नोंदी आणि तारखा पाहा." },
       ] },
     },
@@ -202,14 +202,14 @@ export const publicEvidenceCopyLocal: PartialEvidenceCopy = {
   },
   te: {
     pages: {
-      openSource: { title: "ఓపెన్ సోర్స్: కోడ్‌ను పరిశీలించి మీరే నడపండి", description: "ISPATLA AGPL-3.0-or-later లైసెన్స్, స్థానిక డెమో, తెలిసిన పరిమితులు.", summary: "సోర్స్ కోడ్, లైసెన్స్, స్థానిక డెమో విధానాన్ని పరిశీలించండి. ఓపెన్ సోర్స్ ఉచిత సర్వర్ లేదా సంపూర్ణ భద్రతకు హామీ కాదు.", sections: [
+      openSource: { title: "ఓపెన్ సోర్స్: కోడ్‌ను పరిశీలించి మీరే నడపండి", description: "ispatla.tr AGPL-3.0-or-later లైసెన్స్, స్థానిక డెమో, తెలిసిన పరిమితులు.", summary: "సోర్స్ కోడ్, లైసెన్స్, స్థానిక డెమో విధానాన్ని పరిశీలించండి. ఓపెన్ సోర్స్ ఉచిత సర్వర్ లేదా సంపూర్ణ భద్రతకు హామీ కాదు.", sections: [
         { heading: "లైసెన్స్ మరియు సోర్స్", body: "ప్రధాన యాప్ రిపోజిటరీ పబ్లిక్‌గా ఉంది; AGPL-3.0-or-later లైసెన్స్ కలిగి ఉంది. పూర్తి లైసెన్స్ LICENSEలో ఉంది; మూడవ పక్ష ప్యాకేజీలకు వేరు లైసెన్సులు ఉంటాయి." },
         { heading: "స్థానిక సెటప్", body: "README Node.js 22.5+ మరియు Bunతో స్థానిక సెటప్‌ను వివరిస్తూ PostgreSQL కనెక్షన్ అవసరమని చెబుతుంది. సింథటిక్ డెమో డేటా అందుబాటులో లేదు." },
         { heading: "ఖర్చులు", body: "సోర్స్ లైసెన్స్‌కు ఫీజు లేదు. సర్వర్/హోస్టింగ్, 𝕏 API, AI ప్రొవైడర్‌కు వేరుగా ఖర్చులు ఉండవచ్చు." },
         { heading: "ఓపెన్ సోర్స్ పరిమితులు", body: "ఓపెన్ కోడ్ ప్రతి ఇన్‌స్టాలేషన్ భద్రత, తాజాదనం, సరైన కాన్ఫిగరేషన్; మద్దతు, SLA లేదా నిరంతర 𝕏 యాక్సెస్‌కు హామీ ఇవ్వదు. లైవ్ ప్రొవైడర్ వినియోగాన్ని విడిగా పరీక్షించాలి." },
         { heading: "సహకారం మరియు సవరణలు", body: "సహకారం, భద్రతా నివేదికలు, సవరణల మార్గాలు రిపోజిటరీలో ఉన్నాయి. తప్పు లేదా కొత్త మూలాన్ని పబ్లిక్ GitHub రికార్డులో సమర్పించండి." },
       ] },
-      transparency: { title: "ఉత్పత్తి స్థితి, ఆధారాలు, పరిమితులు", description: "ISPATLA డాక్యుమెంట్ చేసిన పని విధానాలు, పరీక్షించని లైవ్ పరిమితులకు మూలాలు.", summary: "కోడ్/డాక్యుమెంట్లలో కనిపించేదాన్ని ప్రత్యక్ష సేవ, ప్రొవైడర్ యాక్సెస్ లేదా డిప్లాయ్‌మెంట్ ఆధారం నుంచి వేరు చేస్తున్నాం. పరిశీలించిన తేదీ: 9 అక్టోబర్ 2026.", sections: [
+      transparency: { title: "ఉత్పత్తి స్థితి, ఆధారాలు, పరిమితులు", description: "ispatla.tr డాక్యుమెంట్ చేసిన పని విధానాలు, పరీక్షించని లైవ్ పరిమితులకు మూలాలు.", summary: "కోడ్/డాక్యుమెంట్లలో కనిపించేదాన్ని ప్రత్యక్ష సేవ, ప్రొవైడర్ యాక్సెస్ లేదా డిప్లాయ్‌మెంట్ ఆధారం నుంచి వేరు చేస్తున్నాం. పరిశీలించిన తేదీ: 9 అక్టోబర్ 2026.", sections: [
         { heading: "కోడ్, డాక్యుమెంట్లలో ఉన్నవి", body: "మూలాల అన్వేషణ, అవకాశ సమీక్ష, డ్రాఫ్ట్ సవరణ, నియంత్రిత ప్రచురణ కోడ్/డాక్యుమెంట్లలో ఉన్నాయి. సింథటిక్ స్థానిక డెమో నిజ 𝕏 డేటాను ఉపయోగించదు." },
         { heading: "లైవ్ వినియోగ పరిమితి", body: "ఈ పేజీ 𝕏 OAuth, నిజమైన పోస్ట్, రిమోట్ వెరిఫికేషన్, AI ప్రొవైడర్ కాల్ లేదా ప్రొడక్షన్ డిప్లాయ్‌మెంట్ పరీక్షించలేదు. స్థానిక పరీక్షలు వాటికి ఆధారం కావు." },
         { heading: "డేటా, బాహ్య సేవలు", body: "అధికారిక OAuth ద్వారా 𝕏 ఖాతా వేరుగా అనుసంధానమవుతుంది. టోకెన్‌లను ఎన్‌క్రిప్ట్ చేసి, ప్రచురణకు ముందు అదనపు అనుమతి/ఆధార తనిఖీలు ఉంటాయని కోడ్ చెబుతుంది. AI, నిల్వ ప్రవర్తన పర్యావరణ సెట్టింగులపై ఆధారపడుతుంది." },
@@ -224,7 +224,7 @@ export const publicEvidenceCopyLocal: PartialEvidenceCopy = {
       research: { title: "Xpatla వినియోగదారు వాదనలు: మూలాలతో పరిశోధన", description: "సబ్‌స్క్రిప్షన్, రీఫండ్ గురించి వినియోగదారు వాదనలు; కంపెనీ వివరణలు, నిర్ధారణ పరిమితులు వేరు.", summary: "ఈ ఫైల్ వ్యక్తిగత వినియోగదారు వాదనలు, కంపెనీ ప్రస్తుత స్వంత ప్రకటనలు, పరిష్కారం కాని అంశాలను వేరు చేస్తుంది. ఫిర్యాదు నమోదు కోర్టు తీర్పు లేదా స్వతంత్ర ఉత్పత్తి పరీక్ష కాదు.", sections: [
         { heading: "ఎలా చదవాలి", body: "ఈ నమోదులు వినియోగదారుల స్వంత వాదనలు; స్వతంత్రంగా నిర్ధారించినవి కావు. వ్యక్తిగత గుర్తింపు వివరాలను తిరిగి ప్రచురించము. వీటి ఆధారంగా తప్పు, చట్టవిరుద్ధత లేదా సాధారణ వినియోగదారు అనుభవంపై తీర్పు ఇవ్వలేం." },
         { heading: "కంపెనీ ప్రచురించిన ప్రస్తుత స్థితి", body: "10 జూలై 2026 నిబంధనలు కొత్త నమోదు/కొనుగోలు, 𝕏 లింక్/డేటా/ప్రచురణ నిలిపివేశాయని, ప్రస్తుత సభ్యులకు ఆఫ్‌లైన్ డ్రాఫ్ట్ అందుబాటులో ఉందని చెబుతాయి. సమగ్రత పేజీ Circle, Growth Credit నిలిపివేత, engagement మార్కెట్ మూసివేతను చెబుతుంది." },
-        { heading: "స్పందన మరియు సవరణ", body: "Xpatla ప్రచురించిన మద్దతు మార్గం ద్వారా స్పందన ఇవ్వవచ్చు. ISPATLA ఈ ఫైల్ ప్రచురణకర్త; Xpatla/Fast AI Labsతో అనుబంధం లేదా ఆమోదం లేదు; ఇది స్వతంత్ర సంస్థ పరిశోధన కాదు. సవరణ/స్పందనకు పబ్లిక్ రికార్డు వాడండి." },
+        { heading: "స్పందన మరియు సవరణ", body: "Xpatla ప్రచురించిన మద్దతు మార్గం ద్వారా స్పందన ఇవ్వవచ్చు. ispatla.tr ఈ ఫైల్ ప్రచురణకర్త; Xpatla/Fast AI Labsతో అనుబంధం లేదా ఆమోదం లేదు; ఇది స్వతంత్ర సంస్థ పరిశోధన కాదు. సవరణ/స్పందనకు పబ్లిక్ రికార్డు వాడండి." },
         { heading: "మూలాల పరిమితి", body: "సంభావ్య ప్రయోజన సంఘర్షణ కారణంగా మూడవ పక్ష సమీక్షను ఆధారంగా వాడలేదు. ఫిర్యాదు పేజీలు మారవచ్చు; అసలు నమోదులు, తేదీలు పరిశీలించండి." },
       ] },
     },
@@ -235,14 +235,14 @@ export const publicEvidenceCopyLocal: PartialEvidenceCopy = {
   },
   ta: {
     pages: {
-      openSource: { title: "திறந்த மூலக் குறியீடு: ஆய்ந்து நீங்களே இயக்குங்கள்", description: "ISPATLA-வின் AGPL-3.0-or-later உரிமம், உள்ளூர் டெமோ, அறிந்த வரம்புகள்.", summary: "மூலக் குறியீடு, உரிமம், உள்ளூர் டெமோ வழியை நேரடியாகப் பாருங்கள். திறந்த மூலம் இலவச சர்வர் அல்லது முழுப் பாதுகாப்பை உறுதி செய்யாது.", sections: [
+      openSource: { title: "திறந்த மூலக் குறியீடு: ஆய்ந்து நீங்களே இயக்குங்கள்", description: "ispatla.tr-வின் AGPL-3.0-or-later உரிமம், உள்ளூர் டெமோ, அறிந்த வரம்புகள்.", summary: "மூலக் குறியீடு, உரிமம், உள்ளூர் டெமோ வழியை நேரடியாகப் பாருங்கள். திறந்த மூலம் இலவச சர்வர் அல்லது முழுப் பாதுகாப்பை உறுதி செய்யாது.", sections: [
         { heading: "உரிமமும் மூலமும்", body: "முதன்மை பயன்பாட்டு களஞ்சியம் பொதுவானது; AGPL-3.0-or-later உரிமத்தில் உள்ளது. LICENSE-இல் முழு உரிமத்தைப் படிக்கவும்; மூன்றாம் தரப்பு தொகுப்புகளுக்குத் தனி உரிமங்கள் உண்டு." },
         { heading: "உள்ளூர் அமைப்பு", body: "README, Node.js 22.5+ மற்றும் Bun மூலம் உள்ளூர் அமைப்பை விளக்கி PostgreSQL இணைப்பு தேவை என்பதைக் குறிப்பிடுகிறது. செயற்கை டெமோ தரவு வழங்கப்படவில்லை." },
         { heading: "செலவுகள்", body: "மூல உரிமத்திற்கு கட்டணம் இல்லை. சர்வர்/ஹோஸ்டிங், 𝕏 API, AI வழங்குநர் சேவைகள் தனிச் செலவுகளை ஏற்படுத்தலாம்." },
         { heading: "திறந்த மூலத்தின் வரம்புகள்", body: "திறந்த குறியீடு ஒவ்வொரு நிறுவலின் பாதுகாப்பு, புதுப்பிப்பு, சரியான அமைப்பு; ஆதரவு, SLA, தொடர்ச்சியான 𝕏 அணுகலை உறுதி செய்யாது. நேரடி வழங்குநர் பயன்பாட்டைத் தனியாகச் சரிபார்க்க வேண்டும்." },
         { heading: "பங்களிப்பும் திருத்தமும்", body: "பங்களிப்பு, பாதுகாப்பு அறிக்கை, திருத்த வழிகள் களஞ்சியத்தில் உள்ளன. பிழை அல்லது புதிய ஆதாரத்தை பொது GitHub பதிவில் சேர்க்கவும்." },
       ] },
-      transparency: { title: "தயாரிப்பு நிலை, சான்றுகள், வரம்புகள்", description: "ஆவணப்படுத்தப்பட்ட ISPATLA செயல்முறையும் சோதிக்கப்படாத நேரடி எல்லைகளும் ஆதாரங்களுடன்.", summary: "குறியீடு/ஆவணங்களில் உள்ளதை நேரடி சேவை, வழங்குநர் அணுகல் அல்லது வெளியீட்டு ஆதாரத்திலிருந்து பிரிக்கிறோம். சரிபார்த்த நாள்: 9 அக்டோபர் 2026.", sections: [
+      transparency: { title: "தயாரிப்பு நிலை, சான்றுகள், வரம்புகள்", description: "ஆவணப்படுத்தப்பட்ட ispatla.tr செயல்முறையும் சோதிக்கப்படாத நேரடி எல்லைகளும் ஆதாரங்களுடன்.", summary: "குறியீடு/ஆவணங்களில் உள்ளதை நேரடி சேவை, வழங்குநர் அணுகல் அல்லது வெளியீட்டு ஆதாரத்திலிருந்து பிரிக்கிறோம். சரிபார்த்த நாள்: 9 அக்டோபர் 2026.", sections: [
         { heading: "குறியீடு/ஆவணங்களில் உள்ளது", body: "ஆதாரத் தேடல், வாய்ப்பு மதிப்பீடு, வரைவு திருத்தம், கட்டுப்படுத்தப்பட்ட வெளியீடு குறியீடு/ஆவணங்களில் உள்ளன. செயற்கை உள்ளூர் டெமோ உண்மையான 𝕏 தரவைப் பயன்படுத்தாது." },
         { heading: "நேரடி பயன்பாட்டு வரம்பு", body: "இந்தப் பக்கம் 𝕏 OAuth, உண்மை பதிவு, தொலைநிலை சரிபார்ப்பு, AI வழங்குநர் அழைப்பு அல்லது தயாரிப்பு வெளியீட்டைச் சோதிக்கவில்லை. உள்ளூர் சோதனைகள் இவற்றுக்குச் சான்றல்ல." },
         { heading: "தரவும் வெளிச் சேவைகளும்", body: "அதிகாரப்பூர்வ OAuth வழியாக 𝕏 கணக்கு தனியாக இணைகிறது. டோக்கன்கள் குறியாக்கம் செய்யப்பட்டு வெளியீட்டுக்கு முன் அனுமதி/சான்று சோதனை இருப்பதாகக் குறியீடு கூறுகிறது. AI, சேமிப்பு நடத்தை சூழல் அமைப்பைப் பொறுத்தது." },
@@ -257,7 +257,7 @@ export const publicEvidenceCopyLocal: PartialEvidenceCopy = {
       research: { title: "Xpatla நுகர்வோர் கூற்றுகள்: ஆதார ஆய்வு", description: "சந்தா/பணத்திரும்பல் குறித்த பயனர் கூற்றுகளை நிறுவனக் குறிப்புகள், சரிபார்ப்பு வரம்புகளிலிருந்து பிரிக்கிறது.", summary: "தனிப்பட்ட பயனர் கூற்றுகள், நிறுவனத்தின் தற்போதைய சொந்தக் குறிப்புகள், தீராத அம்சங்களை இந்தக் கோப்பு பிரிக்கிறது. புகார் பதிவு நீதிமன்றத் தீர்ப்போ சுயாதீனத் தயாரிப்பு சோதனையோ அல்ல.", sections: [
         { heading: "எப்படி படிக்க வேண்டும்", body: "இவை பயனர்களின் சொந்த விளக்கங்கள்; சுயாதீனமாக உறுதிசெய்யப்படவில்லை. அடையாளம் காணும் தனிப்பட்ட விவரங்களை மீண்டும் வெளியிடவில்லை. இதிலிருந்து தவறு, சட்டவிரோதம் அல்லது பொதுவான வாடிக்கையாளர் அனுபவம் குறித்த முடிவு வராது." },
         { heading: "நிறுவனம் வெளியிட்ட தற்போதைய நிலை", body: "10 ஜூலை 2026 விதிமுறைகள் புதிய பதிவு/வாங்குதல், 𝕏 இணைப்பு/தரவு/வெளியீடு நிறுத்தப்பட்டதாகவும், தற்போதைய உறுப்பினர்களுக்கு ஆஃப்லைன் வரைவு தொடர்வதாகவும் கூறுகின்றன. ஒருமைப்பாட்டுப் பக்கம் Circle, Growth Credit நிறுத்தம் மற்றும் engagement சந்தை மூடலைக் குறிப்பிடுகிறது." },
-        { heading: "பதில் மற்றும் திருத்தம்", body: "Xpatla வெளியிட்ட ஆதரவு வழியில் பதிலளிக்கலாம். ISPATLA இந்தக் கோப்பின் வெளியீட்டாளர்; Xpatla/Fast AI Labs உடன் இணைப்போ அங்கீகாரமோ இல்லை; இது சுயாதீன நிறுவனம் செய்த ஆய்வல்ல. பதில்/திருத்தத்திற்கு பொது பதிவைப் பயன்படுத்தவும்." },
+        { heading: "பதில் மற்றும் திருத்தம்", body: "Xpatla வெளியிட்ட ஆதரவு வழியில் பதிலளிக்கலாம். ispatla.tr இந்தக் கோப்பின் வெளியீட்டாளர்; Xpatla/Fast AI Labs உடன் இணைப்போ அங்கீகாரமோ இல்லை; இது சுயாதீன நிறுவனம் செய்த ஆய்வல்ல. பதில்/திருத்தத்திற்கு பொது பதிவைப் பயன்படுத்தவும்." },
         { heading: "ஆதார வரம்புகள்", body: "சாத்தியமான நலன் முரண்பாடு காரணமாக மூன்றாம் தரப்பு தொகுப்பு ஆதாரமாகப் பயன்படுத்தப்படவில்லை. புகார் பக்கங்கள் மாறலாம்; அசல் பதிவையும் தேதியையும் பார்க்கவும்." },
       ] },
     },
@@ -268,14 +268,14 @@ export const publicEvidenceCopyLocal: PartialEvidenceCopy = {
   },
   vi: {
     pages: {
-      openSource: { title: "Mã nguồn mở: tự kiểm tra và vận hành", description: "Giấy phép AGPL-3.0-or-later, demo cục bộ và giới hạn đã biết của ISPATLA.", summary: "Tự kiểm tra mã nguồn, giấy phép và cách chạy demo cục bộ. Mã nguồn mở không hứa máy chủ miễn phí hay bảo mật tuyệt đối.", sections: [
+      openSource: { title: "Mã nguồn mở: tự kiểm tra và vận hành", description: "Giấy phép AGPL-3.0-or-later, demo cục bộ và giới hạn đã biết của ispatla.tr.", summary: "Tự kiểm tra mã nguồn, giấy phép và cách chạy demo cục bộ. Mã nguồn mở không hứa máy chủ miễn phí hay bảo mật tuyệt đối.", sections: [
         { heading: "Giấy phép và mã nguồn", body: "Kho ứng dụng chính được công khai theo AGPL-3.0-or-later. Đọc toàn văn trong LICENSE; các gói bên thứ ba có giấy phép riêng." },
         { heading: "Thiết lập cục bộ", body: "README hướng dẫn thiết lập cục bộ bằng Node.js 22.5+ và Bun, đồng thời nêu yêu cầu kết nối PostgreSQL. Không có dữ liệu demo tổng hợp." },
         { heading: "Chi phí", body: "Không thu phí giấy phép mã nguồn. Máy chủ/lưu trữ, quyền truy cập 𝕏 API và dịch vụ AI có thể phát sinh chi phí riêng." },
         { heading: "Giới hạn của mã nguồn mở", body: "Mã mở không đảm bảo mọi bản cài đều an toàn, cập nhật, cấu hình đúng; cũng không đảm bảo hỗ trợ, SLA hay quyền truy cập 𝕏 liên tục. Cần kiểm tra riêng việc kết nối nhà cung cấp trực tiếp." },
         { heading: "Đóng góp và đính chính", body: "Hướng dẫn đóng góp, báo cáo bảo mật và đính chính nằm trong kho mã. Gửi lỗi hoặc nguồn mới qua hồ sơ GitHub công khai." },
       ] },
-      transparency: { title: "Tình trạng sản phẩm, bằng chứng và giới hạn", description: "Nguồn về quy trình được ghi nhận và những ranh giới trực tiếp chưa được kiểm tra của ISPATLA.", summary: "Chúng tôi tách nội dung trong mã/tài liệu khỏi bằng chứng về dịch vụ trực tiếp, quyền truy cập nhà cung cấp hay triển khai. Kiểm tra ngày 9 tháng 10 năm 2026.", sections: [
+      transparency: { title: "Tình trạng sản phẩm, bằng chứng và giới hạn", description: "Nguồn về quy trình được ghi nhận và những ranh giới trực tiếp chưa được kiểm tra của ispatla.tr.", summary: "Chúng tôi tách nội dung trong mã/tài liệu khỏi bằng chứng về dịch vụ trực tiếp, quyền truy cập nhà cung cấp hay triển khai. Kiểm tra ngày 9 tháng 10 năm 2026.", sections: [
         { heading: "Có trong mã và tài liệu", body: "Khám phá nguồn, đánh giá cơ hội, chỉnh sửa bản nháp và quy trình đăng có kiểm soát được ghi nhận. Demo tổng hợp cục bộ không dùng dữ liệu 𝕏 thật." },
         { heading: "Giới hạn vận hành trực tiếp", body: "Trang này chưa thử 𝕏 OAuth, bài đăng thật, xác minh từ xa, yêu cầu tới nhà cung cấp AI hay triển khai production. Kiểm thử cục bộ không chứng minh các việc đó." },
         { heading: "Dữ liệu và dịch vụ ngoài", body: "Tài khoản 𝕏 kết nối riêng qua OAuth chính thức. Mã mô tả việc mã hóa token và kiểm tra quyền/bằng chứng bổ sung trước khi đăng. AI và lưu trữ phụ thuộc cấu hình môi trường." },
@@ -290,7 +290,7 @@ export const publicEvidenceCopyLocal: PartialEvidenceCopy = {
       research: { title: "Phản ánh người dùng về Xpatla: hồ sơ có nguồn", description: "Tách lời kể của người dùng về hủy dịch vụ/hoàn tiền khỏi phản hồi của công ty và giới hạn xác minh.", summary: "Hồ sơ tách lời kể cá nhân, tuyên bố hiện tại của công ty và điểm chưa giải quyết. Một khiếu nại không phải phán quyết tòa án hay thử nghiệm sản phẩm độc lập.", sections: [
         { heading: "Cách đọc", body: "Các mục là lời kể của người dùng, chưa được xác minh độc lập. Chúng tôi không đăng lại thông tin nhận dạng cá nhân. Không thể suy ra hành vi sai trái, vi phạm pháp luật hay trải nghiệm khách hàng nói chung." },
         { heading: "Tình trạng do công ty công bố", body: "Điều khoản ngày 10-7-2026 cho biết đăng ký/mua mới và kết nối/dữ liệu/đăng bài 𝕏 đang tạm dừng; bản nháp ngoại tuyến vẫn dành cho thành viên hiện có. Trang integrity nói Circle và Growth Credit bị tạm dừng, chợ tương tác đã đóng." },
-        { heading: "Phản hồi và đính chính", body: "Có thể gửi phản hồi qua kênh hỗ trợ Xpatla công bố. ISPATLA xuất bản hồ sơ này, không liên kết hay được Xpatla/Fast AI Labs xác nhận; đây không phải nghiên cứu của tổ chức độc lập. Dùng hồ sơ công khai để gửi phản hồi hoặc đính chính." },
+        { heading: "Phản hồi và đính chính", body: "Có thể gửi phản hồi qua kênh hỗ trợ Xpatla công bố. ispatla.tr xuất bản hồ sơ này, không liên kết hay được Xpatla/Fast AI Labs xác nhận; đây không phải nghiên cứu của tổ chức độc lập. Dùng hồ sơ công khai để gửi phản hồi hoặc đính chính." },
         { heading: "Giới hạn nguồn", body: "Không dùng bài tổng hợp của bên thứ ba làm bằng chứng do khả năng xung đột lợi ích. Trang khiếu nại có thể thay đổi; hãy mở bản ghi gốc và kiểm tra ngày." },
       ] },
     },
@@ -301,14 +301,14 @@ export const publicEvidenceCopyLocal: PartialEvidenceCopy = {
   },
   ko: {
     pages: {
-      openSource: { title: "오픈 소스: 코드를 확인하고 직접 실행하세요", description: "ISPATLA의 AGPL-3.0-or-later 라이선스, 로컬 데모, 알려진 제한.", summary: "소스 코드와 라이선스, 로컬 데모 절차를 직접 확인하세요. 오픈 소스가 무료 서버나 완벽한 보안을 보장하지는 않습니다.", sections: [
+      openSource: { title: "오픈 소스: 코드를 확인하고 직접 실행하세요", description: "ispatla.tr의 AGPL-3.0-or-later 라이선스, 로컬 데모, 알려진 제한.", summary: "소스 코드와 라이선스, 로컬 데모 절차를 직접 확인하세요. 오픈 소스가 무료 서버나 완벽한 보안을 보장하지는 않습니다.", sections: [
         { heading: "라이선스와 소스", body: "주요 앱 저장소는 공개되어 있으며 AGPL-3.0-or-later 라이선스를 사용합니다. 전체 조건은 LICENSE에서 확인하세요. 타사 패키지는 별도 라이선스를 따릅니다." },
         { heading: "로컬 설정", body: "README는 Node.js 22.5 이상과 Bun을 이용한 로컬 설정 및 PostgreSQL 연결 필요 사항을 안내합니다. 합성 데모 데이터는 제공하지 않습니다." },
         { heading: "비용", body: "소스 라이선스 비용은 없습니다. 서버/호스팅, 𝕏 API, AI 제공자 이용에는 별도 비용이 발생할 수 있습니다." },
         { heading: "오픈 소스의 한계", body: "공개 코드가 모든 설치 환경의 보안, 최신성, 올바른 설정, 지원, SLA, 지속적인 𝕏 접근을 보장하지 않습니다. 실제 제공자 연결은 별도로 확인해야 합니다." },
         { heading: "기여와 정정", body: "기여, 보안 신고, 정정 방법은 저장소에 있습니다. 오류나 새 출처는 공개 GitHub 기록에 등록하세요." },
       ] },
-      transparency: { title: "제품 상태, 증거, 한계", description: "문서화된 ISPATLA 작업 흐름과 검증되지 않은 실서비스 경계를 출처와 함께 설명합니다.", summary: "코드와 문서에 있는 내용을 실서비스, 제공자 접근, 배포 증거와 구분합니다. 확인일: 2026년 10월 9일.", sections: [
+      transparency: { title: "제품 상태, 증거, 한계", description: "문서화된 ispatla.tr 작업 흐름과 검증되지 않은 실서비스 경계를 출처와 함께 설명합니다.", summary: "코드와 문서에 있는 내용을 실서비스, 제공자 접근, 배포 증거와 구분합니다. 확인일: 2026년 10월 9일.", sections: [
         { heading: "코드와 문서에 있는 기능", body: "출처 탐색, 기회 평가, 초안 수정, 통제된 게시 흐름이 코드와 문서에 있습니다. 합성 로컬 데모는 실제 𝕏 데이터를 사용하지 않습니다." },
         { heading: "실서비스 검증 한계", body: "이 페이지는 𝕏 OAuth, 실제 게시물, 원격 확인, AI 제공자 호출, 프로덕션 배포를 테스트하지 않았습니다. 로컬 테스트는 이를 증명하지 않습니다." },
         { heading: "데이터와 외부 서비스", body: "𝕏 계정은 공식 OAuth로 별도 연결됩니다. 코드에는 토큰 암호화와 게시 전 추가 권한/증거 검사가 명시되어 있습니다. AI 및 저장 동작은 환경 설정에 따라 달라집니다." },
@@ -323,7 +323,7 @@ export const publicEvidenceCopyLocal: PartialEvidenceCopy = {
       research: { title: "Xpatla 소비자 주장: 출처 기반 조사", description: "구독 해지/환불 관련 이용자 주장과 회사 입장, 검증 한계를 구분합니다.", summary: "이 자료는 개별 이용자의 주장, 회사의 현재 공식 설명, 미해결 사안을 구분합니다. 불만 기록은 법원 판단이나 독립적인 제품 시험이 아닙니다.", sections: [
         { heading: "읽는 방법", body: "기록은 이용자 본인의 진술이며 독립적으로 확인된 사실이 아닙니다. 개인 식별 정보는 다시 게시하지 않습니다. 이를 근거로 위법성이나 일반적인 고객 경험을 단정할 수 없습니다." },
         { heading: "회사가 공개한 현재 상태", body: "2026년 7월 10일 약관은 신규 가입/구매와 𝕏 연결/데이터/게시가 중단되었고 기존 회원의 오프라인 초안은 이용 가능하다고 설명합니다. integrity 페이지는 Circle 및 Growth Credit 중단과 engagement 마켓 종료를 알립니다." },
-        { heading: "답변과 정정", body: "Xpatla가 공개한 지원 채널로 답변할 수 있습니다. ISPATLA가 이 자료를 게시하며 Xpatla/Fast AI Labs와 제휴 또는 승인을 받지 않았고 독립기관의 조사도 아닙니다. 답변/정정은 공개 기록에 남겨 주세요." },
+        { heading: "답변과 정정", body: "Xpatla가 공개한 지원 채널로 답변할 수 있습니다. ispatla.tr가 이 자료를 게시하며 Xpatla/Fast AI Labs와 제휴 또는 승인을 받지 않았고 독립기관의 조사도 아닙니다. 답변/정정은 공개 기록에 남겨 주세요." },
         { heading: "출처의 한계", body: "이해충돌 가능성으로 제3자 종합 보고서는 근거로 쓰지 않았습니다. 불만 페이지 내용은 바뀔 수 있으니 원문과 날짜를 확인하세요." },
       ] },
     },

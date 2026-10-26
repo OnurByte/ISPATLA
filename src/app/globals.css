@@ -37,13 +37,14 @@
 }
 
 .brand-wordmark {
-  font-family: "Libron";
-}
-
-.brand-logo .brand-wordmark {
-  /* Libron bold: typo ascent 1600, descent -400; word ink -519..1636,
-     2000 units/em. Correct the ink centre, not just the CSS line box. */
-  translate: 0 -0.02075em;
+  /* Outlined from the supplied Libron Bold: visible ink, without font line-box slack. */
+  display: inline-block;
+  flex-shrink: 0;
+  width: 4.4205em;
+  height: 1.0775em;
+  background: currentColor;
+  mask: url("/brand/wordmark.svg") center / contain no-repeat;
+  -webkit-mask: url("/brand/wordmark.svg") center / contain no-repeat;
 }
 
 .site-container {
@@ -243,3 +244,29 @@ html[data-motion="reduce"] *::after {
 }
 
 @media (min-width: 640px) { :root { --page-gutter: 2rem; } }
+
+/* Paper, ink and cobalt apply to the browser's small interaction surfaces too. */
+::selection { background: var(--primary); color: var(--primary-foreground); }
+html { scrollbar-gutter: stable; }
+* { scrollbar-width: thin; scrollbar-color: var(--primary) var(--background); }
+*::-webkit-scrollbar { width: 10px; height: 10px; }
+*::-webkit-scrollbar-track { background: var(--background); }
+*::-webkit-scrollbar-thumb { background: var(--primary); border: 3px solid var(--background); border-radius: 8px; }
+*::-webkit-scrollbar-thumb:hover { background: var(--primary); }
+*::-webkit-scrollbar-corner { background: var(--background); }
+@media (forced-colors: active) {
+  ::selection { background: Highlight; color: HighlightText; }
+  * { scrollbar-color: auto; }
+  .brand-mark, .brand-wordmark { forced-color-adjust: none; background-color: CanvasText; }
+}
+.not-found-page { overflow-wrap: anywhere; min-height: calc(100svh - 81px); display: grid; align-content: center; gap: 32px; padding-block: 64px; }
+.not-found-number { border-block: 1px solid var(--border); color: var(--primary); font-size: clamp(100px, 23vw, 240px); line-height: 1; letter-spacing: -.08em; padding-block: 24px; font-variant-numeric: lining-nums; }
+.not-found-copy { max-width: 40rem; display: grid; gap: 24px; }
+.not-found-copy h1 { font-size: clamp(32px, 5vw, 56px); line-height: 1.15; text-wrap: balance; }
+.not-found-copy p { color: var(--muted-foreground); line-height: 1.7; }
+@media (min-width: 900px) { .not-found-page { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: center; gap: 64px; } }
+
+.docs-content section[id] { scroll-margin-block-start: 2rem; }
+.docs-content pre { line-height: 1.8; scrollbar-color: var(--primary) var(--muted); }
+.docs-content { overflow-wrap: anywhere; }
+@media (max-width: 1023px) { main:has(.docs-content) > .grid { display: flex; flex-direction: column; } .docs-contents { order: -1; } }

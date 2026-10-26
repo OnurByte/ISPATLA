@@ -75,9 +75,9 @@ export async function GET(request: Request): Promise<Response> {
   return new Response(JSON.stringify({
     version: "1.0",
     type: "link",
-    provider_name: "İSPATLA",
+    provider_name: "ispatla.tr",
     provider_url: PUBLIC_ORIGIN,
-    author_name: "İSPATLA",
+    author_name: "ispatla.tr",
     author_url: PUBLIC_ORIGIN,
     title: metadata.title,
     description: metadata.description,

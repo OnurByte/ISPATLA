@@ -27,3 +27,5 @@ Lighthouse/SEO reports, local browser observations and production evidence are i
 ## Shape, spacing and logo
 
 Follow [SHAPE_AND_SPACING.md](SHAPE_AND_SPACING.md) for shared radii and proximity-based spacing. The common BrandLogo sets mark/wordmark sizes at 40px/24px mobile and 48px/28px desktop; page-specific navbar sizing is not allowed. The hero uses the localized brand slogan in all 20 languages.
+
+The original footer is shared by landing, public documents and 404 pages, including its single locale picker and full-width top border. Do not remove workflow/MCP/FAQ/closing sections when removing the duplicate license/evidence strip. Visible legacy uppercase product names are replaced by the site mark with ispatla.tr; metadata uses the plain domain name.

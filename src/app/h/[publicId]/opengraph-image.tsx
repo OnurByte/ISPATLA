@@ -31,7 +31,7 @@ export default async function OpenGraphImage({ params }: { params: Promise<{ pub
   return new ImageResponse(
     <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", justifyContent: "space-between", padding: "40px 58px", borderTop: "18px solid #315BF5", background: "#F0EDE5", color: "#16191E", fontFamily: fonts.map(f => f.name).join(", ") }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 23, letterSpacing: 2 }}>
-        <span>ISPATLA</span><span style={{ color: "#315BF5" }}>{words.observation}</span>
+        <span>ispatla.tr</span><span style={{ color: "#315BF5" }}>{words.observation}</span>
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 19, padding: "25px 30px", border: "1px solid #D4D2CA", borderRadius: 18, background: "#FFFFFF" }}>
         <div style={{ fontSize: 27, color: "#315BF5" }}>@{share.accountHandle}</div>
