@@ -31,6 +31,7 @@ No real account credentials, paid AI generation, external posts, actual ownershi
 - Category regression was reproduced before the fix with `account_categories_one_primary_idx`; the same test passes after the fix.
 - API wrapper regressions cover localized auth errors, SQL/parameter redaction, untouched successful user text, unknown-error recovery, approval explanations, and preserved AI machine codes with localized messages.
 - Destructive-text contrast failed its regression test at 4.14:1 before the token correction and passes the 4.5:1 requirement afterward.
+- CI initially exposed a native Bun 1.3.13 crash during the expanded isolated suite. The package manager pin now matches the locally verified [Bun 1.4.4 release](https://github.com/oven-sh/bun/releases/tag/bun-v1.4.4); application dependencies and the lockfile are unchanged.
 - Strict TypeScript, ESLint, and the production build all pass. CI now runs lint, localization coverage, and the complete test suite when product source changes.
 
 ## Browser and HTTP verification
