@@ -1,7 +1,8 @@
 "use client";
 import { BrandText } from "@/components/brand-text";
+import { useUiText } from "@/i18n/ui-client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowDown, ArrowUp, BadgeCheck, RefreshCw, Save, Trash2, UserRound } from "lucide-react";
 import type { Account, CategoryDefinition } from "@/server/db-types";
@@ -63,7 +64,7 @@ function blankAccount(): AccountDraft {
 }
 
 function verificationLabel(status: Account["publicVerificationStatus"]): string {
-  return ({ blue: "Mavi doğrulama", organization: "Kuruluş doğrulaması", government: "Devlet doğrulaması", not_verified: "Doğrulanmamış", unknown: "Bilinmiyor" })[status || "unknown"];
+  return ({ blue: "Blue verified", organization: "Organization verified", government: "Government verified", not_verified: "Not verified", unknown: "Unknown" })[status || "unknown"];
 }
 
 function verificationClass(status: Account["publicVerificationStatus"]): string {
@@ -75,21 +76,44 @@ export function AccountsPage({ initial, categories, connections, policyVersion, 
   connections: Record<number, XConnectionState>; policyVersion: string; copyVersion: string;
   connectionResult?: string; connectionAccountId?: number;
 }) {
+  const { t, locale } = useUiText();
+  const number = new Intl.NumberFormat(locale);
   const [accounts, setAccounts] = useState(initial);
   const initialSelected = initial.find((account) => account.id === connectionAccountId)
     || (connectionResult === "connected" ? [...initial].sort((left, right) => right.updatedAt - left.updatedAt)[0] : undefined)
     || initial[0];
   const [draft, setDraft] = useState<AccountDraft>(initialSelected ? accountDraft(initialSelected) : blankAccount());
-  const [message, setMessage] = useState(connectionResult === "failed" ? "𝕏 bağlantısı tamamlanamadı. İzinleri yeniden deneyin."
-    : connectionResult === "connected" && initialSelected ? `@${initialSelected.handle} 𝕏 hesabı bağlandı. Hesap ayarlarınız korundu.` : "");
+  const [message, setMessage] = useState(connectionResult === "failed" ? t("𝕏 connection could not be completed. Review permissions and try again.")
+    : connectionResult === "connected" && initialSelected ? t("@{handle} 𝕏 account connected. Your account settings were preserved.", { handle: initialSelected.handle }) : "");
   const [pending, setPending] = useState(false);
   const [inference, setInference] = useState<InferenceResult | null>(null);
   const [selectedSuggestions, setSelectedSuggestions] = useState<number[]>([]);
   const [categoryWeights, setCategoryWeights] = useState<Record<number, number>>({});
   const [manualCategoryId, setManualCategoryId] = useState("");
-  const [inferenceMessage, setInferenceMessage] = useState(connectionResult === "connected" ? "Hesap konu önerileri arka planda hazırlanıyor." : "");
+  const [inferenceMessage, setInferenceMessage] = useState(connectionResult === "connected" ? t("Preparing account topic suggestions in the background.") : "");
   const [inferencePending, setInferencePending] = useState(false);
   const [inferenceAccepted, setInferenceAccepted] = useState(false);
+
+  const loadInference = useCallback(async (accountId: number, run = false, regenerate = false) => {
+    setInferencePending(true); setInferenceMessage("");
+    try {
+      if (run) {
+        const response = await fetch(`/api/accounts/${accountId}/categories/inference`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ regenerate }) });
+        const body = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(t(body.error || "Could not analyze the account."));
+        setInference(body as InferenceResult);
+        setSelectedSuggestions((body as InferenceResult).suggestions.map((item) => item.categoryId));
+        setCategoryWeights(Object.fromEntries((body as InferenceResult).suggestions.map((item) => [item.categoryId, 1])));
+      } else {
+        const response = await fetch(`/api/accounts/${accountId}/categories/inference`, { cache: "no-store" });
+        const body = await response.json().catch(() => null) as { result?: InferenceResult } | null;
+        setInference(body?.result || null);
+        setSelectedSuggestions(body?.result?.suggestions.map((item) => item.categoryId) || []);
+        setCategoryWeights(Object.fromEntries((body?.result?.suggestions || []).map((item) => [item.categoryId, 1])));
+      }
+    } catch (error) { setInferenceMessage(error instanceof Error ? error.message : t("Could not analyze the account.")); }
+    finally { setInferencePending(false); }
+  }, [t]);
 
   useEffect(() => {
     if (window.location.search.includes("connection=")) window.history.replaceState({}, "", window.location.pathname);
@@ -105,7 +129,7 @@ export function AccountsPage({ initial, categories, connections, policyVersion, 
           method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({}),
         });
         const result = await response.json().catch(() => ({})) as InferenceResult & { error?: string };
-        if (!response.ok) throw new Error(result.error || "Hesap analizi yapılamadı.");
+        if (!response.ok) throw new Error(t(result.error || "Could not analyze the account."));
         if (cancelled) return;
         setInference(result);
         const categoryIds = result.suggestions.map((item) => item.categoryId);
@@ -117,42 +141,37 @@ export function AccountsPage({ initial, categories, connections, policyVersion, 
             body: JSON.stringify({ categoryIds, weights: Object.fromEntries(categoryIds.map((id) => [id, 1])) }),
           });
           const body = await saved.json().catch(() => ({}));
-          if (!saved.ok) throw new Error(body.error || "Önerilen kategoriler kaydedilemedi.");
+          if (!saved.ok) throw new Error(t(body.error || "Could not save suggested categories."));
           setInferenceAccepted(true);
         }
-        setInferenceMessage("Hesap tarandı; bulunan kategoriler bu hesaba uygulandı.");
+        setInferenceMessage(t("Account scanned. The topics found were applied to this account."));
       } catch (error) {
-        if (!cancelled) setInferenceMessage(error instanceof Error ? error.message : "Hesap analizi yapılamadı.");
+        if (!cancelled) setInferenceMessage(error instanceof Error ? error.message : t("Could not analyze the account."));
       }
     })();
     return () => { cancelled = true; };
-  }, [connectionResult, initialSelected, draft.id]);
+  }, [connectionResult, initialSelected, draft.id, t]);
 
   useEffect(() => {
     if (!draft.id || (connectionResult === "connected" && draft.id === initialSelected?.id)) return;
-    void loadInference(draft.id);
-  }, [draft.id, connectionResult, initialSelected?.id]);
-
-  async function loadInference(accountId: number, run = false, regenerate = false) {
-    setInferencePending(true); setInferenceMessage("");
-    try {
-      if (run) {
-        const response = await fetch(`/api/accounts/${accountId}/categories/inference`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ regenerate }) });
-        const body = await response.json().catch(() => ({}));
-        if (!response.ok) throw new Error(body.error || "Hesap analizi yapılamadı.");
-        setInference(body as InferenceResult);
-        setSelectedSuggestions((body as InferenceResult).suggestions.map((item) => item.categoryId));
-        setCategoryWeights(Object.fromEntries((body as InferenceResult).suggestions.map((item) => [item.categoryId, 1])));
-      } else {
-        const response = await fetch(`/api/accounts/${accountId}/categories/inference`, { cache: "no-store" });
-        const body = await response.json().catch(() => null) as { result?: InferenceResult } | null;
-        setInference(body?.result || null);
-        setSelectedSuggestions(body?.result?.suggestions.map((item) => item.categoryId) || []);
-        setCategoryWeights(Object.fromEntries((body?.result?.suggestions || []).map((item) => [item.categoryId, 1])));
-      }
-    } catch (error) { setInferenceMessage(error instanceof Error ? error.message : "Hesap analizi yapılamadı."); }
-    finally { setInferencePending(false); }
-  }
+    const controller = new AbortController();
+    void fetch(`/api/accounts/${draft.id}/categories/inference`, { cache: "no-store", signal: controller.signal })
+      .then(async (response) => {
+        const body = await response.json().catch(() => null) as { result?: InferenceResult; error?: string } | null;
+        if (!response.ok) throw new Error(t(body?.error || "Could not analyze the account."));
+        return body?.result || null;
+      })
+      .then((result) => {
+        if (controller.signal.aborted) return;
+        setInference(result);
+        setSelectedSuggestions(result?.suggestions.map((item) => item.categoryId) || []);
+        setCategoryWeights(Object.fromEntries((result?.suggestions || []).map((item) => [item.categoryId, 1])));
+      })
+      .catch((error: unknown) => {
+        if (!controller.signal.aborted) setInferenceMessage(error instanceof Error ? error.message : t("Could not analyze the account."));
+      });
+    return () => controller.abort();
+  }, [draft.id, connectionResult, initialSelected?.id, t]);
 
   async function acceptSuggestions() {
     if (!draft.id || !inference) return;
@@ -160,15 +179,15 @@ export function AccountsPage({ initial, categories, connections, policyVersion, 
     try {
       const response = await fetch(`/api/accounts/${draft.id}/categories`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ categoryIds: selectedSuggestions, weights: categoryWeights }) });
       const body = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(body.error || "Konular kaydedilemedi.");
+      if (!response.ok) throw new Error(t(body.error || "Could not save topics."));
       setInference(null);
       setInferenceAccepted(true);
       const next = await fetch("/api/accounts", { cache: "no-store" }).then((item) => item.json() as Promise<AccountPageData[]>);
       setAccounts(next);
       const saved = next.find((item) => item.id === draft.id);
       if (saved) setDraft(accountDraft(saved));
-      setInferenceMessage("Konular ve başlangıç tercihleri kaydedildi. Yayın izinlerin değişmedi.");
-    } catch (error) { setInferenceMessage(error instanceof Error ? error.message : "Konular kaydedilemedi."); }
+      setInferenceMessage(t("Topics and initial preferences saved. Your publishing permissions have not changed."));
+    } catch (error) { setInferenceMessage(error instanceof Error ? error.message : t("Could not save topics.")); }
     finally { setInferencePending(false); }
   }
 
@@ -200,7 +219,7 @@ export function AccountsPage({ initial, categories, connections, policyVersion, 
   }
 
   async function save() {
-    if (!draft.id) return setMessage("Hesap ayarlarını değiştirmek için önce 𝕏 hesabını bağlayın.");
+    if (!draft.id) return setMessage(t("Connect a 𝕏 account before changing its settings."));
     setPending(true);
     setMessage("");
     const response = await fetch(`/api/accounts/${draft.id}`, {
@@ -210,27 +229,27 @@ export function AccountsPage({ initial, categories, connections, policyVersion, 
     });
     const body = await response.json().catch(() => ({}));
     setPending(false);
-    if (!response.ok) return setMessage(body.error || "Kaydedilemedi");
+    if (!response.ok) return setMessage(t(body.error || "Could not save changes."));
     const next = await fetch("/api/accounts", { cache: "no-store" }).then((item) => item.json() as Promise<AccountPageData[]>);
     setAccounts(next);
     const saved = next.find((item) => item.id === body.id) || next[0];
     if (saved) select(saved);
-    setMessage("Hesap kaydedildi.");
+    setMessage(t("Account saved."));
   }
 
   async function remove() {
-    if (!draft.id || !window.confirm("Bu hesabı ve bağlı kayıtlarını silmek, varsa 𝕏 bağlantısını kapatmak istiyor musunuz?")) return;
+    if (!draft.id || !window.confirm(t("Delete this account and its linked records, and disconnect 𝕏 if connected?"))) return;
     setPending(true);
     const response = await fetch(`/api/accounts/${draft.id}`, { method: "DELETE" });
     const body = await response.json().catch(() => ({}));
     setPending(false);
-    if (!response.ok) return setMessage(body.error || "Hesap silinemedi.");
+    if (!response.ok) return setMessage(t(body.error || "Could not delete account."));
     const next = await fetch("/api/accounts", { cache: "no-store" }).then((item) => item.json() as Promise<AccountPageData[]>);
     setAccounts(next);
     setDraft(next[0] ? accountDraft(next[0]) : blankAccount());
     setMessage(body.disconnected === true && body.providerRevoked === false
-      ? "Hesap silindi ve yerel erişim kapatıldı. 𝕏 erişimi iptal edilemedi; 𝕏 ayarlarından ispatla.tr erişimini kaldırın."
-      : body.disconnected === true ? "Hesap silindi ve 𝕏 bağlantısı kapatıldı." : "Hesap silindi.");
+      ? t("Account deleted and local access disconnected. 𝕏 access could not be revoked. Remove ispatla.tr access in 𝕏 settings.")
+      : body.disconnected === true ? t("Account deleted and 𝕏 disconnected.") : t("Account deleted."));
   }
 
   return (
@@ -238,8 +257,8 @@ export function AccountsPage({ initial, categories, connections, policyVersion, 
       <Card>
         <CardHeader className="flex-row items-start justify-between gap-3">
           <div>
-            <CardTitle>Hesap listesi</CardTitle>
-            <CardDescription>Yayın ve stil bağlamı burada tutulur.</CardDescription>
+            <CardTitle>{t("Account list")}</CardTitle>
+            <CardDescription>{t("Publishing and style context are managed here.")}</CardDescription>
           </div>
           <XConnectButton size="sm" />
         </CardHeader>
@@ -247,8 +266,8 @@ export function AccountsPage({ initial, categories, connections, policyVersion, 
           {accounts.length === 0 && (
             <Empty className="border border-dashed py-8">
               <EmptyHeader>
-                <EmptyTitle>Henüz 𝕏 hesabı bağlı değil</EmptyTitle>
-                <EmptyDescription>Kullanıcı adını ekleyin; kategoriler ve yazı tarzı otomatik hazırlansın.</EmptyDescription>
+                <EmptyTitle>{t("No 𝕏 account connected yet")}</EmptyTitle>
+                <EmptyDescription>{t("Add a username to prepare categories and writing style automatically.")}</EmptyDescription>
               </EmptyHeader>
             </Empty>
           )}
@@ -259,7 +278,7 @@ export function AccountsPage({ initial, categories, connections, policyVersion, 
                 key={account.id}
                 type="button"
                 variant={selected ? "secondary" : "ghost"}
-                className="h-auto min-h-14 justify-start gap-3 border border-transparent p-3 text-left data-[selected=true]:border-primary"
+                className="h-auto min-h-14 justify-start gap-3 border border-transparent p-3 text-start data-[selected=true]:border-primary"
                 data-selected={selected}
                 onClick={() => select(account)}
               >
@@ -269,12 +288,12 @@ export function AccountsPage({ initial, categories, connections, policyVersion, 
                   </AvatarFallback>
                 </Avatar>
                 <span className="flex min-w-0 flex-1 flex-col items-start gap-1">
-                  <span className="flex w-full items-center gap-1 truncate text-sm font-medium">@{account.handle}{account.publicVerificationStatus && account.publicVerificationStatus !== "not_verified" && account.publicVerificationStatus !== "unknown" ? <BadgeCheck className={verificationClass(account.publicVerificationStatus)} aria-label={verificationLabel(account.publicVerificationStatus)} /> : null}</span>
+                  <span className="flex w-full items-center gap-1 truncate text-sm font-medium">@{account.handle}{account.publicVerificationStatus && account.publicVerificationStatus !== "not_verified" && account.publicVerificationStatus !== "unknown" ? <BadgeCheck className={verificationClass(account.publicVerificationStatus)} aria-label={t(verificationLabel(account.publicVerificationStatus))} /> : null}</span>
                   <span className="w-full truncate text-xs text-muted-foreground">{account.displayName || account.accountKey}</span>
                   {Array.isArray(account.styleProfile.categories) && account.styleProfile.categories.length ? <span className="w-full truncate text-xs text-muted-foreground">{account.styleProfile.categories.map(String).join(" ⁜ ")}</span> : null}
                 </span>
-                {account.defaultAccount && <Badge variant="secondary">default</Badge>}
-                <Badge variant={account.enabled ? "default" : "outline"}>{account.enabled ? "aktif" : "pasif"}</Badge>
+                {account.defaultAccount && <Badge variant="secondary">{t("Default")}</Badge>}
+                <Badge variant={account.enabled ? "default" : "outline"}>{account.enabled ? t("Active") : t("Inactive")}</Badge>
               </Button>
             );
           })}
@@ -283,46 +302,46 @@ export function AccountsPage({ initial, categories, connections, policyVersion, 
 
       <Card>
         <CardHeader>
-          <CardTitle>Hesap ayarları</CardTitle>
-          <CardDescription>Herkese açık profil, konu ve yazım analizi. Elle seçtiğin tercihleri yeniden analizde koruruz.</CardDescription>
+          <CardTitle>{t("Account settings")}</CardTitle>
+          <CardDescription>{t("Public profile, topic, and writing analysis. Your manually selected preferences are preserved during reanalysis.")}</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-5">
-          {!draft.id ? <Empty className="border border-dashed py-8"><EmptyHeader><EmptyTitle>Hesap ayarları açılmadı</EmptyTitle><EmptyDescription>İlk 𝕏 hesabını bağladığınızda editoryal ayarlar burada görünür.</EmptyDescription></EmptyHeader></Empty> : (
+          {!draft.id ? <Empty className="border border-dashed py-8"><EmptyHeader><EmptyTitle>{t("Account settings are unavailable")}</EmptyTitle><EmptyDescription>{t("Editorial settings appear here after you connect your first 𝕏 account.")}</EmptyDescription></EmptyHeader></Empty> : (
           <>
           <XConnectionControls accountId={draft.id} initial={connections[draft.id] || null} policyVersion={policyVersion} copyVersion={copyVersion} />
           <Separator />
           {inference || inferenceMessage ? <Card>
-            <CardHeader><CardTitle>Senin için hazırladığımız konular</CardTitle><CardDescription>Öneriler hesap adından, kendi herkese açık gönderilerinden ve varsa yazdığın nişten çıkarılır. 𝕏 bağlantısı yayın izni vermez.</CardDescription></CardHeader>
+            <CardHeader><CardTitle>{t("Topics prepared for you")}</CardTitle><CardDescription>{t("Suggestions use the account name, its own public posts, and any niche you entered. Connecting 𝕏 does not grant publishing permission.")}</CardDescription></CardHeader>
             <CardContent className="flex flex-col gap-3">
-              {inference?.status === "insufficient_evidence" ? <p className="text-sm text-muted-foreground">Yeterli konu sinyali bulamadık. Hesap nişini aşağıdaki alana kendin yazabilirsin.</p> : null}
-              {inference?.status === "ready" && inference.suggestions.length === 0 ? <p className="text-sm text-muted-foreground">Bekleyen öneri kalmadı. İstersen hesabını yeniden analiz edebilirsin.</p> : null}
+              {inference?.status === "insufficient_evidence" ? <p className="text-sm text-muted-foreground">{t("We could not find enough topic signals. You can enter the account niche below.")}</p> : null}
+              {inference?.status === "ready" && inference.suggestions.length === 0 ? <p className="text-sm text-muted-foreground">{t("No suggestions are pending. You can analyze the account again if you like.")}</p> : null}
               {orderedCategoryIds.map((categoryId) => {
                 const suggestion = inference?.suggestions.find((item) => item.categoryId === categoryId);
                 const category = categoryById.get(categoryId);
                 if (!category) return null;
                 const selectedIndex = selectedSuggestions.indexOf(categoryId);
                 return <div key={categoryId} className="flex flex-wrap items-center gap-3 rounded-md border p-3">
-                  <Checkbox aria-label={`${category.name} önerisini seç`} checked={selectedIndex >= 0} onCheckedChange={(checked) => setSelectedSuggestions((current) => checked ? [...current, categoryId] : current.filter((id) => id !== categoryId))} />
-                  <div className="min-w-0 flex-1"><p className="font-medium">{category.name}</p><p className="text-xs text-muted-foreground">{suggestion ? `Eşleşen ifadeler: ${suggestion.evidence.join(", ")} ⁜ Eşleşme gücü %${Math.round(suggestion.confidence * 100)}` : "Senin eklediğin konu"}</p></div>
-                  {selectedIndex >= 0 ? <><label className="flex items-center gap-2 text-xs">Ağırlık <input type="range" min="0" max="10" step="0.5" value={categoryWeights[categoryId] ?? 1} onChange={(event) => setCategoryWeights((current) => ({ ...current, [categoryId]: Number(event.target.value) }))} aria-label={`${category.name} ağırlığı`} /></label><Button type="button" size="icon" variant="ghost" aria-label={`${category.name} yukarı taşı`} disabled={selectedIndex === 0} onClick={() => moveSuggestion(selectedIndex, -1)}><ArrowUp aria-hidden="true" /></Button><Button type="button" size="icon" variant="ghost" aria-label={`${category.name} aşağı taşı`} disabled={selectedIndex === selectedSuggestions.length - 1} onClick={() => moveSuggestion(selectedIndex, 1)}><ArrowDown aria-hidden="true" /></Button></> : null}
+                  <Checkbox aria-label={t("Select the {name} suggestion", { name: category.name })} checked={selectedIndex >= 0} onCheckedChange={(checked) => setSelectedSuggestions((current) => checked ? [...current, categoryId] : current.filter((id) => id !== categoryId))} />
+                  <div className="min-w-0 flex-1"><p className="font-medium">{category.name}</p><p className="text-xs text-muted-foreground">{suggestion ? t("Matching phrases: {phrases} ⁜ Match strength {percent}%", { phrases: suggestion.evidence.join(", "), percent: number.format(Math.round(suggestion.confidence * 100)) }) : t("Topic you added")}</p></div>
+                  {selectedIndex >= 0 ? <><label className="flex items-center gap-2 text-xs">{t("Weight")} <input type="range" min="0" max="10" step="0.5" value={categoryWeights[categoryId] ?? 1} onChange={(event) => setCategoryWeights((current) => ({ ...current, [categoryId]: Number(event.target.value) }))} aria-label={t("{name} weight", { name: category.name })} /></label><Button type="button" size="icon" variant="ghost" aria-label={t("Move {name} up", { name: category.name })} disabled={selectedIndex === 0} onClick={() => moveSuggestion(selectedIndex, -1)}><ArrowUp aria-hidden="true" /></Button><Button type="button" size="icon" variant="ghost" aria-label={t("Move {name} down", { name: category.name })} disabled={selectedIndex === selectedSuggestions.length - 1} onClick={() => moveSuggestion(selectedIndex, 1)}><ArrowDown aria-hidden="true" /></Button></> : null}
                 </div>;
               })}
-              {availableManualCategories.length ? <div className="flex gap-2"><select value={manualCategoryId} onChange={(event) => setManualCategoryId(event.target.value)} aria-label="Başka konu ekle" className="min-w-0 flex-1 rounded-md border bg-transparent px-3 py-2 text-sm"><option value="">Başka konu ekle</option>{availableManualCategories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select><Button type="button" variant="outline" disabled={!manualCategoryId} onClick={() => { const id = Number(manualCategoryId); setSelectedSuggestions((current) => [...current, id]); setCategoryWeights((current) => ({ ...current, [id]: 1 })); setManualCategoryId(""); }}>Ekle</Button></div> : null}
-              {inference?.contentLanguage && inference.contentLanguage !== "unknown" ? <p className="text-sm text-muted-foreground">İçerik dili önerisi: {inference.contentLanguage}</p> : null}
-              {draft.id && <div className="flex flex-wrap gap-2">{inference && (inference.suggestions.length > 0 || selectedSuggestions.length > 0) ? <Button type="button" onClick={acceptSuggestions} disabled={inferencePending}><Save data-icon="inline-start" aria-hidden="true" /> Konularımı kullan</Button> : null}<Button type="button" variant="outline" onClick={() => void loadInference(draft.id!, true, true)} disabled={inferencePending}><RefreshCw data-icon="inline-start" aria-hidden="true" /> Yeniden analiz et</Button></div>}
+              {availableManualCategories.length ? <div className="flex gap-2"><select value={manualCategoryId} onChange={(event) => setManualCategoryId(event.target.value)} aria-label={t("Add another topic")} className="min-w-0 flex-1 rounded-md border bg-transparent px-3 py-2 text-sm"><option value="">{t("Add another topic")}</option>{availableManualCategories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select><Button type="button" variant="outline" disabled={!manualCategoryId} onClick={() => { const id = Number(manualCategoryId); setSelectedSuggestions((current) => [...current, id]); setCategoryWeights((current) => ({ ...current, [id]: 1 })); setManualCategoryId(""); }}>{t("Add")}</Button></div> : null}
+              {inference?.contentLanguage && inference.contentLanguage !== "unknown" ? <p className="text-sm text-muted-foreground">{t("Suggested content language")}: {inference.contentLanguage}</p> : null}
+              {draft.id && <div className="flex flex-wrap gap-2">{inference && (inference.suggestions.length > 0 || selectedSuggestions.length > 0) ? <Button type="button" onClick={acceptSuggestions} disabled={inferencePending}><Save data-icon="inline-start" aria-hidden="true" /> {t("Use my topics")}</Button> : null}<Button type="button" variant="outline" onClick={() => void loadInference(draft.id!, true, true)} disabled={inferencePending}><RefreshCw data-icon="inline-start" aria-hidden="true" /> {t("Analyze again")}</Button></div>}
               {inferenceMessage ? <p role="status" className="text-sm text-muted-foreground">{inferenceMessage}</p> : null}
-              {inferenceAccepted ? <Link className="text-sm font-medium text-primary underline-offset-4 hover:underline" href="/opportunities">İlk fırsatını gör</Link> : null}
+              {inferenceAccepted ? <Link className="text-sm font-medium text-primary underline-offset-4 hover:underline" href="/opportunities">{t("See your first opportunity")}</Link> : null}
             </CardContent>
           </Card> : null}
           <div className="flex flex-wrap items-center gap-2 text-sm"><Badge variant="secondary">@{draft.handle}</Badge><span className="text-muted-foreground">{draft.displayName}</span></div>
-          <details className="rounded-lg border p-4"><summary className="cursor-pointer font-medium">Hesap ve yazım tercihlerini düzenle</summary><div className="mt-4 flex flex-col gap-5">
+          <details className="rounded-lg border p-4"><summary className="cursor-pointer font-medium">{t("Edit account and writing preferences")}</summary><div className="mt-4 flex flex-col gap-5">
           <FieldGroup>
             <div className="grid gap-5 sm:grid-cols-2">
               <Field>
-                <FieldLabel htmlFor="daily-limit">Günlük yayın limiti</FieldLabel>
+                <FieldLabel htmlFor="daily-limit">{t("Daily publishing limit")}</FieldLabel>
                 <Input id="daily-limit" type="number" min={1} max={100} value={draft.dailyLimit} onChange={(event) => setValue("dailyLimit", Number(event.target.value))} />
               </Field>
-              <p className="self-end text-sm text-muted-foreground">Otomatik yayın şu anda kapalı. Eylem bazlı izinleri aşağıdan yönetin.</p>
+              <p className="self-end text-sm text-muted-foreground">{t("Automatic publishing is currently off. Manage permissions for each action below.")}</p>
             </div>
           </FieldGroup>
 
@@ -331,15 +350,15 @@ export function AccountsPage({ initial, categories, connections, policyVersion, 
           <FieldGroup>
             <Field orientation="horizontal">
               <FieldContent>
-                <FieldLabel htmlFor="account-enabled">Hesap aktif</FieldLabel>
-                <FieldDescription>Bu hesap intake ve yayın akışlarında kullanılabilir.</FieldDescription>
+                <FieldLabel htmlFor="account-enabled">{t("Account active")}</FieldLabel>
+                <FieldDescription>{t("This account can be used in intake and publishing workflows.")}</FieldDescription>
               </FieldContent>
               <Switch id="account-enabled" checked={draft.enabled} onCheckedChange={(value) => setValue("enabled", value)} />
             </Field>
             <Field orientation="horizontal">
               <FieldContent>
-                <FieldLabel htmlFor="default-account">Varsayılan hesap</FieldLabel>
-                <FieldDescription>Market ve draft ekranlarında ilk seçilecek hesap.</FieldDescription>
+                <FieldLabel htmlFor="default-account">{t("Default account")}</FieldLabel>
+                <FieldDescription>{t("The account selected first on the Opportunities and Drafts pages.")}</FieldDescription>
               </FieldContent>
               <Switch id="default-account" checked={draft.defaultAccount} onCheckedChange={(value) => setValue("defaultAccount", value)} />
             </Field>
@@ -348,17 +367,17 @@ export function AccountsPage({ initial, categories, connections, policyVersion, 
           <Separator />
 
           <Field>
-            <FieldLabel htmlFor="style-notes">Stil notu</FieldLabel>
-            <Input id="style-notes" value={String(draft.styleProfile.tone || "")} onChange={(event) => setValue("styleProfile", { ...draft.styleProfile, tone: event.target.value })} placeholder="sade, kanıt odaklı, kısa" />
+            <FieldLabel htmlFor="style-notes">{t("Style notes")}</FieldLabel>
+            <Input id="style-notes" value={String(draft.styleProfile.tone || "")} onChange={(event) => setValue("styleProfile", { ...draft.styleProfile, tone: event.target.value })} placeholder={t("clear, evidence-based, concise")} />
           </Field>
           <Field>
-            <FieldLabel htmlFor="account-niche">Hesap nişi</FieldLabel>
-            <FieldDescription>Bu yayın hesabının konusu; her hesap ayrı niş kullanır.</FieldDescription>
-            <Input id="account-niche" value={String(draft.styleProfile.niche || "")} onChange={(event) => setValue("styleProfile", { ...draft.styleProfile, niche: event.target.value })} placeholder="ör. teknoloji ve girişimcilik" />
+            <FieldLabel htmlFor="account-niche">{t("Account niche")}</FieldLabel>
+            <FieldDescription>{t("The topic for this publishing account. Each account has its own niche.")}</FieldDescription>
+            <Input id="account-niche" value={String(draft.styleProfile.niche || "")} onChange={(event) => setValue("styleProfile", { ...draft.styleProfile, niche: event.target.value })} placeholder={t("example: technology and entrepreneurship")} />
           </Field>
           <Field>
-            <FieldLabel htmlFor="account-categories">Hesap kategorileri</FieldLabel>
-            <FieldDescription>Katalogdan bir veya daha fazla kategori seç. Otomatik yayın yalnız eşleşen hesaplara yönlendirilir.</FieldDescription>
+            <FieldLabel htmlFor="account-categories">{t("Account categories")}</FieldLabel>
+            <FieldDescription>{t("Select one or more categories from the catalog. Automatic publishing routes only to matching accounts.")}</FieldDescription>
             <select id="account-categories" multiple value={(Array.isArray(draft.styleProfile.categories) ? draft.styleProfile.categories.map(String) : []).filter((value) => categories.some((category) => category.slug === value))} onChange={(event) => setValue("styleProfile", { ...draft.styleProfile, categories: Array.from(event.currentTarget.selectedOptions).map((option) => option.value).slice(0, 12) })} className="min-h-28 w-full rounded-md border bg-transparent px-3 py-2 text-sm">
               {categories.filter((category) => category.enabled).map((category) => <option key={category.id} value={category.slug}>{category.name} ({category.slug})</option>)}
             </select>
@@ -366,20 +385,20 @@ export function AccountsPage({ initial, categories, connections, policyVersion, 
           <FieldGroup>
             <div className="grid gap-5 sm:grid-cols-2">
               <Field>
-                <FieldLabel htmlFor="account-opening">Giriş biçimi</FieldLabel>
-                <Input id="account-opening" value={String(draft.styleProfile.opening || "")} onChange={(event) => setValue("styleProfile", { ...draft.styleProfile, opening: event.target.value })} placeholder="Emoji ile başla / doğrudan başlık / soru" />
+                <FieldLabel htmlFor="account-opening">{t("Opening format")}</FieldLabel>
+                <Input id="account-opening" value={String(draft.styleProfile.opening || "")} onChange={(event) => setValue("styleProfile", { ...draft.styleProfile, opening: event.target.value })} placeholder={t("Start with an emoji / direct headline / question")} />
               </Field>
               <Field>
-                <FieldLabel htmlFor="account-emoji">Emoji kuralı</FieldLabel>
-                <Input id="account-emoji" value={String(draft.styleProfile.emoji || "")} onChange={(event) => setValue("styleProfile", { ...draft.styleProfile, emoji: event.target.value })} placeholder="⚡️ yalnız son dakika; yoksa kullanma" />
+                <FieldLabel htmlFor="account-emoji">{t("Emoji rule")}</FieldLabel>
+                <Input id="account-emoji" value={String(draft.styleProfile.emoji || "")} onChange={(event) => setValue("styleProfile", { ...draft.styleProfile, emoji: event.target.value })} placeholder={t("⚡️ only for breaking news; otherwise do not use")} />
               </Field>
               <Field>
-                <FieldLabel htmlFor="account-attribution">Kaynak atfı</FieldLabel>
-            <Input id="account-attribution" value={String(draft.styleProfile.attribution || "")} onChange={(event) => setValue("styleProfile", { ...draft.styleProfile, attribution: event.target.value })} placeholder="Gerçek kaynak varsa sonda (Kurum adı); yoksa yazma" />
+                <FieldLabel htmlFor="account-attribution">{t("Source attribution")}</FieldLabel>
+            <Input id="account-attribution" value={String(draft.styleProfile.attribution || "")} onChange={(event) => setValue("styleProfile", { ...draft.styleProfile, attribution: event.target.value })} placeholder={t("Add a real source at the end (organization name); otherwise omit it")} />
               </Field>
               <Field>
-                <FieldLabel htmlFor="account-format">Cümle ve format kuralı</FieldLabel>
-                <Input id="account-format" value={String(draft.styleProfile.formatRule || "")} onChange={(event) => setValue("styleProfile", { ...draft.styleProfile, formatRule: event.target.value })} placeholder="tek paragraf, kısa cümle, hashtag yok" />
+                <FieldLabel htmlFor="account-format">{t("Sentence and format rule")}</FieldLabel>
+                <Input id="account-format" value={String(draft.styleProfile.formatRule || "")} onChange={(event) => setValue("styleProfile", { ...draft.styleProfile, formatRule: event.target.value })} placeholder={t("one paragraph, short sentences, no hashtags")} />
               </Field>
             </div>
           </FieldGroup>
@@ -394,16 +413,16 @@ export function AccountsPage({ initial, categories, connections, policyVersion, 
 
           <div className="flex flex-wrap gap-2">
             <Button onClick={save} disabled={pending}>
-              {pending ? <Spinner data-icon="inline-start" /> : <Save data-icon="inline-start" aria-hidden="true" />} Ayarları kaydet
+              {pending ? <Spinner data-icon="inline-start" /> : <Save data-icon="inline-start" aria-hidden="true" /> } {t("Save settings")}
             </Button>
             {(
               <Button variant="destructive" onClick={remove} disabled={pending}>
-                {pending ? <Spinner data-icon="inline-start" /> : <Trash2 data-icon="inline-start" aria-hidden="true" />} Sil
+                {pending ? <Spinner data-icon="inline-start" /> : <Trash2 data-icon="inline-start" aria-hidden="true" />} {t("Delete")}
               </Button>
             )}
             {(
               <Badge variant="outline" className="gap-1">
-                ayarlar bağlı 𝕏 hesabına ait
+                {t("Settings belong to the connected 𝕏 account")}
               </Badge>
             )}
           </div>

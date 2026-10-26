@@ -19,7 +19,9 @@
     "automation:worker": "bun scripts/automation-worker.ts",
     "mcp": "bun scripts/ispatla-mcp.ts",
     "ideologies:update": "bun scripts/fetch-ideologies.ts",
-    "ideologies:validate": "bun test tests/ideologies.test.ts"
+    "ideologies:validate": "bun test tests/ideologies.test.ts",
+    "quality:i18n": "bun scripts/check-ui-localization.ts",
+    "test:i18n": "bun test --isolate tests/i18n.test.ts tests/feature-i18n.test.ts tests/workspace-localization.test.ts tests/api-error-localization.test.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",
@@ -54,7 +56,7 @@
     "tailwindcss": "^4",
     "typescript": "^5"
   },
-  "packageManager": "bun@1.3.13",
+  "packageManager": "bun@1.4.4",
   "ignoreScripts": [
     "sharp",
     "unrs-resolver"

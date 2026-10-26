@@ -1,8 +1,9 @@
 import PostPage from "../../../post/[postId]/page";
 import { PostModal } from "@/components/post-modal";
-import { headers } from "next/headers";
+import { requestPublicLocale } from "@/components/public-header";
+import { getUiText } from "@/i18n/ui";
 export const dynamic = "force-dynamic";
 export default async function ModalPage(props: Parameters<typeof PostPage>[0]) {
-  const tr = (await headers()).get("x-ispatla-locale") === "tr";
-  return <PostModal title={tr ? "Gönderi inceleyici" : "Post viewer"}>{await PostPage(props)}</PostModal>;
+  const locale = await requestPublicLocale();
+  return <PostModal title={getUiText(locale, "Post viewer")}>{await PostPage(props)}</PostModal>;
 }

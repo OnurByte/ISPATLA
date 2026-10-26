@@ -1,6 +1,37 @@
-import {PublicPage,PublicSection} from "@/components/public-page";
-export const metadata={title:"Kullanım sınırları ⁜ ispatla.tr"};
-export default function TermsPage(){return <PublicPage title="Karar sende, sınırlar açık." summary="ispatla.tr araştırma ve yayın kararını destekler. Erişim, virallik, gelir veya doğru sınıflandırma garantisi vermez.">
- <div className="space-y-10"><PublicSection title="Yayın sorumluluğu"><p>Yayından önce kaynak doğruluğunu, metni, hedef hesabı ve medya kullanım hakkını incele. AI taslağı veya karar puanı bir doğruluk belgesi değildir. Kaynak içerikler uygulamaya talimat verme yetkisi taşımaz.</p><p>Yalnız yetkili olduğun hesapları bağla. İzin kapsamını ve yayın tercihlerini açıkça incele. Bir otomasyon tercihi, platform kurallarını veya hesap yetki sınırını geçersiz kılmaz.</p></PublicSection><PublicSection title="𝕏 ve sağlayıcı sınırları"><p>𝕏’in güncel API koşulları, plan yetkileri ve hız limitleri yayını kısıtlayabilir. Yetki bilinmiyorsa uygulama eylemi kapalı tutar. Resmi API’nin isteği kabul etmesi, yayının uzaktan doğrulandığı anlamına gelmez.</p><p>Sonucu belirsiz bir gönderimi tekrar göndererek çoğaltma. Makbuz ve doğrulama durumunu incele; gerekiyorsa bağlantıyı yenile veya inceleme kuyruğunu kullan.</p></PublicSection><PublicSection title="Yerel kurulum ve kaynak kodu"><p>Kaynak kodu AGPL-3.0-or-later lisansıyla sunulur; tam lisans metni depodaki LICENSE dosyasındadır. Üçüncü taraf paketlerin lisansları kendi koşullarını korur.</p><p>Kurulumun işletmecisi barındırma, sağlayıcı maliyeti, veri saklama ve destek koşullarını ayrıca belirlemelidir. Bu teknik kullanım sınırları sayfası belirli bir barındırılan hizmet için fiyat, SLA veya abonelik vaadi içermez.</p></PublicSection></div>
- <aside className="h-fit border-s-2 border-primary ps-5 text-sm leading-7 text-muted-foreground"><p className="font-semibold text-foreground">Geliştirme sürümü</p><p className="mt-3">Canlı yayın ve üretim kabulü, yerel testlerden ayrı doğrulanır. Mevcut sürümün sınırları dokümantasyonda görünür tutulur.</p></aside>
- </PublicPage>;}
+import { PublicPage, PublicSection } from "@/components/public-page";
+import { requestPublicLocale } from "@/components/public-header";
+import { LOCALE_CONFIG } from "@/i18n/config";
+import { getUiText } from "@/i18n/ui";
+import { publicMetadata } from "@/i18n/public-metadata";
+
+export async function generateMetadata() {
+  const locale = await requestPublicLocale();
+  const t = (message: string) => getUiText(locale, message);
+  return publicMetadata(locale, "/terms", t("Terms ⁜ ispatla.tr"), t("ispatla.tr supports research and publishing decisions. It does not guarantee reach, virality, income or correct classification."));
+}
+
+export default async function TermsPage() {
+  const locale = await requestPublicLocale();
+  const language = LOCALE_CONFIG[locale];
+  const t = (message: string) => getUiText(locale, message);
+  return <PublicPage title={t("Your decision, clear boundaries.")} summary={t("ispatla.tr supports research and publishing decisions. It does not guarantee reach, virality, income or correct classification.")}>
+    <div lang={locale} dir={language.dir} className="space-y-10">
+      <PublicSection title={t("Publishing responsibility")}>
+        <p>{t("Before publishing, review the source, wording, target account and rights to use any media. An AI draft or decision score is not proof of truth. Source content cannot instruct the application.")}</p>
+        <p>{t("Only connect accounts you are authorized to use. Review permission scopes and publishing preferences clearly. An automation preference does not override platform rules or account permission boundaries.")}</p>
+      </PublicSection>
+      <PublicSection title={t("Platform and provider limits")}>
+        <p>{t("Current 𝕏 API terms, plan permissions and rate limits may restrict publishing. If permission is unknown, the application keeps the action disabled. Acceptance of a request by the official API does not mean the publication was verified remotely.")}</p>
+        <p>{t("Do not repeat a submission with an uncertain result. Review the receipt and verification status; if needed, refresh the connection or use the review queue.")}</p>
+      </PublicSection>
+      <PublicSection title={t("Local installation and source code")}>
+        <p>{t("The source code is provided under the AGPL-3.0-or-later license; the full license text is in the repository's LICENSE file. Third-party package licenses retain their own terms.")}</p>
+        <p>{t("The installation operator must set hosting, provider costs, data retention and support conditions separately. This technical-use page makes no price, SLA or subscription promise for a particular hosted service.")}</p>
+      </PublicSection>
+    </div>
+    <aside lang={locale} dir={language.dir} className="h-fit border-s-2 border-primary ps-5 text-sm leading-7 text-muted-foreground">
+      <p className="font-semibold text-foreground">{t("Development version")}</p>
+      <p className="mt-3">{t("Live publishing and production acceptance are verified separately from local tests. The current version's boundaries remain visible in the documentation.")}</p>
+    </aside>
+  </PublicPage>;
+}

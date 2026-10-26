@@ -177,3 +177,14 @@ integration("legacy X sessions migrate to verified email and password without lo
     expect((await runtime.handler(new Request(sentLink))).status).toBe(400);
   } finally { runtime.close(); globalThis.fetch = fetchBefore; }
 }, 15_000);
+
+integration("multiple custom categories retain one primary, including concurrent creation", async () => {
+  const { savePostgresAccountCategory } = await import("@/server/postgres-accounts");
+  const id = Number((await getPostgresPool().query('INSERT INTO ispatla_app.accounts(owner_user_id,account_key,handle,updated_at) VALUES($1,$2,\'categoryfixture\',1) RETURNING id', [owner, randomUUID()])).rows[0].id);
+  const input = { name: "Fixture topic", description: "Isolated category test", enabled: true, builtIn: false, baseStrategy: "generic" as const, clusterStrategy: "topic" as const, verificationMode: "moderate" as const, positiveExamples: [], negativeExamples: [], keywords: ["testing"], excludedKeywords: [], seedHandles: [], defaultFormats: ["post"], sourcePolicy: {}, riskPolicy: {}, scoringPolicy: {}, publishingPolicy: {}, aiContext: "", now: 1 };
+  const first = await savePostgresAccountCategory(owner, id, { ...input, slug: "first" });
+  await Promise.all(["second", "third"].map(slug => savePostgresAccountCategory(owner, id, { ...input, slug })));
+  const rows = (await getPostgresPool().query('SELECT category_id,is_primary FROM ispatla_app.account_categories WHERE account_id=$1', [id])).rows;
+  expect(rows).toHaveLength(3);
+  expect(rows.filter(row => row.is_primary === 1).map(row => Number(row.category_id))).toEqual([first.id]);
+});

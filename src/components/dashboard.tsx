@@ -1,4 +1,6 @@
 "use client";
+import {useUiText} from "@/i18n/ui-client";
+import {localizePath,type Locale} from "@/i18n/config";
 import { BrandText } from "@/components/brand-text";
 
 import { useState, useTransition } from "react";
@@ -19,53 +21,63 @@ import { Separator } from "@/components/ui/separator";
 import { Spinner } from "@/components/ui/spinner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
-function formatAge(timestamp: number): string {
+function formatAge(timestamp: number, locale:Locale): string {
   if (!timestamp) return "—";
-  return new Intl.DateTimeFormat("tr-TR", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Istanbul" }).format(timestamp * 1000);
+  return new Intl.DateTimeFormat(locale, { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Istanbul" }).format(timestamp * 1000);
+}
+
+function formatNumber(value:number,locale:Locale):string { return new Intl.NumberFormat(locale).format(value); }
+
+function displayStatus(status:string,t:(message:string)=>string):string {
+  const labels:Record<string,string>={ok:"Completed",partial:"Partial",skipped:"Skipped",bekliyor:"Waiting",published:"Published",drafted:"Draft created",queued:"Queued",new:"New",ignored:"Ignored",observed:"Observed",confirmed:"Confirmed",blocked:"Blocked",ready:"Ready",failed:"Failed",pending_approval:"Awaiting approval",pending_reconciliation:"Reconciliation pending",reconciliation_required:"Reconciliation required",dispatching:"Sending",expired:"Expired",rejected:"Rejected",sensitive:"Sensitive",opportunity:"Opportunity",below_threshold:"Rejected",not_eligible_evidence:"Ineligible evidence",processed:"Processed"};
+  return t(labels[status]||status);
 }
 
 function statusVariant(status: string): "default" | "secondary" | "destructive" | "outline" {
-  if (status === "confirmed" || status === "ready") return "default";
-  if (status === "blocked" || status === "rejected") return "destructive";
-  if (status === "pending_reconciliation") return "secondary";
+  if (["confirmed", "ready", "published", "drafted"].includes(status)) return "default";
+  if (["blocked", "rejected", "failed"].includes(status)) return "destructive";
+  if (["queued", "pending_reconciliation", "pending_approval", "dispatching"].includes(status)) return "secondary";
   return "outline";
 }
 
 function PostRow({ post }: { post: RecentPost }) {
+  const {t,locale}=useUiText();
   return (
     <TableRow>
       <TableCell className="max-w-[560px]">
         <div className="flex flex-col gap-1">
-          <Link className="line-clamp-2 font-medium leading-5 hover:underline" href={internalPostUrl(post.externalId)}>
+          <Link className="line-clamp-2 font-medium leading-5 hover:underline" href={localizePath(locale,internalPostUrl(post.externalId))}>
             {post.text}
           </Link>
-          <span className="text-xs text-muted-foreground">@{post.sourceHandle} ⁜ {formatAge(post.observedAt)}</span>
+          <span className="text-xs text-muted-foreground">@{post.sourceHandle} ⁜ {formatAge(post.observedAt,locale)}</span>
         </div>
       </TableCell>
-      <TableCell className="text-right tabular-nums">{Math.round(post.score)}</TableCell>
-      <TableCell><Badge variant={post.mediaCount ? "secondary" : "outline"}>{post.mediaCount ? `${post.mediaCount} medya` : "metin"}</Badge></TableCell>
-      <TableCell><Badge variant={statusVariant(post.publishStatus)}>{post.publishStatus.replaceAll("_", " ")}</Badge></TableCell>
+      <TableCell className="text-right tabular-nums">{formatNumber(Math.round(post.score),locale)}</TableCell>
+      <TableCell><Badge variant={post.mediaCount ? "secondary" : "outline"}>{post.mediaCount ? t("{count} media",{count:formatNumber(post.mediaCount,locale)}) : t("Text")}</Badge></TableCell>
+      <TableCell><Badge variant={statusVariant(post.publishStatus)}>{displayStatus(post.publishStatus,t)}</Badge></TableCell>
     </TableRow>
   );
 }
 
 function MetricCard({ icon: Icon, label, value, detail, href }: { icon: ComponentType<{ className?: string }>; label: string; value: string | number; detail: string; href?: string }) {
+  const {locale}=useUiText();
   const card = (
     <Card className={href ? "transition-colors hover:border-primary/50" : undefined}>
       <CardHeader className="flex-row items-start justify-between gap-4 pb-3">
         <div className="flex flex-col gap-1">
           <CardDescription>{label}</CardDescription>
-          <CardTitle className="text-3xl tabular-nums">{value}</CardTitle>
+          <CardTitle className="text-3xl tabular-nums">{typeof value === "number" ? formatNumber(value,locale) : value}</CardTitle>
         </div>
         <Icon className="size-5 text-muted-foreground" />
       </CardHeader>
       <CardContent className="text-xs text-muted-foreground">{detail}</CardContent>
     </Card>
   );
-  return href ? <Link href={href} aria-label={`${label} listesini aç`}>{card}</Link> : card;
+  return href ? <Link href={localizePath(locale,href)}>{card}</Link> : card;
 }
 
 export function Dashboard({ initial, canRunScan }: { initial: DashboardView; canRunScan: boolean }) {
+  const {t,locale}=useUiText();
   const [summary, setSummary] = useState(initial);
   const [isPending, startTransition] = useTransition();
 
@@ -83,11 +95,11 @@ export function Dashboard({ initial, canRunScan }: { initial: DashboardView; can
     });
   }
 
-  const latestStatus = summary.lastRun?.status || "bekliyor";
+  const latestStatus = displayStatus(summary.lastRun?.status || "bekliyor",t);
   const docs = [
-    ["𝕏 algorithm news account analysis", "x-algorithm-news-account-analysis.md"],
-    ["XPatla site algorithm research", "xpatla-site-algoritma-arastirmasi-2026-08-21.md"],
-    ["Research map", "docs/RESEARCH-MAP.md"],
+    [t("𝕏 algorithm news account analysis"), "x-algorithm-news-account-analysis.md"],
+    [t("𝕏Patla site algorithm research"), "xpatla-site-algoritma-arastirmasi-2026-08-21.md"],
+    [t("Research map"), "docs/RESEARCH-MAP.md"],
   ];
 
   return (
@@ -97,70 +109,68 @@ export function Dashboard({ initial, canRunScan }: { initial: DashboardView; can
           <div className="flex max-w-3xl flex-col gap-4">
             <div className="flex items-center gap-3 text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
               <span className="inline-flex size-2 rounded-full bg-primary" />
-              <BrandText text="ispatla.tr / Senin masan" />
+              <BrandText text={t("ispatla.tr / Senin masan")} />
             </div>
             <div className="flex flex-col gap-2">
-              <h1 className="text-4xl font-semibold tracking-tight sm:text-5xl">Bir sonraki gönderin burada başlar.</h1>
-              <p className="max-w-2xl text-base leading-7 text-muted-foreground">Konularına uygun fırsatları incele, taslağını kendi üslubunla düzenle ve yayın sonuçlarından öğren.</p>
+              <h1 className="text-4xl font-semibold tracking-tight sm:text-5xl">{t("Bir sonraki gönderin burada başlar.")}</h1>
+              <p className="max-w-2xl text-base leading-7 text-muted-foreground">{t("Konularına uygun fırsatları incele, taslağını kendi üslubunla düzenle ve yayın sonuçlarından öğren.")}</p>
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <Button variant="outline" onClick={refresh} disabled={isPending}>
-              {isPending ? <Spinner data-icon="inline-start" /> : <RefreshCw data-icon="inline-start" aria-hidden="true" />} Yenile
-            </Button>
+              {isPending ? <Spinner data-icon="inline-start" /> : <RefreshCw data-icon="inline-start" aria-hidden="true" />} {t("Refresh")}</Button>
             {canRunScan ? <Button onClick={runScan} disabled={isPending}>
-              <Activity data-icon="inline-start" aria-hidden="true" /> Şimdi tara
-            </Button> : null}
+              <Activity data-icon="inline-start" aria-hidden="true" /> {t("Şimdi tara")}</Button> : null}
           </div>
         </header>
 
         <section className="flex flex-col gap-4 rounded-xl border bg-muted/20 p-5 sm:flex-row sm:items-center sm:justify-between" aria-labelledby="first-step-title">
           <div className="max-w-3xl">
-            <div className="mb-2 flex items-center gap-2"><Badge variant="secondary">{summary.officialX.connectedAccounts ? "Sıradaki adım" : "Hoş geldin"}</Badge></div>
-            <h2 id="first-step-title" className="text-lg font-semibold">{!summary.officialX.connectedAccounts ? "Hesabını bağla, konularını birlikte bulalım." : !summary.aiConfigured ? "Taslak hazırlamak için kendi AI sağlayıcını bağla." : "İlk fırsatını seç ve taslağını hazırla."}</h2>
-            <p className="mt-1 text-sm leading-6 text-muted-foreground">{!summary.officialX.connectedAccounts ? "Herkese açık profil ve gönderilerinden konu önerileri hazırlanır. Tercihlerini düzenleyebilirsin; hesap eklemek otomatik yayın izni vermez." : !summary.aiConfigured ? "AI anahtarın yalnızca senin isteklerinde kullanılır. Sağlayıcı hazır olduğunda gerçek bir kaynak üzerinden taslak oluşturabilirsin." : "Kaynak bağlantısı ve hesap uyumunu incele. Tahmini performans puanı yayın sonucu değildir; yayınlamak için ayrıca onay vermen gerekir."}</p>
+            <div className="mb-2 flex items-center gap-2"><Badge variant="secondary">{summary.officialX.connectedAccounts ? t("Sıradaki adım") : t("Hoş geldin")}</Badge></div>
+            <h2 id="first-step-title" className="text-lg font-semibold">{!summary.officialX.connectedAccounts ? t("Hesabını bağla, konularını birlikte bulalım.") : !summary.aiConfigured ? t("Taslak hazırlamak için kendi AI sağlayıcını bağla.") : t("İlk fırsatını seç ve taslağını hazırla.")}</h2>
+            <p className="mt-1 text-sm leading-6 text-muted-foreground">{!summary.officialX.connectedAccounts ? t("We suggest topics from your public profile and posts. You can edit your preferences; adding an account does not grant automatic publishing permission.") : !summary.aiConfigured ? t("Your AI key is used only for your requests. Once your provider is ready, you can create a draft from a real source.") : t("Review source connections and account fit. Estimated performance scores are not publishing results; publishing still requires your approval.")}</p>
           </div>
-          <Link href={!summary.officialX.connectedAccounts ? "/accounts" : !summary.aiConfigured ? "/settings/keys" : "/opportunities"} className={buttonVariants({ variant: "outline", className: "shrink-0" })}>
-            {!summary.officialX.connectedAccounts ? "Hesabımı bağla" : !summary.aiConfigured ? "AI ayarlarını aç" : "Fırsatları incele"} <ArrowUpRight data-icon="inline-end" aria-hidden="true" />
+          <Link href={localizePath(locale,!summary.officialX.connectedAccounts ? "/accounts" : !summary.aiConfigured ? "/settings/keys" : "/opportunities")} className={buttonVariants({ variant: "outline", className: "shrink-0" })}>
+            {!summary.officialX.connectedAccounts ? t("Hesabımı bağla") : !summary.aiConfigured ? t("AI ayarlarını aç") : t("Fırsatları incele")} <ArrowUpRight data-icon="inline-end" aria-hidden="true" />
           </Link>
         </section>
 
-        <section className="grid gap-4 sm:grid-cols-2" aria-label="İçeriklerin ve bağlantıların">
-          <MetricCard icon={Radar} label="Senin için fırsatlar" value={summary.opportunities} detail="Kaynak ve uygunluk kanıtını incele" href="/opportunities" />
-          <MetricCard icon={Send} label="Yayın sonuçların" value={summary.publishedConfirmed} detail="Yayın makbuzu doğrulandı; performans metrikleri ayrıca gözlenir" href="/analytics" />
-          <MetricCard icon={AiIcon} label="AI sağlayıcın" value={!summary.aiEnabled ? "Kapalı" : summary.aiConfigured ? "Yapılandırıldı" : "Bağlantı gerekli"} detail="Kendi anahtarını yönet ve bağlantıyı test et" href="/settings/keys" />
-          <MetricCard icon={ShieldCheck} label="Bağlı 𝕏 hesapların" value={summary.officialX.connectedAccounts} detail="Bağlantı, konular ve izinlerini yönet" href="/accounts" />
+        <section className="grid gap-4 sm:grid-cols-2" aria-label={t("Your content and connections")}>
+          <MetricCard icon={Radar} label={t("Senin için fırsatlar")} value={summary.opportunities} detail={t("Kaynak ve uygunluk kanıtını incele")} href={localizePath(locale,"/opportunities")} />
+          <MetricCard icon={Send} label={t("Your publishing results")} value={summary.publishedConfirmed} detail={t("Publication receipts are confirmed; performance metrics are observed separately.")} href={localizePath(locale,"/analytics")} />
+          <MetricCard icon={AiIcon} label={t("AI sağlayıcın")} value={!summary.aiEnabled ? t("Kapalı") : summary.aiConfigured ? t("Yapılandırıldı") : t("Bağlantı gerekli")} detail={t("Kendi anahtarını yönet ve bağlantıyı test et")} href={localizePath(locale,"/settings/keys")} />
+          <MetricCard icon={ShieldCheck} label={t("Bağlı 𝕏 hesapların")} value={summary.officialX.connectedAccounts} detail={t("Bağlantı, konular ve izinlerini yönet")} href={localizePath(locale,"/accounts")} />
         </section>
-        <Card><CardHeader><CardTitle>Taslakların</CardTitle><CardDescription>Son üç taslağın. Düzenlemek ve yayına hazırlamak için taslak masanı aç.</CardDescription></CardHeader><CardContent className="space-y-4">
-          {summary.recentDrafts.length ? <ul className="divide-y">{summary.recentDrafts.map((draft) => <li key={draft.id} className="py-3"><Link href="/drafts" className="line-clamp-2 text-sm leading-6 hover:underline">{draft.text}</Link></li>)}</ul> : <p className="text-sm text-muted-foreground">Henüz taslağın yok. Bir fırsat seçebilir veya kendi fikrinden başlayabilirsin.</p>}
-          <Link href="/drafts" className={buttonVariants({ variant: "outline" })}>Taslak masamı aç <ArrowUpRight data-icon="inline-end" aria-hidden="true" /></Link>
+        <Card><CardHeader><CardTitle>{t("Taslakların")}</CardTitle><CardDescription>{t("Son üç taslağın. Düzenlemek ve yayına hazırlamak için taslak masanı aç.")}</CardDescription></CardHeader><CardContent className="space-y-4">
+          {summary.recentDrafts.length ? <ul className="divide-y">{summary.recentDrafts.map((draft) => <li key={draft.id} className="py-3"><Link href={localizePath(locale,"/drafts")} className="line-clamp-2 text-sm leading-6 hover:underline">{draft.text}</Link></li>)}</ul> : <p className="text-sm text-muted-foreground">{t("Henüz taslağın yok. Bir fırsat seçebilir veya kendi fikrinden başlayabilirsin.")}</p>}
+          <Link href={localizePath(locale,"/drafts")} className={buttonVariants({ variant: "outline" })}>{t("Taslak masamı aç")}<ArrowUpRight data-icon="inline-end" aria-hidden="true" /></Link>
         </CardContent></Card>
-        <Card><CardHeader><CardTitle>Hesabının gelişimi</CardTitle><CardDescription>Hesap bazında ölçümleri ve zaman içindeki değişimi incele. Kaynak gönderilerin hareketi, kendi hesabının büyümesi olarak gösterilmez.</CardDescription></CardHeader><CardContent><Link href="/analytics" className={buttonVariants({ variant: "outline" })}>Hesap analizini aç <ArrowUpRight data-icon="inline-end" aria-hidden="true" /></Link></CardContent></Card>
-        <details className="rounded-xl border p-5"><summary className="cursor-pointer font-medium">Gelişmiş analiz ve çalışma durumu</summary><div className="mt-6 flex flex-col gap-6">
-        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4" aria-label="Teknik metrikler">
-          <MetricCard icon={Database} label="Kaynaklar" value={`${summary.sourcesObserved}/${summary.sourcesConfigured}`} detail="Enabled config / state içinde görülen" />
-          <MetricCard icon={Activity} label="Gözlenen post" value={summary.postsObserved} detail={`${summary.postsLast24h} son 24 saatte`} />
-          <MetricCard icon={Radar} label="Fırsatlar" value={summary.opportunities} detail="Skor ≥ 70, sensitive değil ⁜ listeyi aç" href="/opportunities" />
-          <MetricCard icon={Send} label="Reconciliation kuyruğu" value={summary.attemptsPending} detail={`${summary.publishedConfirmed} confirmed ⁜ ${summary.publishBlocked} blocked`} />
+        <Card><CardHeader><CardTitle>{t("Your account growth")}</CardTitle><CardDescription>{t("Review account-level metrics and changes over time. Activity on source posts is not shown as growth for your own account.")}</CardDescription></CardHeader><CardContent><Link href={localizePath(locale,"/analytics")} className={buttonVariants({ variant: "outline" })}>{t("Open account analytics")}<ArrowUpRight data-icon="inline-end" aria-hidden="true" /></Link></CardContent></Card>
+        <details className="rounded-xl border p-5"><summary className="cursor-pointer font-medium">{t("Gelişmiş analiz ve çalışma durumu")}</summary><div className="mt-6 flex flex-col gap-6">
+        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4" aria-label={t("Teknik metrikler")}>
+          <MetricCard icon={Database} label={t("Sources")} value={t("{observed} / {configured}",{observed:formatNumber(summary.sourcesObserved,locale),configured:formatNumber(summary.sourcesConfigured,locale)})} detail={t("Configured / observed sources")} />
+          <MetricCard icon={Activity} label={t("Gözlenen post")} value={summary.postsObserved} detail={t("{count} in the last 24 hours",{count:formatNumber(summary.postsLast24h,locale)})} />
+          <MetricCard icon={Radar} label={t("Opportunities")} value={summary.opportunities} detail={t("Score ≥ 70, not sensitive ⁜ open list")} href={localizePath(locale,"/opportunities")} />
+          <MetricCard icon={Send} label={t("Reconciliation kuyruğu")} value={summary.attemptsPending} detail={t("{confirmed} confirmed ⁜ {blocked} blocked",{confirmed:formatNumber(summary.publishedConfirmed,locale),blocked:formatNumber(summary.publishBlocked,locale)})} />
         </section>
 
         {!summary.dbAvailable && (
           <Alert variant="destructive">
             <CircleAlert aria-hidden="true" />
-            <AlertDescription>Veritabanı kullanılamıyor: {summary.dbError || "bilinmeyen hata"}</AlertDescription>
+            <AlertDescription>{t("Veritabanı kullanılamıyor:")}{summary.dbError || t("Unknown error")}</AlertDescription>
           </Alert>
         )}
-        {!summary.historicalAnalyticsAvailable && <Alert><Database aria-hidden="true" /><AlertDescription>Geçmiş analitik verileri PostgreSQL&apos;e aktarılmadı; şu an geçmiş sonuç gösterilmiyor.</AlertDescription></Alert>}
+        {!summary.historicalAnalyticsAvailable && <Alert><Database aria-hidden="true" /><AlertDescription>{t("Historical analytics have not been migrated to PostgreSQL; no historical results are shown yet.")}</AlertDescription></Alert>}
 
         <section className="grid gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.65fr)]">
           <Card>
             <CardHeader>
               <div className="flex items-start justify-between gap-4">
                 <div className="flex flex-col gap-1">
-                  <CardTitle>Sinyal yoğunluğu</CardTitle>
-                  <CardDescription>Son 24 saatte gözlenen içerik ve fırsat eşiğini geçenler.</CardDescription>
+                  <CardTitle>{t("Sinyal yoğunluğu")}</CardTitle>
+                  <CardDescription>{t("Son 24 saatte gözlenen içerik ve fırsat eşiğini geçenler.")}</CardDescription>
                 </div>
-                <Badge variant={latestStatus === "ok" ? "default" : latestStatus === "partial" ? "secondary" : "outline"}>{latestStatus}</Badge>
+                <Badge variant={summary.lastRun?.status === "ok" ? "default" : summary.lastRun?.status === "partial" ? "secondary" : "outline"}>{latestStatus}</Badge>
               </div>
             </CardHeader>
             <CardContent><ActivityChart data={summary.activity} /></CardContent>
@@ -168,20 +178,20 @@ export function Dashboard({ initial, canRunScan }: { initial: DashboardView; can
 
           <Card>
             <CardHeader>
-              <CardTitle>Operasyon kapıları</CardTitle>
-              <CardDescription>Canlı dış sistemlerin kanıtlanabilir durumu.</CardDescription>
+              <CardTitle>{t("Operasyon kapıları")}</CardTitle>
+              <CardDescription>{t("Canlı dış sistemlerin kanıtlanabilir durumu.")}</CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col gap-4">
-              <div className="flex flex-wrap items-center justify-between gap-4"><span className="flex items-center gap-2 text-sm"><TimerReset className="size-4 text-muted-foreground" aria-hidden="true" /> Radar</span><Badge variant={summary.automationRuntime.healthy ? "default" : "outline"}>{summary.automationRuntime.healthy ? `${summary.automationRuntime.owner} heartbeat ${summary.automationRuntime.lagSeconds} sn önce` : "çalışmıyor ⁜ heartbeat yok"}</Badge></div>
+              <div className="flex flex-wrap items-center justify-between gap-4"><span className="flex items-center gap-2 text-sm"><TimerReset className="size-4 text-muted-foreground" aria-hidden="true" /> {t("Radar")}</span><Badge variant={summary.automationRuntime.healthy ? "default" : "outline"}>{summary.automationRuntime.healthy ? t("{owner} heartbeat {seconds} seconds ago",{owner:summary.automationRuntime.owner,seconds:formatNumber(summary.automationRuntime.lagSeconds||0,locale)}) : t("Not running ⁜ no heartbeat")}</Badge></div>
               <Separator />
-              <div className="flex items-center justify-between gap-4"><span className="flex items-center gap-2 text-sm"><AiIcon size={16} className="text-muted-foreground" /> {summary.aiProvider === "codex" ? "Codex" : summary.aiProvider === "compatible" ? "Özel AI endpoint" : summary.aiProvider === "chatgpt" ? "ChatGPT planı" : summary.aiProvider === "anthropic" ? "Claude API" : "OpenAI Responses"}</span><Badge variant={!summary.aiEnabled ? "secondary" : summary.aiConfigured ? "default" : "destructive"}>{!summary.aiEnabled ? "kapalı" : summary.aiConfigured ? "hazır" : summary.aiProvider === "codex" ? "login yok" : "key / endpoint yok"}</Badge></div>
-              <div className="flex items-center justify-between gap-4"><span className="flex items-center gap-2 text-sm"><Send className="size-4 text-muted-foreground" aria-hidden="true" /> Official 𝕏 grant</span><Badge variant={summary.officialX.postWriteReadyAccounts ? "default" : "secondary"}>{summary.officialX.postWriteReadyAccounts} write hazır</Badge></div>
-              <div className="flex items-center justify-between gap-4"><span className="flex items-center gap-2 text-sm"><ShieldCheck className="size-4 text-muted-foreground" aria-hidden="true" /> Publisher yapılandırması</span><Badge variant={summary.officialPublisherConfigured ? "default" : "destructive"}>{summary.officialPublisherConfigured ? "sunucu hazır" : "sunucu yapılandırması eksik"}</Badge></div>
-              <div className="flex items-center justify-between gap-4"><span className="flex items-center gap-2 text-sm"><ShieldCheck className="size-4 text-muted-foreground" aria-hidden="true" /> Açık Auto post izni</span><Badge variant={summary.officialX.autoConsentedPostAccounts ? "default" : "secondary"}>{summary.officialX.autoConsentedPostAccounts} hesap ⁜ {summary.officialX.connectedAccounts} bağlı</Badge></div>
-              <div className="flex items-center justify-between gap-4"><span className="flex items-center gap-2 text-sm"><ShieldCheck className="size-4 text-muted-foreground" aria-hidden="true" /> Yayın politikası</span><Badge variant="secondary">≥70 ⁜ 6/gün</Badge></div>
+              <div className="flex items-center justify-between gap-4"><span className="flex items-center gap-2 text-sm"><AiIcon size={16} className="text-muted-foreground" /> {summary.aiProvider === "codex" ? "Codex" : summary.aiProvider === "compatible" ? t("Custom AI endpoint") : summary.aiProvider === "chatgpt" ? t("ChatGPT plan") : summary.aiProvider === "anthropic" ? "Claude API" : "OpenAI Responses"}</span><Badge variant={!summary.aiEnabled ? "secondary" : summary.aiConfigured ? "default" : "destructive"}>{!summary.aiEnabled ? t("Off") : summary.aiConfigured ? t("Ready") : summary.aiProvider === "codex" ? t("Login required") : t("API key or endpoint required")}</Badge></div>
+              <div className="flex items-center justify-between gap-4"><span className="flex items-center gap-2 text-sm"><Send className="size-4 text-muted-foreground" aria-hidden="true" /> {t("Official 𝕏 permission")}</span><Badge variant={summary.officialX.postWriteReadyAccounts ? "default" : "secondary"}>{formatNumber(summary.officialX.postWriteReadyAccounts,locale)} {t("Write-ready")}</Badge></div>
+              <div className="flex items-center justify-between gap-4"><span className="flex items-center gap-2 text-sm"><ShieldCheck className="size-4 text-muted-foreground" aria-hidden="true" /> {t("Publisher configuration")}</span><Badge variant={summary.officialPublisherConfigured ? "default" : "destructive"}>{summary.officialPublisherConfigured ? t("Server ready") : t("Server configuration missing")}</Badge></div>
+              <div className="flex items-center justify-between gap-4"><span className="flex items-center gap-2 text-sm"><ShieldCheck className="size-4 text-muted-foreground" aria-hidden="true" /> {t("Explicit auto-post consent")}</span><Badge variant={summary.officialX.autoConsentedPostAccounts ? "default" : "secondary"}>{t("{consented} accounts ⁜ {connected} connected",{consented:formatNumber(summary.officialX.autoConsentedPostAccounts,locale),connected:formatNumber(summary.officialX.connectedAccounts,locale)})}</Badge></div>
+              <div className="flex items-center justify-between gap-4"><span className="flex items-center gap-2 text-sm"><ShieldCheck className="size-4 text-muted-foreground" aria-hidden="true" /> {t("Publishing policy")}</span><Badge variant="secondary">{t("≥70 ⁜ 6/day")}</Badge></div>
               <Alert>
                 <ShieldCheck aria-hidden="true" />
-                <AlertDescription>Otomatik taslak için bağlı 𝕏 hesabı, tweet.write yetkisi ve güncel açık post izni gerekir. Her gönderim anında bağlantı, izin ve yayın politikası yeniden denetlenir.</AlertDescription>
+                <AlertDescription>{t("Automatic drafting requires a connected 𝕏 account, tweet.write permission, and current explicit post consent. The connection, consent, and publishing policy are checked again for every send.")}</AlertDescription>
               </Alert>
             </CardContent>
           </Card>
@@ -190,21 +200,21 @@ export function Dashboard({ initial, canRunScan }: { initial: DashboardView; can
         <section className="grid gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.65fr)]">
           <Card>
             <CardHeader>
-              <CardTitle>Son gözlemler</CardTitle>
-              <CardDescription>Ham kaynak → score → draft/publish state. Kaynak metni uygulama tarafından kopyalanmaz.</CardDescription>
+              <CardTitle>{t("Recent observations")}</CardTitle>
+              <CardDescription>{t("Raw source → score → draft/publish state. Source text is not copied by the application.")}</CardDescription>
             </CardHeader>
             <CardContent>
               <Table>
-                <TableHeader><TableRow><TableHead>İçerik</TableHead><TableHead className="text-right">Skor</TableHead><TableHead>Medya</TableHead><TableHead>State</TableHead></TableRow></TableHeader>
-                <TableBody>{summary.recentPosts.length ? summary.recentPosts.map((post) => <PostRow key={post.externalId} post={post} />) : <TableRow><TableCell colSpan={4}><Empty className="border-0 py-8"><EmptyHeader><EmptyTitle>Henüz gözlem yok</EmptyTitle><EmptyDescription>Kaynak config’i ekleyip “Şimdi tara” diyebilirsin.</EmptyDescription></EmptyHeader></Empty></TableCell></TableRow>}</TableBody>
+                <TableHeader><TableRow><TableHead>{t("Content")}</TableHead><TableHead className="text-right">{t("Score")}</TableHead><TableHead>{t("Media")}</TableHead><TableHead>{t("Status")}</TableHead></TableRow></TableHeader>
+                <TableBody>{summary.recentPosts.length ? summary.recentPosts.map((post) => <PostRow key={post.externalId} post={post} />) : <TableRow><TableCell colSpan={4}><Empty className="border-0 py-8"><EmptyHeader><EmptyTitle>{t("No observations yet")}</EmptyTitle><EmptyDescription>{t("Add a source configuration, then choose Scan now.")}</EmptyDescription></EmptyHeader></Empty></TableCell></TableRow>}</TableBody>
               </Table>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader>
-              <CardTitle>Kaynak haritası</CardTitle>
-              <CardDescription>İki araştırma belgesi doğrudan kapsam sözleşmesi olarak korunuyor.</CardDescription>
+              <CardTitle>{t("Source map")}</CardTitle>
+              <CardDescription>{t("The two research documents are retained as direct scope references.")}</CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col gap-4">
               {docs.map(([label, path]) => (
@@ -221,15 +231,15 @@ export function Dashboard({ initial, canRunScan }: { initial: DashboardView; can
                 </a>
               ))}
               <Separator />
-              <div className="flex flex-col gap-2 text-sm"><span className="flex items-center gap-2 font-medium"><CheckCircle2 className="size-4" aria-hidden="true" /> Ürün döngüsü</span><span className="text-xs leading-5 text-muted-foreground">Style profile, Market fırsatı, generation, quality/uncertainty/rights gate, Official 𝕏 publication and feedback reconciliation.</span></div>
-              {summary.lastRun && <div className="flex items-center justify-between gap-4 text-xs text-muted-foreground"><span>Son run</span><span className="tabular-nums">{summary.lastRun.postsNew} yeni / {summary.lastRun.postsSeen} görüldü</span></div>}
+              <div className="flex flex-col gap-2 text-sm"><span className="flex items-center gap-2 font-medium"><CheckCircle2 className="size-4" aria-hidden="true" /> {t("Product cycle")}</span><span className="text-xs leading-5 text-muted-foreground">{t("Style profile, market opportunity, generation, quality/uncertainty/rights gate, official 𝕏 publishing, and feedback reconciliation.")}</span></div>
+              {summary.lastRun && <div className="flex items-center justify-between gap-4 text-xs text-muted-foreground"><span>{t("Latest scan")}</span><span className="tabular-nums">{t("{newCount} new ⁜ {seenCount} seen",{newCount:formatNumber(summary.lastRun.postsNew,locale),seenCount:formatNumber(summary.lastRun.postsSeen,locale)})}</span></div>}
               <a
                 className={buttonVariants({ variant: "link", size: "sm", className: "w-fit px-0" })}
                 href="https://github.com/OnurByte/Ispatla"
                 target="_blank"
                 rel="noreferrer"
               >
-                GitHub deposu <ArrowUpRight data-icon="inline-end" aria-hidden="true" />
+                {t("GitHub repository")}<ArrowUpRight data-icon="inline-end" aria-hidden="true" />
               </a>
             </CardContent>
           </Card>

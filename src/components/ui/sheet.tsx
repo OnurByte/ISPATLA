@@ -1,4 +1,5 @@
 "use client"
+import {UiText} from "@/i18n/ui-client";
 
 import * as React from "react"
 import { Dialog as SheetPrimitive } from "@base-ui/react/dialog"
@@ -72,7 +73,7 @@ function SheetContent({
           >
             <XIcon
             />
-            <span className="sr-only">Close</span>
+            <span className="sr-only"><UiText text="Close" /></span>
           </SheetPrimitive.Close>
         )}
       </SheetPrimitive.Popup>

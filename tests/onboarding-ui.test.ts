@@ -4,6 +4,7 @@ import { relative, resolve, sep } from "node:path";
 import { getOnboardingRedirect } from "@/lib/onboarding-gate";
 import { filterSidebarSearchRoutes, getSidebarSearchRoutes } from "@/components/sidebar-search";
 import { LOCALES } from "@/i18n/config";
+import { getUiText } from "@/i18n/ui";
 import { getDictionary } from "@/i18n/dictionaries";
 import { onboardingStepFromStorage } from "@/components/onboarding-profile";
 import { firstValueCopy } from "@/i18n/first-value-copy";
@@ -73,14 +74,14 @@ describe("sidebar search routes", () => {
     };
     visit(appRoot);
 
-    const indexed = new Set(getSidebarSearchRoutes("tr").map((route) => route.href));
+    const indexed = new Set(getSidebarSearchRoutes("tr", (message, params) => getUiText("tr", message, params)).map((route) => route.href));
     expect(discovered.filter((route) => !["/settings/profile", "/mcp/authorize"].includes(route)).sort()).toEqual([...indexed].sort());
     expect(indexed.has("/leaderboard")).toBe(true);
   });
 
   test("provides searchable localized labels and key routes in every supported locale", () => {
     for (const locale of LOCALES) {
-      const routes = getSidebarSearchRoutes(locale);
+      const routes = getSidebarSearchRoutes(locale, (message, params) => getUiText(locale, message, params));
       expect(routes.length).toBeGreaterThan(8);
       expect(routes.some((route) => route.href === "/onboarding")).toBe(true);
       expect(routes.some((route) => route.href === "/settings/keys")).toBe(true);
@@ -89,7 +90,7 @@ describe("sidebar search routes", () => {
   });
 
   test("matches route keywords and hides unrelated results", () => {
-    const routes = getSidebarSearchRoutes("tr");
+    const routes = getSidebarSearchRoutes("tr", (message, params) => getUiText("tr", message, params));
     expect(filterSidebarSearchRoutes(routes, "chatgpt").map((route) => route.href)).toContain("/settings/keys");
     expect(filterSidebarSearchRoutes(routes, "sources").map((route) => route.href)).toContain("/sources");
     expect(filterSidebarSearchRoutes(routes, "otomasyon").map((route) => route.href)).toContain("/settings/automation");
@@ -97,7 +98,7 @@ describe("sidebar search routes", () => {
   });
 
   test("includes every settings screen and finds it by common Turkish terms", () => {
-    const routes = getSidebarSearchRoutes("tr");
+    const routes = getSidebarSearchRoutes("tr", (message, params) => getUiText("tr", message, params));
     const settings = routes.filter((route) => route.href.startsWith("/settings"));
     expect(routes.find((route) => route.href === "/profile")?.group).toBe(getDictionary("tr").nav.profile);
     expect(settings.map((route) => route.href).sort()).toEqual([

@@ -1,3 +1,4 @@
+import {localizeApiErrorResponse} from "./api-errors";
 import { NextResponse } from "next/server";
 import { requireSession } from "./auth";
 import { runAsOwner } from "./owner-context";
@@ -16,17 +17,18 @@ export function withUser<Args extends unknown[]>(handler: (...args: Args) => Res
   return async (...args: Args): Promise<Response> => {
     const request = args[0];
     if (!(request instanceof Request)) return NextResponse.json({ error: "Oturum gerekli" }, { status: 401 });
+    const errorResponse=(error:string,status:number)=>localizeApiErrorResponse(request,NextResponse.json({error},{status}));
     let session;
     try { session = await requireSession(request); } catch {
-      return NextResponse.json({ error: "Oturum hizmeti hazır değil" }, { status: 503 });
+      return errorResponse("Oturum hizmeti hazır değil",503);
     }
-    if (!session) return NextResponse.json({ error: "Oturum gerekli" }, { status: 401 });
+    if (!session) return errorResponse("Oturum gerekli",401);
     if (operatorOnly && session.user.id !== process.env.ISPATLA_OPERATOR_USER_ID) {
-      return NextResponse.json({ error: "Bu işlem operatör yetkisi gerektiriyor" }, { status: 403 });
+      return errorResponse("Bu işlem operatör yetkisi gerektiriyor",403);
     }
     if (!["GET", "HEAD", "OPTIONS"].includes(request.method) && !mutationOriginAllowed(request)) {
-      return NextResponse.json({ error: "İstek kaynağı doğrulanamadı" }, { status: 403 });
+      return errorResponse("İstek kaynağı doğrulanamadı",403);
     }
-    return runAsOwner(session.user.id, () => handler(...args));
+    return localizeApiErrorResponse(request,await runAsOwner(session.user.id, () => handler(...args)));
   };
 }

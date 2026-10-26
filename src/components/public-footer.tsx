@@ -17,6 +17,7 @@ export function PublicFooter({ locale }: { locale: Locale }) {
         <Link href={path("/docs")}>{publicUiCopy[locale].docs}</Link>
         <Link href={`${path("/docs")}#mcp`}>MCP</Link>
         <a href="https://github.com/OnurByte/ISPATLA" target="_blank" rel="noopener noreferrer" data-landing-event="github_click" data-landing-page="/">GitHub<ArrowUpRight size={13} aria-hidden="true" /></a>
+        <a href="https://x.com/ispatlatr" target="_blank" rel="noopener noreferrer" aria-label="ispatla.tr ⁜ 𝕏">𝕏</a>
         <Link href={path("/security")}>{dictionary.landing.security}</Link><Link href={path("/privacy")}>{dictionary.landing.privacy}</Link><Link href={path("/terms")}>{dictionary.landing.terms}</Link>
       </nav></div>
     </div></footer>

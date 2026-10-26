@@ -1,4 +1,5 @@
 "use client";
+import {useUiText} from "@/i18n/ui-client";
 
 import {
   Area,
@@ -13,12 +14,13 @@ import type { ActivityPoint } from "@/server/db-types";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 
 export function ActivityChart({ data }: { data: ActivityPoint[] }) {
+  const {t,locale}=useUiText();
   if (data.length === 0) {
     return (
       <Empty className="h-[240px] border border-dashed">
         <EmptyHeader>
-          <EmptyTitle>Henüz sinyal yok</EmptyTitle>
-          <EmptyDescription>İlk taramadan sonra sinyal grafiği burada görünecek.</EmptyDescription>
+          <EmptyTitle>{t('No signals yet')}</EmptyTitle>
+          <EmptyDescription>{t('The signal chart appears after the first scan.')}</EmptyDescription>
         </EmptyHeader>
       </Empty>
     );
@@ -35,9 +37,13 @@ export function ActivityChart({ data }: { data: ActivityPoint[] }) {
             </linearGradient>
           </defs>
           <CartesianGrid vertical={false} stroke="var(--border)" strokeDasharray="4 4" />
-          <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: "var(--muted-foreground)", fontSize: 11 }} />
-          <YAxis allowDecimals={false} axisLine={false} tickLine={false} tick={{ fill: "var(--muted-foreground)", fontSize: 11 }} />
+          <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: "var(--muted-foreground)", fontSize: 11 }} tickFormatter={(value: string) => {
+            const date = new Date(`${value}T12:00:00Z`);
+            return Number.isNaN(date.getTime()) ? value : new Intl.DateTimeFormat(locale, { month: "short", day: "numeric", timeZone: "UTC" }).format(date);
+          }} />
+          <YAxis allowDecimals={false} axisLine={false} tickLine={false} tick={{ fill: "var(--muted-foreground)", fontSize: 11 }} tickFormatter={(value: number) => new Intl.NumberFormat(locale).format(value)} />
           <Tooltip
+            formatter={(value) => typeof value === "number" ? new Intl.NumberFormat(locale).format(value) : value}
             contentStyle={{
               background: "var(--popover)",
               border: "1px solid var(--border)",
@@ -45,8 +51,8 @@ export function ActivityChart({ data }: { data: ActivityPoint[] }) {
               color: "var(--popover-foreground)",
             }}
           />
-          <Area type="monotone" dataKey="observed" name="Gözlenen" stroke="var(--chart-2)" fill="url(#observed-fill)" strokeWidth={2} />
-          <Area type="monotone" dataKey="opportunities" name="Fırsat" stroke="var(--chart-4)" fill="transparent" strokeWidth={2} strokeDasharray="5 5" />
+          <Area type="monotone" dataKey="observed" name={t('Observed')} stroke="var(--chart-2)" fill="url(#observed-fill)" strokeWidth={2} />
+          <Area type="monotone" dataKey="opportunities" name={t('Opportunity')} stroke="var(--chart-4)" fill="transparent" strokeWidth={2} strokeDasharray="5 5" />
         </AreaChart>
       </ResponsiveContainer>
     </div>

@@ -6,44 +6,33 @@ import { useRouter } from "next/navigation";
 import { Search, ArrowUp, ArrowDown, CornerDownLeft, X, Gauge, Users, BarChart3, Tag, FileKey2, Trophy, Radar, ClipboardList, PenLine, Settings2, UserRound, ShieldCheck, KeyRound, CalendarClock, BookOpen, FileText, LockKeyhole, Globe2, type LucideIcon } from "lucide-react";
 import { DEFAULT_LOCALE, localizePath, type Locale } from "@/i18n/config";
 import { getDictionary } from "@/i18n/dictionaries";
+import { useUiText } from "@/i18n/ui-client";
 import { Button } from "@/components/ui/button";
 import { SEARCH_PAGE_PATHS } from "@/generated/search-routes";
 
 type SearchRoute = { href: string; label: string; group: string; keywords: string; description: string; icon: LucideIcon };
 
-const PAGE_DETAILS: Record<string, { icon: LucideIcon; en: string; tr: string }> = {
-  home: { icon: Gauge, en: "Return to the public home page.", tr: "Ana sayfaya dön." },
-  dashboard: { icon: Gauge, en: "Review your workspace at a glance.", tr: "Çalışma alanının genel görünümünü incele." },
-  accounts: { icon: Users, en: "Connect and manage your 𝕏 accounts.", tr: "𝕏 hesaplarını bağla ve yönet." },
-  analytics: { icon: BarChart3, en: "Review publishing and account metrics.", tr: "Yayın ve hesap metriklerini incele." },
-  categories: { icon: Tag, en: "Organize the topics used in your workspace.", tr: "Çalışma alanındaki konu kategorilerini düzenle." },
-  drafts: { icon: FileText, en: "Create and edit posts before publishing.", tr: "Yayınlamadan önce gönderileri oluştur ve düzenle." },
-  evaluation: { icon: Trophy, en: "Compare model quality with your own content.", tr: "Modellerin kalitesini kendi içeriklerinle karşılaştır." },
-  onboarding: { icon: ClipboardList, en: "Finish connecting your accounts and preferences.", tr: "Hesap bağlantılarını ve tercihlerini tamamla." },
-  opportunities: { icon: Radar, en: "Find sourced topics worth responding to.", tr: "Yanıt vermeye değer, kaynaklı konuları bul." },
-  queue: { icon: CalendarClock, en: "Review posts scheduled for publication.", tr: "Yayınlanmak üzere sıraya alınan gönderileri incele." },
-  settings: { icon: Settings2, en: "Manage your workspace preferences.", tr: "Çalışma alanı tercihlerini yönet." },
-  appearance: { icon: Settings2, en: "Choose your theme and accent color.", tr: "Tema ve vurgu rengini seç." },
-  automation: { icon: CalendarClock, en: "Set up recurring workspace tasks.", tr: "Tekrarlanan çalışma alanı görevlerini ayarla." },
-  keys: { icon: KeyRound, en: "Connect AI providers and manage model access.", tr: "Yapay zekâ sağlayıcılarını bağla ve model erişimini yönet." },
-  profile: { icon: UserRound, en: "Edit your public profile and sharing details.", tr: "Herkese açık profilini ve paylaşım bilgilerini düzenle." },
-  security: { icon: ShieldCheck, en: "Manage sign-in and account security.", tr: "Oturum açma ve hesap güvenliğini yönet." },
-  style: { icon: PenLine, en: "Tune the writing voice for your drafts.", tr: "Taslaklarının yazım tarzını belirle." },
-  sources: { icon: Globe2, en: "Review the sources connected to your accounts.", tr: "Hesaplarına bağlı kaynakları incele." },
-  docs: { icon: BookOpen, en: "Read product guides and setup instructions.", tr: "Ürün kılavuzlarını ve kurulum yönergelerini oku." },
-  "forgot-password": { icon: LockKeyhole, en: "Request a password reset link.", tr: "Şifre sıfırlama bağlantısı iste." },
-  leaderboard: { icon: Trophy, en: "Browse verified posts and their results.", tr: "Doğrulanmış gönderileri ve sonuçlarını incele." },
-  login: { icon: UserRound, en: "Sign in to your account.", tr: "Hesabına giriş yap." },
-  market: { icon: BarChart3, en: "Explore current market signals.", tr: "Güncel pazar sinyallerini keşfet." },
-  "no-viral-guarantee": { icon: FileText, en: "Learn what the product does not promise.", tr: "Ürünün hangi sonuçları garanti etmediğini öğren." },
-  "open-source": { icon: FileKey2, en: "Review the project and its source code.", tr: "Projeyi ve kaynak kodunu incele." },
-  privacy: { icon: ShieldCheck, en: "Read how account and usage data is handled.", tr: "Hesap ve kullanım verilerinin nasıl işlendiğini oku." },
-  "research/xpatla-consumer-complaints-2026": { icon: FileText, en: "Read the 𝕏Patla consumer complaint research.", tr: "𝕏Patla tüketici şikâyetleri araştırmasını oku." },
-  "reset-password": { icon: LockKeyhole, en: "Choose a new password for your account.", tr: "Hesabın için yeni bir şifre belirle." },
-  signup: { icon: UserRound, en: "Create your ispatla.tr account.", tr: "ispatla.tr hesabını oluştur." },
-  terms: { icon: FileText, en: "Read the service terms.", tr: "Hizmet koşullarını oku." },
-  transparency: { icon: ShieldCheck, en: "Review product transparency information.", tr: "Ürün şeffaflığı bilgilerini incele." },
+const PAGE_ICONS: Record<string, LucideIcon> = {
+  home: Gauge, dashboard: Gauge, accounts: Users, analytics: BarChart3, categories: Tag, drafts: FileText,
+  evaluation: Trophy, onboarding: ClipboardList, opportunities: Radar, queue: CalendarClock, settings: Settings2,
+  appearance: Settings2, automation: CalendarClock, keys: KeyRound, profile: UserRound, security: ShieldCheck,
+  style: PenLine, sources: Globe2, docs: BookOpen, "forgot-password": LockKeyhole, leaderboard: Trophy,
+  login: UserRound, market: BarChart3, "no-viral-guarantee": FileText, "open-source": FileKey2,
+  privacy: ShieldCheck, "research/xpatla-consumer-complaints-2026": FileText, "reset-password": LockKeyhole,
+  signup: UserRound, terms: FileText, transparency: ShieldCheck,
 };
+
+const ROUTE_LABELS: Record<string, string> = {
+  docs: "Documentation", "forgot-password": "Forgot password", market: "Market",
+  "no-viral-guarantee": "No viral guarantee", "open-source": "Open source",
+  "research/xpatla-consumer-complaints-2026": "Consumer complaint research",
+  "reset-password": "Reset password", signup: "Sign up", transparency: "Transparency",
+};
+
+type SearchText = (message: string, params?: Record<string, string | number>) => string;
+const englishText: SearchText = (message, params) => Object.entries(params || {}).reduce(
+  (text, [key, value]) => text.replaceAll(`{${key}}`, String(value)), message,
+);
 
 const SEARCH_TERMS: Record<string, string> = {
   app: "workspace çalışma alanı panel dashboard",
@@ -57,7 +46,8 @@ const SEARCH_TERMS: Record<string, string> = {
   onboarding: "setup kurulum resume başlangıç",
 };
 
-export function getSidebarSearchRoutes(locale: Locale): SearchRoute[] {
+export function getSidebarSearchRoutes(locale: Locale, translate?: SearchText): SearchRoute[] {
+  const t = translate ?? englishText;
   const { nav, landing } = getDictionary(locale);
   return [...new Set(SEARCH_PAGE_PATHS)].map((href) => {
     const segment = href.split("/").filter(Boolean).at(-1) || "home";
@@ -66,20 +56,26 @@ export function getSidebarSearchRoutes(locale: Locale): SearchRoute[] {
       ? landing.brand
       : href === "/dashboard"
         ? nav.dashboard
-      : segment === "keys"
-        ? locale === "tr" ? "Yapay zekâ sağlayıcıları" : "AI providers"
-        : segment === "onboarding"
-          ? locale === "tr" ? "Kurulum" : "Setup"
-          : dictionary[segment] || segment.split("-").map((part) => part[0]?.toLocaleUpperCase() + part.slice(1)).join(" ");
+        : href === "/settings/keys"
+          ? t("AI providers")
+          : href === "/onboarding"
+            ? t("Setup")
+            : href === "/privacy"
+              ? landing.privacy
+              : href === "/terms"
+                ? landing.terms
+                : href === "/security"
+                  ? landing.security
+                  : dictionary[segment] || t(ROUTE_LABELS[href.split("/").filter(Boolean).join("/")] || ROUTE_LABELS[segment] || "Documentation");
     const group = href === "/profile"
       ? nav.profile
       : href.startsWith("/settings/") || href === "/settings"
-      ? nav.settings
-      : ["/dashboard", "/accounts", "/analytics", "/categories", "/drafts", "/evaluation", "/onboarding", "/opportunities", "/queue", "/sources"].includes(href)
-        ? nav.primary
-        : locale === "tr" ? "Sayfalar" : "Pages";
-    const detail = PAGE_DETAILS[segment] ?? { icon: FileText, en: `Open ${label}.`, tr: `${label} sayfasını aç.` };
-    return { href, label, group, keywords: `${href.replaceAll("/", " ")} ${SEARCH_TERMS[segment] || ""}`, icon: detail.icon, description: locale === "tr" ? detail.tr : locale === "en" ? detail.en : `${label} ⁜ ${group}` };
+        ? nav.settings
+        : ["/dashboard", "/accounts", "/analytics", "/categories", "/drafts", "/evaluation", "/onboarding", "/opportunities", "/queue", "/sources"].includes(href)
+          ? nav.primary
+          : t("Pages");
+    const icon = PAGE_ICONS[segment] ?? PAGE_ICONS[href.split("/").filter(Boolean).join("/")] ?? FileText;
+    return { href, label, group, keywords: `${href.replaceAll("/", " ")} ${SEARCH_TERMS[segment] || ""}`, icon, description: t("Open {label}.", { label }) };
   });
 }
 
@@ -105,37 +101,15 @@ function optionId(href: string) {
   return `sidebar-search-option-${href.replace(/[^a-z0-9]+/gi, "-")}`;
 }
 
-const COPY: Record<Locale, { search: string; placeholder: string; description: string; noResults: string; close: string; shortcut: string; navigate: string }> = {
-  en: { search: "Search", placeholder: "Search pages and settings…", description: "Jump to a workspace page. Use the arrow keys to move and Enter to open.", noResults: "No matching pages.", close: "Close search", shortcut: "Search", navigate: "Open" },
-  "zh-CN": { search: "搜索", placeholder: "搜索页面和设置…", description: "跳转到工作区页面。使用方向键选择，按回车打开。", noResults: "没有匹配页面。", close: "关闭搜索", shortcut: "搜索", navigate: "打开" },
-  hi: { search: "खोजें", placeholder: "पेज और सेटिंग खोजें…", description: "कार्यस्थान पेज पर जाएँ। चुनने के लिए तीर और खोलने के लिए Enter दबाएँ।", noResults: "कोई पेज नहीं मिला।", close: "खोज बंद करें", shortcut: "खोज", navigate: "खोलें" },
-  es: { search: "Buscar", placeholder: "Buscar páginas y ajustes…", description: "Ve a una página. Usa las flechas para elegir y Enter para abrir.", noResults: "No hay páginas coincidentes.", close: "Cerrar búsqueda", shortcut: "Buscar", navigate: "Abrir" },
-  fr: { search: "Rechercher", placeholder: "Rechercher pages et réglages…", description: "Accédez à une page. Flèches pour choisir, Entrée pour ouvrir.", noResults: "Aucune page correspondante.", close: "Fermer la recherche", shortcut: "Rechercher", navigate: "Ouvrir" },
-  ar: { search: "بحث", placeholder: "ابحث عن الصفحات والإعدادات…", description: "انتقل إلى صفحة. استخدم الأسهم للاختيار وEnter للفتح.", noResults: "لا توجد صفحات مطابقة.", close: "إغلاق البحث", shortcut: "بحث", navigate: "فتح" },
-  bn: { search: "খুঁজুন", placeholder: "পৃষ্ঠা ও সেটিংস খুঁজুন…", description: "কোনো পৃষ্ঠায় যান। বেছে নিতে তীরচিহ্ন, খুলতে Enter চাপুন।", noResults: "মিল থাকা পৃষ্ঠা নেই।", close: "অনুসন্ধান বন্ধ করুন", shortcut: "খুঁজুন", navigate: "খুলুন" },
-  "pt-BR": { search: "Buscar", placeholder: "Buscar páginas e configurações…", description: "Acesse uma página. Use as setas para escolher e Enter para abrir.", noResults: "Nenhuma página encontrada.", close: "Fechar busca", shortcut: "Buscar", navigate: "Abrir" },
-  ru: { search: "Поиск", placeholder: "Поиск страниц и настроек…", description: "Перейдите на страницу. Стрелки для выбора, Enter для открытия.", noResults: "Страницы не найдены.", close: "Закрыть поиск", shortcut: "Поиск", navigate: "Открыть" },
-  id: { search: "Cari", placeholder: "Cari halaman dan pengaturan…", description: "Buka halaman. Gunakan panah untuk memilih dan Enter untuk membuka.", noResults: "Halaman tidak ditemukan.", close: "Tutup pencarian", shortcut: "Cari", navigate: "Buka" },
-  ur: { search: "تلاش", placeholder: "صفحات اور ترتیبات تلاش کریں…", description: "صفحے پر جائیں۔ انتخاب کے لیے تیر اور کھولنے کے لیے Enter دبائیں۔", noResults: "کوئی صفحہ نہیں ملا۔", close: "تلاش بند کریں", shortcut: "تلاش", navigate: "کھولیں" },
-  de: { search: "Suchen", placeholder: "Seiten und Einstellungen suchen…", description: "Seite öffnen. Mit Pfeilen auswählen, mit Enter öffnen.", noResults: "Keine passenden Seiten.", close: "Suche schließen", shortcut: "Suchen", navigate: "Öffnen" },
-  ja: { search: "検索", placeholder: "ページと設定を検索…", description: "ページへ移動。矢印キーで選び、Enterで開きます。", noResults: "一致するページがありません。", close: "検索を閉じる", shortcut: "検索", navigate: "開く" },
-  sw: { search: "Tafuta", placeholder: "Tafuta kurasa na mipangilio…", description: "Fungua ukurasa. Tumia mishale kuchagua na Enter kufungua.", noResults: "Hakuna kurasa zinazolingana.", close: "Funga utafutaji", shortcut: "Tafuta", navigate: "Fungua" },
-  mr: { search: "शोधा", placeholder: "पृष्ठे आणि सेटिंग्ज शोधा…", description: "पृष्ठ उघडा. निवडण्यासाठी बाण आणि उघडण्यासाठी Enter वापरा.", noResults: "जुळणारी पृष्ठे नाहीत.", close: "शोध बंद करा", shortcut: "शोधा", navigate: "उघडा" },
-  te: { search: "వెతకండి", placeholder: "పేజీలు, సెట్టింగ్‌లను వెతకండి…", description: "పేజీకి వెళ్లండి. ఎంచుకోవడానికి బాణాలు, తెరవడానికి Enter నొక్కండి.", noResults: "సరిపోలే పేజీలు లేవు.", close: "శోధనను మూసివేయండి", shortcut: "వెతకండి", navigate: "తెరవండి" },
-  tr: { search: "Ara", placeholder: "Sayfa ve ayarlarda ara…", description: "Bir sayfaya geç. Ok tuşlarıyla seç, Enter ile aç.", noResults: "Eşleşen sayfa bulunamadı.", close: "Aramayı kapat", shortcut: "Ara", navigate: "Aç" },
-  ta: { search: "தேடு", placeholder: "பக்கங்கள், அமைப்புகளில் தேடு…", description: "பக்கத்திற்குச் செல்லவும். அம்புகளால் தேர்ந்தெடுத்து Enter அழுத்தவும்.", noResults: "பொருந்தும் பக்கங்கள் இல்லை.", close: "தேடலை மூடு", shortcut: "தேடு", navigate: "திற" },
-  vi: { search: "Tìm kiếm", placeholder: "Tìm trang và cài đặt…", description: "Đi đến trang. Dùng phím mũi tên để chọn, Enter để mở.", noResults: "Không tìm thấy trang phù hợp.", close: "Đóng tìm kiếm", shortcut: "Tìm kiếm", navigate: "Mở" },
-  ko: { search: "검색", placeholder: "페이지와 설정 검색…", description: "페이지로 이동합니다. 방향키로 선택하고 Enter로 엽니다.", noResults: "일치하는 페이지가 없습니다.", close: "검색 닫기", shortcut: "검색", navigate: "열기" },
-};
-
 export function SidebarSearch({ locale = DEFAULT_LOCALE }: { locale?: Locale }) {
   const router = useRouter();
-  const copy = COPY[locale];
+  const { t } = useUiText();
+  const copy = { search: t("Search"), placeholder: t("Search pages and settings…"), description: t("Jump to a workspace page. Use the arrow keys to move and Enter to open."), noResults: t("No matching pages."), close: t("Close search"), navigate: t("Open") };
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
-  const routes = useMemo(() => filterSidebarSearchRoutes(getSidebarSearchRoutes(locale), query), [locale, query]);
+  const routes = useMemo(() => filterSidebarSearchRoutes(getSidebarSearchRoutes(locale, t), query), [locale, query, t]);
   const groups = useMemo(() => routes.reduce<Record<string, SearchRoute[]>>((result, route) => { (result[route.group] ??= []).push(route); return result; }, {}), [routes]);
   const flat = routes;
   const openSearch = useCallback(() => { setQuery(""); setActive(0); setOpen(true); }, []);
@@ -161,8 +135,8 @@ export function SidebarSearch({ locale = DEFAULT_LOCALE }: { locale?: Locale }) 
   }
 
   return <Dialog.Root open={open} onOpenChange={setOpen}>
-    <Dialog.Trigger render={<Button variant="outline" className="mx-3 mb-1 h-10 justify-between border-sidebar-border bg-sidebar px-3 text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground group-data-[collapsible=icon]:mx-1 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0" aria-label={`${copy.search} (⌘K)`} />}>
-      <span className="flex items-center gap-2 group-data-[collapsible=icon]:gap-0"><Search aria-hidden="true" className="size-4" /><span className="group-data-[collapsible=icon]:hidden">{copy.search}</span></span><kbd className="rounded border px-1.5 py-0.5 text-[10px] group-data-[collapsible=icon]:hidden">⌘K</kbd>
+    <Dialog.Trigger render={<Button variant="outline" className="mx-3 mb-1 h-10 justify-between border-sidebar-border bg-sidebar px-3 text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground group-data-[collapsible=icon]:mx-1 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0" aria-keyshortcuts="Meta+K Control+K" />}>
+      <span className="flex items-center gap-2 group-data-[collapsible=icon]:gap-0"><Search aria-hidden="true" className="size-4" /><span className="group-data-[collapsible=icon]:sr-only">{copy.search}</span></span><kbd className="rounded border px-1.5 py-0.5 text-[10px] group-data-[collapsible=icon]:hidden">⌘K</kbd>
     </Dialog.Trigger>
     <Dialog.Portal>
       <Dialog.Backdrop className="fixed inset-0 z-50 bg-black/40 backdrop-blur-[2px]" />

@@ -12,7 +12,7 @@ describe("approval expiry UI", () => {
   test("keeps uncertain writes in manual review and formats expiry evidence", () => {
     expect(needsManualReview("unknown_remote_state")).toBe(true);
     expect(needsManualReview("reconciliation_required")).toBe(true);
-    expect(approvalExpiryLabel(1_791_476_400)).not.toBe("son kullanma zamanı API'de yok");
-    expect(approvalExpiryLabel(null)).toBe("son kullanma zamanı API'de yok");
+    expect(approvalExpiryLabel(1_791_476_400)).not.toBe("The API did not provide an expiry time.");
+    expect(approvalExpiryLabel(null)).toBe("The API did not provide an expiry time.");
   });
 });

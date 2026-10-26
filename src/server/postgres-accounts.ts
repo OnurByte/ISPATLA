@@ -119,7 +119,8 @@ export async function savePostgresAccountCategory(owner: string, accountId: numb
     || (input.verificationMode === "none" && ["news", "politics", "finance"].includes(input.baseStrategy))) throw new Error("category alanları geçersiz");
   const db = getPostgresDb();
   return db.transaction(async (tx) => {
-    const [owned] = await tx.select({ id: accounts.id }).from(accounts).where(and(eq(accounts.id, accountId), eq(accounts.ownerUserId, owner))).limit(1);
+    // Serialize category changes per account so concurrent inserts cannot both become primary.
+    const [owned] = await tx.select({ id: accounts.id }).from(accounts).where(and(eq(accounts.id, accountId), eq(accounts.ownerUserId, owner))).limit(1).for("update");
     if (!owned) throw new Error("account bulunamadı");
     let existing;
     if (input.id) {
@@ -141,7 +142,7 @@ export async function savePostgresAccountCategory(owner: string, accountId: numb
     if (existing) [row] = await tx.update(categories).set(values).where(eq(categories.id, existing.id)).returning();
     else [row] = await tx.insert(categories).values({ ...values, createdAt: input.now }).returning();
     const [prior] = await tx.select().from(accountCategories).where(and(eq(accountCategories.accountId, accountId), eq(accountCategories.categoryId, row.id))).limit(1);
-    const primary = values.enabled === 1 && (!prior || !(await tx.select({ id: accountCategories.categoryId }).from(accountCategories).where(and(eq(accountCategories.accountId, accountId), eq(accountCategories.enabled, 1), eq(accountCategories.isPrimary, 1))).limit(1)).length);
+    const primary = values.enabled === 1 && (prior?.isPrimary === 1 || !(await tx.select({ id: accountCategories.categoryId }).from(accountCategories).where(and(eq(accountCategories.accountId, accountId), eq(accountCategories.enabled, 1), eq(accountCategories.isPrimary, 1))).limit(1)).length);
     await tx.insert(accountCategories).values({ accountId, categoryId: row.id, enabled: values.enabled, isPrimary: primary || (prior?.isPrimary === 1 && values.enabled === 1) ? 1 : 0,
       weight: prior?.weight ?? 1, priority: prior?.priority ?? 1, publishThreshold: prior?.publishThreshold ?? null, dailyBudget: prior?.dailyBudget ?? null,
       styleOverrideJson: prior?.styleOverrideJson ?? "{}", aiRouteOverrideJson: prior?.aiRouteOverrideJson ?? "{}", source: input.inferred ? "inferred" : "manual", userModifiedAt: input.inferred ? null : input.now })

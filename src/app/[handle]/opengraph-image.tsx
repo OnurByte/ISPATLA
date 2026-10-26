@@ -20,12 +20,12 @@ export default async function ProfileImage({ params }: { params: Promise<{ handl
   const name = (profile.displayName || words.unnamed).slice(0, 90);
   const bio = (profile.bio || words.noBio).slice(0, 200);
   const account = profile.xHandle ? "@" + profile.xHandle : words.profile;
-  const fonts = await ogFontsForText(name + " " + bio + " " + account);
+  const fonts = await ogFontsForText(name + " " + bio + " " + account + " " + words.profile);
 
   return new ImageResponse(
     <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", justifyContent: "space-between", padding: "55px 65px", borderTop: "18px solid #315BF5", background: "#F0EDE5", color: "#16191E", fontFamily: fonts.map(f => f.name).join(", ") }}>
       <div style={{ display: "flex", justifyContent: "space-between", fontSize: 23, letterSpacing: 3 }}>
-        <span>ispatla.tr</span><span style={{ color: "#315BF5" }}>PUBLIC PROFILE</span>
+        <span>ispatla.tr</span><span style={{ color: "#315BF5" }}>{words.profile}</span>
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
         <div style={{ fontSize: name.length > 35 ? 53 : 70, lineHeight: 1.1, maxHeight: 180, overflow: "hidden" }}>{name}</div>

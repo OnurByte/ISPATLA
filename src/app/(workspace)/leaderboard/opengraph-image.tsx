@@ -15,7 +15,7 @@ export default async function LeaderboardImage() {
   return new ImageResponse(
     <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", justifyContent: "space-between", padding: "55px 65px", borderTop: "18px solid #315BF5", background: "#F0EDE5", color: "#16191E", fontFamily: fonts.map(f => f.name).join(", ") }}>
       <div style={{ display: "flex", justifyContent: "space-between", fontSize: 23, letterSpacing: 3 }}>
-        <span>ispatla.tr</span><span style={{ color: "#315BF5" }}>PUBLIC LEADERBOARD</span>
+        <span>ispatla.tr</span><span style={{ color: "#315BF5" }}>{words.title}</span>
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
         <div style={{ fontSize: 76, lineHeight: 1.08 }}>{words.title}</div>

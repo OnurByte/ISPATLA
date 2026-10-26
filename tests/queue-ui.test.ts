@@ -15,7 +15,7 @@ describe("queue URL filter helpers", () => {
 
 describe("approval expiry and recovery UI helpers", () => {
   test("shows missing expiry honestly and limits retry to known blocked jobs", () => {
-    expect(approvalExpiryLabel(null)).toBe("son kullanma zamanı API'de yok");
+    expect(approvalExpiryLabel(null)).toBe("The API did not provide an expiry time.");
     expect(canRetryJob("blocked")).toBe(true);
     expect(canRetryJob("expired")).toBe(false);
     expect(canRetryJob("reconciliation_required")).toBe(false);

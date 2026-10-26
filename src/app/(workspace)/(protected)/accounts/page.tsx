@@ -6,6 +6,8 @@ import { getXAccountAuthState } from "@/server/x-oauth";
 import { getPostgresAccounts, getPostgresCategoriesForAccount } from "@/server/postgres-accounts";
 import { X_CONSENT_COPY_VERSION, X_POLICY_VERSION } from "@/server/x-policy";
 import type { XConnectionState } from "@/components/x-connection-controls";
+import { getUiText } from "@/i18n/ui";
+import { requestPublicLocale } from "@/components/public-header";
 
 export const dynamic = "force-dynamic";
 
@@ -34,6 +36,8 @@ export default async function AccountsRoute({ searchParams }: {
   searchParams: Promise<{ connection?: string; accountId?: string }>;
 }) {
   const query = await searchParams;
+  const locale = await requestPublicLocale();
+  const t = (message: string, params?: Record<string, string | number>) => getUiText(locale, message, params);
   return renderUserPage(async () => {
     const ownerId = currentOwnerId()!;
     const accountRows = await getPostgresAccounts(ownerId);
@@ -56,6 +60,6 @@ export default async function AccountsRoute({ searchParams }: {
     const connections = Object.fromEntries(pairs);
     const categoryGroups = await Promise.all(accountRows.map((account) => getPostgresCategoriesForAccount(ownerId, account.id)));
     const categoryRows = [...new Map(categoryGroups.flat().map((category) => [category.id, category])).values()];
-    return <main className="min-h-screen"><div className="site-container flex flex-col gap-7 py-6 lg:py-10"><PageHeading eyebrow="Operasyon / hesaplar" title="𝕏 hesapları ve yayın sınırları" description="𝕏 bağlantılarını ve her hesabın editoryal tercihlerini tek yerde yönetin." /><AccountsPage initial={accounts} categories={categoryRows} connections={connections} policyVersion={X_POLICY_VERSION} copyVersion={X_CONSENT_COPY_VERSION} connectionResult={query.connection} connectionAccountId={query.accountId ? Number(query.accountId) : undefined} /></div></main>;
+    return <main className="min-h-screen"><div className="site-container flex flex-col gap-7 py-6 lg:py-10"><PageHeading eyebrow={t("Operations / accounts")} title={t("𝕏 accounts and publishing limits")} description={t("Manage 𝕏 connections and each account’s editorial preferences in one place.")} /><AccountsPage initial={accounts} categories={categoryRows} connections={connections} policyVersion={X_POLICY_VERSION} copyVersion={X_CONSENT_COPY_VERSION} connectionResult={query.connection} connectionAccountId={query.accountId ? Number(query.accountId) : undefined} /></div></main>;
   });
 }
