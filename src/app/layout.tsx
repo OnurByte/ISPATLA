@@ -8,16 +8,13 @@ import { AuthSessionSync } from "@/components/auth-session-sync";
 import { ThemeProvider } from "@/components/theme-provider";
 import { DEFAULT_LOCALE, isLocale, LOCALE_CONFIG } from "@/i18n/config";
 import { getAuth, isAuthenticatedUserDisabled } from "@/server/auth";
-import { PUBLIC_ORIGIN } from "@/i18n/public-metadata";
-import { SITE_ICON_METADATA } from "@/lib/site-icons";
+import { rootMetadata } from "@/i18n/metadata";
 import "./globals.css";
 
-export const metadata: Metadata = {
-  metadataBase: new URL(PUBLIC_ORIGIN),
-  title: "ispatla.tr ⁜ Content research for 𝕏",
-  description: "Review 𝕏 source context, assess account fit, shape an editable draft, and inspect what happened.",
-  icons: SITE_ICON_METADATA,
-};
+export async function generateMetadata():Promise<Metadata> {
+  const requestedLocale=(await headers()).get("x-ispatla-locale")||DEFAULT_LOCALE;
+  return rootMetadata(isLocale(requestedLocale)?requestedLocale:DEFAULT_LOCALE);
+}
 
 export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   preload("/fonts/libron-regular.woff2", { as: "font", type: "font/woff2", crossOrigin: "anonymous" });

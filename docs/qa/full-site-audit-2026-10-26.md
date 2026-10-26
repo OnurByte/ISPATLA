@@ -13,6 +13,7 @@ Review the private workspace after the landing work, localize the remaining prod
 - Account/category/source selectors display their selected labels instead of underlying numeric IDs or enum values. Missing category inputs are explained before submitting.
 - Fixed creating a second custom category: new rows no longer all request primary status. An account-row lock serializes concurrent category creation while preserving the existing primary category.
 - Localized protected API error envelopes. Database SQL and bound parameters cannot be returned as visible error text. Unknown backend errors use a localized recovery message; the known quality/human-approval gate retains its explanation.
+- Localized the shared browser title and description inherited by private/auth pages, while preserving public page metadata overrides and the existing favicon.
 - Replaced the obsolete translation-in-progress banner with the translated interface. The footer and Twitter metadata point at `@ispatlatr`.
 
 Zustand was considered and not added: the shared state needed here is the request locale; forms and fetched account data already have clear local/server ownership. A second global store would duplicate this state without solving the observed issue.
@@ -26,7 +27,7 @@ No real account credentials, paid AI generation, external posts, actual ownershi
 ## Automated verification
 
 - `bun run quality:i18n`: passes across 208 source files; checks static translation calls, raw JSX text, user-facing attributes, and shared heading/text wrappers. Only explicit proper names, protocol examples, and mathematical notation are exempt. Introducing a temporary untranslated button made this check fail as expected; the probe was removed.
-- `bun run test`: 276 passed, 10 isolated-database tests skipped, 0 failed; 11,999 assertions across 92 files.
+- `bun run test`: 277 passed, 10 isolated-database tests skipped, 0 failed; 12,079 assertions across 93 files.
 - Isolated PostgreSQL + remote MCP HTTP suite: all 10 passed, 49 assertions. This includes consent/PKCE/revocation, owner isolation, immutable publication receipts, ownership-claim binding, retained user edits, legacy login migration, and concurrent category creation.
 - Category regression was reproduced before the fix with `account_categories_one_primary_idx`; the same test passes after the fix.
 - API wrapper regressions cover localized auth errors, SQL/parameter redaction, untouched successful user text, unknown-error recovery, approval explanations, and preserved AI machine codes with localized messages.
@@ -36,6 +37,7 @@ No real account credentials, paid AI generation, external posts, actual ownershi
 
 ## Browser and HTTP verification
 
+- Rendered metadata follow-up: 40 requests across 20 locales verify translated inherited login titles/descriptions and preserved landing titles/descriptions, with 0 failures.
 - HTTP matrix: 620 requests covering 31 public/private routes × 20 locales, with 0 failures. Checked status, language/direction, heading presence, representative translated headings, and response headers. This verifies rendered server responses, not every possible interactive state.
 - Authenticated API matrix: 29 checks, 0 failures. Includes unauthenticated rejection, authenticated reads, two-owner draft isolation, foreign-account access rejection, foreign draft mutation rejection, missing/cross-origin mutation rejection, account reassignment rejection, draft persistence, and revision reads.
 - Browser: traversed the private screens at desktop width and ten main screens at 320px. No document-level horizontal overflow. Reviewed Turkish, Arabic RTL, and Japanese layouts; Arabic sidebar appears on the right. Verified actual client navigation from dashboard to accounts retains the selected language.
