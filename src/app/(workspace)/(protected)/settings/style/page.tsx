@@ -12,6 +12,6 @@ export default function StyleRoute() {
     const owner = currentOwnerId();
     if (!owner) throw new Error("authenticated owner required");
     const [accounts, initialSettings] = await Promise.all([getPostgresAccounts(owner), getPostgresWritingStyleSettings()]);
-    return <main className="min-h-screen"><div className="mx-auto flex w-full max-w-[980px] flex-col gap-7 px-4 py-6 sm:px-6 lg:px-8 lg:py-10"><PageHeading eyebrow="Ayarlar / içerik" title="İçerik tercihleri" description="Genel yazım biçimini ve bağlı her hesap için ayrı içerik tercihlerini düzenle." /><StyleProfilesPage initial={accounts} initialSettings={initialSettings} /></div></main>;
+    return <main className="min-h-screen"><div className="site-container site-container--reading flex flex-col gap-7 py-6 lg:py-10"><PageHeading eyebrow="Ayarlar / içerik" title="İçerik tercihleri" description="Genel yazım biçimini ve bağlı her hesap için ayrı içerik tercihlerini düzenle." /><StyleProfilesPage initial={accounts} initialSettings={initialSettings} /></div></main>;
   });
 }

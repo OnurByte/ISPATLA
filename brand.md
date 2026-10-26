@@ -35,3 +35,5 @@ Current strategy, research limits, campaign drafts, experiments and open decisio
 Shared shape standard: 4px small details, 6px compact elements, 8px controls, 12px surfaces, 16px outer frames. Use circles for intrinsically circular elements such as avatars. Layout spacing follows the existing 4px unit; nearby content uses 8–12px, related groups 24px and sections 48–80px responsively. Research rationale and limits: [docs/SHAPE_AND_SPACING.md](docs/SHAPE_AND_SPACING.md).
 
 The shared BrandLogo uses a 40px mark / 24px wordmark on mobile and 48px / 28px from the small breakpoint upward. Navigation must not override these dimensions per page; wrap the header contents when needed.
+
+All shared navigation/footer wordmarks use the font-derived optical-center correction in globals.css. Shared page starts use site-container; reading forms keep their maximum width without recentering away from the header.

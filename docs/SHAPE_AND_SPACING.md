@@ -25,3 +25,12 @@ Circle geometry remains appropriate for avatars and progress markers. Structural
 Tailwind and custom CSS share these values through globals.css tokens. Layout spacing uses the existing 4px unit: 8px inline gaps, 12px nearby-content gaps, 16–24px inner padding, 24–32px group gaps, and 48–80px section space as viewport/content require. Text sizes, line heights, one-pixel borders and circular shapes are not snapped to a layout grid. Preserve 44px hit targets where already required.
 
 The hero has no empty eyebrow slot: the heading starts at the section inset. Public document content and header use the same mobile gutter. On narrow screens the preview stacks, selectors expand to rows, and review controls wrap.
+
+
+## Optical alignment and shared grid
+
+The navbar, landing, preview frame and document footer share `--page-width: 72.5rem` with 16px mobile / 32px desktop gutters. Application pages consume the same container inside the sidebar inset. Reading forms retain a 980px maximum width but start on the same logical edge; their content is not recentered independently. Auth cards and public profile/ranking content retain their intentional narrower layouts.
+
+The wordmark's CSS line box was centered, but its visible ink was not. The supplied Libron Bold uses 2000 units/em, typographic ascent 1600 and descent -400; the word “ispatla.tr” has actual outline bounds -519..1636. Its ink center differs from the line-box center by `(1600 - 400 - (1636 - 519)) / (2 * 2000) = 0.02075em`. A font-relative correction removes that difference at both logo sizes. The symbol and original font/assets are preserved. Antialiasing can still place a thresholded raster edge half a pixel differently across renderers; browser coordinate equality is not a claim of identical pixels across operating systems.
+
+Document grids use a zero minimum track and allow their code blocks to scroll locally, so long MCP examples cannot widen the page. Landing grids also use zero minimum tracks and permit long localized words to wrap. The language switcher retains a 44px target and centers against the matching logo row.

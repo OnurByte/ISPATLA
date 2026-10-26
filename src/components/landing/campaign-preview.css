@@ -12,7 +12,7 @@
   color-scheme: dark;
 }
 .campaign-preview *, .campaign-preview *::before, .campaign-preview *::after { box-sizing: border-box; }
-.campaign-preview__frame { width: min(100%, 1100px); margin-inline: auto; overflow: hidden; border: 1px solid #354252; border-radius: var(--radius-2xl); background: var(--preview-bg); }
+.campaign-preview__frame { width: 100%; margin-inline: auto; overflow: hidden; border: 1px solid #354252; border-radius: var(--radius-2xl); background: var(--preview-bg); }
 .campaign-preview__topbar { min-height: 58px; padding: 12px 24px; border-bottom: 1px solid var(--preview-line); background: #141b26; }
 .campaign-preview__brand { display: flex; align-items: center; gap: var(--space-related); color: #e8edf3; font-size: 13px; font-weight: 600; letter-spacing: .015em; }
 .campaign-preview__brand .campaign-preview__brand-mark { background: #aebeff; animation: none; }

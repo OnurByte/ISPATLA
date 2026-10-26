@@ -5,7 +5,7 @@ export function BrandMark({ size = 40, className = "" }: { size?: number; classN
 }
 
 export function BrandLogo({ className = "", href = "/", ariaLabel = "Ispatla ana sayfa" }: { className?: string; href?: string; ariaLabel?: string }) {
-  return <Link href={href} aria-label={ariaLabel} className={`brand-logo inline-flex min-h-11 items-center gap-2 ${className}`} dir="ltr">
+  return <Link href={href} aria-label={ariaLabel} className={`brand-logo inline-flex min-h-11 items-center gap-2 text-foreground ${className}`} dir="ltr">
     <BrandMark size={48} className="size-10! sm:size-12!" />
     <span className="brand-wordmark text-foreground text-2xl sm:text-[28px] font-bold leading-none tracking-[-0.035em]">ispatla.tr</span>
   </Link>;

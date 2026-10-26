@@ -12,19 +12,19 @@ export async function PublicPage({ title, summary, children, current }: { title:
   const links = [["/docs", nav.tour], ["/security", landing.security], ["/privacy", landing.privacy], ["/terms", landing.terms]] as const;
   return <div className="min-h-screen bg-background text-foreground">
     <PublicHeader locale={locale} current={current} />
-    <main className="mx-auto max-w-7xl px-4 pb-16 pt-10 sm:px-8 sm:pt-16">
+    <main className="site-container pb-16 pt-10 sm:pt-16">
       <p className="text-xs font-semibold uppercase tracking-[.18em] text-muted-foreground">{landing.trustLabel}</p>
       <h1 className="mt-4 text-4xl font-semibold tracking-tight sm:text-5xl">{title}</h1>
       <p className="mt-6 max-w-3xl text-lg leading-8 text-muted-foreground">{summary}</p>
       <nav aria-label={landing.trustLabel} className="mt-8 flex flex-wrap gap-x-6 gap-y-2 border-b border-border pb-6 text-sm">
         {links.map(([href, label]) => <Link key={href} href={path(href)} className="min-h-11 py-3 underline decoration-border underline-offset-4 hover:decoration-primary focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring">{label}</Link>)}
       </nav>
-      <div className="mt-10 grid gap-8 lg:grid-cols-[minmax(0,46rem)_1fr]">{children}</div>
+      <div className="mt-10 grid grid-cols-1 gap-8 *:min-w-0 lg:grid-cols-[minmax(0,46rem)_1fr]">{children}</div>
     </main>
     <footer className="border-t border-border">
-      <div className="mx-auto flex max-w-7xl flex-wrap justify-between gap-4 px-4 py-8 text-xs text-muted-foreground sm:px-8">
+      <div className="site-container flex flex-wrap items-center justify-between gap-4 py-8 text-xs text-muted-foreground">
         <BrandLogo href={path("/")} ariaLabel={landing.brand} className="focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring" />
-        <a href="https://github.com/OnurByte/Ispatla" target="_blank" rel="noreferrer" className="underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring">{landing.sourceCode} ⁜ AGPL-3.0-or-later</a>
+        <a href="https://github.com/OnurByte/Ispatla" target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring">{landing.sourceCode} ⁜ AGPL-3.0-or-later</a>
       </div>
     </footer>
   </div>;

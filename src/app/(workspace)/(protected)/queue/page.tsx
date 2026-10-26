@@ -18,6 +18,6 @@ export default async function QueueRoute({ searchParams }: { searchParams: Promi
     ]);
     const intents = [...new Map([...pendingIntents, ...allIntents].map((intent) => [intent.id, intent])).values()];
     const initialStatus = statusValue && allowedStatuses.has(statusValue) ? statusValue : "all";
-    return <main className="min-h-screen"><div className="mx-auto flex w-full max-w-[1480px] flex-col gap-7 px-4 py-6 sm:px-6 lg:px-8 lg:py-10"><PageHeading eyebrow="Otomasyon / yürütme" title="Yayın kuyruğu" description="Onayları, resmi 𝕏 API dispatch durumlarını ve uzaktaki doğrulama kanıtını yönetin." /><QueuePage initial={jobs} initialIntents={intents} initialStatus={initialStatus} initialView={viewValue === "calendar" ? "calendar" : "list"} /></div></main>;
+    return <main className="min-h-screen"><div className="site-container flex flex-col gap-7 py-6 lg:py-10"><PageHeading eyebrow="Otomasyon / yürütme" title="Yayın kuyruğu" description="Onayları, resmi 𝕏 API dispatch durumlarını ve uzaktaki doğrulama kanıtını yönetin." /><QueuePage initial={jobs} initialIntents={intents} initialStatus={initialStatus} initialView={viewValue === "calendar" ? "calendar" : "list"} /></div></main>;
   });
 }
