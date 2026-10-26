@@ -13,7 +13,7 @@ export function PublicHeaderContent({ locale, current, authenticated, leading }:
   const path = (href: string) => localizePath(locale, href);
 
   return <header className="border-b border-border bg-background text-foreground">
-    <div className="mx-auto flex w-full max-w-7xl items-center justify-between flex-wrap gap-x-6 gap-y-3 px-4 py-4 sm:px-8">
+    <div className="site-container flex items-center justify-between flex-wrap gap-x-6 gap-y-3 py-4">
       <div className="flex min-w-0 items-center gap-2">{leading}<BrandLogo href={path("/")} ariaLabel={landing.brand} className="shrink-0 rounded-none focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring" /></div>
       <nav aria-label={landing.menuLabel} className="flex min-w-0 flex-wrap items-center justify-end gap-1 sm:gap-2">
         <Link href={path("/docs")} aria-current={current === "docs" ? "page" : undefined} className={buttonVariants({ variant: current === "docs" ? "secondary" : "ghost", className: "h-auto min-h-11 max-w-full whitespace-normal px-2 py-2 text-center text-xs sm:px-3 sm:text-sm" })}>{nav.tour}</Link>

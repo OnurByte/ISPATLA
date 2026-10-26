@@ -83,7 +83,7 @@ export function CampaignLanding({ locale, copy, authenticated }: {
       </div></section>
     </main>
     <footer className="campaign-footer campaign-container">
-      <div className="campaign-footer-top"><div><BrandLogo href={path("/")} ariaLabel="ispatla.tr" className="campaign-logo" /><p>{copy.footerNote}</p></div><LocaleSwitcher locale={locale} /></div>
+      <div className="campaign-footer-top"><div><BrandLogo href={path("/")} ariaLabel="ispatla.tr" className="campaign-logo" /><p>{copy.footerNote}</p></div><LocaleSwitcher locale={locale} className="min-h-11 items-center sm:min-h-12" /></div>
       <div className="campaign-footer-bottom"><span dir="ltr">© 2026 ispatla.tr</span><nav aria-label={copy.nav.menu}>
         <Link href={path("/docs")}>{dictionary.nav.tour}</Link>
         <Link href={`${path("/docs")}#mcp`}>MCP</Link>

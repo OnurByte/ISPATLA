@@ -19,7 +19,7 @@ export default async function SettingsPage() {
     { title: "AI ve otomasyon", items: [[nav.keys, "/settings/keys"], [nav.automation, "/settings/automation"]] },
   ] as const;
 
-  return <main className="min-h-screen"><div className="mx-auto flex w-full max-w-[980px] flex-col gap-7 px-4 py-6 sm:px-6 lg:px-8 lg:py-10">
+  return <main className="min-h-screen"><div className="site-container site-container--reading flex flex-col gap-7 py-6 lg:py-10">
     <PageHeading eyebrow="Çalışma alanı" title="Ayarlar" description="Görünümünü, hesabını ve çalışma tercihlerini yönet." />
     <div className="grid gap-8 sm:grid-cols-2">
       {groups.map((group) => <section key={group.title} className="space-y-3"><h2 className="text-base font-semibold">{group.title}</h2><nav aria-label={group.title} className="divide-y rounded-md border bg-card">{group.items.map(([label, href]) => <Link key={href} href={localizePath(locale, href)} className="flex min-h-12 items-center justify-between px-4 py-3 text-sm transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">{label}<ChevronRight aria-hidden="true" className="size-4 text-muted-foreground" /></Link>)}</nav></section>)}

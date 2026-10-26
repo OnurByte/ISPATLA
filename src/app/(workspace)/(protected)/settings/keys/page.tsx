@@ -32,6 +32,6 @@ export default function KeysRoute() {
       budget: { ...budget, dailyBudgetUsd: Number(dailyBudgetUsd), monthlyBudgetUsd: Number(monthlyBudgetUsd) },
       usage: { estimatedUsd: usage.estimatedUsd, reportedUsd: usage.reportedUsd, unknownCostEvents: usage.unknownCostEvents, inputTokens: usage.inputTokens, outputTokens: usage.outputTokens },
     };
-    return <main className="min-h-screen"><div className="mx-auto flex w-full max-w-[980px] flex-col gap-7 px-4 py-6 sm:px-6 lg:px-8 lg:py-10"><PageHeading eyebrow="Ayarlar" title="Modeller ve bağlantılar" description="Kendi AI sağlayıcını bağla, modelini seç ve bağlantıyı doğrula." /><KeysPage initialKeys={initialKeys} initialVaultReady={postgresVaultReady()} initialAi={initialAi} /></div></main>;
+    return <main className="min-h-screen"><div className="site-container site-container--reading flex flex-col gap-7 py-6 lg:py-10"><PageHeading eyebrow="Ayarlar" title="Modeller ve bağlantılar" description="Kendi AI sağlayıcını bağla, modelini seç ve bağlantıyı doğrula." /><KeysPage initialKeys={initialKeys} initialVaultReady={postgresVaultReady()} initialAi={initialAi} /></div></main>;
   });
 }

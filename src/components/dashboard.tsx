@@ -91,7 +91,7 @@ export function Dashboard({ initial, canRunScan }: { initial: DashboardView; can
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="mx-auto flex w-full max-w-[1480px] flex-col gap-8 px-4 py-6 sm:px-6 lg:px-8 lg:py-10">
+      <div className="site-container flex flex-col gap-8 py-6 lg:py-10">
         <header className="flex flex-col gap-6 border-b pb-8 lg:flex-row lg:items-end lg:justify-between">
           <div className="flex max-w-3xl flex-col gap-4">
             <div className="flex items-center gap-3 text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">

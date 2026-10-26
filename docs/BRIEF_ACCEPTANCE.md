@@ -59,7 +59,7 @@ No production database, mail delivery, real application OAuth callback, live rem
 
 ## Final quality and browser results
 
-Measured 26 October 2026 against the final local production build at `http://localhost:3103/`, Lighthouse 12.8.2:
+Measured 26 October 2026 against the final local production build at `http://localhost:3104/`, Lighthouse 12.8.2:
 
 | Profile | Performance | Accessibility | Best Practices | SEO |
 | --- | --- | --- | --- | --- |
@@ -73,3 +73,5 @@ Browser checks on the production build verified the real 𝕏 link and dated sou
 An initial audit of the unconfigured `127.0.0.1` alias produced telemetry Origin errors. The final run used the local server's actual `localhost` origin; POST returned 204. CSRF rules were not weakened to improve a score.
 
 Fresh requests without a locale selection render English even with a Turkish browser preference. Explicit `/tr` and `/tr/docs` render Turkish; the selection survives internal rewrites.
+
+Optical alignment and responsive grid follow-up: [alignment audit](evidence/alignment-audit.json), 179 final production-build cases across 320/390/768/1280/1440px, including all landing locales, all docs locales on mobile and isolated authenticated application routes. No document-level horizontal overflow; each actual viewport matched its requested size. Font-relative wordmark ink correction and the shared grid are described in [SHAPE_AND_SPACING.md](SHAPE_AND_SPACING.md).

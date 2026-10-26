@@ -1,11 +1,11 @@
 {
-  "checkedAt": "2026-10-26T01:15:31.556692+00:00",
+  "checkedAt": "2026-10-26T01:34:46.901565+00:00",
   "scope": "Local production build; not deployed field data",
   "profiles": {
     "mobile": {
       "lighthouseVersion": "12.8.2",
-      "fetchTime": "2026-10-26T01:14:51.671Z",
-      "url": "http://localhost:3103/",
+      "fetchTime": "2026-10-26T01:32:42.099Z",
+      "url": "http://localhost:3104/",
       "scores": {
         "performance": 94,
         "accessibility": 100,
@@ -13,16 +13,16 @@
         "seo": 100
       },
       "metrics": {
-        "first-contentful-paint": 1064.1211,
-        "largest-contentful-paint": 2564.1211,
-        "total-blocking-time": 190,
+        "first-contentful-paint": 1066.8608,
+        "largest-contentful-paint": 2992.0759999999996,
+        "total-blocking-time": 119.28480000000013,
         "cumulative-layout-shift": 0
       }
     },
     "desktop": {
       "lighthouseVersion": "12.8.2",
-      "fetchTime": "2026-10-26T01:15:03.823Z",
-      "url": "http://localhost:3103/",
+      "fetchTime": "2026-10-26T01:32:54.239Z",
+      "url": "http://localhost:3104/",
       "scores": {
         "performance": 100,
         "accessibility": 100,
@@ -30,9 +30,9 @@
         "seo": 100
       },
       "metrics": {
-        "first-contentful-paint": 287.9028,
-        "largest-contentful-paint": 687.9028000000001,
-        "total-blocking-time": 0,
+        "first-contentful-paint": 300.1373,
+        "largest-contentful-paint": 700.1372999999998,
+        "total-blocking-time": 31.96567499999975,
         "cumulative-layout-shift": 0
       }
     }

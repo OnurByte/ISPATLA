@@ -1,0 +1,3522 @@
+{
+  "checkedAt": "2026-10-26T01:35:38.419877+00:00",
+  "scope": "Local production build, Chromium via CUA; authenticated pages use an empty isolated PostgreSQL fixture. No live services or populated customer states.",
+  "caseCount": 179,
+  "horizontalOverflowCases": 0,
+  "viewportMismatchCases": 0,
+  "maxLogoInkCenterDeltaCssPx": 6.738281240359356e-05,
+  "maxSharedStartEdgeDeltaCssPx": 0,
+  "cases": [
+    {
+      "kind": "authenticated fixture",
+      "route": "/dashboard",
+      "viewport": 320,
+      "clientWidth": 305,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ]
+      ]
+    },
+    {
+      "kind": "authenticated fixture",
+      "route": "/opportunities",
+      "viewport": 320,
+      "clientWidth": 305,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ]
+      ]
+    },
+    {
+      "kind": "authenticated fixture",
+      "route": "/accounts",
+      "viewport": 320,
+      "clientWidth": 305,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ]
+      ]
+    },
+    {
+      "kind": "authenticated fixture",
+      "route": "/drafts",
+      "viewport": 320,
+      "clientWidth": 305,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ]
+      ]
+    },
+    {
+      "kind": "authenticated fixture",
+      "route": "/queue",
+      "viewport": 320,
+      "clientWidth": 305,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ]
+      ]
+    },
+    {
+      "kind": "authenticated fixture",
+      "route": "/analytics",
+      "viewport": 320,
+      "clientWidth": 305,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ]
+      ]
+    },
+    {
+      "kind": "authenticated fixture",
+      "route": "/categories",
+      "viewport": 320,
+      "clientWidth": 305,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ]
+      ]
+    },
+    {
+      "kind": "authenticated fixture",
+      "route": "/sources",
+      "viewport": 320,
+      "clientWidth": 305,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ]
+      ]
+    },
+    {
+      "kind": "authenticated fixture",
+      "route": "/settings",
+      "viewport": 320,
+      "clientWidth": 305,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ]
+      ]
+    },
+    {
+      "kind": "authenticated fixture",
+      "route": "/settings/profile",
+      "viewport": 320,
+      "clientWidth": 305,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ]
+      ]
+    },
+    {
+      "kind": "authenticated fixture",
+      "route": "/settings/keys",
+      "viewport": 320,
+      "clientWidth": 305,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ]
+      ]
+    },
+    {
+      "kind": "authenticated fixture",
+      "route": "/leaderboard",
+      "viewport": 320,
+      "clientWidth": 305,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          16,
+          288.66668701171875
+        ]
+      ]
+    },
+    {
+      "kind": "authenticated fixture",
+      "route": "/dashboard",
+      "viewport": 768,
+      "clientWidth": 753,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          332,
+          720.6666870117188
+        ],
+        [
+          332,
+          720.6666870117188
+        ]
+      ]
+    },
+    {
+      "kind": "authenticated fixture",
+      "route": "/opportunities",
+      "viewport": 768,
+      "clientWidth": 753,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          332,
+          720.6666870117188
+        ],
+        [
+          332,
+          720.6666870117188
+        ]
+      ]
+    },
+    {
+      "kind": "authenticated fixture",
+      "route": "/accounts",
+      "viewport": 768,
+      "clientWidth": 753,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          332,
+          720.6666870117188
+        ],
+        [
+          332,
+          720.6666870117188
+        ]
+      ]
+    },
+    {
+      "kind": "authenticated fixture",
+      "route": "/drafts",
+      "viewport": 768,
+      "clientWidth": 753,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          332,
+          720.6666870117188
+        ],
+        [
+          332,
+          720.6666870117188
+        ]
+      ]
+    },
+    {
+      "kind": "authenticated fixture",
+      "route": "/queue",
+      "viewport": 768,
+      "clientWidth": 753,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          332,
+          720.6666870117188
+        ],
+        [
+          332,
+          720.6666870117188
+        ]
+      ]
+    },
+    {
+      "kind": "authenticated fixture",
+      "route": "/analytics",
+      "viewport": 768,
+      "clientWidth": 753,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          332,
+          720.6666870117188
+        ],
+        [
+          332,
+          720.6666870117188
+        ]
+      ]
+    },
+    {
+      "kind": "authenticated fixture",
+      "route": "/categories",
+      "viewport": 768,
+      "clientWidth": 753,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          332,
+          720.6666870117188
+        ],
+        [
+          332,
+          720.6666870117188
+        ]
+      ]
+    },
+    {
+      "kind": "authenticated fixture",
+      "route": "/sources",
+      "viewport": 768,
+      "clientWidth": 753,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          332,
+          720.6666870117188
+        ],
+        [
+          332,
+          720.6666870117188
+        ]
+      ]
+    },
+    {
+      "kind": "authenticated fixture",
+      "route": "/settings",
+      "viewport": 768,
+      "clientWidth": 753,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          332,
+          720.6666870117188
+        ],
+        [
+          332,
+          720.6666870117188
+        ]
+      ]
+    },
+    {
+      "kind": "authenticated fixture",
+      "route": "/settings/profile",
+      "viewport": 768,
+      "clientWidth": 753,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          332,
+          720.6666870117188
+        ],
+        [
+          332,
+          720.6666870117188
+        ]
+      ]
+    },
+    {
+      "kind": "authenticated fixture",
+      "route": "/settings/keys",
+      "viewport": 768,
+      "clientWidth": 753,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          332,
+          720.6666870117188
+        ],
+        [
+          332,
+          720.6666870117188
+        ]
+      ]
+    },
+    {
+      "kind": "authenticated fixture",
+      "route": "/leaderboard",
+      "viewport": 768,
+      "clientWidth": 753,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          332,
+          720.6666870117188
+        ]
+      ]
+    },
+    {
+      "kind": "authenticated fixture",
+      "route": "/dashboard",
+      "viewport": 1440,
+      "clientWidth": 1425,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          332,
+          1392.666748046875
+        ],
+        [
+          332,
+          1392.666748046875
+        ]
+      ]
+    },
+    {
+      "kind": "authenticated fixture",
+      "route": "/opportunities",
+      "viewport": 1440,
+      "clientWidth": 1425,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          332,
+          1392.666748046875
+        ],
+        [
+          332,
+          1392.666748046875
+        ]
+      ]
+    },
+    {
+      "kind": "authenticated fixture",
+      "route": "/accounts",
+      "viewport": 1440,
+      "clientWidth": 1425,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          332,
+          1392.666748046875
+        ],
+        [
+          332,
+          1392.666748046875
+        ]
+      ]
+    },
+    {
+      "kind": "authenticated fixture",
+      "route": "/drafts",
+      "viewport": 1440,
+      "clientWidth": 1425,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          332,
+          1392.666748046875
+        ],
+        [
+          332,
+          1392.666748046875
+        ]
+      ]
+    },
+    {
+      "kind": "authenticated fixture",
+      "route": "/queue",
+      "viewport": 1440,
+      "clientWidth": 1425,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          332,
+          1392.666748046875
+        ],
+        [
+          332,
+          1392.666748046875
+        ]
+      ]
+    },
+    {
+      "kind": "authenticated fixture",
+      "route": "/analytics",
+      "viewport": 1440,
+      "clientWidth": 1425,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          332,
+          1392.666748046875
+        ],
+        [
+          332,
+          1392.666748046875
+        ]
+      ]
+    },
+    {
+      "kind": "authenticated fixture",
+      "route": "/categories",
+      "viewport": 1440,
+      "clientWidth": 1425,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          332,
+          1392.666748046875
+        ],
+        [
+          332,
+          1392.666748046875
+        ]
+      ]
+    },
+    {
+      "kind": "authenticated fixture",
+      "route": "/sources",
+      "viewport": 1440,
+      "clientWidth": 1425,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          332,
+          1392.666748046875
+        ],
+        [
+          332,
+          1392.666748046875
+        ]
+      ]
+    },
+    {
+      "kind": "authenticated fixture",
+      "route": "/settings",
+      "viewport": 1440,
+      "clientWidth": 1425,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          332,
+          1392.666748046875
+        ],
+        [
+          332,
+          1312
+        ]
+      ]
+    },
+    {
+      "kind": "authenticated fixture",
+      "route": "/settings/profile",
+      "viewport": 1440,
+      "clientWidth": 1425,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          332,
+          1392.666748046875
+        ],
+        [
+          332,
+          1312
+        ]
+      ]
+    },
+    {
+      "kind": "authenticated fixture",
+      "route": "/settings/keys",
+      "viewport": 1440,
+      "clientWidth": 1425,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          332,
+          1392.666748046875
+        ],
+        [
+          332,
+          1312
+        ]
+      ]
+    },
+    {
+      "kind": "authenticated fixture",
+      "route": "/leaderboard",
+      "viewport": 1440,
+      "clientWidth": 1425,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          332,
+          1392.666748046875
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/en",
+      "viewport": 320,
+      "clientWidth": 305,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/zh-CN",
+      "viewport": 320,
+      "clientWidth": 305,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/hi",
+      "viewport": 320,
+      "clientWidth": 305,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/es",
+      "viewport": 320,
+      "clientWidth": 305,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/fr",
+      "viewport": 320,
+      "clientWidth": 305,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/ar",
+      "viewport": 320,
+      "clientWidth": 305,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/bn",
+      "viewport": 320,
+      "clientWidth": 305,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/pt-BR",
+      "viewport": 320,
+      "clientWidth": 305,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/ru",
+      "viewport": 320,
+      "clientWidth": 305,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/id",
+      "viewport": 320,
+      "clientWidth": 305,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/ur",
+      "viewport": 320,
+      "clientWidth": 305,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/de",
+      "viewport": 320,
+      "clientWidth": 305,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/ja",
+      "viewport": 320,
+      "clientWidth": 305,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/sw",
+      "viewport": 320,
+      "clientWidth": 305,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/mr",
+      "viewport": 320,
+      "clientWidth": 305,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/te",
+      "viewport": 320,
+      "clientWidth": 305,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/tr",
+      "viewport": 320,
+      "clientWidth": 305,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/ta",
+      "viewport": 320,
+      "clientWidth": 305,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/vi",
+      "viewport": 320,
+      "clientWidth": 305,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/ko",
+      "viewport": 320,
+      "clientWidth": 305,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/en",
+      "viewport": 1440,
+      "clientWidth": 1425,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          132.33334350585938,
+          1292.3333435058594
+        ],
+        [
+          132.33334350585938,
+          1292.3333435058594
+        ],
+        [
+          132.33334350585938,
+          1292.3333435058594
+        ],
+        [
+          132.33334350585938,
+          1292.3333435058594
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/zh-CN",
+      "viewport": 1440,
+      "clientWidth": 1425,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          132.33334350585938,
+          1292.3333435058594
+        ],
+        [
+          132.33334350585938,
+          1292.3333435058594
+        ],
+        [
+          132.33334350585938,
+          1292.3333435058594
+        ],
+        [
+          132.33334350585938,
+          1292.3333435058594
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/hi",
+      "viewport": 1440,
+      "clientWidth": 1425,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          132.33334350585938,
+          1292.3333435058594
+        ],
+        [
+          132.33334350585938,
+          1292.3333435058594
+        ],
+        [
+          132.33334350585938,
+          1292.3333435058594
+        ],
+        [
+          132.33334350585938,
+          1292.3333435058594
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/es",
+      "viewport": 1440,
+      "clientWidth": 1425,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          132.33334350585938,
+          1292.3333435058594
+        ],
+        [
+          132.33334350585938,
+          1292.3333435058594
+        ],
+        [
+          132.33334350585938,
+          1292.3333435058594
+        ],
+        [
+          132.33334350585938,
+          1292.3333435058594
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/fr",
+      "viewport": 1440,
+      "clientWidth": 1425,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          132.33334350585938,
+          1292.3333435058594
+        ],
+        [
+          132.33334350585938,
+          1292.3333435058594
+        ],
+        [
+          132.33334350585938,
+          1292.3333435058594
+        ],
+        [
+          132.33334350585938,
+          1292.3333435058594
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/ar",
+      "viewport": 1440,
+      "clientWidth": 1425,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          132.33334350585938,
+          1292.3333435058594
+        ],
+        [
+          132.33334350585938,
+          1292.3333435058594
+        ],
+        [
+          132.33334350585938,
+          1292.3333435058594
+        ],
+        [
+          132.33334350585938,
+          1292.3333435058594
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/bn",
+      "viewport": 1440,
+      "clientWidth": 1425,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          132.33334350585938,
+          1292.3333435058594
+        ],
+        [
+          132.33334350585938,
+          1292.3333435058594
+        ],
+        [
+          132.33334350585938,
+          1292.3333435058594
+        ],
+        [
+          132.33334350585938,
+          1292.3333435058594
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/pt-BR",
+      "viewport": 1440,
+      "clientWidth": 1425,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          132.33334350585938,
+          1292.3333435058594
+        ],
+        [
+          132.33334350585938,
+          1292.3333435058594
+        ],
+        [
+          132.33334350585938,
+          1292.3333435058594
+        ],
+        [
+          132.33334350585938,
+          1292.3333435058594
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/ru",
+      "viewport": 1440,
+      "clientWidth": 1425,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          132.33334350585938,
+          1292.3333435058594
+        ],
+        [
+          132.33334350585938,
+          1292.3333435058594
+        ],
+        [
+          132.33334350585938,
+          1292.3333435058594
+        ],
+        [
+          132.33334350585938,
+          1292.3333435058594
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/id",
+      "viewport": 1440,
+      "clientWidth": 1425,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          132.33334350585938,
+          1292.3333435058594
+        ],
+        [
+          132.33334350585938,
+          1292.3333435058594
+        ],
+        [
+          132.33334350585938,
+          1292.3333435058594
+        ],
+        [
+          132.33334350585938,
+          1292.3333435058594
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/ur",
+      "viewport": 1440,
+      "clientWidth": 1425,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          132.33334350585938,
+          1292.3333435058594
+        ],
+        [
+          132.33334350585938,
+          1292.3333435058594
+        ],
+        [
+          132.33334350585938,
+          1292.3333435058594
+        ],
+        [
+          132.33334350585938,
+          1292.3333435058594
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/de",
+      "viewport": 1440,
+      "clientWidth": 1425,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          132.33334350585938,
+          1292.3333435058594
+        ],
+        [
+          132.33334350585938,
+          1292.3333435058594
+        ],
+        [
+          132.33334350585938,
+          1292.3333435058594
+        ],
+        [
+          132.33334350585938,
+          1292.3333435058594
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/ja",
+      "viewport": 1440,
+      "clientWidth": 1425,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          132.33334350585938,
+          1292.3333435058594
+        ],
+        [
+          132.33334350585938,
+          1292.3333435058594
+        ],
+        [
+          132.33334350585938,
+          1292.3333435058594
+        ],
+        [
+          132.33334350585938,
+          1292.3333435058594
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/sw",
+      "viewport": 1440,
+      "clientWidth": 1425,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          132.33334350585938,
+          1292.3333435058594
+        ],
+        [
+          132.33334350585938,
+          1292.3333435058594
+        ],
+        [
+          132.33334350585938,
+          1292.3333435058594
+        ],
+        [
+          132.33334350585938,
+          1292.3333435058594
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/mr",
+      "viewport": 1440,
+      "clientWidth": 1425,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          132.33334350585938,
+          1292.3333435058594
+        ],
+        [
+          132.33334350585938,
+          1292.3333435058594
+        ],
+        [
+          132.33334350585938,
+          1292.3333435058594
+        ],
+        [
+          132.33334350585938,
+          1292.3333435058594
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/te",
+      "viewport": 1440,
+      "clientWidth": 1425,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          132.33334350585938,
+          1292.3333435058594
+        ],
+        [
+          132.33334350585938,
+          1292.3333435058594
+        ],
+        [
+          132.33334350585938,
+          1292.3333435058594
+        ],
+        [
+          132.33334350585938,
+          1292.3333435058594
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/tr",
+      "viewport": 1440,
+      "clientWidth": 1425,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          132.33334350585938,
+          1292.3333435058594
+        ],
+        [
+          132.33334350585938,
+          1292.3333435058594
+        ],
+        [
+          132.33334350585938,
+          1292.3333435058594
+        ],
+        [
+          132.33334350585938,
+          1292.3333435058594
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/ta",
+      "viewport": 1440,
+      "clientWidth": 1425,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          132.33334350585938,
+          1292.3333435058594
+        ],
+        [
+          132.33334350585938,
+          1292.3333435058594
+        ],
+        [
+          132.33334350585938,
+          1292.3333435058594
+        ],
+        [
+          132.33334350585938,
+          1292.3333435058594
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/vi",
+      "viewport": 1440,
+      "clientWidth": 1425,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          132.33334350585938,
+          1292.3333435058594
+        ],
+        [
+          132.33334350585938,
+          1292.3333435058594
+        ],
+        [
+          132.33334350585938,
+          1292.3333435058594
+        ],
+        [
+          132.33334350585938,
+          1292.3333435058594
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/ko",
+      "viewport": 1440,
+      "clientWidth": 1425,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          132.33334350585938,
+          1292.3333435058594
+        ],
+        [
+          132.33334350585938,
+          1292.3333435058594
+        ],
+        [
+          132.33334350585938,
+          1292.3333435058594
+        ],
+        [
+          132.33334350585938,
+          1292.3333435058594
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/docs",
+      "viewport": 320,
+      "clientWidth": 305,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/zh-CN/docs",
+      "viewport": 320,
+      "clientWidth": 305,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/hi/docs",
+      "viewport": 320,
+      "clientWidth": 305,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/es/docs",
+      "viewport": 320,
+      "clientWidth": 305,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/fr/docs",
+      "viewport": 320,
+      "clientWidth": 305,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/ar/docs",
+      "viewport": 320,
+      "clientWidth": 305,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/bn/docs",
+      "viewport": 320,
+      "clientWidth": 305,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/pt-BR/docs",
+      "viewport": 320,
+      "clientWidth": 305,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/ru/docs",
+      "viewport": 320,
+      "clientWidth": 305,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/id/docs",
+      "viewport": 320,
+      "clientWidth": 305,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/ur/docs",
+      "viewport": 320,
+      "clientWidth": 305,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/de/docs",
+      "viewport": 320,
+      "clientWidth": 305,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/ja/docs",
+      "viewport": 320,
+      "clientWidth": 305,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/sw/docs",
+      "viewport": 320,
+      "clientWidth": 305,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/mr/docs",
+      "viewport": 320,
+      "clientWidth": 305,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/te/docs",
+      "viewport": 320,
+      "clientWidth": 305,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/tr/docs",
+      "viewport": 320,
+      "clientWidth": 305,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/ta/docs",
+      "viewport": 320,
+      "clientWidth": 305,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/vi/docs",
+      "viewport": 320,
+      "clientWidth": 305,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/ko/docs",
+      "viewport": 320,
+      "clientWidth": 305,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/en",
+      "viewport": 320,
+      "clientWidth": 305,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/docs",
+      "viewport": 320,
+      "clientWidth": 305,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/security",
+      "viewport": 320,
+      "clientWidth": 305,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/privacy",
+      "viewport": 320,
+      "clientWidth": 305,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/terms",
+      "viewport": 320,
+      "clientWidth": 305,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/open-source",
+      "viewport": 320,
+      "clientWidth": 305,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/transparency",
+      "viewport": 320,
+      "clientWidth": 305,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/no-viral-guarantee",
+      "viewport": 320,
+      "clientWidth": 305,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/login",
+      "viewport": 320,
+      "clientWidth": 320,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          16,
+          304
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/signup",
+      "viewport": 320,
+      "clientWidth": 320,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          16,
+          304
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/forgot-password",
+      "viewport": 320,
+      "clientWidth": 320,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          16,
+          304
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/reset-password",
+      "viewport": 320,
+      "clientWidth": 320,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          16,
+          304
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/leaderboard",
+      "viewport": 320,
+      "clientWidth": 305,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          16,
+          288.66668701171875
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/en",
+      "viewport": 390,
+      "clientWidth": 375,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          16,
+          358.66668701171875
+        ],
+        [
+          16,
+          358.66668701171875
+        ],
+        [
+          16,
+          358.66668701171875
+        ],
+        [
+          16,
+          358.66668701171875
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/docs",
+      "viewport": 390,
+      "clientWidth": 375,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          16,
+          358.66668701171875
+        ],
+        [
+          16,
+          358.66668701171875
+        ],
+        [
+          16,
+          358.66668701171875
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/security",
+      "viewport": 390,
+      "clientWidth": 375,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          16,
+          358.66668701171875
+        ],
+        [
+          16,
+          358.66668701171875
+        ],
+        [
+          16,
+          358.66668701171875
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/privacy",
+      "viewport": 390,
+      "clientWidth": 375,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          16,
+          358.66668701171875
+        ],
+        [
+          16,
+          358.66668701171875
+        ],
+        [
+          16,
+          358.66668701171875
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/terms",
+      "viewport": 390,
+      "clientWidth": 375,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          16,
+          358.66668701171875
+        ],
+        [
+          16,
+          358.66668701171875
+        ],
+        [
+          16,
+          358.66668701171875
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/open-source",
+      "viewport": 390,
+      "clientWidth": 375,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          16,
+          358.66668701171875
+        ],
+        [
+          16,
+          358.66668701171875
+        ],
+        [
+          16,
+          358.66668701171875
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/transparency",
+      "viewport": 390,
+      "clientWidth": 375,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          16,
+          358.66668701171875
+        ],
+        [
+          16,
+          358.66668701171875
+        ],
+        [
+          16,
+          358.66668701171875
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/no-viral-guarantee",
+      "viewport": 390,
+      "clientWidth": 375,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          16,
+          358.66668701171875
+        ],
+        [
+          16,
+          358.66668701171875
+        ],
+        [
+          16,
+          358.66668701171875
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/login",
+      "viewport": 390,
+      "clientWidth": 390,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          16,
+          374
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/signup",
+      "viewport": 390,
+      "clientWidth": 390,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          16,
+          374
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/forgot-password",
+      "viewport": 390,
+      "clientWidth": 390,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          16,
+          374
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/reset-password",
+      "viewport": 390,
+      "clientWidth": 390,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          16,
+          374
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/leaderboard",
+      "viewport": 390,
+      "clientWidth": 375,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          16,
+          358.66668701171875
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/en",
+      "viewport": 768,
+      "clientWidth": 753,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          32,
+          720.6666870117188
+        ],
+        [
+          32,
+          720.6666870117188
+        ],
+        [
+          32,
+          720.6666870117188
+        ],
+        [
+          32,
+          720.6666870117188
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/docs",
+      "viewport": 768,
+      "clientWidth": 753,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          32,
+          720.6666870117188
+        ],
+        [
+          32,
+          720.6666870117188
+        ],
+        [
+          32,
+          720.6666870117188
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/security",
+      "viewport": 768,
+      "clientWidth": 753,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          32,
+          720.6666870117188
+        ],
+        [
+          32,
+          720.6666870117188
+        ],
+        [
+          32,
+          720.6666870117188
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/privacy",
+      "viewport": 768,
+      "clientWidth": 753,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          32,
+          720.6666870117188
+        ],
+        [
+          32,
+          720.6666870117188
+        ],
+        [
+          32,
+          720.6666870117188
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/terms",
+      "viewport": 768,
+      "clientWidth": 753,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          32,
+          720.6666870117188
+        ],
+        [
+          32,
+          720.6666870117188
+        ],
+        [
+          32,
+          720.6666870117188
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/open-source",
+      "viewport": 768,
+      "clientWidth": 753,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          32,
+          720.6666870117188
+        ],
+        [
+          32,
+          720.6666870117188
+        ],
+        [
+          32,
+          720.6666870117188
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/transparency",
+      "viewport": 768,
+      "clientWidth": 753,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          32,
+          720.6666870117188
+        ],
+        [
+          32,
+          720.6666870117188
+        ],
+        [
+          32,
+          720.6666870117188
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/no-viral-guarantee",
+      "viewport": 768,
+      "clientWidth": 753,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          32,
+          720.6666870117188
+        ],
+        [
+          32,
+          720.6666870117188
+        ],
+        [
+          32,
+          720.6666870117188
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/login",
+      "viewport": 768,
+      "clientWidth": 768,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          32,
+          736
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/signup",
+      "viewport": 768,
+      "clientWidth": 768,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          32,
+          736
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/forgot-password",
+      "viewport": 768,
+      "clientWidth": 768,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          32,
+          736
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/reset-password",
+      "viewport": 768,
+      "clientWidth": 768,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          32,
+          736
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/leaderboard",
+      "viewport": 768,
+      "clientWidth": 753,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          32,
+          720.6666870117188
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/en",
+      "viewport": 1280,
+      "clientWidth": 1265,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          52.33333587646485,
+          1212.3333358764648
+        ],
+        [
+          52.33333587646485,
+          1212.3333358764648
+        ],
+        [
+          52.33333587646485,
+          1212.3333358764648
+        ],
+        [
+          52.33333587646485,
+          1212.3333358764648
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/docs",
+      "viewport": 1280,
+      "clientWidth": 1265,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          52.33333587646485,
+          1212.3333358764648
+        ],
+        [
+          52.33333587646485,
+          1212.3333358764648
+        ],
+        [
+          52.33333587646485,
+          1212.3333358764648
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/security",
+      "viewport": 1280,
+      "clientWidth": 1265,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          52.33333587646485,
+          1212.3333358764648
+        ],
+        [
+          52.33333587646485,
+          1212.3333358764648
+        ],
+        [
+          52.33333587646485,
+          1212.3333358764648
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/privacy",
+      "viewport": 1280,
+      "clientWidth": 1265,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          52.33333587646485,
+          1212.3333358764648
+        ],
+        [
+          52.33333587646485,
+          1212.3333358764648
+        ],
+        [
+          52.33333587646485,
+          1212.3333358764648
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/terms",
+      "viewport": 1280,
+      "clientWidth": 1265,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          52.33333587646485,
+          1212.3333358764648
+        ],
+        [
+          52.33333587646485,
+          1212.3333358764648
+        ],
+        [
+          52.33333587646485,
+          1212.3333358764648
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/open-source",
+      "viewport": 1280,
+      "clientWidth": 1265,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          52.33333587646485,
+          1212.3333358764648
+        ],
+        [
+          52.33333587646485,
+          1212.3333358764648
+        ],
+        [
+          52.33333587646485,
+          1212.3333358764648
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/transparency",
+      "viewport": 1280,
+      "clientWidth": 1265,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          52.33333587646485,
+          1212.3333358764648
+        ],
+        [
+          52.33333587646485,
+          1212.3333358764648
+        ],
+        [
+          52.33333587646485,
+          1212.3333358764648
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/no-viral-guarantee",
+      "viewport": 1280,
+      "clientWidth": 1265,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          52.33333587646485,
+          1212.3333358764648
+        ],
+        [
+          52.33333587646485,
+          1212.3333358764648
+        ],
+        [
+          52.33333587646485,
+          1212.3333358764648
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/login",
+      "viewport": 1280,
+      "clientWidth": 1280,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          60,
+          1220
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/signup",
+      "viewport": 1280,
+      "clientWidth": 1280,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          60,
+          1220
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/forgot-password",
+      "viewport": 1280,
+      "clientWidth": 1280,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          60,
+          1220
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/reset-password",
+      "viewport": 1280,
+      "clientWidth": 1280,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          60,
+          1220
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/leaderboard",
+      "viewport": 1280,
+      "clientWidth": 1265,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          52.33333587646485,
+          1212.3333358764648
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/en",
+      "viewport": 1440,
+      "clientWidth": 1425,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          132.33334350585938,
+          1292.3333435058594
+        ],
+        [
+          132.33334350585938,
+          1292.3333435058594
+        ],
+        [
+          132.33334350585938,
+          1292.3333435058594
+        ],
+        [
+          132.33334350585938,
+          1292.3333435058594
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/docs",
+      "viewport": 1440,
+      "clientWidth": 1425,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          132.33334350585938,
+          1292.3333435058594
+        ],
+        [
+          132.33334350585938,
+          1292.3333435058594
+        ],
+        [
+          132.33334350585938,
+          1292.3333435058594
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/security",
+      "viewport": 1440,
+      "clientWidth": 1425,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          132.33334350585938,
+          1292.3333435058594
+        ],
+        [
+          132.33334350585938,
+          1292.3333435058594
+        ],
+        [
+          132.33334350585938,
+          1292.3333435058594
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/privacy",
+      "viewport": 1440,
+      "clientWidth": 1425,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          132.33334350585938,
+          1292.3333435058594
+        ],
+        [
+          132.33334350585938,
+          1292.3333435058594
+        ],
+        [
+          132.33334350585938,
+          1292.3333435058594
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/terms",
+      "viewport": 1440,
+      "clientWidth": 1425,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          132.33334350585938,
+          1292.3333435058594
+        ],
+        [
+          132.33334350585938,
+          1292.3333435058594
+        ],
+        [
+          132.33334350585938,
+          1292.3333435058594
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/open-source",
+      "viewport": 1440,
+      "clientWidth": 1425,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          132.33334350585938,
+          1292.3333435058594
+        ],
+        [
+          132.33334350585938,
+          1292.3333435058594
+        ],
+        [
+          132.33334350585938,
+          1292.3333435058594
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/transparency",
+      "viewport": 1440,
+      "clientWidth": 1425,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          132.33334350585938,
+          1292.3333435058594
+        ],
+        [
+          132.33334350585938,
+          1292.3333435058594
+        ],
+        [
+          132.33334350585938,
+          1292.3333435058594
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/no-viral-guarantee",
+      "viewport": 1440,
+      "clientWidth": 1425,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          132.33334350585938,
+          1292.3333435058594
+        ],
+        [
+          132.33334350585938,
+          1292.3333435058594
+        ],
+        [
+          132.33334350585938,
+          1292.3333435058594
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/login",
+      "viewport": 1440,
+      "clientWidth": 1440,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          140,
+          1300
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/signup",
+      "viewport": 1440,
+      "clientWidth": 1440,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          140,
+          1300
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/forgot-password",
+      "viewport": 1440,
+      "clientWidth": 1440,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          140,
+          1300
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/reset-password",
+      "viewport": 1440,
+      "clientWidth": 1440,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          140,
+          1300
+        ]
+      ]
+    },
+    {
+      "kind": "public",
+      "route": "/leaderboard",
+      "viewport": 1440,
+      "clientWidth": 1425,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          132.33334350585938,
+          1292.3333435058594
+        ]
+      ]
+    },
+    {
+      "kind": "authenticated fixture",
+      "route": "/evaluation",
+      "viewport": 320,
+      "clientWidth": 305,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ]
+      ]
+    },
+    {
+      "kind": "authenticated fixture",
+      "route": "/profile",
+      "viewport": 320,
+      "clientWidth": 305,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ]
+      ]
+    },
+    {
+      "kind": "authenticated fixture",
+      "route": "/settings/appearance",
+      "viewport": 320,
+      "clientWidth": 305,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ]
+      ]
+    },
+    {
+      "kind": "authenticated fixture",
+      "route": "/settings/automation",
+      "viewport": 320,
+      "clientWidth": 305,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ]
+      ]
+    },
+    {
+      "kind": "authenticated fixture",
+      "route": "/settings/security",
+      "viewport": 320,
+      "clientWidth": 305,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ]
+      ]
+    },
+    {
+      "kind": "authenticated fixture",
+      "route": "/settings/style",
+      "viewport": 320,
+      "clientWidth": 305,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          16,
+          288.66668701171875
+        ],
+        [
+          16,
+          288.66668701171875
+        ]
+      ]
+    },
+    {
+      "kind": "authenticated fixture",
+      "route": "/evaluation",
+      "viewport": 768,
+      "clientWidth": 753,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          332,
+          720.6666870117188
+        ],
+        [
+          332,
+          720.6666870117188
+        ]
+      ]
+    },
+    {
+      "kind": "authenticated fixture",
+      "route": "/profile",
+      "viewport": 768,
+      "clientWidth": 753,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          332,
+          720.6666870117188
+        ],
+        [
+          332,
+          720.6666870117188
+        ]
+      ]
+    },
+    {
+      "kind": "authenticated fixture",
+      "route": "/settings/appearance",
+      "viewport": 768,
+      "clientWidth": 753,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          332,
+          720.6666870117188
+        ],
+        [
+          332,
+          720.6666870117188
+        ]
+      ]
+    },
+    {
+      "kind": "authenticated fixture",
+      "route": "/settings/automation",
+      "viewport": 768,
+      "clientWidth": 753,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          332,
+          720.6666870117188
+        ],
+        [
+          332,
+          720.6666870117188
+        ]
+      ]
+    },
+    {
+      "kind": "authenticated fixture",
+      "route": "/settings/security",
+      "viewport": 768,
+      "clientWidth": 753,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          332,
+          720.6666870117188
+        ],
+        [
+          332,
+          720.6666870117188
+        ]
+      ]
+    },
+    {
+      "kind": "authenticated fixture",
+      "route": "/settings/style",
+      "viewport": 768,
+      "clientWidth": 753,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          332,
+          720.6666870117188
+        ],
+        [
+          332,
+          720.6666870117188
+        ]
+      ]
+    },
+    {
+      "kind": "authenticated fixture",
+      "route": "/evaluation",
+      "viewport": 1440,
+      "clientWidth": 1425,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          332,
+          1392.666748046875
+        ],
+        [
+          332,
+          1392.666748046875
+        ]
+      ]
+    },
+    {
+      "kind": "authenticated fixture",
+      "route": "/profile",
+      "viewport": 1440,
+      "clientWidth": 1425,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          332,
+          1392.666748046875
+        ],
+        [
+          332,
+          1312
+        ]
+      ]
+    },
+    {
+      "kind": "authenticated fixture",
+      "route": "/settings/appearance",
+      "viewport": 1440,
+      "clientWidth": 1425,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          332,
+          1392.666748046875
+        ],
+        [
+          332,
+          1312
+        ]
+      ]
+    },
+    {
+      "kind": "authenticated fixture",
+      "route": "/settings/automation",
+      "viewport": 1440,
+      "clientWidth": 1425,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          332,
+          1392.666748046875
+        ],
+        [
+          332,
+          1312
+        ]
+      ]
+    },
+    {
+      "kind": "authenticated fixture",
+      "route": "/settings/security",
+      "viewport": 1440,
+      "clientWidth": 1425,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          332,
+          1392.666748046875
+        ],
+        [
+          332,
+          1312
+        ]
+      ]
+    },
+    {
+      "kind": "authenticated fixture",
+      "route": "/settings/style",
+      "viewport": 1440,
+      "clientWidth": 1425,
+      "horizontalOverflow": false,
+      "containerEdges": [
+        [
+          332,
+          1392.666748046875
+        ],
+        [
+          332,
+          1312
+        ]
+      ]
+    }
+  ]
+}

@@ -15,6 +15,6 @@ export default function DraftsRoute({ searchParams }: { searchParams: Promise<{ 
     if (!owner) return null;
     const [drafts, rows] = await Promise.all([getPostgresDrafts(), getPostgresAccounts(owner)]);
     const accounts = rows.map((row) => ({ ...row, subscriptionState: { tier: "unknown" as const, observedAt: 0, historyComplete: false } }));
-    return <main className="min-h-screen"><div className="mx-auto flex w-full max-w-[1480px] flex-col gap-7 px-4 py-6 sm:px-6 lg:px-8 lg:py-10"><PageHeading eyebrow="Üretim / edit" title="Draft stüdyosu" description="Draft metinlerini ve sürüm geçmişini yönetin." /><DraftsPage initial={drafts} accounts={accounts} selectedDraftId={selectedDraftId} sourcePostId={query.externalId && /^\d{1,19}$/.test(query.externalId) ? query.externalId : undefined} /></div></main>;
+    return <main className="min-h-screen"><div className="site-container flex flex-col gap-7 py-6 lg:py-10"><PageHeading eyebrow="Üretim / edit" title="Draft stüdyosu" description="Draft metinlerini ve sürüm geçmişini yönetin." /><DraftsPage initial={drafts} accounts={accounts} selectedDraftId={selectedDraftId} sourcePostId={query.externalId && /^\d{1,19}$/.test(query.externalId) ? query.externalId : undefined} /></div></main>;
   });
 }

@@ -56,6 +56,6 @@ export default async function AccountsRoute({ searchParams }: {
     const connections = Object.fromEntries(pairs);
     const categoryGroups = await Promise.all(accountRows.map((account) => getPostgresCategoriesForAccount(ownerId, account.id)));
     const categoryRows = [...new Map(categoryGroups.flat().map((category) => [category.id, category])).values()];
-    return <main className="min-h-screen"><div className="mx-auto flex w-full max-w-[1480px] flex-col gap-7 px-4 py-6 sm:px-6 lg:px-8 lg:py-10"><PageHeading eyebrow="Operasyon / hesaplar" title="𝕏 hesapları ve yayın sınırları" description="𝕏 bağlantılarını ve her hesabın editoryal tercihlerini tek yerde yönetin." /><AccountsPage initial={accounts} categories={categoryRows} connections={connections} policyVersion={X_POLICY_VERSION} copyVersion={X_CONSENT_COPY_VERSION} connectionResult={query.connection} connectionAccountId={query.accountId ? Number(query.accountId) : undefined} /></div></main>;
+    return <main className="min-h-screen"><div className="site-container flex flex-col gap-7 py-6 lg:py-10"><PageHeading eyebrow="Operasyon / hesaplar" title="𝕏 hesapları ve yayın sınırları" description="𝕏 bağlantılarını ve her hesabın editoryal tercihlerini tek yerde yönetin." /><AccountsPage initial={accounts} categories={categoryRows} connections={connections} policyVersion={X_POLICY_VERSION} copyVersion={X_CONSENT_COPY_VERSION} connectionResult={query.connection} connectionAccountId={query.accountId ? Number(query.accountId) : undefined} /></div></main>;
   });
 }

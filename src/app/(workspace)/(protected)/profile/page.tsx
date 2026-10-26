@@ -12,6 +12,6 @@ export default async function ProfileSettingsPage() {
   const locale = await requestPublicLocale();
   return renderUserPage(async () => {
     const [hitSharing, profile] = await Promise.all([getHitSharingSettings(), loadOwnUserProfileFromX()]);
-    return <main className="min-h-screen"><div className="mx-auto flex w-full max-w-[980px] flex-col gap-7 px-4 py-6 sm:px-6 lg:px-8 lg:py-10"><PageHeading eyebrow="Ayarlar / profil" title="Profil" description="Görünen ad, bio ve profil görünürlüğü bağlı 𝕏 hesabından eşitlenir." /><ProfileSettings initial={profile} /><HitSharingSettings initial={hitSharing} locale={locale} /></div></main>;
+    return <main className="min-h-screen"><div className="site-container site-container--reading flex flex-col gap-7 py-6 lg:py-10"><PageHeading eyebrow="Ayarlar / profil" title="Profil" description="Görünen ad, bio ve profil görünürlüğü bağlı 𝕏 hesabından eşitlenir." /><ProfileSettings initial={profile} /><HitSharingSettings initial={hitSharing} locale={locale} /></div></main>;
   });
 }
