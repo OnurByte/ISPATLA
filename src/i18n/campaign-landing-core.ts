@@ -45,7 +45,7 @@ export const campaignLandingCore: Record<"tr" | "en", Omit<CampaignLandingCopy, 
   en: {
     nav: { product: "Product", mcp: "MCP", faq: "FAQ", login: "Sign in", start: "Get started", dashboard: "Workspace", menu: "Main menu" },
     eyebrow: "OPEN-SOURCE CONTENT OPPORTUNITIES FOR 𝕏",
-    headline: "Find a sourced opportunity.", headlineAccent: "Shape it for your account.",
+    headline: "Don’t worship the algorithm.", headlineAccent: "Prove it.",
     intro: "Review 𝕏 source context for your account, see why a topic may fit, and edit an AI-assisted draft before deciding what to publish.",
     primaryCta: "See the workflow", secondaryCta: "Create an account", heroNote: "Inspect sources ⁜ Match account context ⁜ Edit the draft",
     audienceLabel: "For ambitions bigger than one account.", audiences: ["Brands", "Content teams", "Agencies"],

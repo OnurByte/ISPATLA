@@ -11,7 +11,7 @@ All eight requested written outputs are in [PRODUCT_STRATEGY.md](PRODUCT_STRATEG
 | Handoff sections | Requirement | Authoritative current evidence / disposition |
 | --- | --- | --- |
 | 0, 2, 30 | Current facts outrank old assistant ideas; distinguish decisions/proposals | Strategy status legend and conflict register; README and architecture rewritten from current source. |
-| 1, 3, 7 | İSPATLA/ispatla.tr, exact Turkish slogan, existing assets/font | `brand.md`, `brand-logo.tsx`, `ai-icon.tsx`, supplied SVGs, local Libron; source provenance below. English slogan remains an open decision. |
+| 1, 3, 7 | İSPATLA/ispatla.tr, exact Turkish slogan, existing assets/font | `brand.md`, `brand-logo.tsx`, `ai-icon.tsx`, supplied SVGs, local Libron; source provenance below. The slogan is localized across all 20 landing locales; English uses “Don’t worship the algorithm. Prove it.” |
 | 3, 9 | Content source is 𝕏; GitHub supplies code | Actual canonical 𝕏 source in interactive workspace, no GitHub content-source example; repository links remain for code/license. |
 | 3, 4, 14 | Preserve FxTwitter; metered official operations denied before Prime | `official-x-access.ts`, `official-x.ts`, OAuth/refresh and publisher boundaries; actual-gate tests prove scopes/credentials/environment flags do not cause provider requests. [API inventory](evidence/official-api-boundary.md). |
 | 2, 4, 14, 27 | Do not unilaterally remove 𝕏 application sign-in | `auth.ts` read-only Better Auth provider and `auth-x-provider.test.ts` retained. Separate disabled account-grant/paid-transport paths do not disable application sign-in. Billing of the sign-in lookup is explicitly unresolved. |
@@ -59,11 +59,11 @@ No production database, mail delivery, real application OAuth callback, live rem
 
 ## Final quality and browser results
 
-Measured 26 October 2026 against the final local production build at `http://localhost:3101/`, Lighthouse 12.8.2:
+Measured 26 October 2026 against the final local production build at `http://localhost:3103/`, Lighthouse 12.8.2:
 
 | Profile | Performance | Accessibility | Best Practices | SEO |
 | --- | --- | --- | --- | --- |
-| Mobile | 90 | 100 | 100 | 100 |
+| Mobile | 94 | 100 | 100 | 100 |
 | Desktop | 100 | 100 | 100 | 100 |
 
 The 90/100/100/100 gates passed. Both profiles had zero cumulative layout shift. Machine-readable metrics are in [quality-summary.json](evidence/quality-summary.json); full HTML/JSON reports are generated under ignored `lighthouse-reports/`. These are lab observations, not field or live-chat embed validation.

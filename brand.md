@@ -2,7 +2,7 @@
 
 The product is **İSPATLA**. The wordmark and domain are **ispatla.tr**.
 
-The exact Turkish slogan is **Algoritmaya tapma. İspatla.** Preserve its punctuation. An English slogan has not been finalized; use clear localized product descriptions rather than treating a translation as approved branding.
+The exact Turkish slogan is **Algoritmaya tapma. İspatla.** Preserve its punctuation. The English rendering is **Don’t worship the algorithm. Prove it.** Every landing locale preserves this challenge-and-proof meaning in its headline; keep product explanation in the intro.
 
 ## Product message
 
@@ -31,3 +31,7 @@ English is the default site language on bare routes, regardless of browser langu
 Keep all 20 locales complete. Translate product meaning naturally and preserve RTL. Never add a competitor section or resurrect old campaign art simply because a file exists.
 
 Current strategy, research limits, campaign drafts, experiments and open decisions: [docs/PRODUCT_STRATEGY.md](docs/PRODUCT_STRATEGY.md).
+
+Shared shape standard: 4px small details, 6px compact elements, 8px controls, 12px surfaces, 16px outer frames. Use circles for intrinsically circular elements such as avatars. Layout spacing follows the existing 4px unit; nearby content uses 8–12px, related groups 24px and sections 48–80px responsively. Research rationale and limits: [docs/SHAPE_AND_SPACING.md](docs/SHAPE_AND_SPACING.md).
+
+The shared BrandLogo uses a 40px mark / 24px wordmark on mobile and 48px / 28px from the small breakpoint upward. Navigation must not override these dimensions per page; wrap the header contents when needed.
