@@ -156,5 +156,5 @@ export const socialCopy: Record<Locale, SocialCopy> = Object.fromEntries(LOCALES
   if (!values || values.length !== socialKeys.length || values.some(text => !text.trim())) {
     throw new Error("Incomplete public social translation: " + locale);
   }
-  return [locale, Object.fromEntries(socialKeys.map((key, index) => [key, values[index]]))];
+  return [locale, Object.fromEntries(socialKeys.map((key, index) => [key, values[index].replaceAll("X", "𝕏")]))];
 })) as Record<Locale, SocialCopy>;

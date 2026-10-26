@@ -1,4 +1,5 @@
 "use client"
+import {UiText,useUiText} from "@/i18n/ui-client";
 
 import * as React from "react"
 import { mergeProps } from "@base-ui/react/merge-props"
@@ -233,8 +234,8 @@ function Sidebar({
           side={side}
         >
           <SheetHeader className="sr-only">
-            <SheetTitle>Sidebar</SheetTitle>
-            <SheetDescription>Displays the mobile sidebar.</SheetDescription>
+            <SheetTitle><UiText text="Sidebar" /></SheetTitle>
+            <SheetDescription><UiText text="Sidebar" /></SheetDescription>
           </SheetHeader>
           <div className="flex h-full w-full flex-col">{children}</div>
         </SheetContent>
@@ -310,12 +311,13 @@ function SidebarTrigger({
       {...props}
     >
       {state === "collapsed" ? <BrandMark size={24} /> : <PanelLeftIcon />}
-      <span className="sr-only">Toggle Sidebar</span>
+      <span className="sr-only"><UiText text="Toggle sidebar" /></span>
     </Button>
   )
 }
 
 function SidebarRail({ className, side = "left", width, ...props }: React.ComponentProps<"button"> & { side?: "left" | "right"; width: number }) {
+  const {t}=useUiText()
   const { open, setOpen, toggleSidebar, setWidth } = useSidebar()
   const drag = React.useRef<{ x: number; width: number; moved: boolean } | null>(null)
 
@@ -334,7 +336,7 @@ function SidebarRail({ className, side = "left", width, ...props }: React.Compon
       data-slot="sidebar-rail"
       role="separator"
       aria-orientation="vertical"
-      aria-label="Resize sidebar"
+      aria-label={t("Resize sidebar")}
       aria-valuemin={SIDEBAR_WIDTH_MIN}
       aria-valuemax={SIDEBAR_WIDTH_MAX}
       aria-valuenow={width}
@@ -360,7 +362,7 @@ function SidebarRail({ className, side = "left", width, ...props }: React.Compon
         else if (event.key === "End") setWidth(SIDEBAR_WIDTH_MAX)
         else if (event.key === "Enter" || event.key === " ") { event.preventDefault(); toggleSidebar() }
       }}
-      title="Resize sidebar; click to collapse"
+      title={t("Resize sidebar; click to collapse")}
       className={cn(
         "absolute inset-y-0 z-20 hidden w-4 touch-none cursor-col-resize after:absolute after:inset-y-0 after:start-1/2 after:w-[2px] hover:after:bg-sidebar-border focus-visible:outline-2 focus-visible:outline-ring sm:flex ltr:-translate-x-1/2 rtl:-translate-x-1/2",
         "in-data-[side=left]:cursor-w-resize in-data-[side=right]:cursor-e-resize",

@@ -14,10 +14,11 @@ import {
   Trophy,
   type LucideIcon,
 } from "lucide-react";
+import { useUiText } from "@/i18n/ui-client";
 import { BrandLogo } from "@/components/brand-logo";
 import { PublicHeaderContent } from "@/components/public-header-content";
 import { SidebarSearch } from "@/components/sidebar-search";
-import { DEFAULT_LOCALE, localeFromPath, localizePath, stripLocalePrefix } from "@/i18n/config";
+import { LOCALE_CONFIG, localizePath, stripLocalePrefix } from "@/i18n/config";
 import { getDictionary } from "@/i18n/dictionaries";
 import { isSidebarItemActive, isSidebarRouteActive } from "@/lib/sidebar-navigation";
 import {
@@ -86,7 +87,7 @@ function XBrandIcon() {
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const locale = localeFromPath(pathname) ?? DEFAULT_LOCALE;
+  const {locale} = useUiText();
   const dict = getDictionary(locale);
   const routePathname = stripLocalePrefix(pathname);
   const primaryNav: NavItem[] = [
@@ -110,7 +111,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <SidebarProvider>
-      <Sidebar collapsible="icon">
+      <Sidebar collapsible="icon" side={LOCALE_CONFIG[locale].dir === "rtl" ? "right" : "left"}>
         <SidebarHeader className="flex-row items-center justify-between gap-2 p-3 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-1.5">
           <BrandLogo href={localizePath(locale, "/dashboard")} className="group-data-[collapsible=icon]:hidden" />
           <SidebarTrigger aria-label={dict.nav.menuOpen} className="hidden size-9 md:inline-flex group-data-[collapsible=icon]:inline-flex" />

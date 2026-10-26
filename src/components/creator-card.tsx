@@ -3,8 +3,10 @@ import { BrandText } from "@/components/brand-text";
 import type { PointerEvent } from "react";
 import {ArrowUpRight,Code2} from "lucide-react";
 import styles from "./creator-card.module.css";
+import { useUiText } from "@/i18n/ui-client";
 
 export function CreatorCard(){
+  const {t}=useUiText();
   function reset(event:PointerEvent<HTMLElement>){
     for(const key of ["--tilt-x","--tilt-y","--spot-x","--spot-y"])event.currentTarget.style.removeProperty(key);
   }
@@ -19,10 +21,10 @@ export function CreatorCard(){
   }
   return <article className={`${styles.card} rounded-sm border border-[#444750] bg-[#20242c] p-7 text-[#f0ede5] shadow-[0_24px_70px_-40px_rgba(22,25,30,.75)] sm:p-9`} onPointerMove={move} onPointerLeave={reset}>
     <div className={styles.content}>
-      <div className="mb-8 flex items-center justify-between"><span className="text-xs font-medium uppercase tracking-[.18em] text-[#c1bfb6]"><BrandText text="ispatla.tr ⁜ açık geliştirme" /></span><Code2 className="size-5 text-[#aebeff]" aria-hidden="true"/></div>
+      <div className="mb-8 flex items-center justify-between"><span className="text-xs font-medium uppercase tracking-[.18em] text-[#c1bfb6]"><BrandText text={`ispatla.tr ⁜ ${t("Open development")}`} /></span><Code2 className="size-5 text-[#aebeff]" aria-hidden="true"/></div>
       <p className="text-3xl font-semibold tracking-tight">OnurByte<span className="text-[#aebeff]">.</span></p>
       <p className="mt-2 text-sm text-[#c1bfb6]">@OnurStirner</p>
-      <p className="mt-6 max-w-sm text-sm leading-6 text-[#f0ede5]">Sinyal, karar ve sonucu aynı masada görmek için. Yerel kurulum, incelenebilir kaynak kodu ve AGPL-3.0-or-later lisansı.</p>
+      <p className="mt-6 max-w-sm text-sm leading-6 text-[#f0ede5]">{t("See signal, decision and outcome at the same table. Local installation, inspectable source code and the AGPL-3.0-or-later license.")}</p>
       <div className="mt-7 flex flex-wrap gap-4 text-sm">
         <a className="inline-flex min-h-11 items-center gap-1 underline decoration-[#aebeff] underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-4" href="https://github.com/OnurByte/Ispatla" target="_blank" rel="noreferrer">GitHub <ArrowUpRight className="size-4" aria-hidden="true"/></a>
         <a className="inline-flex min-h-11 items-center gap-1 underline decoration-[#aebeff] underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-4" href="https://x.com/OnurStirner" target="_blank" rel="noreferrer">𝕏 <ArrowUpRight className="size-4" aria-hidden="true"/></a>

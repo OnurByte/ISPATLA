@@ -1,3 +1,5 @@
+import { getUiMessages, getUiAliases } from "@/i18n/ui";
+import { UiLocaleProvider } from "@/i18n/ui-client";
 import type { Metadata } from "next";
 import { preload } from "react-dom";
 import { headers } from "next/headers";
@@ -5,7 +7,6 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthSessionSync } from "@/components/auth-session-sync";
 import { ThemeProvider } from "@/components/theme-provider";
 import { DEFAULT_LOCALE, isLocale, LOCALE_CONFIG } from "@/i18n/config";
-import { getDictionary } from "@/i18n/dictionaries";
 import { getAuth, isAuthenticatedUserDisabled } from "@/server/auth";
 import { PUBLIC_ORIGIN } from "@/i18n/public-metadata";
 import { SITE_ICON_METADATA } from "@/lib/site-icons";
@@ -25,10 +26,6 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
   const requestedLocale = requestHeaders.get("x-ispatla-locale") || DEFAULT_LOCALE;
   const locale = isLocale(requestedLocale) ? requestedLocale : DEFAULT_LOCALE;
   const direction = LOCALE_CONFIG[locale].dir;
-  const dictionary = getDictionary(locale);
-  const route = requestHeaders.get("x-ispatla-route") || "/";
-  const workspaceRoute = /^\/(dashboard|opportunities|accounts|drafts|queue|analytics|categories|sources|settings|profile|evaluation)(\/|$)/.test(route);
-  const notice = workspaceRoute ? dictionary.status.partial : "";
   let forceSystemTheme = false;
   if (requestHeaders.get("x-ispatla-route") === "/") {
     try {
@@ -39,13 +36,12 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
   return (
     <html lang={locale} dir={direction} data-scroll-behavior="smooth" className="h-full antialiased" suppressHydrationWarning>
       <body className="min-h-full">
-        <ThemeProvider forceSystemTheme={forceSystemTheme}>
+        <UiLocaleProvider locale={locale} messages={getUiMessages(locale)} aliases={getUiAliases()}><ThemeProvider forceSystemTheme={forceSystemTheme}>
           <TooltipProvider>
             <AuthSessionSync />
-            {locale !== DEFAULT_LOCALE && notice && <aside className="border-b bg-muted/60 px-4 py-2 text-center text-xs text-muted-foreground" lang={locale} dir={direction}>{notice}</aside>}
             {children}
           </TooltipProvider>
-        </ThemeProvider>
+        </ThemeProvider></UiLocaleProvider>
       </body>
     </html>
   );

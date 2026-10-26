@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useUiText } from "@/i18n/ui-client";
 import { BadgeCheck, Pin, Plus, RotateCcw, RotateCw, ScanSearch, Save, Trash2, UserRoundCheck } from "lucide-react";
 import type { DeletedSource, SourceConfig } from "@/server/db-types";
 import type { AccountCategoryConfig, SourceCategoryConfig } from "@/server/db-types";
@@ -59,7 +60,7 @@ function initials(source: SourceConfig): string {
 }
 
 function verificationLabel(status: SourceConfig["profile"]["blueCheckStatus"]): string {
-  return ({ blue: "Mavi doğrulama", organization: "Kuruluş doğrulaması", government: "Devlet doğrulaması", not_verified: "Doğrulanmamış", unknown: "Bilinmiyor" })[status || "unknown"];
+  return ({ blue: "Blue verified", organization: "Organization verified", government: "Government verified", not_verified: "Not verified", unknown: "Unknown" })[status || "unknown"];
 }
 
 function verificationClass(status: SourceConfig["profile"]["blueCheckStatus"]): string {
@@ -69,6 +70,8 @@ function verificationClass(status: SourceConfig["profile"]["blueCheckStatus"]): 
 type SourceAccount = { id: number; handle: string; displayName: string };
 
 export function SourcesPage({ accounts, initial, initialAvailable, initialDeleted, initialWarnings }: { accounts: SourceAccount[]; initial: SourceConfig[]; initialAvailable: SourceConfig[]; initialDeleted: DeletedSource[]; initialWarnings: DeletedSource[] }) {
+  const { t, locale } = useUiText();
+  const number = new Intl.NumberFormat(locale);
   const [sources, setSources] = useState(initial);
   const [available, setAvailable] = useState(initialAvailable);
   const [accountId, setAccountId] = useState(accounts[0]?.id || 0);
@@ -131,12 +134,12 @@ export function SourcesPage({ accounts, initial, initialAvailable, initialDelete
     const response = await fetch("/api/sources", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "select", accountId, handle: sourceToAdd }) });
     const body = await response.json().catch(() => ({}));
     setPending(false);
-    if (!response.ok) return setMessage(body.error || "Kaynak hesaba eklenemedi.");
+    if (!response.ok) return setMessage(t(body.error || "Could not add source to account."));
     const next = await reload();
     const source = next.find((item) => item.handle === sourceToAdd);
     if (source) setDraft(draftFrom(source));
     setSourceToAdd("");
-    setMessage("Kaynak bu yayın hesabına eklendi.");
+    setMessage(t("Source added to this publishing account."));
   }
 
   async function save() {
@@ -149,12 +152,12 @@ export function SourcesPage({ accounts, initial, initialAvailable, initialDelete
     });
     const body = await response.json().catch(() => ({}));
     setPending(false);
-    if (!response.ok) return setMessage(body.error || "Kaynak kaydedilemedi.");
-    if (draft.handle && !(await saveSourceCategories(draft.handle))) return setMessage("Kaynak kaydedildi ancak kategori eşleşmeleri kaydedilemedi.");
+    if (!response.ok) return setMessage(t(body.error || "Could not save source."));
+    if (draft.handle && !(await saveSourceCategories(draft.handle))) return setMessage(t("Source saved, but category assignments could not be saved."));
     const next = await reload();
     const saved = next.find((source) => source.handle === draft.handle);
     if (saved) setDraft(draftFrom(saved));
-    setMessage("Kaynak kaydedildi.");
+    setMessage(t("Source saved."));
   }
 
   async function saveSourceCategories(handle: string) {
@@ -176,7 +179,7 @@ export function SourcesPage({ accounts, initial, initialAvailable, initialDelete
     if (!response.ok) return setMessage("Kaynak silinemedi.");
     await reload();
     setDraft(blankSource());
-    setMessage("Kaynak bu yayın hesabından kaldırıldı.");
+    setMessage(t("Source removed from this publishing account."));
   }
 
   async function scanSources() {
@@ -184,9 +187,9 @@ export function SourcesPage({ accounts, initial, initialAvailable, initialDelete
     const response = await fetch("/api/scan", { method: "POST" });
     const body = await response.json().catch(() => ({}));
     setScanning(false);
-    if (!response.ok) return setMessage(body.error || "Kaynak taraması çalışmadı.");
+    if (!response.ok) return setMessage(t(body.error || "Source scan failed."));
     await reload();
-    setMessage(`${body.postsNew || 0} yeni post bulundu; ${body.sourcesScored || 0} AI kaynak skoru güncellendi.`);
+    setMessage(t("Found {posts} new posts ⁜ updated AI scores for {sources} sources.", { posts: number.format(body.postsNew || 0), sources: number.format(body.sourcesScored || 0) }));
   }
 
   async function checkLiveness() {
@@ -194,9 +197,9 @@ export function SourcesPage({ accounts, initial, initialAvailable, initialDelete
     const response = await fetch("/api/sources", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "check_liveness", accountId }) });
     const body = await response.json().catch(() => ({}));
     setScanning(false);
-    if (!response.ok) return setMessage(body.error || "Toplu hesap kontrolü çalışmadı.");
+    if (!response.ok) return setMessage(t(body.error || "Bulk account check failed."));
     await reload();
-    setMessage(`${body.checked || 0} hesap kontrol edildi: ${body.alive || 0} canlı, ${body.deleted || 0} silindi, ${body.unreachable || 0} erişilemedi, ${body.identityWarnings || 0} kimlik uyarısı.`);
+    setMessage(t("Checked {checked} accounts: {alive} active, {deleted} deleted, {unreachable} unreachable, {warnings} identity warnings.", { checked: number.format(body.checked || 0), alive: number.format(body.alive || 0), deleted: number.format(body.deleted || 0), unreachable: number.format(body.unreachable || 0), warnings: number.format(body.identityWarnings || 0) }));
   }
 
   async function recoverTechnical() {
@@ -204,9 +207,9 @@ export function SourcesPage({ accounts, initial, initialAvailable, initialDelete
     const response = await fetch("/api/sources", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "recover_technical", accountId }) });
     const body = await response.json().catch(() => ({}));
     setScanning(false);
-    if (!response.ok) return setMessage(body.error || "Teknik kaynak kurtarma çalışmadı.");
+    if (!response.ok) return setMessage(t(body.error || "Technical source recovery failed."));
     await reload();
-    setMessage(`${body.recovered || 0} kaynak geri alındı; ${body.unresolved || 0} kayıt yeniden doğrulama bekliyor.`);
+    setMessage(t("Restored {recovered} sources ⁜ {unresolved} records are waiting for revalidation.", { recovered: number.format(body.recovered || 0), unresolved: number.format(body.unresolved || 0) }));
   }
 
   async function resetSources() {
@@ -214,14 +217,14 @@ export function SourcesPage({ accounts, initial, initialAvailable, initialDelete
     try {
       const response = await fetch("/api/sources", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "reset", accountId }) });
       const body = await response.json().catch(() => ({}));
-      if (!response.ok) return setMessage(body.error || "Kaynak havuzu sıfırlanamadı.");
+      if (!response.ok) return setMessage(t(body.error || "Could not reset the source pool."));
       const next = await reload();
       const first = next.find((source) => source.profile.status !== "candidate") || next[0];
       setDraft(first ? draftFrom(first) : blankSource());
-      setMessage("Bu yayın hesabının kaynak seçimi temizlendi.");
+      setMessage(t("Source selections for this publishing account were cleared."));
       setResetOpen(false);
     } catch {
-      setMessage("Kaynak havuzu sıfırlanamadı. Bağlantıyı kontrol edip yeniden deneyin.");
+      setMessage(t("Could not reset the source pool. Check your connection and try again."));
     } finally {
       setPending(false);
     }
@@ -235,10 +238,10 @@ export function SourcesPage({ accounts, initial, initialAvailable, initialDelete
       return (
         <Empty className="border border-dashed py-8">
           <EmptyHeader>
-            <EmptyTitle>Bu bölüm boş</EmptyTitle>
-          <EmptyDescription>Kaynak havuzuna yalnız başlangıçtaki AI hesapları ve elle eklediklerin girer.</EmptyDescription>
+            <EmptyTitle>{t("This section is empty")}</EmptyTitle>
+          <EmptyDescription>{t("The source pool includes only initial AI accounts and sources you add manually.")}</EmptyDescription>
         </EmptyHeader>
-          <EmptyContent><Button variant="outline" onClick={() => setDraft(blankSource())}><Plus data-icon="inline-start" aria-hidden="true" /> 𝕏 hesabı ekle</Button></EmptyContent>
+          <EmptyContent><Button variant="outline" onClick={() => setDraft(blankSource())}><Plus data-icon="inline-start" aria-hidden="true" /> {t("Add a 𝕏 account")}</Button></EmptyContent>
         </Empty>
       );
     }
@@ -251,7 +254,7 @@ export function SourcesPage({ accounts, initial, initialAvailable, initialDelete
           key={source.handle}
           type="button"
           variant={selected ? "secondary" : "ghost"}
-          className="h-auto min-h-20 justify-start gap-3 border border-transparent p-3 text-left"
+          className="h-auto min-h-20 justify-start gap-3 border border-transparent p-3 text-start"
           data-selected={selected}
           onClick={() => setDraft(draftFrom(source))}
         >
@@ -261,16 +264,16 @@ export function SourcesPage({ accounts, initial, initialAvailable, initialDelete
           </Avatar>
           <div className="flex min-w-0 flex-1 flex-col items-start gap-1.5">
             <span className="flex w-full items-center gap-2">
-              <span className="flex items-center gap-1 truncate font-medium">{identityValid ? source.name : source.handle}{identityValid && source.profile.blueCheckStatus && source.profile.blueCheckStatus !== "not_verified" && source.profile.blueCheckStatus !== "unknown" ? <BadgeCheck className={verificationClass(source.profile.blueCheckStatus)} aria-label={verificationLabel(source.profile.blueCheckStatus)} /> : null}</span>
-              {source.profile.pinned ? <Pin aria-label="Sabitlenmiş kaynak" /> : null}
+              <span className="flex items-center gap-1 truncate font-medium">{identityValid ? source.name : source.handle}{identityValid && source.profile.blueCheckStatus && source.profile.blueCheckStatus !== "not_verified" && source.profile.blueCheckStatus !== "unknown" ? <BadgeCheck className={verificationClass(source.profile.blueCheckStatus)} aria-label={t(verificationLabel(source.profile.blueCheckStatus))} /> : null}</span>
+              {source.profile.pinned ? <Pin aria-label={t("Pinned source")} /> : null}
             </span>
-            <span className="w-full truncate text-xs text-muted-foreground">@{source.handle}{identityValid ? ` ⁜ ${Number(source.profile.followers || 0).toLocaleString("tr-TR")} takipçi` : " ⁜ profil kimliği doğrulanıyor"}</span>
-            <span className="w-full truncate text-xs text-muted-foreground">{source.profile.niche || source.profile.topics?.join(" ⁜ ") || "Niş tanımlı değil"}</span>
-            <Progress value={score} aria-label={`${source.name} kaynak skoru`} className="w-full" />
+            <span className="w-full truncate text-xs text-muted-foreground">@{source.handle}{identityValid ? ` ⁜ ${number.format(Number(source.profile.followers || 0))} ${t("followers")}` : ` ⁜ ${t("Verifying profile identity")}`}</span>
+            <span className="w-full truncate text-xs text-muted-foreground">{source.profile.niche || source.profile.topics?.join(" ⁜ ") || t("Niche not set")}</span>
+            <Progress value={score} aria-label={t("{name} source score", { name: source.name })} className="w-full" />
           </div>
           <span className="flex flex-col items-end gap-1">
-            <Badge variant={score >= 70 ? "default" : "outline"}>{score || "—"}</Badge>
-            <Badge variant={source.enabled ? "secondary" : "outline"}>{source.profile.status || (source.enabled ? "active" : "kapalı")}</Badge>
+            <Badge variant={score >= 70 ? "default" : "outline"}>{score ? number.format(score) : "—"}</Badge>
+            <Badge variant={source.enabled ? "secondary" : "outline"}>{t(({ active: "Active", candidate: "Candidate", deleted: "Removed", inactive: "Inactive", unreachable: "Unreachable" } as Record<string, string>)[source.profile.status || (source.enabled ? "active" : "inactive")] || source.profile.status || "Inactive")}</Badge>
           </span>
         </Button>
       );
@@ -281,52 +284,52 @@ export function SourcesPage({ accounts, initial, initialAvailable, initialDelete
   const selectedEvidence = selected ? Number(selected.profile.evidenceWeight || 0) : 0;
   const selectedIsScored = Number(selected?.profile.lastScoredAt || 0) > 0;
   const evidenceLabel = selectedEvidence > 0
-    ? `keşif kanıtı ${selectedEvidence}`
+    ? t("Discovery evidence {evidence}", { evidence: number.format(selectedEvidence) })
     : selected?.profile.origin === "seed"
-      ? "keşif kanıtı yok ⁜ başlangıç"
-      : "kanıt bekleniyor";
+      ? t("No discovery evidence ⁜ initial")
+      : t("Waiting for evidence");
   const selectedDescription = selected?.profile.scoreReason || (
     selected?.profile.status === "candidate"
-      ? "Keşif adayı; yeterli keşif kanıtı oluşunca AI skoru hesaplanır."
-      : "Manuel kaynaklar sabitlenir; otomatik keşif ve silme dışında tutulabilir."
+      ? t("Discovery candidate. AI scoring starts when enough discovery evidence is available.")
+      : t("Manual sources are pinned and can be excluded from automatic discovery and deletion.")
   );
 
   return (
     <div className="space-y-5">
       {accounts.length ? <div className="flex flex-wrap items-end gap-3 rounded-lg border p-4">
-        <div className="min-w-64 flex-1"><FieldLabel htmlFor="sources-account">Yayın hesabı</FieldLabel><Select value={String(accountId)} onValueChange={switchAccount}><SelectTrigger id="sources-account" className="mt-2 w-full"><SelectValue /></SelectTrigger><SelectContent><SelectGroup>{accounts.map((account) => <SelectItem key={account.id} value={String(account.id)}>{account.displayName} ⁜ @{account.handle}</SelectItem>)}</SelectGroup></SelectContent></Select></div>
-        <div className="min-w-64 flex-1"><FieldLabel htmlFor="account-source-add">Bu hesaba kaynak ekle</FieldLabel><Select value={sourceToAdd} onValueChange={(value) => setSourceToAdd(value || "")}><SelectTrigger id="account-source-add" className="mt-2 w-full"><SelectValue placeholder="Kaynak seç" /></SelectTrigger><SelectContent><SelectGroup>{available.map((source) => <SelectItem key={source.handle} value={source.handle}>@{source.handle} ⁜ {source.name}</SelectItem>)}</SelectGroup></SelectContent></Select></div>
-        <Button onClick={addSource} disabled={!sourceToAdd || pending}><Plus data-icon="inline-start" aria-hidden="true" />Ekle</Button>
-      </div> : <Alert><AlertDescription>Kaynak bağlamak için önce bir 𝕏 yayın hesabı ekle.</AlertDescription></Alert>}
+        <div className="min-w-64 flex-1"><FieldLabel htmlFor="sources-account">{t("Publishing account")}</FieldLabel><Select value={String(accountId)} onValueChange={switchAccount}><SelectTrigger id="sources-account" className="mt-2 w-full"><SelectValue>{(() => { const account = accounts.find((item) => item.id === accountId); return account ? `${account.displayName} ⁜ @${account.handle}` : t("Publishing account"); })()}</SelectValue></SelectTrigger><SelectContent><SelectGroup>{accounts.map((account) => <SelectItem key={account.id} value={String(account.id)}>{account.displayName} ⁜ @{account.handle}</SelectItem>)}</SelectGroup></SelectContent></Select></div>
+        <div className="min-w-64 flex-1"><FieldLabel htmlFor="account-source-add">{t("Add a source to this account")}</FieldLabel><Select value={sourceToAdd} onValueChange={(value) => setSourceToAdd(value || "")}><SelectTrigger id="account-source-add" className="mt-2 w-full"><SelectValue placeholder={t("Select a source")}>{(() => { const source = available.find((item) => item.handle === sourceToAdd); return source ? `@${source.handle} ⁜ ${source.name}` : undefined; })()}</SelectValue></SelectTrigger><SelectContent><SelectGroup>{available.map((source) => <SelectItem key={source.handle} value={source.handle}>@{source.handle} ⁜ {source.name}</SelectItem>)}</SelectGroup></SelectContent></Select></div>
+        <Button onClick={addSource} disabled={!sourceToAdd || pending}><Plus data-icon="inline-start" aria-hidden="true" /> {t("Add source")}</Button>
+      </div> : <Alert><AlertDescription>{t("Connect a 𝕏 publishing account before adding sources.")}</AlertDescription></Alert>}
       <div className="grid gap-5 xl:grid-cols-[minmax(320px,0.9fr)_minmax(0,1.1fr)]">
       <Card>
           <CardHeader className="flex-row items-start justify-between gap-3">
           <div>
-            <CardTitle>@{accounts.find((account) => account.id === accountId)?.handle || "—"} kaynakları</CardTitle>
-            <CardDescription>{active.length} aktif ⁜ {candidates.length} keşif adayı ⁜ seçimler yalnız bu yayın hesabına uygulanır.</CardDescription>
+            <CardTitle>@{accounts.find((account) => account.id === accountId)?.handle || "—"} {t("sources")}</CardTitle>
+            <CardDescription>{t("{active} active ⁜ {candidates} discovery candidates ⁜ selections apply only to this publishing account.", { active: number.format(active.length), candidates: number.format(candidates.length) })}</CardDescription>
           </div>
           <div className="flex gap-2">
-            <Button size="icon" variant="outline" onClick={scanSources} disabled={!accountId || scanning} aria-label="Kaynak postlarını tara" title="Kaynak postlarını tara">
+            <Button size="icon" variant="outline" onClick={scanSources} disabled={!accountId || scanning} aria-label={t("Scan source posts")} title={t("Scan source posts")}>
               {scanning ? <Spinner /> : <ScanSearch aria-hidden="true" />}
             </Button>
-            <Button size="icon" variant="outline" onClick={() => setDraft(blankSource())} disabled={!accountId} aria-label="Yeni kaynak"><Plus aria-hidden="true" /></Button>
-            <details><summary className="cursor-pointer rounded-md px-3 py-2 text-sm font-medium">Bakım</summary><div className="mt-2 flex flex-wrap gap-2"><Button size="icon" variant="outline" onClick={() => setResetOpen(true)} disabled={!accountId || pending || scanning} aria-label="Bu hesabın kaynaklarını temizle" title="Bu hesabın kaynaklarını temizle"><RotateCw aria-hidden="true" /></Button><Button size="icon" variant="outline" onClick={checkLiveness} disabled={!accountId || scanning || sources.length === 0} aria-label="Bu hesaptaki kaynakları kontrol et" title="Bu hesaptaki kaynakları kontrol et">{scanning ? <Spinner /> : <UserRoundCheck aria-hidden="true" />}</Button><Button size="icon" variant="outline" onClick={recoverTechnical} disabled={!accountId || scanning || warnings.length === 0} aria-label="Teknik uyarıları denetle" title="Teknik uyarıları denetle"><RotateCcw aria-hidden="true" /></Button></div></details>
+            <Button size="icon" variant="outline" onClick={() => setDraft(blankSource())} disabled={!accountId} aria-label={t("New source")} title={t("New source")}><Plus aria-hidden="true" /></Button>
+            <details><summary className="cursor-pointer rounded-md px-3 py-2 text-sm font-medium">{t("Maintenance")}</summary><div className="mt-2 flex flex-wrap gap-2"><Button size="icon" variant="outline" onClick={() => setResetOpen(true)} disabled={!accountId || pending || scanning} aria-label={t("Clear this account’s sources")} title={t("Clear this account’s sources")}><RotateCw aria-hidden="true" /></Button><Button size="icon" variant="outline" onClick={checkLiveness} disabled={!accountId || scanning || sources.length === 0} aria-label={t("Check sources for this account")} title={t("Check sources for this account")}>{scanning ? <Spinner /> : <UserRoundCheck aria-hidden="true" />}</Button><Button size="icon" variant="outline" onClick={recoverTechnical} disabled={!accountId || scanning || warnings.length === 0} aria-label={t("Review technical warnings")} title={t("Review technical warnings")}><RotateCcw aria-hidden="true" /></Button></div></details>
           </div>
         </CardHeader>
         <CardContent><Tabs defaultValue="active">
             <TabsList variant="line">
-              <TabsTrigger value="active">Aktif <Badge variant="outline">{active.length}</Badge></TabsTrigger>
-              <TabsTrigger value="candidates">Adaylar <Badge variant="outline">{candidates.length}</Badge></TabsTrigger>
-              <TabsTrigger value="warnings">Teknik uyarılar <Badge variant="outline">{warnings.length}</Badge></TabsTrigger>
-              <TabsTrigger value="deleted">Kaldırılan <Badge variant="outline">{deleted.length}</Badge></TabsTrigger>
+              <TabsTrigger value="active">{t("Active")} <Badge variant="outline">{number.format(active.length)}</Badge></TabsTrigger>
+              <TabsTrigger value="candidates">{t("Candidates")} <Badge variant="outline">{number.format(candidates.length)}</Badge></TabsTrigger>
+              <TabsTrigger value="warnings">{t("Technical warnings")} <Badge variant="outline">{number.format(warnings.length)}</Badge></TabsTrigger>
+              <TabsTrigger value="deleted">{t("Removed")} <Badge variant="outline">{number.format(deleted.length)}</Badge></TabsTrigger>
             </TabsList>
             <TabsContent value="active" className="flex flex-col gap-2 pt-3">{sourceList(active)}</TabsContent>
             <TabsContent value="candidates" className="flex flex-col gap-2 pt-3">{sourceList(candidates)}</TabsContent>
             <TabsContent value="warnings" className="flex flex-col gap-2 pt-3">
-              {warnings.length ? warnings.map((item) => <div key={`${item.handle}-${item.deletedAt}`} className="rounded-lg border border-dashed p-3 text-sm"><div className="font-medium">@{item.handle}</div><div className="text-xs text-muted-foreground">{item.reason}</div></div>) : <Empty className="border border-dashed py-8"><EmptyHeader><EmptyTitle>Teknik uyarı yok</EmptyTitle><EmptyDescription>Kimlik ve transport hataları burada görünür; kaynak silinmez.</EmptyDescription></EmptyHeader></Empty>}
+              {warnings.length ? warnings.map((item) => <div key={`${item.handle}-${item.deletedAt}`} className="rounded-lg border border-dashed p-3 text-sm"><div className="font-medium">@{item.handle}</div><div className="text-xs text-muted-foreground">{item.reason}</div></div>) : <Empty className="border border-dashed py-8"><EmptyHeader><EmptyTitle>{t("No technical warnings")}</EmptyTitle><EmptyDescription>{t("Identity and transport errors appear here. Sources are not deleted.")}</EmptyDescription></EmptyHeader></Empty>}
             </TabsContent>
             <TabsContent value="deleted" className="flex flex-col gap-2 pt-3">
-              {deleted.length ? deleted.map((item) => <div key={`${item.handle}-${item.deletedAt}`} className="rounded-lg border border-dashed p-3 text-sm"><div className="font-medium">@{item.handle}</div><div className="text-xs text-muted-foreground">Skor {item.score} ⁜ {item.reason || "manuel kaldırma"}</div></div>) : <Empty className="border border-dashed py-8"><EmptyHeader><EmptyTitle>Kaldırılan kaynak yok</EmptyTitle><EmptyDescription>Manuel silmeler burada tutulur.</EmptyDescription></EmptyHeader></Empty>}
+              {deleted.length ? deleted.map((item) => <div key={`${item.handle}-${item.deletedAt}`} className="rounded-lg border border-dashed p-3 text-sm"><div className="font-medium">@{item.handle}</div><div className="text-xs text-muted-foreground">{t("Score")} {number.format(item.score)} ⁜ {item.reason || t("Manual removal")}</div></div>) : <Empty className="border border-dashed py-8"><EmptyHeader><EmptyTitle>{t("No removed sources")}</EmptyTitle><EmptyDescription>{t("Manual removals are listed here.")}</EmptyDescription></EmptyHeader></Empty>}
             </TabsContent>
           </Tabs>
         </CardContent>
@@ -334,77 +337,77 @@ export function SourcesPage({ accounts, initial, initialAvailable, initialDelete
 
       <Card>
         <CardHeader>
-            <CardTitle>Kaynak ayarları</CardTitle>
+            <CardTitle>{t("Source settings")}</CardTitle>
           <CardDescription>{selectedDescription}</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-5">
           {selected ? (
             <div className="flex flex-wrap gap-2">
               <Badge variant="outline">{selected.profile.origin || "manual"}</Badge>
-              <Badge variant="outline">{selected.profile.scoreModel || "skor bekliyor"}</Badge>
-              {selectedIsScored ? <Badge variant="outline">güven {Number(selected.profile.sourceConfidence || 0)}</Badge> : <Badge variant="outline">AI skoru bekliyor</Badge>}
-              {selectedIsScored ? <Badge variant={Number(selected.profile.sourceRisk || 0) >= 70 ? "destructive" : "outline"}>risk {Number(selected.profile.sourceRisk || 0)}</Badge> : null}
-              <Badge variant="outline" title="Seed kaynaklar keşif zinciri olmadan başlangıçta eklenir.">{evidenceLabel}</Badge>
+              <Badge variant="outline">{selected.profile.scoreModel || t("Score pending")}</Badge>
+              {selectedIsScored ? <Badge variant="outline">{t("confidence")} {number.format(Number(selected.profile.sourceConfidence || 0))}</Badge> : <Badge variant="outline">{t("Waiting for AI score")}</Badge>}
+              {selectedIsScored ? <Badge variant={Number(selected.profile.sourceRisk || 0) >= 70 ? "destructive" : "outline"}>{t("Risk")} {number.format(Number(selected.profile.sourceRisk || 0))}</Badge> : null}
+              <Badge variant="outline" title={t("Seed sources are added initially without a discovery chain.")}>{evidenceLabel}</Badge>
             </div>
           ) : null}
           <FieldGroup>
             <div className="grid gap-5 sm:grid-cols-2">
               <Field>
-                <FieldLabel htmlFor="source-handle">Handle</FieldLabel>
-                <Input id="source-handle" value={draft.handle} disabled={Boolean(selected)} onChange={(event) => setDraft({ ...draft, handle: event.target.value.replace(/^@/, "").toLowerCase() })} placeholder="bpthaber" />
+                <FieldLabel htmlFor="source-handle">{t("Handle")}</FieldLabel>
+                <Input id="source-handle" value={draft.handle} disabled={Boolean(selected)} onChange={(event) => setDraft({ ...draft, handle: event.target.value.replace(/^@/, "").toLowerCase() })} placeholder="@elonmusk" />
               </Field>
               <Field>
-                <FieldLabel htmlFor="source-name">Ad</FieldLabel>
-                <Input id="source-name" value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} placeholder="BPT Haber" />
+                <FieldLabel htmlFor="source-name">{t("Name")}</FieldLabel>
+                <Input id="source-name" value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} placeholder={t("Display name")} />
               </Field>
               <Field>
-                <FieldLabel htmlFor="source-niche">Kaynak nişi</FieldLabel>
-                <FieldDescription>Bu hesabın ana konusu; global niş kullanılmaz.</FieldDescription>
-                <Input id="source-niche" value={draft.niche} onChange={(event) => setDraft({ ...draft, niche: event.target.value })} placeholder="ör. ekonomi ve finans" />
+                <FieldLabel htmlFor="source-niche">{t("Source niche")}</FieldLabel>
+                <FieldDescription>{t("The main topic for this account. A global niche is not used.")}</FieldDescription>
+                <Input id="source-niche" value={draft.niche} onChange={(event) => setDraft({ ...draft, niche: event.target.value })} placeholder={t("example: economy and finance")} />
               </Field>
               <Field>
-                <FieldLabel htmlFor="source-topics">Alt konular</FieldLabel>
-                <FieldDescription>Virgülle ayır.</FieldDescription>
-                <Input id="source-topics" value={draft.topics} onChange={(event) => setDraft({ ...draft, topics: event.target.value })} placeholder="borsa, enflasyon, şirketler" />
+                <FieldLabel htmlFor="source-topics">{t("Subtopics")}</FieldLabel>
+                <FieldDescription>{t("Separate with commas.")}</FieldDescription>
+                <Input id="source-topics" value={draft.topics} onChange={(event) => setDraft({ ...draft, topics: event.target.value })} placeholder={t("stocks, inflation, companies")} />
               </Field>
               <Field>
-                <FieldLabel htmlFor="source-tone">Kaynak tonu</FieldLabel>
-                <Input id="source-tone" value={draft.tone} onChange={(event) => setDraft({ ...draft, tone: event.target.value })} placeholder="analitik, kısa, eleştirel" />
+                <FieldLabel htmlFor="source-tone">{t("Source tone")}</FieldLabel>
+                <Input id="source-tone" value={draft.tone} onChange={(event) => setDraft({ ...draft, tone: event.target.value })} placeholder={t("analytical, concise, critical")} />
               </Field>
               <Field>
-                <FieldLabel htmlFor="source-max">Gönderi sınırı</FieldLabel>
-                <FieldDescription>Tek taramada alınacak üst sınır.</FieldDescription>
+                <FieldLabel htmlFor="source-max">{t("Post limit")}</FieldLabel>
+                <FieldDescription>{t("Maximum number of posts fetched in one scan.")}</FieldDescription>
                 <Input id="source-max" type="number" min={1} max={50} value={draft.maxPosts} onChange={(event) => setDraft({ ...draft, maxPosts: Number(event.target.value) })} />
               </Field>
               <Field>
-                <FieldLabel htmlFor="rights">Kullanım hakkı</FieldLabel>
+                <FieldLabel htmlFor="rights">{t("Usage rights")}</FieldLabel>
                 <Select value={draft.rightsStatus} onValueChange={(value) => setDraft({ ...draft, rightsStatus: value as SourceDraft["rightsStatus"] })}>
-                  <SelectTrigger id="rights" className="w-full" aria-label="Kullanım hakkı"><SelectValue /></SelectTrigger>
+                  <SelectTrigger id="rights" className="w-full" aria-label={t("Usage rights")}><SelectValue>{t(({ unknown: "Unknown", cleared: "Cleared", prohibited: "Prohibited" } as Record<string, string>)[draft.rightsStatus])}</SelectValue></SelectTrigger>
                   <SelectContent><SelectGroup>
-                    <SelectItem value="unknown">Bilinmiyor</SelectItem>
-                    <SelectItem value="cleared">İzinli</SelectItem>
-                    <SelectItem value="prohibited">Yasak</SelectItem>
+                    <SelectItem value="unknown">{t("Unknown")}</SelectItem>
+                    <SelectItem value="cleared">{t("Cleared")}</SelectItem>
+                    <SelectItem value="prohibited">{t("Prohibited")}</SelectItem>
                   </SelectGroup></SelectContent>
                 </Select>
               </Field>
             </div>
           </FieldGroup>
           <fieldset className="flex flex-col gap-3 rounded-lg border p-4">
-            <legend className="px-1 text-sm font-medium">Bu kaynaktan hangi hesap kategorileri beslensin?</legend>
-            {accountCategories.length ? accountCategories.map((category) => <label key={category.categoryId} className="flex min-h-10 items-center gap-3 text-sm"><Checkbox checked={sourceCategoryIds.includes(category.categoryId)} onCheckedChange={(checked) => setSourceCategoryIds((current) => checked ? [...new Set([...current, category.categoryId])] : current.filter((id) => id !== category.categoryId))} />{category.categoryName}</label>) : <p className="text-sm text-muted-foreground">Önce bu yayın hesabı için kategori seç.</p>}
+            <legend className="px-1 text-sm font-medium">{t("Which account categories should use this source?")}</legend>
+            {accountCategories.length ? accountCategories.map((category) => <label key={category.categoryId} className="flex min-h-10 items-center gap-3 text-sm"><Checkbox checked={sourceCategoryIds.includes(category.categoryId)} onCheckedChange={(checked) => setSourceCategoryIds((current) => checked ? [...new Set([...current, category.categoryId])] : current.filter((id) => id !== category.categoryId))} />{category.categoryName}</label>) : <p className="text-sm text-muted-foreground">{t("Select categories for this publishing account first.")}</p>}
           </fieldset>
           <Field orientation="horizontal">
-            <FieldContent><FieldLabel htmlFor="source-enabled">Kaynak aktif</FieldLabel><FieldDescription>Aktif kaynaklar intake taramasına dahil edilir.</FieldDescription></FieldContent>
+            <FieldContent><FieldLabel htmlFor="source-enabled">{t("Source active")}</FieldLabel><FieldDescription>{t("Active sources are included in intake scans.")}</FieldDescription></FieldContent>
             <Switch id="source-enabled" checked={draft.enabled} onCheckedChange={(value) => setDraft({ ...draft, enabled: value })} />
           </Field>
           <Field orientation="horizontal">
-            <FieldContent><FieldLabel htmlFor="source-pinned">Otomatik silmeden koru</FieldLabel><FieldDescription>Sabit kaynaklar düşük AI skoru alsa da silinmez.</FieldDescription></FieldContent>
+            <FieldContent><FieldLabel htmlFor="source-pinned">{t("Protect from automatic removal")}</FieldLabel><FieldDescription>{t("Pinned sources are not removed even when they receive a low AI score.")}</FieldDescription></FieldContent>
             <Switch id="source-pinned" checked={draft.pinned} onCheckedChange={(value) => setDraft({ ...draft, pinned: value })} />
           </Field>
           {message ? <Alert><AlertDescription>{message}</AlertDescription></Alert> : null}
           <div className="flex flex-wrap gap-2">
-            <Button onClick={save} disabled={pending}>{pending ? <Spinner data-icon="inline-start" /> : <Save data-icon="inline-start" aria-hidden="true" />} Kaydet</Button>
-            {draft.handle ? <Button variant="destructive" onClick={() => setDeleteOpen(true)} disabled={pending}><Trash2 data-icon="inline-start" aria-hidden="true" /> Sil</Button> : null}
+            <Button onClick={save} disabled={pending}>{pending ? <Spinner data-icon="inline-start" /> : <Save data-icon="inline-start" aria-hidden="true" />} {t("Save")}</Button>
+            {draft.handle ? <Button variant="destructive" onClick={() => setDeleteOpen(true)} disabled={pending}><Trash2 data-icon="inline-start" aria-hidden="true" /> {t("Remove source")}</Button> : null}
           </div>
         </CardContent>
       </Card>
@@ -412,12 +415,12 @@ export function SourcesPage({ accounts, initial, initialAvailable, initialDelete
       <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>@{draft.handle} silinsin mi?</AlertDialogTitle>
-            <AlertDialogDescription>Kaynak yalnızca seçili yayın hesabından çıkarılır. Kaynak kataloğu ve geçmiş post kanıtları korunur.</AlertDialogDescription>
+            <AlertDialogTitle>{t("Remove @{handle}?", { handle: draft.handle })}</AlertDialogTitle>
+            <AlertDialogDescription>{t("The source is removed only from the selected publishing account. The source catalog and historical post evidence are preserved.")}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Vazgeç</AlertDialogCancel>
-            <AlertDialogAction variant="destructive" onClick={remove}>Kaynağı sil</AlertDialogAction>
+            <AlertDialogCancel>{t("Cancel")}</AlertDialogCancel>
+            <AlertDialogAction variant="destructive" onClick={remove}>{t("Remove source")}</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -425,12 +428,12 @@ export function SourcesPage({ accounts, initial, initialAvailable, initialDelete
       <AlertDialog open={resetOpen} onOpenChange={setResetOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Kaynak havuzu varsayılana döndürülsün mü?</AlertDialogTitle>
-            <AlertDialogDescription>Bu hesaptaki kaynak ve kategori seçimleri temizlenir. Kaynak kataloğu ve toplanan post geçmişi korunur.</AlertDialogDescription>
+            <AlertDialogTitle>{t("Reset the source pool to its defaults?")}</AlertDialogTitle>
+            <AlertDialogDescription>{t("Source and category selections for this account will be cleared. The source catalog and collected post history are preserved.")}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Vazgeç</AlertDialogCancel>
-            <AlertDialogAction variant="destructive" onClick={resetSources} disabled={pending}>Varsayılana döndür</AlertDialogAction>
+            <AlertDialogCancel>{t("Cancel")}</AlertDialogCancel>
+            <AlertDialogAction variant="destructive" onClick={resetSources} disabled={pending}>{t("Reset to defaults")}</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

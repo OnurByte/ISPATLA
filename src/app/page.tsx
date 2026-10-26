@@ -27,7 +27,7 @@ export default async function Home() {
   const copy = getCampaignLandingCopy(locale);
   const softwareApplication = {
     "@context": "https://schema.org", "@type": "SoftwareApplication",
-    name: "ispatla.tr", applicationCategory: "BusinessApplication", operatingSystem: "Web",
+    name: "ispatla.tr", sameAs: ["https://x.com/ispatlatr"], applicationCategory: "BusinessApplication", operatingSystem: "Web",
     description: copy.intro, url: "https://ispatla.tr",
     license: "https://www.gnu.org/licenses/agpl-3.0.html",
     codeRepository: "https://github.com/OnurByte/ISPATLA",

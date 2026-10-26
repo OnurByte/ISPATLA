@@ -28,6 +28,8 @@ test("all twenty locales have self canonicals and complete reciprocal hreflang m
       expect(openGraph.url).toBe(canonical);
       expect(openGraph.title).toBe("Title ⁜ Part ⁜ Name");
       expect(openGraph.description).toBe("Description ⁜ Part ⁜ Name");
+      expect(twitter.site).toBe("@ispatlatr");
+      expect(twitter.creator).toBe("@ispatlatr");
       expect(twitter.title).toBe(openGraph.title);
       expect(twitter.description).toBe(openGraph.description);
 

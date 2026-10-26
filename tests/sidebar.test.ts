@@ -3,6 +3,7 @@ import { clampSidebarWidth, getStoredSidebarWidth, SIDEBAR_WIDTH_DEFAULT, SIDEBA
 import { isSidebarItemActive, isSidebarRouteActive } from "@/lib/sidebar-navigation";
 import { filterSidebarSearchRoutes, getSidebarSearchKeyboardAction, getSidebarSearchRoutes, isSidebarSearchShortcut } from "@/components/sidebar-search";
 import { LOCALES } from "@/i18n/config";
+import { getUiText } from "@/i18n/ui";
 import { getSidebarResizeState } from "@/components/ui/sidebar";
 
 describe("sidebar width", () => {
@@ -35,12 +36,12 @@ describe("sidebar route state", () => {
 describe("sidebar search presentation", () => {
   test("gives every searchable destination an icon and a localized description", () => {
     for (const locale of LOCALES) {
-      const routes = getSidebarSearchRoutes(locale);
+      const routes = getSidebarSearchRoutes(locale, (message, params) => getUiText(locale, message, params));
       expect(routes.length).toBeGreaterThan(0);
       expect(routes.every((route) => Boolean(route.icon) && route.description.trim().length > 0)).toBe(true);
     }
-    const turkishRoutes = getSidebarSearchRoutes("tr");
-    expect(turkishRoutes.find((route) => route.href === "/settings/automation")?.description).toContain("görev");
+    const turkishRoutes = getSidebarSearchRoutes("tr", (message, params) => getUiText("tr", message, params));
+    expect(turkishRoutes.find((route) => route.href === "/settings/automation")?.description).toContain("Otomasyon");
     expect(filterSidebarSearchRoutes(turkishRoutes, "otomasyon").some((route) => route.href === "/settings/automation")).toBe(true);
     expect(turkishRoutes.map((route) => route.href)).toEqual(expect.arrayContaining([
       "/dashboard", "/accounts", "/settings/automation", "/profile", "/onboarding",

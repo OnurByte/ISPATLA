@@ -46,6 +46,7 @@ export function publicMetadata(locale: Locale, path: string, title: string, desc
       images: [{ url: image, secureUrl: image, type: "image/png", width: 1200, height: 630, alt: imageAlt }],
     },
     twitter: {
+      site: "@ispatlatr", creator: "@ispatlatr",
       card: "summary_large_image",
       title: metadataTitle,
       description: metadataDescription,
