@@ -20,7 +20,7 @@ export function CampaignLanding({ locale, copy, authenticated }: {
     <PublicHeaderContent locale={locale} authenticated={authenticated} />
     <main>
       <section className="campaign-hero campaign-container" aria-labelledby="campaign-heading">
-        <h1 id="campaign-heading">{copy.headline}<span>{copy.headlineAccent}</span></h1>
+        <h1 id="campaign-heading">{copy.headline}{" "}<span>{copy.headlineAccent}</span></h1>
         <p className="campaign-hero-intro"><BrandText text={copy.intro} /></p>
         <div className="campaign-actions">
           <a href="#campaign-opportunity" className="campaign-button">{copy.primaryCta}<ArrowDown size={19} aria-hidden="true" /></a>
