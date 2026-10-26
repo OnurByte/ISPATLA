@@ -59,7 +59,7 @@ Durum sözlüğü: **KESİN KARAR** kullanıcı tercihi; **MEVCUT** kaynakta uyg
 
 **Türkçe ürün metni:** “𝕏 kaynaklarını incele. Hesabına uygun fırsatları seç, taslağı kendi sesinle düzenle. Kaynağı ve kararın gerekçesini birlikte gör.”
 
-**English product copy:** “Inspect 𝕏 sources, find topics that fit your accounts, and edit drafts in your own voice. See the source and the reasoning behind each opportunity.” This is descriptive copy, not a finalized translation of the brand slogan.
+**English product copy:** “Inspect 𝕏 sources, find topics that fit your accounts, and edit drafts in your own voice. See the source and the reasoning behind each opportunity.” This explanatory copy sits below the localized slogan. The English headline is “Don’t worship the algorithm. Prove it.”
 
 **Görsel sabitler:** Verilen `public/brand/logo.svg` ve `brain.svg`; Libron; Archive Paper `#F0EDE5`, Carbon Ink `#16191E`, Signal Cobalt `#315BF5`, Warm Archive `#9A9A91`, Rejected `#BC453D`, Verified `#477865`. Son iki renk metinsel durum etiketinin yerini alamaz. Gradient, glow, cam yüzey ve rastgele semboller kimlik öğesi değildir.
 

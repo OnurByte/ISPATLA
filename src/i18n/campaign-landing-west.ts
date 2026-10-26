@@ -4,7 +4,7 @@ export const campaignLandingWest: Record<"es" | "fr" | "pt-BR" | "ru" | "id" | "
   es: {
     nav: { product: "Producto", mcp: "MCP", faq: "Preguntas", login: "Iniciar sesión", start: "Empezar", dashboard: "Espacio de trabajo", menu: "Menú principal" },
     eyebrow: "ESPACIO DE CAMPAÑAS CON IA PARA 𝕏",
-    headline: 'Encuentra oportunidades de contenido con fuente.', headlineAccent: 'Para el contexto de tu cuenta.',
+    headline: "No adores al algoritmo.", headlineAccent: "Demuéstralo.",
     intro: 'Revisa fuentes de 𝕏 desde el contexto de tu cuenta, entiende por qué un tema podría encajar y edita un borrador con ayuda de IA antes de decidir qué publicar.',
     primaryCta: "Ver el flujo", secondaryCta: 'Crear una cuenta', heroNote: "Encuentra oportunidades de contenido con fuente. ⁜ Para el contexto de tu cuenta.",
     audienceLabel: "Para quienes piensan más allá de una sola cuenta.", audiences: ["Marcas", "Equipos de contenido", "Agencias"],
@@ -45,7 +45,7 @@ export const campaignLandingWest: Record<"es" | "fr" | "pt-BR" | "ru" | "id" | "
   fr: {
     nav: { product: "Produit", mcp: "MCP", faq: "FAQ", login: "Se connecter", start: "Commencer", dashboard: "Espace de travail", menu: "Menu principal" },
     eyebrow: "L’ESPACE DE CAMPAGNE IA POUR 𝕏",
-    headline: 'Trouvez des sujets appuyés par une source.', headlineAccent: 'Pour votre compte.',
+    headline: "Ne vénère pas l’algorithme.", headlineAccent: "Prouve-le.",
     intro: 'Examinez des sources 𝕏 selon le contexte de votre compte, comprenez pourquoi un sujet pourrait convenir et modifiez un brouillon assisté par IA avant de décider de publier.',
     primaryCta: "Voir le parcours", secondaryCta: 'Créer un compte', heroNote: "Trouvez des sujets appuyés par une source. ⁜ Pour votre compte.",
     audienceLabel: "Pour celles et ceux qui voient plus loin qu’un seul compte.", audiences: ["Marques", "Équipes éditoriales", "Agences"],
@@ -86,7 +86,7 @@ export const campaignLandingWest: Record<"es" | "fr" | "pt-BR" | "ru" | "id" | "
   "pt-BR": {
     nav: { product: "Produto", mcp: "MCP", faq: "Dúvidas", login: "Entrar", start: "Começar", dashboard: "Espaço de trabalho", menu: "Menu principal" },
     eyebrow: "O ESPAÇO DE CAMPANHAS COM IA PARA 𝕏",
-    headline: 'Encontre oportunidades com fontes.', headlineAccent: 'Pour sua conta.',
+    headline: "Não adore o algoritmo.", headlineAccent: "Prove.",
     intro: 'Analise fontes do 𝕏 no contexto da sua conta, veja por que um assunto pode ser relevante e edite um rascunho com IA antes de decidir o que publicar.',
     primaryCta: "Ver o fluxo", secondaryCta: 'Criar conta', heroNote: "Encontre oportunidades com fontes. ⁜ Pour sua conta.",
     audienceLabel: "Para quem pensa além de uma única conta.", audiences: ["Marcas", "Equipes de conteúdo", "Agências"],
@@ -127,7 +127,7 @@ export const campaignLandingWest: Record<"es" | "fr" | "pt-BR" | "ru" | "id" | "
   ru: {
     nav: { product: "Продукт", mcp: "MCP", faq: "Вопросы", login: "Войти", start: "Начать", dashboard: "Рабочее пространство", menu: "Главное меню" },
     eyebrow: "РАБОЧЕЕ ПРОСТРАНСТВО ДЛЯ AI-КАМПАНИЙ В 𝕏",
-    headline: 'Находите темы с источниками.', headlineAccent: 'Для контекста вашего аккаунта.',
+    headline: "Не поклоняйся алгоритму.", headlineAccent: "Докажи.",
     intro: 'Изучайте источники 𝕏 с учётом контекста аккаунта, смотрите, почему тема может подойти, и редактируйте черновик ИИ до решения о публикации.',
     primaryCta: "Посмотреть процесс", secondaryCta: 'Создать аккаунт', heroNote: "Находите темы с источниками. ⁜ Для контекста вашего аккаунта.",
     audienceLabel: "Для тех, кто мыслит шире одного аккаунта.", audiences: ["Бренды", "Контент-команды", "Агентства"],
@@ -168,7 +168,7 @@ export const campaignLandingWest: Record<"es" | "fr" | "pt-BR" | "ru" | "id" | "
   id: {
     nav: { product: "Produk", mcp: "MCP", faq: "Pertanyaan", login: "Masuk", start: "Mulai", dashboard: "Ruang kerja", menu: "Menu utama" },
     eyebrow: "RUANG KERJA KAMPANYE AI UNTUK 𝕏",
-    headline: 'Temukan peluang konten dengan sumber.', headlineAccent: 'Sesuai konteks akun Anda.',
+    headline: "Jangan memuja algoritma.", headlineAccent: "Buktikan.",
     intro: 'Tinjau sumber 𝕏 sesuai konteks akun, pahami alasan sebuah topik mungkin cocok, lalu edit draf berbantuan AI sebelum memutuskan untuk menerbitkannya.',
     primaryCta: "Lihat alurnya", secondaryCta: 'Buat akun', heroNote: "Temukan peluang konten dengan sumber. ⁜ Sesuai konteks akun Anda.",
     audienceLabel: "Untuk mereka yang berpikir lebih luas dari satu akun.", audiences: ["Merek", "Tim konten", "Agensi"],
@@ -209,7 +209,7 @@ export const campaignLandingWest: Record<"es" | "fr" | "pt-BR" | "ru" | "id" | "
   de: {
     nav: { product: "Produkt", mcp: "MCP", faq: "FAQ", login: "Anmelden", start: "Loslegen", dashboard: "Arbeitsbereich", menu: "Hauptmenü" },
     eyebrow: "DER KI-KAMPAGNENARBEITSPLATZ FÜR 𝕏",
-    headline: 'Finde Themen mit nachvollziehbaren Quellen.', headlineAccent: 'Passend zum Account-Kontext.',
+    headline: "Bete den Algorithmus nicht an.", headlineAccent: "Beweise es.",
     intro: 'Prüfe 𝕏-Quellen im Kontext deines Accounts, sieh dir an, warum ein Thema passen könnte, und bearbeite einen KI-Entwurf, bevor du über eine Veröffentlichung entscheidest.',
     primaryCta: "Ablauf ansehen", secondaryCta: 'Konto erstellen', heroNote: "Finde Themen mit nachvollziehbaren Quellen. ⁜ Passend zum Account-Kontext.",
     audienceLabel: "Für alle, die über einen Account hinausdenken.", audiences: ["Marken", "Content-Teams", "Agenturen"],
@@ -250,7 +250,7 @@ export const campaignLandingWest: Record<"es" | "fr" | "pt-BR" | "ru" | "id" | "
   sw: {
     nav: { product: "Bidhaa", mcp: "MCP", faq: "Maswali", login: "Ingia", start: "Anza", dashboard: "Eneo la kazi", menu: "Menyu kuu" },
     eyebrow: "ENEO LA KAMPENI ZA AI KWA 𝕏",
-    headline: 'Pata fursa za maudhui zenye chanzo.', headlineAccent: 'Kwa muktadha wa akaunti yako.',
+    headline: "Usiabudu algoriti.", headlineAccent: "Thibitisha.",
     intro: 'Kagua vyanzo vya 𝕏 kulingana na muktadha wa akaunti, elewa kwa nini mada inaweza kufaa, kisha hariri rasimu ya AI kabla ya kuamua kuchapisha.',
     primaryCta: "Tazama mtiririko", secondaryCta: 'Fungua akaunti', heroNote: "Pata fursa za maudhui zenye chanzo. ⁜ Kwa muktadha wa akaunti yako.",
     audienceLabel: "Kwa wanaofikiria zaidi ya akaunti moja.", audiences: ["Chapa", "Timu za maudhui", "Mashirika ya huduma"],
@@ -291,7 +291,7 @@ export const campaignLandingWest: Record<"es" | "fr" | "pt-BR" | "ru" | "id" | "
   vi: {
     nav: { product: "Sản phẩm", mcp: "MCP", faq: "Câu hỏi", login: "Đăng nhập", start: "Bắt đầu", dashboard: "Không gian làm việc", menu: "Menu chính" },
     eyebrow: "KHÔNG GIAN CHIẾN DỊCH AI CHO 𝕏",
-    headline: 'Tìm cơ hội nội dung có nguồn.', headlineAccent: 'Theo ngữ cảnh tài khoản của bạn.',
+    headline: "Đừng tôn thờ thuật toán.", headlineAccent: "Hãy chứng minh.",
     intro: 'Xem nguồn 𝕏 theo ngữ cảnh tài khoản, tìm hiểu vì sao một chủ đề có thể phù hợp và chỉnh sửa bản nháp AI trước khi quyết định đăng.',
     primaryCta: "Xem quy trình", secondaryCta: 'Tạo tài khoản', heroNote: "Tìm cơ hội nội dung có nguồn. ⁜ Theo ngữ cảnh tài khoản của bạn.",
     audienceLabel: "Dành cho những ai nghĩ xa hơn một tài khoản.", audiences: ["Thương hiệu", "Nhóm nội dung", "Agency"],
@@ -332,7 +332,7 @@ export const campaignLandingWest: Record<"es" | "fr" | "pt-BR" | "ru" | "id" | "
   ko: {
     nav: { product: "제품", mcp: "MCP", faq: "자주 묻는 질문", login: "로그인", start: "시작하기", dashboard: "작업 공간", menu: "메인 메뉴" },
     eyebrow: "𝕏를 위한 AI 캠페인 작업 공간",
-    headline: '출처가 있는 콘텐츠 기회를 찾으세요.', headlineAccent: '계정 맥락에 맞춰.',
+    headline: "알고리즘을 숭배하지 마세요.", headlineAccent: "증명하세요.",
     intro: '계정 맥락에 따라 𝕏 출처를 검토하고, 주제가 왜 적합할 수 있는지 확인한 뒤 게시 여부를 결정하기 전에 AI 초안을 편집하세요.',
     primaryCta: "작업 흐름 보기", secondaryCta: '계정 만들기', heroNote: "출처가 있는 콘텐츠 기회를 찾으세요. ⁜ 계정 맥락에 맞춰.",
     audienceLabel: "하나의 계정 너머를 생각하는 분들을 위해.", audiences: ["브랜드", "콘텐츠 팀", "에이전시"],

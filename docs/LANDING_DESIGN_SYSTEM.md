@@ -23,3 +23,7 @@ Essential copy and links are server-rendered. Inputs need labels, keyboard suppo
 All 20 locales need complete copy, canonical/hreflang and social metadata. Structured data cannot invent ratings/customers. Existing aggregate measurement is preserved; no fingerprint, visitor ID or anonymous-user attribution is added.
 
 Lighthouse/SEO reports, local browser observations and production evidence are identified separately in [BRIEF_ACCEPTANCE.md](BRIEF_ACCEPTANCE.md).
+
+## Shape, spacing and logo
+
+Follow [SHAPE_AND_SPACING.md](SHAPE_AND_SPACING.md) for shared radii and proximity-based spacing. The common BrandLogo sets mark/wordmark sizes at 40px/24px mobile and 48px/28px desktop; page-specific navbar sizing is not allowed. The hero uses the localized brand slogan in all 20 languages.

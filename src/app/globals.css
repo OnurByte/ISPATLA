@@ -75,13 +75,13 @@
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
-  --radius-sm: calc(var(--radius) * 0.6);
-  --radius-md: calc(var(--radius) * 0.8);
+  --radius-sm: var(--shape-small);
+  --radius-md: var(--shape-compact);
   --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.4);
-  --radius-2xl: calc(var(--radius) * 1.8);
-  --radius-3xl: calc(var(--radius) * 2.2);
-  --radius-4xl: calc(var(--radius) * 2.6);
+  --radius-xl: var(--shape-surface);
+  --radius-2xl: var(--shape-frame);
+  --radius-3xl: var(--shape-frame);
+  --radius-4xl: var(--shape-frame);
 }
 
 :root {
@@ -110,7 +110,16 @@
   --chart-3: #bc453d;
   --chart-4: #77756c;
   --chart-5: #846395;
-  --radius: 0.2rem;
+  /* Shared geometry: compact details, controls, surfaces, outer frames. */
+  --shape-small: 0.25rem;
+  --shape-compact: 0.375rem;
+  --radius: 0.5rem;
+  --shape-surface: 0.75rem;
+  --shape-frame: 1rem;
+  --space-inline: 0.5rem;
+  --space-related: 0.75rem;
+  --space-group: 1.5rem;
+  --space-section: 5rem;
   --sidebar: #e5e1d7;
   --sidebar-foreground: #16191e;
   --sidebar-primary: #315bf5;
