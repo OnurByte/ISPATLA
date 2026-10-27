@@ -13,6 +13,7 @@ export async function generateMetadata(): Promise<Metadata> {
   const locale = await requestPublicLocale();
   const words = leaderboardCopy[locale];
   return {
+    robots: { index: true, follow: true },
     title: words.title + " ⁜ ispatla.tr",
     description: words.intro,
     alternates: { canonical: publicShareUrl("/leaderboard") },

@@ -34,7 +34,10 @@ export default async function Home() {
   };
   return <>
     <LandingEventObserver />
-    <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(softwareApplication).replace(/</g, "\\u003c") }} />
+    <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify({ "@context": "https://schema.org", "@graph": [
+      { "@type": "WebSite", "@id": "https://ispatla.tr/#website", name: "ispatla.tr", url: "https://ispatla.tr/", inLanguage: locale },
+      softwareApplication,
+    ] }).replace(/</g, "\\u003c") }} />
     <CampaignLanding locale={locale} copy={copy} authenticated={authenticated} />
   </>;
 }

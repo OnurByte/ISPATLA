@@ -9,7 +9,7 @@ const nextConfig: NextConfig = {
     useTypeScriptCli: false,
   },
   async redirects() {
-    return [{ source: "/favicon.ico", destination: "/brand/ispatla-favicon.png?v=20261025", permanent: false }];
+    return [{ source: "/favicon.ico", destination: "/brand/ispatla-favicon.png", permanent: false }];
   },
   async headers() {
     return [

@@ -13,5 +13,5 @@ export function landingAlternates(locale: Locale): { canonical: string; language
 /** Public pages can override this; private/auth pages inherit localized shell metadata. */
 export function rootMetadata(locale:Locale):Metadata{
  const {nav}=getDictionary(locale);
- return {metadataBase:new URL(PUBLIC_ORIGIN),title:`ispatla.tr ⁜ ${nav.primary}`,description:nav.shellDescription,icons:SITE_ICON_METADATA};
+ return {metadataBase:new URL(PUBLIC_ORIGIN),title:`ispatla.tr ⁜ ${nav.primary}`,description:nav.shellDescription,icons:SITE_ICON_METADATA,robots:{index:false,follow:true}};
 }

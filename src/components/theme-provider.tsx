@@ -7,18 +7,6 @@ export type MotionPreference = "system" | "reduce";
 export function isDarkAppearance(theme: Theme, systemPrefersDark: boolean): boolean {
   return theme === "dark" || (theme === "system" && systemPrefersDark);
 }
-export function paintBrandFavicon(context: CanvasRenderingContext2D, image: CanvasImageSource, dark: boolean) {
-  context.clearRect(0, 0, 64, 64);
-  context.globalCompositeOperation = "source-over";
-  context.drawImage(image, 0, 0, 64, 64);
-  context.globalCompositeOperation = "source-in";
-  context.fillStyle = dark ? "#ffffff" : "#1a1a1a";
-  context.fillRect(0, 0, 64, 64);
-  context.globalCompositeOperation = "destination-over";
-  context.fillStyle = dark ? "#000000" : "#ffffff";
-  context.fillRect(0, 0, 64, 64);
-  context.globalCompositeOperation = "source-over";
-}
 export const ACCENT_COLORS = ["blue", "green", "orange", "violet", "rose"] as const;
 export type AccentColor = (typeof ACCENT_COLORS)[number];
 type ThemeContextValue = { theme: Theme; setTheme: (theme: Theme) => void; motion: MotionPreference; setMotion: (motion: MotionPreference) => void; accent: AccentColor; setAccent: (accent: AccentColor) => void; storageAvailable: boolean };
@@ -61,7 +49,7 @@ export function ThemeProvider({ children, forceSystemTheme = false }: { children
 
   React.useEffect(() => {
     const apply = () => {
-      const dark = effectiveTheme === "dark" || (effectiveTheme === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+      const dark = isDarkAppearance(effectiveTheme, window.matchMedia("(prefers-color-scheme: dark)").matches);
       document.documentElement.classList.toggle("dark", dark);
     };
     apply();
@@ -73,42 +61,7 @@ export function ThemeProvider({ children, forceSystemTheme = false }: { children
 
   React.useEffect(() => {
     document.documentElement.dataset.accent = accent;
-    let cancelled = false;
-    let observer: MutationObserver | undefined;
-    const media = window.matchMedia("(prefers-color-scheme: dark)");
-    const image = new Image();
-    const drawFavicon = () => {
-      if (!image.complete || !image.naturalWidth || cancelled) return;
-      const dark = isDarkAppearance(effectiveTheme, media.matches);
-      if (cancelled) return;
-      const canvas = document.createElement("canvas");
-      canvas.width = canvas.height = 64;
-      const context = canvas.getContext("2d");
-      if (!context) return;
-      paintBrandFavicon(
-        context,
-        image,
-        dark,
-      );
-      const favicon = document.querySelector<HTMLLinkElement>("#ispatla-accent-icon") || document.createElement("link");
-      favicon.id = "ispatla-accent-icon";
-      favicon.rel = "icon";
-      favicon.type = "image/png";
-      favicon.href = canvas.toDataURL();
-      const keepLast = () => {
-        if (document.head.querySelector('link[rel="icon"]:last-of-type') !== favicon) document.head.append(favicon);
-      };
-      document.head.append(favicon);
-      // Next refreshes metadata during navigation; keep the preference icon after its static fallback.
-      observer?.disconnect();
-      observer = new MutationObserver(keepLast);
-      observer.observe(document.head, { childList: true });
-    };
-    image.onload = drawFavicon;
-    if (effectiveTheme === "system") media.addEventListener("change", drawFavicon);
-    image.src = "/brand/logo.svg";
-    return () => { cancelled = true; observer?.disconnect(); media.removeEventListener("change", drawFavicon); };
-  }, [accent, effectiveTheme]);
+  }, [accent]);
 
   React.useEffect(() => {
     document.documentElement.dataset.motion = motion;

@@ -1,8 +1,10 @@
 "use client";
 
+import { useId, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  ChevronDown,
   BarChart3,
   FileKey2,
   Gauge,
@@ -32,6 +34,8 @@ import {
   SidebarInset,
   SidebarMenu,
   SidebarMenuButton,
+  SidebarMenuAction,
+  useSidebar,
   SidebarMenuItem,
   SidebarMenuSub,
   SidebarMenuSubButton,
@@ -46,20 +50,26 @@ type NavItem = { href: string; label: string; icon: LucideIcon; children?: { hre
 function NavEntry({ href, label, icon: Icon, children = [], pathname }: NavItem & { pathname: string }) {
   const childPaths = children.map((child) => stripLocalePrefix(child.href));
   const active = isSidebarItemActive(stripLocalePrefix(pathname), stripLocalePrefix(href), childPaths);
-  const expanded = children.length > 0 && active;
+  const [disclosure, setDisclosure] = useState({ pathname, open: active });
+  const expanded = children.length > 0 && (disclosure.pathname === pathname ? disclosure.open : active);
+  const childrenId = useId();
   return (
     <SidebarMenuItem>
       <SidebarMenuButton
         isActive={active}
+        className={children.length ? "min-h-11 pr-12 rtl:pl-12 rtl:pr-2" : "min-h-11"}
         tooltip={label}
-        render={<Link href={href} aria-expanded={children.length ? expanded : undefined} />}
+        render={<Link href={href} aria-current={isSidebarRouteActive(stripLocalePrefix(pathname), stripLocalePrefix(href)) ? "page" : undefined} />}
       >
         <Icon aria-hidden="true" className="transition-transform duration-150 group-hover/nav-item:-translate-y-0.5 group-active/nav-item:scale-95 motion-reduce:transition-none" />
         <span>{label}</span>
       </SidebarMenuButton>
-      {children.length > 0 && expanded && <SidebarMenuSub>
+      {children.length > 0 && <SidebarMenuAction className="top-0! right-0! size-11! rtl:right-auto! rtl:left-0! after:hidden" type="button" aria-label={label} aria-expanded={expanded} aria-controls={expanded ? childrenId : undefined} onClick={() => setDisclosure({ pathname, open: !expanded })}>
+        <ChevronDown aria-hidden="true" className={expanded ? "rotate-180" : undefined} />
+      </SidebarMenuAction>}
+      {children.length > 0 && expanded && <SidebarMenuSub id={childrenId}>
         {children.map(({ href: childHref, label: childLabel, icon: ChildIcon }) => <SidebarMenuSubItem key={childHref}>
-          <SidebarMenuSubButton isActive={isSidebarRouteActive(stripLocalePrefix(pathname), stripLocalePrefix(childHref))} render={<Link href={childHref} />}>
+          <SidebarMenuSubButton isActive={isSidebarRouteActive(stripLocalePrefix(pathname), stripLocalePrefix(childHref))} render={<Link href={childHref} aria-current={isSidebarRouteActive(stripLocalePrefix(pathname), stripLocalePrefix(childHref)) ? "page" : undefined} />}>
             <ChildIcon aria-hidden="true" />{childLabel}
           </SidebarMenuSubButton>
         </SidebarMenuSubItem>)}
@@ -79,6 +89,13 @@ function NavGroup({ title, items, pathname }: { title: string; items: NavItem[];
       </SidebarGroupContent>
     </SidebarGroup>
   );
+}
+
+function SidebarNavigation({ children }: { children: React.ReactNode }) {
+  const { setOpenMobile } = useSidebar();
+  return <div className="flex h-full min-h-0 flex-col" onClick={(event) => {
+    if (event.target instanceof Element && event.target.closest("a[href]")) setOpenMobile(false);
+  }}>{children}</div>;
 }
 
 function XBrandIcon() {
@@ -111,7 +128,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <SidebarProvider>
-      <Sidebar collapsible="icon" side={LOCALE_CONFIG[locale].dir === "rtl" ? "right" : "left"}>
+      <Sidebar collapsible="icon" side={LOCALE_CONFIG[locale].dir === "rtl" ? "right" : "left"}><SidebarNavigation>
         <SidebarHeader className="flex-row items-center justify-between gap-2 p-3 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-1.5">
           <BrandLogo href={localizePath(locale, "/dashboard")} className="group-data-[collapsible=icon]:hidden" />
           <SidebarTrigger aria-label={dict.nav.menuOpen} className="hidden size-9 md:inline-flex group-data-[collapsible=icon]:inline-flex" />
@@ -135,7 +152,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </SidebarMenuItem>
           </SidebarMenu>
         </SidebarFooter>
-      </Sidebar>
+      </SidebarNavigation></Sidebar>
 
       <SidebarInset>
         <PublicHeaderContent locale={locale} authenticated leading={<span className="md:hidden"><SidebarTrigger aria-label={dict.nav.menuOpen} /></span>} />

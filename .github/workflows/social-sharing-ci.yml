@@ -4,7 +4,8 @@ on:
   pull_request:
     paths:
       - "src/**"
-      - "scripts/check-ui-localization.ts"
+      - "scripts/**"
+      - "public/**"
       - "package.json"
       - "bun.lock"
       - "tsconfig.json"
@@ -21,6 +22,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
       - uses: oven-sh/setup-bun@v2
       - name: Install dependencies
         run: bun install --frozen-lockfile
@@ -32,3 +36,27 @@ jobs:
         run: bun run quality:i18n
       - name: Product, localization, and social metadata tests
         run: bun run test
+      - name: Production build
+        env:
+          ISPATLA_DEMO: "1"
+          ISPATLA_AUTOMATION: "0"
+          DATABASE_URL: postgresql://seo_fixture:fixture@127.0.0.1:1/postgres
+          BETTER_AUTH_SECRET: local-ci-seo-fixture-secret-0123456789
+          BETTER_AUTH_URL: http://127.0.0.1:3104
+        run: bun run build
+      - name: Rendered SEO and favicon checks
+        env:
+          ISPATLA_DEMO: "1"
+          ISPATLA_AUTOMATION: "0"
+          DATABASE_URL: postgresql://seo_fixture:fixture@127.0.0.1:1/postgres
+          BETTER_AUTH_SECRET: local-ci-seo-fixture-secret-0123456789
+          BETTER_AUTH_URL: http://127.0.0.1:3104
+        run: |
+          bun run start --hostname 127.0.0.1 --port 3104 > /tmp/ispatla-seo-server.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:3104/robots.txt > /dev/null; then break; fi
+            sleep 1
+          done
+          bun run quality:seo http://127.0.0.1:3104
