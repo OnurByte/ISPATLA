@@ -21,7 +21,8 @@
     "ideologies:update": "bun scripts/fetch-ideologies.ts",
     "ideologies:validate": "bun test tests/ideologies.test.ts",
     "quality:i18n": "bun scripts/check-ui-localization.ts",
-    "test:i18n": "bun test --isolate tests/i18n.test.ts tests/feature-i18n.test.ts tests/workspace-localization.test.ts tests/api-error-localization.test.ts"
+    "test:i18n": "bun test --isolate tests/i18n.test.ts tests/feature-i18n.test.ts tests/workspace-localization.test.ts tests/api-error-localization.test.ts",
+    "quality:seo": "bun scripts/check-seo.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",

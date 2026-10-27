@@ -14,3 +14,9 @@ test('shared page titles and descriptions use the selected locale without changi
   expect(metadata.icons).toEqual(SITE_ICON_METADATA);
  }
 });
+
+test("private and auth pages default to noindex while public routes opt in", () => {
+  for (const locale of LOCALES) {
+    expect(rootMetadata(locale).robots).toEqual({ index: false, follow: true });
+  }
+});

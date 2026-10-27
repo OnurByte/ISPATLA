@@ -8,6 +8,7 @@ import { DEFAULT_LOCALE, localizePath, type Locale } from "@/i18n/config";
 import { getDictionary } from "@/i18n/dictionaries";
 import { useUiText } from "@/i18n/ui-client";
 import { Button } from "@/components/ui/button";
+import { useSidebar } from "@/components/ui/sidebar";
 import { SEARCH_PAGE_PATHS } from "@/generated/search-routes";
 
 type SearchRoute = { href: string; label: string; group: string; keywords: string; description: string; icon: LucideIcon };
@@ -103,6 +104,7 @@ function optionId(href: string) {
 
 export function SidebarSearch({ locale = DEFAULT_LOCALE }: { locale?: Locale }) {
   const router = useRouter();
+  const { setOpenMobile } = useSidebar();
   const { t } = useUiText();
   const copy = { search: t("Search"), placeholder: t("Search pages and settings…"), description: t("Jump to a workspace page. Use the arrow keys to move and Enter to open."), noResults: t("No matching pages."), close: t("Close search"), navigate: t("Open") };
   const [open, setOpen] = useState(false);
@@ -111,7 +113,10 @@ export function SidebarSearch({ locale = DEFAULT_LOCALE }: { locale?: Locale }) 
   const inputRef = useRef<HTMLInputElement>(null);
   const routes = useMemo(() => filterSidebarSearchRoutes(getSidebarSearchRoutes(locale, t), query), [locale, query, t]);
   const groups = useMemo(() => routes.reduce<Record<string, SearchRoute[]>>((result, route) => { (result[route.group] ??= []).push(route); return result; }, {}), [routes]);
-  const flat = routes;
+  const flat = useMemo(() => Object.values(groups).flat(), [groups]);
+  useEffect(() => {
+    if (open && flat[active]) document.getElementById(optionId(flat[active].href))?.scrollIntoView({ block: "nearest" });
+  }, [open, active, flat]);
   const openSearch = useCallback(() => { setQuery(""); setActive(0); setOpen(true); }, []);
 
   useEffect(() => {
@@ -130,11 +135,11 @@ export function SidebarSearch({ locale = DEFAULT_LOCALE }: { locale?: Locale }) 
     if (action.type === "move") setActive(action.active);
     else {
       const route = flat[action.index];
-      if (route) { setOpen(false); router.push(localizePath(locale, route.href)); }
+      if (route) { setOpen(false); setOpenMobile(false); router.push(localizePath(locale, route.href)); }
     }
   }
 
-  return <Dialog.Root open={open} onOpenChange={setOpen}>
+  return <Dialog.Root open={open} onOpenChange={(next) => { if (next) openSearch(); else setOpen(false); }}>
     <Dialog.Trigger render={<Button variant="outline" className="mx-3 mb-1 h-10 justify-between border-sidebar-border bg-sidebar px-3 text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground group-data-[collapsible=icon]:mx-1 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0" aria-keyshortcuts="Meta+K Control+K" />}>
       <span className="flex items-center gap-2 group-data-[collapsible=icon]:gap-0"><Search aria-hidden="true" className="size-4" /><span className="group-data-[collapsible=icon]:sr-only">{copy.search}</span></span><kbd className="rounded border px-1.5 py-0.5 text-[10px] group-data-[collapsible=icon]:hidden">⌘K</kbd>
     </Dialog.Trigger>
@@ -145,13 +150,13 @@ export function SidebarSearch({ locale = DEFAULT_LOCALE }: { locale?: Locale }) 
           <Search aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
           <Dialog.Title className="sr-only">{copy.search}</Dialog.Title>
           <Dialog.Description className="sr-only">{copy.description}</Dialog.Description>
-          <input ref={inputRef} autoFocus type="search" role="combobox" aria-expanded="true" aria-controls="sidebar-search-results" aria-activedescendant={routes[active] ? optionId(routes[active].href) : undefined} value={query} onChange={(event) => { setQuery(event.target.value); setActive(0); }} onKeyDown={handleSearchKeyDown} placeholder={copy.placeholder} aria-label={copy.search} className="h-14 min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground" />
+          <input ref={inputRef} autoFocus type="search" role="combobox" aria-expanded="true" aria-controls="sidebar-search-results" aria-activedescendant={flat[active] ? optionId(flat[active].href) : undefined} value={query} onChange={(event) => { setQuery(event.target.value); setActive(0); }} onKeyDown={handleSearchKeyDown} placeholder={copy.placeholder} aria-label={copy.search} className="h-14 min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground" />
           <Dialog.Close aria-label={copy.close} className="rounded p-1.5 text-muted-foreground hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring"><X aria-hidden="true" className="size-4" /></Dialog.Close>
         </div>
         <div id="sidebar-search-results" className="max-h-[min(60vh,28rem)] overflow-y-auto p-2" role="listbox" aria-label={copy.search}>
           {routes.length === 0 ? <p className="px-3 py-8 text-center text-sm text-muted-foreground">{copy.noResults}</p> : Object.entries(groups).map(([group, entries]) => <section key={group} aria-label={group} className="py-1">
             <p className="px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{group}</p>
-            {entries.map((route) => { const index = flat.indexOf(route); const selected = index === active; const Icon = route.icon; return <button key={route.href} id={optionId(route.href)} type="button" role="option" aria-selected={selected} onMouseEnter={() => setActive(index)} onClick={() => { setOpen(false); router.push(localizePath(locale, route.href)); }} className={`flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-left text-sm ${selected ? "bg-accent text-accent-foreground" : "text-foreground hover:bg-accent/60"}`}>
+            {entries.map((route) => { const index = flat.indexOf(route); const selected = index === active; const Icon = route.icon; return <button key={route.href} id={optionId(route.href)} type="button" role="option" aria-selected={selected} onMouseEnter={() => setActive(index)} onClick={() => { setOpen(false); setOpenMobile(false); router.push(localizePath(locale, route.href)); }} className={`flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-left text-sm ${selected ? "bg-accent text-accent-foreground" : "text-foreground hover:bg-accent/60"}`}>
               <Icon aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" /><span className="min-w-0 flex-1"><span className="block truncate font-medium">{route.label}</span><span className="block truncate text-xs text-muted-foreground">{route.description}</span></span>{selected ? <span className="flex shrink-0 items-center gap-1 text-[11px] text-muted-foreground"><CornerDownLeft className="size-3" />{copy.navigate}</span> : null}
             </button>; })}
           </section>)}

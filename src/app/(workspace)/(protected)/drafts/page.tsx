@@ -19,6 +19,6 @@ export default function DraftsRoute({ searchParams }: { searchParams: Promise<{ 
     if (!owner) return null;
     const [drafts, rows] = await Promise.all([getPostgresDrafts(), getPostgresAccounts(owner)]);
     const accounts = rows.map((row) => ({ ...row, subscriptionState: { tier: "unknown" as const, observedAt: 0, historyComplete: false } }));
-    return <main className="min-h-screen"><div className="site-container flex flex-col gap-7 py-6 lg:py-10"><PageHeading eyebrow={t("Creation / editing")} title={t("Draft studio")} description={t("Manage draft text and revision history.")} /><DraftsPage initial={drafts} accounts={accounts} selectedDraftId={selectedDraftId} sourcePostId={query.externalId && /^\d{1,19}$/.test(query.externalId) ? query.externalId : undefined} /></div></main>;
+    return <main className="min-h-screen"><div className="site-container flex flex-col gap-7 py-6 lg:py-10"><PageHeading eyebrow={t("Creation / editing")} title={t("Draft studio")} description={t("Manage draft text and revision history.")} /><DraftsPage ownerId={owner} key={`${selectedDraftId ?? "new"}:${query.externalId ?? ""}`} initial={drafts} accounts={accounts} selectedDraftId={selectedDraftId} sourcePostId={query.externalId && /^\d{1,19}$/.test(query.externalId) ? query.externalId : undefined} /></div></main>;
   });
 }

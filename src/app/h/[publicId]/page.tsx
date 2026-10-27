@@ -30,6 +30,7 @@ export async function generateMetadata({ params }: { params: Promise<{ publicId:
   const description = share.text.slice(0, 180) || socialCopy[locale].observation;
   return {
     title, description,
+    robots: { index: true, follow: true },
     alternates: { canonical: url },
     openGraph: {
       title, description, type: "article", url, siteName: "ispatla.tr",

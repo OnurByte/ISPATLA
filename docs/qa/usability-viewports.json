@@ -1,0 +1,68 @@
+[
+  {
+    "targetWidth": 375,
+    "theme": "light",
+    "width": 375,
+    "scrollWidth": 367,
+    "dark": false,
+    "icons": [
+      "/brand/ispatla-favicon.png"
+    ],
+    "height": 1668
+  },
+  {
+    "targetWidth": 375,
+    "theme": "dark",
+    "width": 375,
+    "scrollWidth": 367,
+    "dark": true,
+    "icons": [
+      "/brand/ispatla-favicon.png"
+    ],
+    "height": 1668
+  },
+  {
+    "targetWidth": 1024,
+    "theme": "light",
+    "width": 1024,
+    "scrollWidth": 1016,
+    "dark": false,
+    "icons": [
+      "/brand/ispatla-favicon.png"
+    ],
+    "height": 1464
+  },
+  {
+    "targetWidth": 1024,
+    "theme": "dark",
+    "width": 1024,
+    "scrollWidth": 1016,
+    "dark": true,
+    "icons": [
+      "/brand/ispatla-favicon.png"
+    ],
+    "height": 1464
+  },
+  {
+    "targetWidth": 1440,
+    "theme": "light",
+    "width": 1440,
+    "scrollWidth": 1432,
+    "dark": false,
+    "icons": [
+      "/brand/ispatla-favicon.png"
+    ],
+    "height": 1078
+  },
+  {
+    "targetWidth": 1440,
+    "theme": "dark",
+    "width": 1440,
+    "scrollWidth": 1432,
+    "dark": true,
+    "icons": [
+      "/brand/ispatla-favicon.png"
+    ],
+    "height": 1078
+  }
+]

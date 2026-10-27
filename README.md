@@ -105,3 +105,14 @@ LIGHTHOUSE_URL=http://localhost:3000/ bun run quality:lighthouse
 ```
 
 Chrome/Chromium gerekir; `CHROME_PATH` ile seçilebilir. Mobile ve desktop HTML/JSON raporları `lighthouse-reports/` altına yazılır. Eşikler: performans en az 90; erişilebilirlik, Best Practices ve SEO 100. İhlal komutu başarısız yapar. Bunlar yerel laboratuvar ölçümleridir; saha Core Web Vitals veya üretim erişilebilirliği kanıtı değildir. Ölçülen origin sunucunun yapılandırılmış origin'iyle eşleşmelidir.
+
+
+## Rendered SEO and favicon gate
+
+After a production build is running locally, audit its actual responses:
+
+```sh
+bun run quality:seo http://localhost:3000
+```
+
+The gate covers sitemap pages in all 20 locales, reciprocal canonical/hreflang links, crawl rules, the reviewed brand favicon, social images, auth noindex and unknown-route 404s. It fails on missing, duplicate, conflicting or non-crawlable metadata. CI starts its own loopback production server for the same check. The origin argument can also be an explicitly selected deployment for a read-only audit; passing this gate does not prove Google has recrawled the site or changed its Search Console icon. Evidence and upstream references: [27 October usability/SEO verification](docs/qa/usability-seo-2026-10-27.md).
